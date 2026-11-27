@@ -42,11 +42,11 @@
     }
 
     .programme-zoom {
-        --button-background-color-hover: var(--programme-hover-bg);
-        --button-border-hover          : 1px solid var(--programme-border);
-        --button-text-color            : var(--programme-muted);
-        --button-text-color-active     : var(--programme-title);
-        --button-text-color-hover      : var(--programme-title);
+        --neo-button-background-color-hover: var(--programme-hover-bg);
+        --neo-button-border-hover          : 1px solid var(--programme-border);
+        --neo-button-color            : var(--programme-muted);
+        --neo-button-color-active     : var(--programme-title);
+        --neo-button-color-hover      : var(--programme-title);
         background   : var(--programme-control-bg);
         border       : 1px solid var(--programme-border);
         border-radius: 6px 0 0 6px;
@@ -62,10 +62,10 @@
         }
 
         &.pressed {
-            --button-background-color-hover: var(--programme-selected-bg);
-            --button-text-color            : var(--programme-selected-text);
-            --button-text-color-active     : var(--programme-selected-text);
-            --button-text-color-hover      : var(--programme-selected-text);
+            --neo-button-background-color-hover: var(--programme-selected-bg);
+            --neo-button-color            : var(--programme-selected-text);
+            --neo-button-color-active     : var(--programme-selected-text);
+            --neo-button-color-hover      : var(--programme-selected-text);
             background: var(--programme-selected-bg);
         }
 

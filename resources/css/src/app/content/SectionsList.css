@@ -6,7 +6,7 @@
     .neo-list-item {
         align-items     : center;
         background-color: transparent;
-        color           : var(--app-content-sections-item-color);
+        color           : var(--neo-app-content-sections-item-color);
         display         : flex;
         height          : unset;
         margin-bottom   : 0;
@@ -15,7 +15,7 @@
 
         &[aria-selected=true] {
             background-color: transparent !important;
-            color           : var(--list-item-color-selected) !important;
+            color           : var(--neo-list-item-color-selected) !important;
             font-weight     : 600 !important;
             cursor          : default !important;
         }
@@ -32,7 +32,7 @@
             }
 
             &.avatar {
-                border       : 1px solid var(--list-border-color);
+                border       : 1px solid var(--neo-list-border-color);
                 border-radius: 50%;
             }
         }

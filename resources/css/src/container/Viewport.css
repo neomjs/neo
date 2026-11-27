@@ -4,5 +4,5 @@ body > .neo-viewport {
 }
 
 .neo-viewport {
-    background-color: var(--viewport-background-color);
+    background-color: var(--neo-viewport-background-color);
 }

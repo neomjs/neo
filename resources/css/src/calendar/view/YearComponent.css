@@ -4,11 +4,11 @@
 
     &.neo-show-cell-borders {
         .neo-calendar-week {
-            border-bottom: 1px solid var(--c-y-cell-border-color);
+            border-bottom: 1px solid var(--neo-calendar-year-cell-border-color);
         }
 
         .neo-cell {
-            border-right: 1px solid var(--c-y-cell-border-color);
+            border-right: 1px solid var(--neo-calendar-year-cell-border-color);
         }
 
         .neo-top-left-spacer {
@@ -21,7 +21,7 @@
         }
 
         .neo-weeknumber-cell {
-            border-left: 1px solid var(--c-y-cell-border-color);
+            border-left: 1px solid var(--neo-calendar-year-cell-border-color);
         }
     }
 
@@ -39,7 +39,7 @@
     }
 
     .neo-year-header {
-        color        : var(--c-y-year-color);
+        color        : var(--neo-calendar-year-year-color);
         display      : flex;
         font-size    : 1.3em;
         font-weight  : 600;
@@ -48,14 +48,14 @@
 
         .neo-nav-button {
             align-items     : center;
-            background-color: var(--dateselector-nav-button-background-color);
+            background-color: var(--neo-dateselector-nav-button-background-color);
             cursor          : pointer;
             display         : flex;
             justify-content : center;
             width           : 1.4em;
 
             &:before {
-                color      : var(--dateselector-nav-button-color);
+                color      : var(--neo-dateselector-nav-button-color);
                 font-family: var(--fa-style-family-classic);
                 font-weight: 900;
                 transition : color 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -63,7 +63,7 @@
 
             &:hover {
                 &:before {
-                    color: var(--dateselector-nav-button-color-hover);
+                    color: var(--neo-dateselector-nav-button-color-hover);
                 }
             }
         }
@@ -84,7 +84,7 @@
     }
 
     .neo-month-name {
-        color        : var(--c-y-month-color);
+        color        : var(--neo-calendar-year-month-color);
         font-size    : 1.3em;
         margin-bottom: .5em;
     }
@@ -109,7 +109,7 @@
 
         .neo-cell {
             align-items    : center;
-            color          : var(--c-y-cell-color);
+            color          : var(--neo-calendar-year-cell-color);
             display        : flex;
             flex           : 1;
             font-weight    : 400;
@@ -119,22 +119,22 @@
                 outline: 0;
 
                 .neo-cell-content {
-                    background-color: var(--c-y-cell-content-background-color-focus);
-                    color           : var(--c-y-cell-content-color-focus);
+                    background-color: var(--neo-calendar-year-cell-content-background-color-focus);
+                    color           : var(--neo-calendar-year-cell-content-color-focus);
                     font-weight     : 900;
                 }
             }
 
             &.neo-events-low {
-                background-color: var(--c-y-events-low-background-color);
+                background-color: var(--neo-calendar-year-events-low-background-color);
             }
 
             &.neo-events-medium {
-                background-color: var(--c-y-events-medium-background-color);
+                background-color: var(--neo-calendar-year-events-medium-background-color);
             }
 
             &.neo-events-high {
-                background-color: var(--c-y-events-high-background-color);
+                background-color: var(--neo-calendar-year-events-high-background-color);
             }
         }
 
@@ -148,8 +148,8 @@
             justify-content: center;
 
             &.neo-today {
-                background-color: var(--c-y-today-background-color);
-                color           : var(--c-y-today-color);
+                background-color: var(--neo-calendar-year-today-background-color);
+                color           : var(--neo-calendar-year-today-color);
                 font-weight     : 900;
             }
         }
@@ -163,8 +163,8 @@
         }
 
         .neo-weeknumber-cell {
-            background-color: var(--c-y-week-background-color);
-            color           : var(--c-y-week-color);
+            background-color: var(--neo-calendar-year-week-background-color);
+            color           : var(--neo-calendar-year-week-color);
         }
     }
 }

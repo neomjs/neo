@@ -1,5 +1,5 @@
 :root .neo-theme-cyberpunk {
-    --panel-border-color       : var(--cyber-border);
-    --panel-header-border-color: var(--cyber-cyan);
-    --panel-header-text-color  : var(--cyber-cyan);
+    --neo-panel-border-color       : var(--neo-cyber-border);
+    --neo-panel-header-border-color: var(--neo-cyber-cyan);
+    --neo-panel-header-color  : var(--neo-cyber-cyan);
 }

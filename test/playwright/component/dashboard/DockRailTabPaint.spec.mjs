@@ -8,14 +8,14 @@ import {test, expect} from '@playwright/test';
  * answers the one a compiled comparison cannot: what a browser actually computes once the theme
  * variables resolve.
  *
- * The regression it exists for is concrete. `.neo-button` sets `min-width: var(--button-min-width)`,
- * which the neo themes value at `--button-size-medium-height` (`32px`) by default. On a 14px vertical
+ * The regression it exists for is concrete. `.neo-button` sets `min-width: var(--neo-button-min-width)`,
+ * which the neo themes value at `--neo-button-size-medium-height` (`32px`) by default. On a 14px vertical
  * rail that floor pushes the rotated label outside the clipped strip and the tab renders as an empty
  * pill. Both consuming apps had been carrying their own higher-specificity `min-width: 0` to escape
  * it; the engine now owns that release, so nothing app-side is left to prove it still works.
  *
  * **The control is the point.** `min-width: 0px` on a rail tab only means the engine won if the
- * `--button-min-width` floor was actually live in the same document — otherwise a theme stylesheet that simply
+ * `--neo-button-min-width` floor was actually live in the same document — otherwise a theme stylesheet that simply
  * failed to load reads as a pass. Every arm therefore measures a plain sibling button first and
  * requires it to be AT the floor.
  *
@@ -158,7 +158,7 @@ test.describe('Neo.dashboard.dock.interaction.Rail — rendered rail-tab paint',
             const before = read();
 
             style.textContent =
-                '.test-app-a .neo-button.neo-dashboard-dock-rail-tab { --dock-rail-tab-color: rgb(255, 0, 0) }';
+                '.test-app-a .neo-button.neo-dashboard-dock-rail-tab { --neo-dock-rail-tab-color: rgb(255, 0, 0) }';
             document.head.appendChild(style);
             dashboard.classList.add('test-app-a');
 
@@ -281,7 +281,7 @@ test.describe('Neo.dashboard.dock.interaction.Rail — rendered rail-tab paint',
                 //
                 // An earlier version asserted only `resting.color !== hovered.color` and called
                 // that "the app's ink reaches the tab". It did not: deleting the engine's resting
-                // `color: var(--dock-rail-tab-color)` left the arm GREEN, because the separate
+                // `color: var(--neo-dock-rail-tab-color)` left the arm GREEN, because the separate
                 // hover rule still moved the value. Two states differing proves neither of them
                 // came from where the arm claims.
                 expect(resting.color, `${identity.name} resting ink is ${identity.inkResting}`)

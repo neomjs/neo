@@ -1888,8 +1888,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
             return {
                 isVessel: !!document.querySelector('.workstation-popout-host'),
-                cellBg  : styles?.getPropertyValue('--grid-container-cell-background-color').trim(),
-                stripBg : styles?.getPropertyValue('--tab-strip-background-color').trim(),
+                cellBg  : styles?.getPropertyValue('--neo-grid-container-cell-background-color').trim(),
+                stripBg : styles?.getPropertyValue('--neo-tab-strip-background-color').trim(),
                 panel   : styles?.getPropertyValue('--workstation-panel').trim(),
                 panel2  : styles?.getPropertyValue('--workstation-panel-2').trim()
             }
@@ -1975,7 +1975,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                   styles   = viewport && getComputedStyle(viewport);
 
             return {
-                cellBg: styles?.getPropertyValue('--grid-container-cell-background-color').trim(),
+                cellBg: styles?.getPropertyValue('--neo-grid-container-cell-background-color').trim(),
                 panel : styles?.getPropertyValue('--workstation-panel').trim()
             }
         });

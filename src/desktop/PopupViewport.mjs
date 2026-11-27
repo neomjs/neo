@@ -81,7 +81,7 @@ class PopupViewport extends Viewport {
         icon.set({
             cellIconCls: record?.iconCls || null,
             hidden     : !record?.iconCls,
-            style      : {'--desktop-app-color': record?.color || null}
+            style      : {'--neo-desktop-app-color': record?.color || null}
         });
         title.set({
             hidden: !record?.text,

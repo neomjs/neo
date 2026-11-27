@@ -1,4 +1,4 @@
 :root .neo-theme-dark {
-    --trigger-time-background-color-hover: #64B5F6;
-    --trigger-time-pointer-color         : #33343d;
+    --neo-trigger-time-background-color-hover: #64B5F6;
+    --neo-trigger-time-pointer-color         : #33343d;
 }

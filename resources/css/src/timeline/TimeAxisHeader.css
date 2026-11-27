@@ -16,7 +16,7 @@
         height    : auto;
 
         &, &:hover {
-            border-bottom-color: var(--grid-container-border-color);
+            border-bottom-color: var(--neo-grid-container-border-color);
         }
     }
 }
@@ -26,7 +26,7 @@
     border-bottom : 0;
     /* The button's transparent left border would start every tick, band and the now line 1px right of the body */
     border-left   : 0;
-    box-shadow    : inset 0 -1px var(--grid-container-border-color);
+    box-shadow    : inset 0 -1px var(--neo-grid-container-border-color);
     box-sizing    : border-box;
     color         : var(--neo-timeline-header-color);
     cursor        : default;
@@ -49,18 +49,18 @@
     &:hover {
         background-color: var(--neo-timeline-header-background);
         border-color    : transparent;
-        box-shadow      : inset 0 -1px var(--grid-container-border-color);
+        box-shadow      : inset 0 -1px var(--neo-grid-container-border-color);
 
         &:not(:last-child) {
-            border-right-color: var(--grid-header-button-border-right-color);
+            border-right-color: var(--neo-grid-header-button-border-right-color);
         }
 
         &.neo-locked-end:first-child {
-            border-left-color: var(--grid-header-button-border-right-color);
+            border-left-color: var(--neo-grid-header-button-border-right-color);
         }
 
         &:last-child::after {
-            background-color: var(--grid-header-button-border-right-color);
+            background-color: var(--neo-grid-header-button-border-right-color);
         }
     }
 
@@ -84,9 +84,9 @@
     }
 
     .neo-timeline-non-working {
-        background    : var(--neo-timeline-non-working-bg);
-        border-left   : 1px solid var(--neo-timeline-non-working-border);
-        border-right  : 1px solid var(--neo-timeline-non-working-border);
+        background    : var(--neo-timeline-non-working-background);
+        border-left   : 1px solid var(--neo-timeline-non-working-border-color);
+        border-right  : 1px solid var(--neo-timeline-non-working-border-color);
         bottom        : 0;
         box-sizing    : border-box;
         pointer-events: none;

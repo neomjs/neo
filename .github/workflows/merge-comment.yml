@@ -4,10 +4,17 @@
 # The words live in buildScripts/util/contributorStanding.mjs and its spec; this file only fetches and posts.
 #
 # `pull_request_target` runs this file from the default branch, with a token that can comment on a fork's pull request
-# and without waiting for run approval. The job therefore checks out nothing but the two modules, never the pull
-# request's head, and reads the payload in script, never in a shell step. Its check runs anchor on the merged head,
-# where a red one would stay (see review-admission-mergeability.yml), so a failed checkout, module load, search or post
-# warns and ends green: the read counts merges that got no comment, so a miss still shows.
+# and without waiting for run approval. The job therefore checks out nothing: it fetches its two modules from neomjs/neo
+# at `job.workflow_sha` through the contents API, never the pull request's head, and reads the payload in script, never
+# in a shell step. Its check runs anchor on the merged head, where a red one would stay (see
+# review-admission-mergeability.yml), so a failed fetch, module load, search or post warns and ends green: the read
+# counts merges that got no comment, so a miss still shows.
+#
+# `workflow_call` runs the same comment on a sibling repository's merges, as claim-responder.yml does for claims. The
+# caller owns the `pull_request_target` trigger and the token, which a called workflow cannot widen (`contents: read`,
+# `issues: read`, `pull-requests: write`), pins this file by commit SHA, and omits `concurrency:`, which this job holds.
+# `context.repo` then names the caller: the comment, its reads and the next issues are the caller's, while the org-wide
+# count and the badge reads on neomjs/pages name their repository.
 #
 # `workflow_dispatch` renders the comment for one merged pull request into the job summary, and posts it only with
 # `post`. Like any dispatch, it needs this file on the default branch first.
@@ -16,6 +23,7 @@ name: Merge comment
 on:
   pull_request_target:
     types: [closed]
+  workflow_call:
   workflow_dispatch:
     inputs:
       pr:
@@ -28,7 +36,7 @@ on:
         default: false
 
 permissions:
-  contents: read        # the sparse checkout of the two modules
+  contents: read        # the two modules, read at job.workflow_sha through the contents API
   issues: read          # the labels of the issues the pull request closes
   pull-requests: write  # the comment: on a pull request it needs this scope, `issues: write` is refused
 
@@ -46,30 +54,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check out the comment modules
-        id: checkout
-        uses: actions/checkout@v7
-        # A failed checkout still runs the script, which reads the step's raw outcome and warns instead of posting,
+      - name: Fetch the comment modules
+        id: fetch
+        # A failed fetch still runs the script, which reads the step's raw outcome and warns instead of posting,
         # even when the step failed after writing both modules.
         continue-on-error: true
-        with:
-          persist-credentials: false
-          sparse-checkout: |
-            buildScripts/util/claimResponse.mjs
-            buildScripts/util/contributorStanding.mjs
-          sparse-checkout-cone-mode: false
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [[ ! "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::warning::job.workflow_sha is not a full commit SHA: '$WORKFLOW_SHA'"
+            exit 1
+          fi
+          mkdir -p buildScripts/util
+          for module in claimResponse.mjs contributorStanding.mjs; do
+            gh api -H 'Accept: application/vnd.github.raw' \
+              "repos/neomjs/neo/contents/buildScripts/util/${module}?ref=${WORKFLOW_SHA}" > "buildScripts/util/${module}"
+            test -s "buildScripts/util/${module}"
+          done
 
       - name: Comment on the merge
         uses: actions/github-script@v9
         env:
-          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          FETCH_OUTCOME: ${{ steps.fetch.outcome }}
         with:
           script: |
             const {owner, repo} = context.repo;
             const dispatched    = context.eventName === 'workflow_dispatch';
 
             try {
-              if (process.env.CHECKOUT_OUTCOME !== 'success') throw new Error(`the checkout ended ${process.env.CHECKOUT_OUTCOME || 'without an outcome'}`);
+              if (process.env.FETCH_OUTCOME !== 'success') throw new Error(`the module fetch ended ${process.env.FETCH_OUTCOME || 'without an outcome'}`);
 
               const {BADGES_SINCE, badgeFolder, decideMergeComment, parseOptOut} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
               const {CURATED_LABELS, isOutsideHuman, isTeamPermission} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);

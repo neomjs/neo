@@ -1,42 +1,42 @@
 .neo-grid-header-button {
     align-items     : center;
-    background-color: var(--grid-header-button-background-color);
-    background-image: var(--grid-header-button-background-image);
+    background-color: var(--neo-grid-header-button-background-color);
+    background-image: var(--neo-grid-header-button-background-image);
     border          : 1px solid transparent;
     border-radius   : 0;
-    color           : var(--grid-header-button-color);
+    color           : var(--neo-grid-header-button-color);
     cursor          : pointer;
     display         : flex;
     flex-direction  : row;
     flex-shrink     : 0;
-    font-size       : var(--grid-header-button-font-size);
-    font-weight     : var(--grid-header-button-font-weight);
+    font-size       : var(--neo-grid-header-button-font-size);
+    font-weight     : var(--neo-grid-header-button-font-weight);
     height          : 29px; /* Webkit => Safari can not handle 100% */
-    justify-content : var(--grid-header-button-justify-content);
+    justify-content : var(--neo-grid-header-button-justify-content);
     margin          : 0;
-    padding         : var(--grid-header-button-padding);
+    padding         : var(--neo-grid-header-button-padding);
     position        : relative;
-    transition      : var(--grid-header-button-transition);
+    transition      : var(--neo-grid-header-button-transition);
     white-space     : nowrap;
 
     &:not(:last-child) {
-        border-right-color: var(--grid-header-button-border-right-color);
+        border-right-color: var(--neo-grid-header-button-border-right-color);
     }
 
     /* Where two regions meet, the header draws the seam its cells draw (grid/Body.css): the locked
        start closes on its last column's right, the locked end opens on its first column's left */
     &.neo-locked-start:last-child {
-        border-right-color: var(--grid-header-button-border-right-color);
+        border-right-color: var(--neo-grid-header-button-border-right-color);
     }
 
     &.neo-locked-end:first-child {
-        border-left-color: var(--grid-header-button-border-right-color);
+        border-left-color: var(--neo-grid-header-button-border-right-color);
     }
 
     /* The last column's trailing edge, just outside the button like its cells' (grid/Body.css): the
        toolbar clips it wherever the column meets its region's end */
     &:last-child::after {
-        background-color: var(--grid-header-button-border-right-color);
+        background-color: var(--neo-grid-header-button-border-right-color);
         bottom          : -1px;
         content         : '';
         position        : absolute;
@@ -46,24 +46,24 @@
     }
 
     &:hover {
-        background-color: var(--grid-header-button-background-color-hover);
-        border-color    : var(--grid-header-button-border-hover-color);
-        box-shadow      : var(--grid-header-button-box-shadow-hover);
+        background-color: var(--neo-grid-header-button-background-color-hover);
+        border-color    : var(--neo-grid-header-button-border-color-hover);
+        box-shadow      : var(--neo-grid-header-button-box-shadow-hover);
 
         &:not(:last-child) {
-            border-right-color: var(--grid-header-button-border-right-hover-color);
+            border-right-color: var(--neo-grid-header-button-border-right-color-hover);
         }
 
         &:last-child::after {
-            background-color: var(--grid-header-button-border-right-hover-color);
+            background-color: var(--neo-grid-header-button-border-right-color-hover);
         }
 
         .neo-button-glyph {
-            color: var(--grid-header-button-glyph-color-hover);
+            color: var(--neo-grid-header-button-glyph-color-hover);
         }
 
         .neo-button-text {
-            color: var(--grid-header-button-color-hover);
+            color: var(--neo-grid-header-button-color-hover);
         }
     }
 
@@ -74,7 +74,7 @@
 
     /* A filtered column without a menu marks its own header, since no trigger can show the state */
     &.neo-grid-column-filtered:not(.neo-grid-menu-enabled)::before {
-        background-color: var(--grid-header-button-filtered-color, currentColor);
+        background-color: var(--neo-grid-header-button-filtered-color, currentColor);
         bottom          : 0;
         content         : '';
         height          : 2px;
@@ -135,7 +135,7 @@
     }
 
     .neo-button-glyph {
-        color         : var(--grid-header-button-glyph-color);
+        color         : var(--neo-grid-header-button-glyph-color);
         font-size     : 12px;
         margin        : 0 6px 0 0;
         opacity       : 0;
@@ -146,11 +146,11 @@
 
     /* A label wider than its column ends in an ellipsis inside its own header, like a fixed-height tree cell. */
     .neo-button-text {
-        color         : var(--grid-header-button-color);
+        color         : var(--neo-grid-header-button-color);
         flex          : 0 1 auto;
         font-family   : inherit;
-        font-size     : var(--grid-header-button-font-size);
-        font-weight   : var(--grid-header-button-font-weight);
+        font-size     : var(--neo-grid-header-button-font-size);
+        font-weight   : var(--neo-grid-header-button-font-weight);
         line-height   : inherit;
         min-width     : 0;
         overflow      : hidden;
@@ -162,7 +162,7 @@
         @media (max-width: 600px) {
             /* button/Base changes its text size for narrow windows; the header keeps its own at every
                width (a torn-out pane is a narrow window too, and its header must not grow) */
-            font-size: var(--grid-header-button-font-size);
+            font-size: var(--neo-grid-header-button-font-size);
         }
     }
 }

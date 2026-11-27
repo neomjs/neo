@@ -84,7 +84,7 @@ class MagicMoveText extends Component {
         fontFamily_: 'Helvetica Neue',
         /**
          * The duration in milliseconds for the fade-in, fade-out, and move animations.
-         * This value is applied to the `--neo-transition-time` CSS variable.
+         * This value is applied to the `--neo-magic-move-text-transition-duration` CSS variable.
          * @member {Number} transitionTime_=500
          * @reactive
          */
@@ -400,7 +400,7 @@ class MagicMoveText extends Component {
      * @protected
      */
     afterSetTransitionTime(value, oldValue) {
-        this.vdom.style['--neo-transition-time'] = value + 'ms';
+        this.vdom.style['--neo-magic-move-text-transition-duration'] = value + 'ms';
         this.update()
     }
 

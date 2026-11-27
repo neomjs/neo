@@ -3,16 +3,16 @@
 /* The column headers beside the timeline take the timeline header's surface, so the header reads as one bar in every
    theme. Selected by the Gantt's root as well: it extends the scheduler under its own base class. */
 :is(.neo-scheduler, .neo-gantt) .neo-grid-header-toolbar .neo-grid-header-button:not(.neo-timeline-header) {
-    --grid-header-button-border-hover-color      : transparent;
-    --grid-header-button-border-right-color      : var(--neo-timeline-border-color);
-    --grid-header-button-border-right-hover-color: var(--neo-timeline-border-color);
+    --neo-grid-header-button-border-color-hover      : transparent;
+    --neo-grid-header-button-border-right-color      : var(--neo-timeline-border-color);
+    --neo-grid-header-button-border-right-color-hover: var(--neo-timeline-border-color);
     /* A hover tints the surface, whether it is a colour or a gradient */
-    --grid-header-button-box-shadow-hover        : inset 0 0 0 100vmax color-mix(in srgb, var(--neo-timeline-header-color) 8%, transparent);
-    --grid-header-button-color                   : var(--neo-timeline-header-color);
-    --grid-header-button-color-hover             : var(--neo-timeline-header-color);
-    --grid-header-button-glyph-color             : var(--neo-timeline-header-muted-color);
-    --grid-header-button-glyph-color-hover       : var(--neo-timeline-header-color);
-    --grid-header-button-justify-content         : start;
+    --neo-grid-header-button-box-shadow-hover        : inset 0 0 0 100vmax color-mix(in srgb, var(--neo-timeline-header-color) 8%, transparent);
+    --neo-grid-header-button-color                   : var(--neo-timeline-header-color);
+    --neo-grid-header-button-color-hover             : var(--neo-timeline-header-color);
+    --neo-grid-header-button-glyph-color             : var(--neo-timeline-header-muted-color);
+    --neo-grid-header-button-glyph-color-hover       : var(--neo-timeline-header-color);
+    --neo-grid-header-button-justify-content         : start;
 
     /* A colour in some themes and a gradient in others: the shorthand takes both, as the timeline header's does */
     background: var(--neo-timeline-header-background);
@@ -37,7 +37,7 @@
     .neo-grid-row {
         .neo-grid-cell.neo-locked-start {
             align-items : center;
-            border-right: 1px solid var(--neo-scheduler-divider-color);
+            border-right: 1px solid var(--neo-scheduler-divider-border-color);
             display     : flex;
             font-weight : 500;
         }
@@ -65,9 +65,9 @@
 .neo-scheduler-drag-preview {
     align-items: center;
     background: var(--neo-timeline-bar-background);
-    border: 2px solid var(--neo-timeline-focus-color);
+    border: 2px solid var(--neo-timeline-outline-color-focus);
     border-radius: 4px;
-    box-shadow: var(--scheduler-drag-preview-box-shadow);
+    box-shadow: var(--neo-scheduler-drag-preview-box-shadow);
     box-sizing: border-box;
     color: var(--neo-timeline-bar-color);
     display: flex;
@@ -83,18 +83,18 @@
 /* A proxy is mounted outside the scheduler, so both surfaces share the same variant rules. */
 .neo-scheduler .neo-timeline-bar.neo-scheduler-bar-emerald,
 .neo-scheduler-drag-preview.neo-scheduler-bar-emerald {
-    background: var(--neo-scheduler-bar-emerald-bg);
-    border-color: var(--neo-scheduler-bar-emerald-border);
+    background: var(--neo-scheduler-bar-emerald-background);
+    border-color: var(--neo-scheduler-bar-emerald-border-color);
 }
 .neo-scheduler .neo-timeline-bar.neo-scheduler-bar-amber,
 .neo-scheduler-drag-preview.neo-scheduler-bar-amber {
-    background: var(--neo-scheduler-bar-amber-bg);
-    border-color: var(--neo-scheduler-bar-amber-border);
+    background: var(--neo-scheduler-bar-amber-background);
+    border-color: var(--neo-scheduler-bar-amber-border-color);
 }
 .neo-scheduler .neo-timeline-bar.neo-scheduler-bar-violet,
 .neo-scheduler-drag-preview.neo-scheduler-bar-violet {
-    background: var(--neo-scheduler-bar-violet-bg);
-    border-color: var(--neo-scheduler-bar-violet-border);
+    background: var(--neo-scheduler-bar-violet-background);
+    border-color: var(--neo-scheduler-bar-violet-border-color);
 }
 
 /* Keep resource tracks available to the pointer sensor while the floating proxy stays inert. */

@@ -1,11 +1,11 @@
 /* The Mermaid example: a toolbar above the source and the diagram, side by side, stacked on a phone. Colours
    come from the theme's own tokens, so both follow neo-light and neo-dark. */
 .neo-examples-mermaid {
-    background: var(--neo-background-color);
-    color     : var(--neo-color);
+    background: var(--neo-global-background-color);
+    color     : var(--neo-global-color);
 
     .neo-examples-mermaid-toolbar {
-        border-bottom: 1px solid color-mix(in srgb, var(--neo-color) 14%, transparent);
+        border-bottom: 1px solid color-mix(in srgb, var(--neo-global-color) 14%, transparent);
         column-gap   : 8px;
         padding      : 8px 16px;
         row-gap      : 8px;
@@ -35,7 +35,7 @@
 
     .neo-mermaid {
         align-items    : center;
-        border         : 1px solid color-mix(in srgb, var(--neo-color) 12%, transparent);
+        border         : 1px solid color-mix(in srgb, var(--neo-global-color) 12%, transparent);
         border-radius  : 8px;
         display        : flex;
         justify-content: center;

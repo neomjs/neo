@@ -339,8 +339,8 @@ test.describe('Demo-A drop-indicator menu: reduced motion (Neural Link)', () => 
                   indicator = document.querySelector('.neo-dashboard-dock-drop-indicator');
 
             return {
-                token           : getComputedStyle(host).getPropertyValue('--dock-transition-duration-fast').trim(),
-                baseToken       : getComputedStyle(host).getPropertyValue('--dock-transition-duration').trim(),
+                token           : getComputedStyle(host).getPropertyValue('--neo-dock-transition-duration-fast').trim(),
+                baseToken       : getComputedStyle(host).getPropertyValue('--neo-dock-transition-duration').trim(),
                 mediaMatches    : matchMedia('(prefers-reduced-motion: reduce)').matches,
                 transitionDur   : getComputedStyle(indicator).transitionDuration,
                 hostCarriesScope: host.classList.contains('neo-dashboard')

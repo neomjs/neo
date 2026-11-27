@@ -154,7 +154,7 @@ class Launcher extends List {
 
         return [{
             cls  : ['neo-desktop-app-icon'],
-            style: {'--desktop-app-color': record.color},
+            style: {'--neo-desktop-app-color': record.color},
             cn   : [{tag: 'i', cls: record.iconCls ? record.iconCls.split(' ') : []}]
         }, {
             cls : ['neo-desktop-app-label'],

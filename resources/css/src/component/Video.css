@@ -13,12 +13,12 @@
 
     height: 100%;
     width: 100%;
-    background-color: var(--video-ghost-color);
+    background-color: var(--neo-video-ghost-color);
 
     .fa-solid {
-      height: var(--video-ghost-size);
-      width: var(--video-ghost-size);
-      font-size: var(--video-ghost-size);
+      height: var(--neo-video-ghost-size);
+      width: var(--neo-video-ghost-size);
+      font-size: var(--neo-video-ghost-size);
       cursor: pointer;
     }
   }

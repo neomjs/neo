@@ -1,12 +1,12 @@
 .neo-checkboxfield {
     .neo-checkbox-icon {
-        color      : var(--checkboxfield-color);
+        color      : var(--neo-checkboxfield-color);
         cursor     : pointer;
         display    : inline-block;
-        font-family: var(--checkboxfield-icon-font-family);
-        font-size  : var(--checkboxfield-icon-font-size);
+        font-family: var(--neo-checkboxfield-icon-font-family);
+        font-size  : var(--neo-checkboxfield-icon-font-size);
         font-style: normal !important;
-        margin     : var(--checkboxfield-icon-margin);
+        margin     : var(--neo-checkboxfield-icon-margin);
         width      : 20px;
     }
 
@@ -17,7 +17,7 @@
 
         &:checked {
             +.neo-checkbox-icon {
-                color: var(--checkboxfield-color-checked);
+                color: var(--neo-checkboxfield-color-selected);
             }
         }
 
@@ -28,18 +28,18 @@
 
     .neo-checkbox-label {
         align-items: center;
-        color      : var(--textfield-label-color);
+        color      : var(--neo-textfield-label-color);
         display    : flex;
         user-select: none;
     }
 
     .neo-checkbox-value-label {
-        color      : var(--textfield-label-color);
+        color      : var(--neo-textfield-label-color);
         user-select: none;
     }
 
     .neo-error {
-        color      : var(--textfield-border-color-invalid);
+        color      : var(--neo-textfield-border-color-invalid);
         font-size  : 11px;
         margin-top : .3em;
         white-space: break-spaces;
@@ -56,12 +56,12 @@
 
     &.neo-invalid {
         .neo-checkbox-icon {
-            color: var(--textfield-border-color-invalid);
+            color: var(--neo-textfield-border-color-invalid);
         }
 
         &.neo-use-alert-state {
             .neo-checkbox-icon {
-                color: var(--textfield-border-color-alert);
+                color: var(--neo-textfield-border-color-alert);
             }
         }
     }
@@ -74,7 +74,7 @@
         .neo-checkbox-label {
             display  : flex;
             flex-flow: row wrap;
-            margin   : var(--checkboxfield-label-top-margin);
+            margin   : var(--neo-checkboxfield-label-top-margin);
 
             .neo-checkbox-label {
                 width: 100% !important;
@@ -88,7 +88,7 @@
 
     &.neo-use-alert-state {
         .neo-error {
-            color: var(--textfield-border-color-alert);
+            color: var(--neo-textfield-border-color-alert);
         }
     }
 }

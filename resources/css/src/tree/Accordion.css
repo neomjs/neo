@@ -67,7 +67,7 @@
 
         /* folder closed */
         &.neo-list-item:before {
-          color: var(--list-item-glyph-color);
+          color: var(--neo-list-item-glyph-color);
           display: inline-block;
           font-family: var(--fa-style-family-classic);
           font-weight: 900;

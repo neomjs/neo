@@ -1,8 +1,8 @@
 :where(.neo-theme-cyberpunk) { /* .neo-desktop-app-window: the dialog's cyan edge and glow on the alternate ground */
-    --desktop-app-window-background-color: var(--cyber-bg-alt);
-    --desktop-app-window-border-color    : var(--dialog-border-color, var(--cyber-cyan));
-    --desktop-app-window-color           : var(--cyber-text);
-    --desktop-app-window-glyph-color     : #fff;
-    --desktop-app-window-icon-color      : var(--dialog-icon-color, var(--cyber-cyan));
-    --desktop-app-window-shadow          : var(--dialog-box-shadow, var(--cyber-glow));
+    --neo-desktop-app-window-background-color: var(--neo-cyber-alt-background-color);
+    --neo-desktop-app-window-border-color    : var(--neo-dialog-border-color, var(--neo-cyber-cyan));
+    --neo-desktop-app-window-color           : var(--neo-cyber-color);
+    --neo-desktop-app-window-glyph-color     : #fff;
+    --neo-desktop-app-window-icon-color      : var(--neo-dialog-icon-color, var(--neo-cyber-cyan));
+    --neo-desktop-app-window-box-shadow          : var(--neo-dialog-box-shadow, var(--neo-cyber-glow));
 }

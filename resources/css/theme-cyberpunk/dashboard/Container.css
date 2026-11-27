@@ -1,20 +1,20 @@
 :where(.neo-theme-cyberpunk) {
-    --agent-dock-preview-accept      : #00d2ff;
-    --agent-dock-preview-accept-fill : rgba(0, 210, 255, 0.20);
-    --agent-dock-preview-reject      : #ff4757;
-    --agent-dock-preview-reject-fill : rgba(255, 71, 87, 0.16);
-    --agent-dock-preview-signal      : #00d2ff;
-    --agent-dock-preview-signal-fill : rgba(0, 210, 255, 0.18);
+    --neo-dock-preview-accept-color      : #00d2ff;
+    --neo-dock-preview-accept-background-color : rgba(0, 210, 255, 0.20);
+    --neo-dock-preview-reject-color      : #ff4757;
+    --neo-dock-preview-reject-background-color : rgba(255, 71, 87, 0.16);
+    --neo-dock-preview-signal-color      : #00d2ff;
+    --neo-dock-preview-signal-background-color : rgba(0, 210, 255, 0.18);
 
-    --agent-dock-preview-signal-ground: rgba(22, 27, 34, 0.94);
-    --dock-preview-ground             : rgba(13, 17, 23, 0.94);
-    --dock-preview-line               : #30363d;
-    --dock-arrival-outline            : rgba(0, 210, 255, 0.55);
-    --agent-dock-proxy-border         : color-mix(in srgb, #00d2ff 38%, #30363d);
-    --agent-dock-proxy-ground         : #161b22;
-    --agent-dock-proxy-shadow         : #0d1117;
-    --agent-dock-proxy-text           : #c9d1d9;
+    --neo-dock-preview-signal-background: rgba(22, 27, 34, 0.94);
+    --neo-dock-preview-background             : rgba(13, 17, 23, 0.94);
+    --neo-dock-preview-border               : #30363d;
+    --neo-dock-arrival-outline            : rgba(0, 210, 255, 0.55);
+    --neo-dock-proxy-border-color         : color-mix(in srgb, #00d2ff 38%, #30363d);
+    --neo-dock-proxy-background         : #161b22;
+    --neo-dock-proxy-box-shadow         : #0d1117;
+    --neo-dock-proxy-color           : #c9d1d9;
 
-    --dashboard-dock-drop-chip-box-shadow       : 0 2px 8px rgba(0, 0, 0, 0.35);
-    --dashboard-dock-drop-chip-signal-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+    --neo-dashboard-dock-drop-chip-box-shadow       : 0 2px 8px rgba(0, 0, 0, 0.35);
+    --neo-dashboard-dock-drop-chip-signal-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }

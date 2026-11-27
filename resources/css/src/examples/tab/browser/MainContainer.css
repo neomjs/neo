@@ -1,9 +1,9 @@
 /* Thirty tabs in one strip, each tab a small page. Colours come from the neo theme tokens, so the page follows the
    light and the dark neo theme. */
 .neo-example-browser {
-    background-color: var(--neo-background-color);
-    color           : var(--neo-color);
-    font-family     : var(--neo-font-family);
+    background-color: var(--neo-global-background-color);
+    color           : var(--neo-global-color);
+    font-family     : var(--neo-global-font-family);
 }
 
 .neo-example-browser-claim {

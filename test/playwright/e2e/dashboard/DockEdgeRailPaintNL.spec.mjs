@@ -8,7 +8,7 @@ import {test, expect} from '../../fixtures.mjs';
  * out of another application — there was no layer that answered "what does a dock rail look like".
  *
  * The promotion is deliberately NOT a redesign: the engine's defaults are empty identity slots
- * (`transparent` / `0` / `0` / `none`), the same class of token as `--dock-splitter-ring`, so every
+ * (`transparent` / `0` / `0` / `none`), the same class of token as `--neo-dock-splitter-ring`, so every
  * shipped consumer renders byte-identically. That makes the naive control useless — removing the
  * engine defaults cannot change a bare consumer, because those defaults ARE the CSS initial values.
  *
@@ -80,11 +80,11 @@ test.describe('Neo.dashboard.Container — the edge rail paints from engine toke
         const after = await page.evaluate(() => {
             const rail = document.querySelector('.neo-dashboard-dock-edge-rail');
 
-            rail.style.setProperty('--dock-edge-rail-background', 'rgb(10, 20, 30)');
-            rail.style.setProperty('--dock-edge-rail-border',     '2px solid rgb(40, 50, 60)');
-            rail.style.setProperty('--dock-edge-rail-radius',      '5px');
-            rail.style.setProperty('--dock-edge-rail-shadow',      'rgb(70, 80, 90) 0px 0px 11px 0px');
-            rail.style.setProperty('--dock-edge-rail-overflow',    'hidden');
+            rail.style.setProperty('--neo-dock-edge-rail-background', 'rgb(10, 20, 30)');
+            rail.style.setProperty('--neo-dock-edge-rail-border',     '2px solid rgb(40, 50, 60)');
+            rail.style.setProperty('--neo-dock-edge-rail-border-radius',      '5px');
+            rail.style.setProperty('--neo-dock-edge-rail-box-shadow',      'rgb(70, 80, 90) 0px 0px 11px 0px');
+            rail.style.setProperty('--neo-dock-edge-rail-overflow',    'hidden');
 
             const s = getComputedStyle(rail);
 

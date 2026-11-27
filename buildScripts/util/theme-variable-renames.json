@@ -1,0 +1,4884 @@
+{
+    "rules": {
+        "neo-prefix": "engine custom property gains the --neo- library isolation prefix (ADR 0044 §2.1, I4)",
+        "old-skeleton-prefix": "legacy theme Global.css token gains --neo- as the fourth temporary kind until steps 8 and 10 retire it (#22295)",
+        "motion-role": "src/Global.css motion variable takes its step-5 --neo-duration-* or --neo-ease-* role name (ADR 0044 §2.3)",
+        "component-stem": "abbreviated, unprefixed, or role-shaped engine variable takes its component class stem behind --neo- (ADR 0044 §2.1, §2.4)",
+        "bg-to-background-color": "bg feeding background-color becomes background-color (ADR 0044 §2.4)",
+        "bg-to-background": "bg feeding the background shorthand becomes background (ADR 0044 §2.4)",
+        "background-to-background-color": "background feeding background-color becomes background-color (ADR 0044 §2.4)",
+        "text-to-color": "text-color and text used for a text colour become color (ADR 0044 §2.4)",
+        "state-last": "state word moves to the last position from the closed list hover, active, focus, selected, pressed, disabled, invalid, readonly (ADR 0044 §2.4)",
+        "css-property-suffix": "variable ends with the CSS property that reads it, hyphenated as in CSS (ADR 0044 §2.4)",
+        "part-follows-class": "part word follows the component DOM class (ADR 0044 §2.4)"
+    },
+    "entries": {
+        "--accordion-item-arrow-bg-color": {
+            "to": "--neo-accordion-item-arrow-background-color",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--accordion-item-arrow-shadow": {
+            "to": "--neo-accordion-item-arrow-box-shadow",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--accordion-item-bg-color": {
+            "to": "--neo-accordion-item-background-color",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--accordion-item-border-color": {
+            "to": "--neo-accordion-item-border-color",
+            "rule": "neo-prefix"
+        },
+        "--accordion-item-content-bg-color": {
+            "to": "--neo-accordion-item-content-background-color",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--accordion-item-header-height": {
+            "to": "--neo-accordion-item-header-height",
+            "rule": "neo-prefix"
+        },
+        "--accordion-item-radius": {
+            "to": "--neo-accordion-item-border-radius",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--accordion-item-shadow": {
+            "to": "--neo-accordion-item-box-shadow",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--accordion-title-bg-color": {
+            "to": "--neo-accordion-title-background-color",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--accordion-title-color": {
+            "to": "--neo-accordion-title-color",
+            "rule": "neo-prefix"
+        },
+        "--agent-dock-preview-accept": {
+            "to": "--neo-dock-preview-accept-color",
+            "rule": "neo-prefix+component-stem+css-property-suffix",
+            "reason": "DOM class is .neo-dock-preview; read by border-color, background-color, and box-shadow"
+        },
+        "--agent-dock-preview-accept-fill": {
+            "to": "--neo-dock-preview-accept-background-color",
+            "rule": "neo-prefix+component-stem+css-property-suffix",
+            "reason": "DOM class is .neo-dock-preview; read by background-color"
+        },
+        "--agent-dock-preview-reject": {
+            "to": "--neo-dock-preview-reject-color",
+            "rule": "neo-prefix+component-stem+css-property-suffix",
+            "reason": "DOM class is .neo-dock-preview; read by border, background-color, and color-mix()"
+        },
+        "--agent-dock-preview-reject-fill": {
+            "to": "--neo-dock-preview-reject-background-color",
+            "rule": "neo-prefix+component-stem+css-property-suffix",
+            "reason": "DOM class is .neo-dock-preview; read by background-color"
+        },
+        "--agent-dock-preview-signal": {
+            "to": "--neo-dock-preview-signal-color",
+            "rule": "neo-prefix+component-stem+css-property-suffix",
+            "reason": "DOM class is .neo-dock-preview; read by border-color, background-color, and box-shadow"
+        },
+        "--agent-dock-preview-signal-fill": {
+            "to": "--neo-dock-preview-signal-background-color",
+            "rule": "neo-prefix+component-stem+css-property-suffix",
+            "reason": "DOM class is .neo-dock-preview; read by background-color"
+        },
+        "--agent-dock-preview-signal-ground": {
+            "to": "--neo-dock-preview-signal-background",
+            "rule": "neo-prefix+component-stem+css-property-suffix",
+            "reason": "DOM class is .neo-dock-preview; holds linear-gradient read by background"
+        },
+        "--agent-dock-proxy-border": {
+            "to": "--neo-dock-proxy-border-color",
+            "rule": "neo-prefix+component-stem+css-property-suffix",
+            "reason": "DOM class is .neo-dock-dragproxy; read in border shorthand colour slot"
+        },
+        "--agent-dock-proxy-ground": {
+            "to": "--neo-dock-proxy-background",
+            "rule": "neo-prefix+component-stem+css-property-suffix",
+            "reason": "DOM class is .neo-dock-dragproxy; read by background"
+        },
+        "--agent-dock-proxy-shadow": {
+            "to": "--neo-dock-proxy-box-shadow",
+            "rule": "neo-prefix+component-stem+css-property-suffix",
+            "reason": "DOM class is .neo-dock-dragproxy; read in box-shadow"
+        },
+        "--agent-dock-proxy-text": {
+            "to": "--neo-dock-proxy-color",
+            "rule": "neo-prefix+component-stem+text-to-color",
+            "reason": "DOM class is .neo-dock-dragproxy"
+        },
+        "--aligned-bottom-box-shadow": {
+            "to": "--neo-aligned-bottom-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--aligned-left-box-shadow": {
+            "to": "--neo-aligned-left-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--aligned-right-box-shadow": {
+            "to": "--neo-aligned-right-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--aligned-top-box-shadow": {
+            "to": "--neo-aligned-top-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--app-content-sections-item-color": {
+            "to": "--neo-app-content-sections-item-color",
+            "rule": "neo-prefix"
+        },
+        "--app-content-toolbar-text-inset": {
+            "to": "--neo-app-content-toolbar-text-inset",
+            "rule": "neo-prefix"
+        },
+        "--backface-visibility": {
+            "to": "--neo-layout-cube-backface-visibility",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-layout-cube"
+        },
+        "--black": {
+            "to": "--neo-black",
+            "rule": "old-skeleton-prefix"
+        },
+        "--blockquote-border-color": {
+            "to": "--neo-markdown-blockquote-border-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "Read in resources/css/src/component/markdown/Component.css"
+        },
+        "--blue-100": {
+            "to": "--neo-blue-100",
+            "rule": "old-skeleton-prefix"
+        },
+        "--blue-500": {
+            "to": "--neo-blue-500",
+            "rule": "old-skeleton-prefix"
+        },
+        "--blue-800": {
+            "to": "--neo-blue-800",
+            "rule": "old-skeleton-prefix"
+        },
+        "--borderradius-0": {
+            "to": "--neo-borderradius-0",
+            "rule": "old-skeleton-prefix"
+        },
+        "--borderradius-4": {
+            "to": "--neo-borderradius-4",
+            "rule": "old-skeleton-prefix"
+        },
+        "--borderradius-8": {
+            "to": "--neo-borderradius-8",
+            "rule": "old-skeleton-prefix"
+        },
+        "--boxlabel-background-color": {
+            "to": "--neo-boxlabel-background-color",
+            "rule": "neo-prefix"
+        },
+        "--boxlabel-border": {
+            "to": "--neo-boxlabel-border",
+            "rule": "neo-prefix"
+        },
+        "--boxlabel-color": {
+            "to": "--neo-boxlabel-color",
+            "rule": "neo-prefix"
+        },
+        "--button-background-color": {
+            "to": "--neo-button-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-background-color-active": {
+            "to": "--neo-button-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--button-background-color-disabled": {
+            "to": "--neo-button-background-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-background-color-hover": {
+            "to": "--neo-button-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-background-color-pressed": {
+            "to": "--neo-button-background-color-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-background-gradient-end": {
+            "to": "--neo-button-gradient-end-color",
+            "rule": "neo-prefix+css-property-suffix",
+            "reason": "Holds gradient stop colour, never read by the background shorthand"
+        },
+        "--button-background-gradient-start": {
+            "to": "--neo-button-gradient-start-color",
+            "rule": "neo-prefix+css-property-suffix",
+            "reason": "Holds gradient stop colour, never read by the background shorthand"
+        },
+        "--button-background-image": {
+            "to": "--neo-button-background-image",
+            "rule": "neo-prefix"
+        },
+        "--button-badge-background-color": {
+            "to": "--neo-button-badge-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-badge-color": {
+            "to": "--neo-button-badge-color",
+            "rule": "neo-prefix"
+        },
+        "--button-badge-margin-left": {
+            "to": "--neo-button-badge-margin-left",
+            "rule": "neo-prefix"
+        },
+        "--button-badge-margin-top": {
+            "to": "--neo-button-badge-margin-top",
+            "rule": "neo-prefix"
+        },
+        "--button-border": {
+            "to": "--neo-button-border",
+            "rule": "neo-prefix"
+        },
+        "--button-border-active": {
+            "to": "--neo-button-border-active",
+            "rule": "neo-prefix"
+        },
+        "--button-border-disabled": {
+            "to": "--neo-button-border-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-border-hover": {
+            "to": "--neo-button-border-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-border-pressed": {
+            "to": "--neo-button-border-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-border-radius": {
+            "to": "--neo-button-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--button-border-width": {
+            "to": "--neo-button-border-width",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-background-color": {
+            "to": "--neo-button-ghost-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-background-color-active": {
+            "to": "--neo-button-ghost-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-background-color-disabled": {
+            "to": "--neo-button-ghost-background-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-background-color-hover": {
+            "to": "--neo-button-ghost-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-background-color-pressed": {
+            "to": "--neo-button-ghost-background-color-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-background-image": {
+            "to": "--neo-button-ghost-background-image",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-badge-background-color": {
+            "to": "--neo-button-ghost-badge-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-badge-color": {
+            "to": "--neo-button-ghost-badge-color",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-border": {
+            "to": "--neo-button-ghost-border",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-border-active": {
+            "to": "--neo-button-ghost-border-active",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-border-disabled": {
+            "to": "--neo-button-ghost-border-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-border-hover": {
+            "to": "--neo-button-ghost-border-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-border-pressed": {
+            "to": "--neo-button-ghost-border-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-glyph-color": {
+            "to": "--neo-button-ghost-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-glyph-color-active": {
+            "to": "--neo-button-ghost-glyph-color-active",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-glyph-color-disabled": {
+            "to": "--neo-button-ghost-glyph-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-glyph-color-hover": {
+            "to": "--neo-button-ghost-glyph-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-glyph-color-pressed": {
+            "to": "--neo-button-ghost-glyph-color-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-opacity-disabled": {
+            "to": "--neo-button-ghost-opacity-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-ripple-background-color": {
+            "to": "--neo-button-ghost-ripple-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-ghost-text-color": {
+            "to": "--neo-button-ghost-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-ghost-text-color-active": {
+            "to": "--neo-button-ghost-color-active",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-ghost-text-color-disabled": {
+            "to": "--neo-button-ghost-color-disabled",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-ghost-text-color-hover": {
+            "to": "--neo-button-ghost-color-hover",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-ghost-text-color-pressed": {
+            "to": "--neo-button-ghost-color-pressed",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-glyph-color": {
+            "to": "--neo-button-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--button-glyph-color-active": {
+            "to": "--neo-button-glyph-color-active",
+            "rule": "neo-prefix"
+        },
+        "--button-glyph-color-disabled": {
+            "to": "--neo-button-glyph-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-glyph-color-hover": {
+            "to": "--neo-button-glyph-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-glyph-color-pressed": {
+            "to": "--neo-button-glyph-color-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-glyph-margin": {
+            "to": "--neo-button-glyph-margin",
+            "rule": "neo-prefix"
+        },
+        "--button-height": {
+            "to": "--neo-button-height",
+            "rule": "neo-prefix"
+        },
+        "--button-margin": {
+            "to": "--neo-button-margin",
+            "rule": "neo-prefix"
+        },
+        "--button-min-width": {
+            "to": "--neo-button-min-width",
+            "rule": "neo-prefix"
+        },
+        "--button-opacity-disabled": {
+            "to": "--neo-button-opacity-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-outline-active": {
+            "to": "--neo-button-outline-active",
+            "rule": "neo-prefix"
+        },
+        "--button-padding": {
+            "to": "--neo-button-padding",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-background-color": {
+            "to": "--neo-button-primary-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-background-color-active": {
+            "to": "--neo-button-primary-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-background-color-disabled": {
+            "to": "--neo-button-primary-background-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-background-color-hover": {
+            "to": "--neo-button-primary-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-background-color-pressed": {
+            "to": "--neo-button-primary-background-color-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-background-image": {
+            "to": "--neo-button-primary-background-image",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-badge-background-color": {
+            "to": "--neo-button-primary-badge-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-badge-color": {
+            "to": "--neo-button-primary-badge-color",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-border": {
+            "to": "--neo-button-primary-border",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-border-active": {
+            "to": "--neo-button-primary-border-active",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-border-disabled": {
+            "to": "--neo-button-primary-border-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-border-hover": {
+            "to": "--neo-button-primary-border-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-border-pressed": {
+            "to": "--neo-button-primary-border-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-glyph-color": {
+            "to": "--neo-button-primary-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-glyph-color-active": {
+            "to": "--neo-button-primary-glyph-color-active",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-glyph-color-disabled": {
+            "to": "--neo-button-primary-glyph-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-glyph-color-hover": {
+            "to": "--neo-button-primary-glyph-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-glyph-color-pressed": {
+            "to": "--neo-button-primary-glyph-color-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-opacity-disabled": {
+            "to": "--neo-button-primary-opacity-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-ripple-background-color": {
+            "to": "--neo-button-primary-ripple-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-primary-text-color": {
+            "to": "--neo-button-primary-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-primary-text-color-active": {
+            "to": "--neo-button-primary-color-active",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-primary-text-color-disabled": {
+            "to": "--neo-button-primary-color-disabled",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-primary-text-color-hover": {
+            "to": "--neo-button-primary-color-hover",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-primary-text-color-pressed": {
+            "to": "--neo-button-primary-color-pressed",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-ripple-background-color": {
+            "to": "--neo-button-ripple-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-background-color": {
+            "to": "--neo-button-secondary-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-background-color-active": {
+            "to": "--neo-button-secondary-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-background-color-disabled": {
+            "to": "--neo-button-secondary-background-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-background-color-hover": {
+            "to": "--neo-button-secondary-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-background-color-pressed": {
+            "to": "--neo-button-secondary-background-color-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-background-image": {
+            "to": "--neo-button-secondary-background-image",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-badge-background-color": {
+            "to": "--neo-button-secondary-badge-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-badge-color": {
+            "to": "--neo-button-secondary-badge-color",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-border": {
+            "to": "--neo-button-secondary-border",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-border-active": {
+            "to": "--neo-button-secondary-border-active",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-border-disabled": {
+            "to": "--neo-button-secondary-border-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-border-hover": {
+            "to": "--neo-button-secondary-border-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-border-pressed": {
+            "to": "--neo-button-secondary-border-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-glyph-color": {
+            "to": "--neo-button-secondary-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-glyph-color-active": {
+            "to": "--neo-button-secondary-glyph-color-active",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-glyph-color-disabled": {
+            "to": "--neo-button-secondary-glyph-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-glyph-color-hover": {
+            "to": "--neo-button-secondary-glyph-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-glyph-color-pressed": {
+            "to": "--neo-button-secondary-glyph-color-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-opacity-disabled": {
+            "to": "--neo-button-secondary-opacity-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-ripple-background-color": {
+            "to": "--neo-button-secondary-ripple-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-secondary-text-color": {
+            "to": "--neo-button-secondary-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-secondary-text-color-active": {
+            "to": "--neo-button-secondary-color-active",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-secondary-text-color-disabled": {
+            "to": "--neo-button-secondary-color-disabled",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-secondary-text-color-hover": {
+            "to": "--neo-button-secondary-color-hover",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-secondary-text-color-pressed": {
+            "to": "--neo-button-secondary-color-pressed",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-size-large-font-size": {
+            "to": "--neo-button-size-large-font-size",
+            "rule": "neo-prefix"
+        },
+        "--button-size-large-height": {
+            "to": "--neo-button-size-large-height",
+            "rule": "neo-prefix"
+        },
+        "--button-size-large-padding": {
+            "to": "--neo-button-size-large-padding",
+            "rule": "neo-prefix"
+        },
+        "--button-size-medium-font-size": {
+            "to": "--neo-button-size-medium-font-size",
+            "rule": "neo-prefix"
+        },
+        "--button-size-medium-height": {
+            "to": "--neo-button-size-medium-height",
+            "rule": "neo-prefix"
+        },
+        "--button-size-medium-padding": {
+            "to": "--neo-button-size-medium-padding",
+            "rule": "neo-prefix"
+        },
+        "--button-size-small-font-size": {
+            "to": "--neo-button-size-small-font-size",
+            "rule": "neo-prefix"
+        },
+        "--button-size-small-height": {
+            "to": "--neo-button-size-small-height",
+            "rule": "neo-prefix"
+        },
+        "--button-size-small-padding": {
+            "to": "--neo-button-size-small-padding",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-background-color": {
+            "to": "--neo-button-tertiary-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-background-color-active": {
+            "to": "--neo-button-tertiary-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-background-color-disabled": {
+            "to": "--neo-button-tertiary-background-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-background-color-hover": {
+            "to": "--neo-button-tertiary-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-background-color-pressed": {
+            "to": "--neo-button-tertiary-background-color-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-background-image": {
+            "to": "--neo-button-tertiary-background-image",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-badge-background-color": {
+            "to": "--neo-button-tertiary-badge-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-badge-color": {
+            "to": "--neo-button-tertiary-badge-color",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-border": {
+            "to": "--neo-button-tertiary-border",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-border-active": {
+            "to": "--neo-button-tertiary-border-active",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-border-disabled": {
+            "to": "--neo-button-tertiary-border-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-border-hover": {
+            "to": "--neo-button-tertiary-border-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-border-pressed": {
+            "to": "--neo-button-tertiary-border-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-glyph-color": {
+            "to": "--neo-button-tertiary-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-glyph-color-active": {
+            "to": "--neo-button-tertiary-glyph-color-active",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-glyph-color-disabled": {
+            "to": "--neo-button-tertiary-glyph-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-glyph-color-hover": {
+            "to": "--neo-button-tertiary-glyph-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-glyph-color-pressed": {
+            "to": "--neo-button-tertiary-glyph-color-pressed",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-opacity-disabled": {
+            "to": "--neo-button-tertiary-opacity-disabled",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-ripple-background-color": {
+            "to": "--neo-button-tertiary-ripple-background-color",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-text-color": {
+            "to": "--neo-button-tertiary-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-tertiary-text-color-active": {
+            "to": "--neo-button-tertiary-color-active",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-tertiary-text-color-disabled": {
+            "to": "--neo-button-tertiary-color-disabled",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-tertiary-text-color-hover": {
+            "to": "--neo-button-tertiary-color-hover",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-tertiary-text-color-pressed": {
+            "to": "--neo-button-tertiary-color-pressed",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-tertiary-text-decoration": {
+            "to": "--neo-button-tertiary-text-decoration",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-text-decoration-color": {
+            "to": "--neo-button-tertiary-text-decoration-color",
+            "rule": "neo-prefix"
+        },
+        "--button-tertiary-text-underline-offset": {
+            "to": "--neo-button-tertiary-text-underline-offset",
+            "rule": "neo-prefix"
+        },
+        "--button-text-color": {
+            "to": "--neo-button-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-text-color-active": {
+            "to": "--neo-button-color-active",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-text-color-disabled": {
+            "to": "--neo-button-color-disabled",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-text-color-hover": {
+            "to": "--neo-button-color-hover",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-text-color-pressed": {
+            "to": "--neo-button-color-pressed",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--button-text-font-family": {
+            "to": "--neo-button-text-font-family",
+            "rule": "neo-prefix"
+        },
+        "--button-text-font-size": {
+            "to": "--neo-button-text-font-size",
+            "rule": "neo-prefix"
+        },
+        "--button-text-font-weight": {
+            "to": "--neo-button-text-font-weight",
+            "rule": "neo-prefix"
+        },
+        "--button-text-line-height": {
+            "to": "--neo-button-text-line-height",
+            "rule": "neo-prefix"
+        },
+        "--button-text-transform": {
+            "to": "--neo-button-text-transform",
+            "rule": "neo-prefix"
+        },
+        "--button-use-gradients": {
+            "to": "--neo-button-use-gradients",
+            "rule": "neo-prefix"
+        },
+        "--c-m-background-color": {
+            "to": "--neo-calendar-month-background-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-monthcomponent"
+        },
+        "--c-m-border-color": {
+            "to": "--neo-calendar-month-border-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-monthcomponent"
+        },
+        "--c-m-day-name-color": {
+            "to": "--neo-calendar-month-day-name-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-monthcomponent"
+        },
+        "--c-m-day-number-color": {
+            "to": "--neo-calendar-month-day-number-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-monthcomponent"
+        },
+        "--c-m-event-color-focus": {
+            "to": "--neo-calendar-month-event-color-focus",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-monthcomponent"
+        },
+        "--c-m-month-name-color": {
+            "to": "--neo-calendar-month-month-name-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-monthcomponent"
+        },
+        "--c-m-scroll-box-shadow": {
+            "to": "--neo-calendar-month-scroll-box-shadow",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-monthcomponent"
+        },
+        "--c-m-weekend-background-color": {
+            "to": "--neo-calendar-month-weekend-background-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-monthcomponent"
+        },
+        "--c-m-year-color": {
+            "to": "--neo-calendar-month-year-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-monthcomponent"
+        },
+        "--c-w-allday-event-color-focus": {
+            "to": "--neo-calendar-week-allday-event-color-focus",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-background-color": {
+            "to": "--neo-calendar-week-background-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-border-color": {
+            "to": "--neo-calendar-week-border-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-event-color-focus": {
+            "to": "--neo-calendar-week-event-color-focus",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-event-resizable-color": {
+            "to": "--neo-calendar-week-event-resizable-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-header-background-color": {
+            "to": "--neo-calendar-week-header-background-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-header-date-background-color-hover": {
+            "to": "--neo-calendar-week-header-date-background-color-hover",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-header-date-color": {
+            "to": "--neo-calendar-week-header-date-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-header-date-color-hover": {
+            "to": "--neo-calendar-week-header-date-color-hover",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-header-day-color": {
+            "to": "--neo-calendar-week-header-day-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-header-today-background-color": {
+            "to": "--neo-calendar-week-header-today-background-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-header-today-color": {
+            "to": "--neo-calendar-week-header-today-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-timeaxis-item-color": {
+            "to": "--neo-calendar-week-timeaxis-item-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-w-weekend-background-color": {
+            "to": "--neo-calendar-week-weekend-background-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-weekcomponent"
+        },
+        "--c-y-cell-border-color": {
+            "to": "--neo-calendar-year-cell-border-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-cell-color": {
+            "to": "--neo-calendar-year-cell-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-cell-content-background-color-focus": {
+            "to": "--neo-calendar-year-cell-content-background-color-focus",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-cell-content-color-focus": {
+            "to": "--neo-calendar-year-cell-content-color-focus",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-events-high-background-color": {
+            "to": "--neo-calendar-year-events-high-background-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-events-low-background-color": {
+            "to": "--neo-calendar-year-events-low-background-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-events-medium-background-color": {
+            "to": "--neo-calendar-year-events-medium-background-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-month-color": {
+            "to": "--neo-calendar-year-month-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-today-background-color": {
+            "to": "--neo-calendar-year-today-background-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-today-color": {
+            "to": "--neo-calendar-year-today-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-week-background-color": {
+            "to": "--neo-calendar-year-week-background-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-week-color": {
+            "to": "--neo-calendar-year-week-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--c-y-year-color": {
+            "to": "--neo-calendar-year-year-color",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-calendar-yearcomponent"
+        },
+        "--calendar-border-color": {
+            "to": "--neo-calendar-border-color",
+            "rule": "neo-prefix"
+        },
+        "--calendar-edit-calendar-background-color": {
+            "to": "--neo-calendar-edit-calendar-background-color",
+            "rule": "neo-prefix"
+        },
+        "--calendar-edit-calendar-border-color": {
+            "to": "--neo-calendar-edit-calendar-border-color",
+            "rule": "neo-prefix"
+        },
+        "--calendar-edit-calendar-box-shadow": {
+            "to": "--neo-calendar-edit-calendar-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--calendar-edit-event-background-color": {
+            "to": "--neo-calendar-edit-event-background-color",
+            "rule": "neo-prefix"
+        },
+        "--calendar-edit-event-border-color": {
+            "to": "--neo-calendar-edit-event-border-color",
+            "rule": "neo-prefix"
+        },
+        "--calendar-edit-event-box-shadow": {
+            "to": "--neo-calendar-edit-event-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--calendar-settings-header-background-color": {
+            "to": "--neo-calendar-settings-header-background-color",
+            "rule": "neo-prefix"
+        },
+        "--calendar-settings-header-color": {
+            "to": "--neo-calendar-settings-header-color",
+            "rule": "neo-prefix"
+        },
+        "--calendars-list-edit-icon-color": {
+            "to": "--neo-calendars-list-edit-icon-color",
+            "rule": "neo-prefix"
+        },
+        "--cancel-icon-codepoint": {
+            "to": "--neo-fileuploadfield-cancel-icon-codepoint",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-fileuploadfield"
+        },
+        "--carousel-background-color": {
+            "to": "--neo-carousel-background-color",
+            "rule": "neo-prefix"
+        },
+        "--carousel-duration": {
+            "to": "--neo-carousel-duration",
+            "rule": "neo-prefix"
+        },
+        "--carousel-inner-background-color": {
+            "to": "--neo-carousel-inner-background-color",
+            "rule": "neo-prefix"
+        },
+        "--carousel-inner-color": {
+            "to": "--neo-carousel-inner-color",
+            "rule": "neo-prefix"
+        },
+        "--carousel-transition-timing": {
+            "to": "--neo-carousel-transition-timing",
+            "rule": "neo-prefix"
+        },
+        "--carousel-translate-x": {
+            "to": "--neo-carousel-translate-x",
+            "rule": "neo-prefix"
+        },
+        "--carousel-translate-y": {
+            "to": "--neo-carousel-translate-y",
+            "rule": "neo-prefix"
+        },
+        "--checkboxfield-color": {
+            "to": "--neo-checkboxfield-color",
+            "rule": "neo-prefix"
+        },
+        "--checkboxfield-color-checked": {
+            "to": "--neo-checkboxfield-color-selected",
+            "rule": "neo-prefix+state-last",
+            "reason": "checked maps to closed state selected (matching SelectField option:checked)"
+        },
+        "--checkboxfield-icon-font-family": {
+            "to": "--neo-checkboxfield-icon-font-family",
+            "rule": "neo-prefix"
+        },
+        "--checkboxfield-icon-font-size": {
+            "to": "--neo-checkboxfield-icon-font-size",
+            "rule": "neo-prefix"
+        },
+        "--checkboxfield-icon-margin": {
+            "to": "--neo-checkboxfield-icon-margin",
+            "rule": "neo-prefix"
+        },
+        "--checkboxfield-label-top-margin": {
+            "to": "--neo-checkboxfield-label-top-margin",
+            "rule": "neo-prefix"
+        },
+        "--chip-align-items": {
+            "to": "--neo-chip-align-items",
+            "rule": "neo-prefix"
+        },
+        "--chip-background-color": {
+            "to": "--neo-chip-background-color",
+            "rule": "neo-prefix"
+        },
+        "--chip-border": {
+            "to": "--neo-chip-border",
+            "rule": "neo-prefix"
+        },
+        "--chip-border-color-focus": {
+            "to": "--neo-chip-border-color-focus",
+            "rule": "neo-prefix"
+        },
+        "--chip-border-radius": {
+            "to": "--neo-chip-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--chip-close-button-color": {
+            "to": "--neo-chip-close-button-color",
+            "rule": "neo-prefix"
+        },
+        "--chip-close-button-color-hover": {
+            "to": "--neo-chip-close-button-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--chip-glyph-color": {
+            "to": "--neo-chip-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--chip-height": {
+            "to": "--neo-chip-height",
+            "rule": "neo-prefix"
+        },
+        "--chip-justify-content": {
+            "to": "--neo-chip-justify-content",
+            "rule": "neo-prefix"
+        },
+        "--chip-text-align": {
+            "to": "--neo-chip-text-align",
+            "rule": "neo-prefix"
+        },
+        "--chip-text-color": {
+            "to": "--neo-chip-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--chip-text-font-size": {
+            "to": "--neo-chip-text-font-size",
+            "rule": "neo-prefix"
+        },
+        "--circle-back-background-color": {
+            "to": "--neo-circle-back-background-color",
+            "rule": "neo-prefix"
+        },
+        "--circle-back-color": {
+            "to": "--neo-circle-back-color",
+            "rule": "neo-prefix"
+        },
+        "--circle-background-color": {
+            "to": "--neo-circle-background-color",
+            "rule": "neo-prefix"
+        },
+        "--circle-border-color": {
+            "to": "--neo-circle-border-color",
+            "rule": "neo-prefix"
+        },
+        "--circle-inner-background-color": {
+            "to": "--neo-circle-inner-background-color",
+            "rule": "neo-prefix"
+        },
+        "--circle-inner-background-image": {
+            "to": "--neo-circle-inner-background-image",
+            "rule": "neo-prefix"
+        },
+        "--circle-inner-color": {
+            "to": "--neo-circle-inner-color",
+            "rule": "neo-prefix"
+        },
+        "--circle-item-box-shadow-selected": {
+            "to": "--neo-circle-item-box-shadow-selected",
+            "rule": "neo-prefix"
+        },
+        "--circle-list-back-background-color": {
+            "to": "--neo-circle-list-back-background-color",
+            "rule": "neo-prefix"
+        },
+        "--circle-outer-background-color": {
+            "to": "--neo-circle-outer-background-color",
+            "rule": "neo-prefix"
+        },
+        "--circle-outer-color": {
+            "to": "--neo-circle-outer-color",
+            "rule": "neo-prefix"
+        },
+        "--clock-background-color": {
+            "to": "--neo-clock-background-color",
+            "rule": "neo-prefix"
+        },
+        "--clock-background-image": {
+            "to": "--neo-clock-background-image",
+            "rule": "neo-prefix"
+        },
+        "--clock-disc-background-color": {
+            "to": "--neo-clock-disc-background-color",
+            "rule": "neo-prefix"
+        },
+        "--clock-hand-background-color": {
+            "to": "--neo-clock-hand-background-color",
+            "rule": "neo-prefix"
+        },
+        "--combobox-input-hint-color": {
+            "to": "--neo-combobox-input-hint-color",
+            "rule": "neo-prefix"
+        },
+        "--combobox-input-hint-opacity": {
+            "to": "--neo-combobox-input-hint-opacity",
+            "rule": "neo-prefix"
+        },
+        "--combobox-list-search-background-color": {
+            "to": "--neo-combobox-list-search-background-color",
+            "rule": "neo-prefix"
+        },
+        "--combobox-list-search-color": {
+            "to": "--neo-combobox-list-search-color",
+            "rule": "neo-prefix"
+        },
+        "--combobox-list-search-color-selected": {
+            "to": "--neo-combobox-list-search-color-selected",
+            "rule": "neo-prefix"
+        },
+        "--combobox-picker-container-border": {
+            "to": "--neo-combobox-picker-container-border",
+            "rule": "neo-prefix"
+        },
+        "--combobox-picker-container-border-radius": {
+            "to": "--neo-combobox-picker-container-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--container-background-color": {
+            "to": "--neo-container-background-color",
+            "rule": "neo-prefix"
+        },
+        "--container-color": {
+            "to": "--neo-container-color",
+            "rule": "neo-prefix"
+        },
+        "--core-fontfamily-mono": {
+            "to": "--neo-core-fontfamily-mono",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontfamily-sans": {
+            "to": "--neo-core-fontfamily-sans",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontfamily-serif": {
+            "to": "--neo-core-fontfamily-serif",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontsize-body": {
+            "to": "--neo-core-fontsize-body",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontsize-h1": {
+            "to": "--neo-core-fontsize-h1",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontsize-h2": {
+            "to": "--neo-core-fontsize-h2",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontsize-h3": {
+            "to": "--neo-core-fontsize-h3",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontsize-label": {
+            "to": "--neo-core-fontsize-label",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontsize-small": {
+            "to": "--neo-core-fontsize-small",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontweight-bold": {
+            "to": "--neo-core-fontweight-bold",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontweight-medium": {
+            "to": "--neo-core-fontweight-medium",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontweight-regular": {
+            "to": "--neo-core-fontweight-regular",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-fontweight-semibold": {
+            "to": "--neo-core-fontweight-semibold",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-lineheight-headline": {
+            "to": "--neo-core-lineheight-headline",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-lineheight-paragraph": {
+            "to": "--neo-core-lineheight-paragraph",
+            "rule": "old-skeleton-prefix"
+        },
+        "--core-textdecoration-underline": {
+            "to": "--neo-core-textdecoration-underline",
+            "rule": "old-skeleton-prefix"
+        },
+        "--cyber-bg": {
+            "to": "--neo-cyber-background-color",
+            "rule": "old-skeleton-prefix+bg-to-background-color",
+            "reason": "Cyberpunk base background colour literal in theme-cyberpunk/Global.css"
+        },
+        "--cyber-bg-alt": {
+            "to": "--neo-cyber-alt-background-color",
+            "rule": "old-skeleton-prefix+bg-to-background-color",
+            "reason": "Cyberpunk secondary surface colour literal in theme-cyberpunk/Global.css"
+        },
+        "--cyber-border": {
+            "to": "--neo-cyber-border",
+            "rule": "old-skeleton-prefix"
+        },
+        "--cyber-cyan": {
+            "to": "--neo-cyber-cyan",
+            "rule": "old-skeleton-prefix"
+        },
+        "--cyber-glow": {
+            "to": "--neo-cyber-glow",
+            "rule": "old-skeleton-prefix"
+        },
+        "--cyber-gold": {
+            "to": "--neo-cyber-gold",
+            "rule": "old-skeleton-prefix"
+        },
+        "--cyber-red": {
+            "to": "--neo-cyber-red",
+            "rule": "old-skeleton-prefix"
+        },
+        "--cyber-text": {
+            "to": "--neo-cyber-color",
+            "rule": "old-skeleton-prefix+text-to-color",
+            "reason": "Cyberpunk foreground text colour literal in theme-cyberpunk/Global.css"
+        },
+        "--dashboard-dock-drop-chip-box-shadow": {
+            "to": "--neo-dashboard-dock-drop-chip-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--dashboard-dock-drop-chip-signal-box-shadow": {
+            "to": "--neo-dashboard-dock-drop-chip-signal-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-background-color": {
+            "to": "--neo-dateselector-background-color",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-border-color": {
+            "to": "--neo-dateselector-border-color",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-cell-background-color": {
+            "to": "--neo-dateselector-cell-background-color",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-cell-background-color-disabled": {
+            "to": "--neo-dateselector-cell-background-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-cell-color": {
+            "to": "--neo-dateselector-cell-color",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-cell-color-disabled": {
+            "to": "--neo-dateselector-cell-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-cell-color-selected": {
+            "to": "--neo-dateselector-cell-color-selected",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-cell-opacity-disabled": {
+            "to": "--neo-dateselector-cell-opacity-disabled",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-cell-today-border-color": {
+            "to": "--neo-dateselector-cell-today-border-color",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-color": {
+            "to": "--neo-dateselector-color",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-content-border-top": {
+            "to": "--neo-dateselector-content-border-top",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-header-background-color": {
+            "to": "--neo-dateselector-header-background-color",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-header-border-bottom": {
+            "to": "--neo-dateselector-header-border-bottom",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-header-cell-background-color": {
+            "to": "--neo-dateselector-header-cell-background-color",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-header-cell-border-bottom": {
+            "to": "--neo-dateselector-header-cell-border-bottom",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-header-cell-color": {
+            "to": "--neo-dateselector-header-cell-color",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-header-month-text-color": {
+            "to": "--neo-dateselector-header-month-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--dateselector-header-year-text-color": {
+            "to": "--neo-dateselector-header-year-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--dateselector-nav-button-background-color": {
+            "to": "--neo-dateselector-nav-button-background-color",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-nav-button-color": {
+            "to": "--neo-dateselector-nav-button-color",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-nav-button-color-hover": {
+            "to": "--neo-dateselector-nav-button-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--dateselector-nav-button-inner-border": {
+            "to": "--neo-dateselector-nav-button-inner-border",
+            "rule": "neo-prefix"
+        },
+        "--delete-icon-codepoint": {
+            "to": "--neo-fileuploadfield-delete-icon-codepoint",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-fileuploadfield"
+        },
+        "--desktop-app-color": {
+            "to": "--neo-desktop-app-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-app-window-background-color": {
+            "to": "--neo-desktop-app-window-background-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-app-window-border-color": {
+            "to": "--neo-desktop-app-window-border-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-app-window-color": {
+            "to": "--neo-desktop-app-window-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-app-window-glyph-color": {
+            "to": "--neo-desktop-app-window-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-app-window-icon-color": {
+            "to": "--neo-desktop-app-window-icon-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-app-window-shadow": {
+            "to": "--neo-desktop-app-window-box-shadow",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--desktop-color": {
+            "to": "--neo-desktop-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-launcher-color": {
+            "to": "--neo-desktop-launcher-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-launcher-focus-color": {
+            "to": "--neo-desktop-launcher-color-focus",
+            "rule": "neo-prefix+state-last"
+        },
+        "--desktop-launcher-header-color": {
+            "to": "--neo-desktop-launcher-header-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-launcher-icon-color": {
+            "to": "--neo-desktop-launcher-icon-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-launcher-icon-highlight-color": {
+            "to": "--neo-desktop-launcher-icon-highlight-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-launcher-item-background-color-active": {
+            "to": "--neo-desktop-launcher-item-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--desktop-launcher-item-background-color-hover": {
+            "to": "--neo-desktop-launcher-item-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--desktop-launcher-label-shadow": {
+            "to": "--neo-desktop-launcher-label-text-shadow",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--desktop-launcher-proxy-item-box-shadow": {
+            "to": "--neo-desktop-launcher-proxy-item-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--desktop-popup-button-border": {
+            "to": "--neo-desktop-popup-button-border",
+            "rule": "neo-prefix"
+        },
+        "--desktop-return-dwell": {
+            "to": "--neo-desktop-return-dwell",
+            "rule": "neo-prefix"
+        },
+        "--desktop-return-offset": {
+            "to": "--neo-desktop-return-offset",
+            "rule": "neo-prefix"
+        },
+        "--desktop-start-button-color": {
+            "to": "--neo-desktop-start-button-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-start-menu-background-color": {
+            "to": "--neo-desktop-start-menu-background-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-start-menu-border-color": {
+            "to": "--neo-desktop-start-menu-border-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-start-menu-color": {
+            "to": "--neo-desktop-start-menu-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-start-menu-icon-color": {
+            "to": "--neo-desktop-start-menu-icon-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-start-menu-item-background-color-hover": {
+            "to": "--neo-desktop-start-menu-item-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--desktop-start-menu-shadow": {
+            "to": "--neo-desktop-start-menu-box-shadow",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--desktop-task-list-accent-color": {
+            "to": "--neo-desktop-task-list-accent-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-task-list-color": {
+            "to": "--neo-desktop-task-list-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-task-list-icon-color": {
+            "to": "--neo-desktop-task-list-icon-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-task-list-item-background-color-active": {
+            "to": "--neo-desktop-task-list-item-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--desktop-task-list-item-background-color-hover": {
+            "to": "--neo-desktop-task-list-item-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--desktop-taskbar-accent-color": {
+            "to": "--neo-desktop-taskbar-accent-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-taskbar-background-color": {
+            "to": "--neo-desktop-taskbar-background-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-taskbar-border-color": {
+            "to": "--neo-desktop-taskbar-border-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-taskbar-color": {
+            "to": "--neo-desktop-taskbar-color",
+            "rule": "neo-prefix"
+        },
+        "--desktop-taskbar-item-background-color-active": {
+            "to": "--neo-desktop-taskbar-item-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--desktop-taskbar-item-background-color-hover": {
+            "to": "--neo-desktop-taskbar-item-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--desktop-wallpaper": {
+            "to": "--neo-desktop-wallpaper",
+            "rule": "neo-prefix"
+        },
+        "--dialog-border-color": {
+            "to": "--neo-dialog-border-color",
+            "rule": "neo-prefix"
+        },
+        "--dialog-box-shadow": {
+            "to": "--neo-dialog-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--dialog-footer-button-border-radius": {
+            "to": "--neo-dialog-footer-button-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--dialog-footer-button-height": {
+            "to": "--neo-dialog-footer-button-height",
+            "rule": "neo-prefix"
+        },
+        "--dialog-footer-button-margin-left": {
+            "to": "--neo-dialog-footer-button-margin-left",
+            "rule": "neo-prefix"
+        },
+        "--dialog-header-button-background-color-hover": {
+            "to": "--neo-dialog-header-button-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--dialog-header-color": {
+            "to": "--neo-dialog-header-color",
+            "rule": "neo-prefix"
+        },
+        "--dialog-icon-color": {
+            "to": "--neo-dialog-icon-color",
+            "rule": "neo-prefix"
+        },
+        "--dialog-icon-color-hover": {
+            "to": "--neo-dialog-icon-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--dialog-maximized-height": {
+            "to": "--neo-dialog-maximized-height",
+            "rule": "neo-prefix"
+        },
+        "--dialog-maximized-left": {
+            "to": "--neo-dialog-maximized-left",
+            "rule": "neo-prefix"
+        },
+        "--dialog-maximized-top": {
+            "to": "--neo-dialog-maximized-top",
+            "rule": "neo-prefix"
+        },
+        "--dialog-maximized-width": {
+            "to": "--neo-dialog-maximized-width",
+            "rule": "neo-prefix"
+        },
+        "--dialog-modal-mask-background-color": {
+            "to": "--neo-dialog-modal-mask-background-color",
+            "rule": "neo-prefix"
+        },
+        "--dock-arrival-outline": {
+            "to": "--neo-dock-arrival-outline",
+            "rule": "neo-prefix"
+        },
+        "--dock-center-well-edge": {
+            "to": "--neo-dock-center-well-outline",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-center-well-font-size": {
+            "to": "--neo-dock-center-well-font-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-center-well-inset": {
+            "to": "--neo-dock-center-well-inset",
+            "rule": "neo-prefix"
+        },
+        "--dock-center-well-radius": {
+            "to": "--neo-dock-center-well-border-radius",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-center-well-text-color": {
+            "to": "--neo-dock-center-well-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--dock-edge-band-block-size": {
+            "to": "--neo-dock-edge-band-block-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-bottom-block-size": {
+            "to": "--neo-dock-edge-band-bottom-block-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-bottom-max-block-size": {
+            "to": "--neo-dock-edge-band-bottom-max-block-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-bottom-min-block-size": {
+            "to": "--neo-dock-edge-band-bottom-min-block-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-inline-size": {
+            "to": "--neo-dock-edge-band-inline-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-left-inline-size": {
+            "to": "--neo-dock-edge-band-left-inline-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-left-max-inline-size": {
+            "to": "--neo-dock-edge-band-left-max-inline-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-left-min-inline-size": {
+            "to": "--neo-dock-edge-band-left-min-inline-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-max-block-size": {
+            "to": "--neo-dock-edge-band-max-block-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-max-inline-size": {
+            "to": "--neo-dock-edge-band-max-inline-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-min-block-size": {
+            "to": "--neo-dock-edge-band-min-block-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-min-inline-size": {
+            "to": "--neo-dock-edge-band-min-inline-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-right-inline-size": {
+            "to": "--neo-dock-edge-band-right-inline-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-right-max-inline-size": {
+            "to": "--neo-dock-edge-band-right-max-inline-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-right-min-inline-size": {
+            "to": "--neo-dock-edge-band-right-min-inline-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-top-block-size": {
+            "to": "--neo-dock-edge-band-top-block-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-top-max-block-size": {
+            "to": "--neo-dock-edge-band-top-max-block-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-band-top-min-block-size": {
+            "to": "--neo-dock-edge-band-top-min-block-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-rail-background": {
+            "to": "--neo-dock-edge-rail-background",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-rail-border": {
+            "to": "--neo-dock-edge-rail-border",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-rail-overflow": {
+            "to": "--neo-dock-edge-rail-overflow",
+            "rule": "neo-prefix"
+        },
+        "--dock-edge-rail-radius": {
+            "to": "--neo-dock-edge-rail-border-radius",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-edge-rail-shadow": {
+            "to": "--neo-dock-edge-rail-box-shadow",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-edge-rail-size": {
+            "to": "--neo-dock-edge-rail-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-maximize-background": {
+            "to": "--neo-dock-maximize-background",
+            "rule": "neo-prefix"
+        },
+        "--dock-maximize-gap": {
+            "to": "--neo-dock-maximize-gap",
+            "rule": "neo-prefix"
+        },
+        "--dock-maximize-shadow": {
+            "to": "--neo-dock-maximize-box-shadow",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-maximize-z-index": {
+            "to": "--neo-dock-maximize-z-index",
+            "rule": "neo-prefix"
+        },
+        "--dock-native-dwell-elapsed": {
+            "to": "--neo-dock-native-dwell-elapsed",
+            "rule": "neo-prefix"
+        },
+        "--dock-native-dwell-ms": {
+            "to": "--neo-dock-native-dwell-ms",
+            "rule": "neo-prefix"
+        },
+        "--dock-preview-ground": {
+            "to": "--neo-dock-preview-background",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-preview-line": {
+            "to": "--neo-dock-preview-border",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-rail-tab-background": {
+            "to": "--neo-dock-rail-tab-background",
+            "rule": "neo-prefix"
+        },
+        "--dock-rail-tab-background-active": {
+            "to": "--neo-dock-rail-tab-background-active",
+            "rule": "neo-prefix"
+        },
+        "--dock-rail-tab-background-hover": {
+            "to": "--neo-dock-rail-tab-background-hover",
+            "rule": "neo-prefix"
+        },
+        "--dock-rail-tab-color": {
+            "to": "--neo-dock-rail-tab-color",
+            "rule": "neo-prefix"
+        },
+        "--dock-rail-tab-color-active": {
+            "to": "--neo-dock-rail-tab-color-active",
+            "rule": "neo-prefix"
+        },
+        "--dock-rail-tab-color-hover": {
+            "to": "--neo-dock-rail-tab-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--dock-rail-tab-font-family": {
+            "to": "--neo-dock-rail-tab-font-family",
+            "rule": "neo-prefix"
+        },
+        "--dock-reveal-background": {
+            "to": "--neo-dock-reveal-background",
+            "rule": "neo-prefix"
+        },
+        "--dock-reveal-border": {
+            "to": "--neo-dock-reveal-border",
+            "rule": "neo-prefix"
+        },
+        "--dock-reveal-min-block-size": {
+            "to": "--neo-dock-reveal-min-block-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-reveal-min-inline-size": {
+            "to": "--neo-dock-reveal-min-inline-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-reveal-radius": {
+            "to": "--neo-dock-reveal-border-radius",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-reveal-shadow": {
+            "to": "--neo-dock-reveal-box-shadow",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-splitter-background": {
+            "to": "--neo-dock-splitter-background-color",
+            "rule": "neo-prefix+background-to-background-color"
+        },
+        "--dock-splitter-background-active": {
+            "to": "--neo-dock-splitter-background-color-active",
+            "rule": "neo-prefix+background-to-background-color"
+        },
+        "--dock-splitter-background-hover": {
+            "to": "--neo-dock-splitter-background-color-hover",
+            "rule": "neo-prefix+background-to-background-color"
+        },
+        "--dock-splitter-handle-color": {
+            "to": "--neo-dock-splitter-handle-color",
+            "rule": "neo-prefix"
+        },
+        "--dock-splitter-handle-color-active": {
+            "to": "--neo-dock-splitter-handle-color-active",
+            "rule": "neo-prefix"
+        },
+        "--dock-splitter-handle-color-hover": {
+            "to": "--neo-dock-splitter-handle-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--dock-splitter-handle-glow-hover": {
+            "to": "--neo-dock-splitter-handle-glow-hover",
+            "rule": "neo-prefix"
+        },
+        "--dock-splitter-handle-size": {
+            "to": "--neo-dock-splitter-handle-size",
+            "rule": "neo-prefix"
+        },
+        "--dock-splitter-handle-thickness": {
+            "to": "--neo-dock-splitter-handle-thickness",
+            "rule": "neo-prefix"
+        },
+        "--dock-splitter-radius": {
+            "to": "--neo-dock-splitter-border-radius",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-splitter-ring": {
+            "to": "--neo-dock-splitter-ring",
+            "rule": "neo-prefix"
+        },
+        "--dock-splitter-ring-active": {
+            "to": "--neo-dock-splitter-ring-active",
+            "rule": "neo-prefix"
+        },
+        "--dock-splitter-ring-hover": {
+            "to": "--neo-dock-splitter-ring-hover",
+            "rule": "neo-prefix"
+        },
+        "--dock-transition-duration": {
+            "to": "--neo-dock-transition-duration",
+            "rule": "neo-prefix"
+        },
+        "--dock-transition-duration-fast": {
+            "to": "--neo-dock-transition-duration-fast",
+            "rule": "neo-prefix"
+        },
+        "--dock-transition-duration-reveal": {
+            "to": "--neo-dock-transition-duration-reveal",
+            "rule": "neo-prefix"
+        },
+        "--dock-transition-easing": {
+            "to": "--neo-dock-transition-timing-function",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-vessel-placeholder-ground": {
+            "to": "--neo-dock-vessel-placeholder-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--dock-vessel-placeholder-ink": {
+            "to": "--neo-dock-vessel-placeholder-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--download-icon-codepoint": {
+            "to": "--neo-fileuploadfield-download-icon-codepoint",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-fileuploadfield"
+        },
+        "--drop-target-pointer-events": {
+            "to": "--neo-drop-target-pointer-events",
+            "rule": "neo-prefix"
+        },
+        "--ease-in-soft": {
+            "to": "--neo-ease-in",
+            "rule": "motion-role"
+        },
+        "--ease-out-soft": {
+            "to": "--neo-ease-out",
+            "rule": "motion-role"
+        },
+        "--empty-state-action-bg": {
+            "to": "--neo-empty-state-action-background-color",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--empty-state-action-bg-active": {
+            "to": "--neo-empty-state-action-background-color-active",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--empty-state-action-bg-hover": {
+            "to": "--neo-empty-state-action-background-color-hover",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--empty-state-action-border": {
+            "to": "--neo-empty-state-action-border",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-action-border-radius": {
+            "to": "--neo-empty-state-action-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-action-color": {
+            "to": "--neo-empty-state-action-color",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-action-color-hover": {
+            "to": "--neo-empty-state-action-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-action-focus-outline": {
+            "to": "--neo-empty-state-action-outline-focus",
+            "rule": "neo-prefix+state-last"
+        },
+        "--empty-state-action-font-size": {
+            "to": "--neo-empty-state-action-font-size",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-action-font-weight": {
+            "to": "--neo-empty-state-action-font-weight",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-action-min-height": {
+            "to": "--neo-empty-state-action-min-height",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-action-padding": {
+            "to": "--neo-empty-state-action-padding",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-align-items": {
+            "to": "--neo-empty-state-align-items",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-background-color": {
+            "to": "--neo-empty-state-background-color",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-border": {
+            "to": "--neo-empty-state-border",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-border-radius": {
+            "to": "--neo-empty-state-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-description-color": {
+            "to": "--neo-empty-state-description-color",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-description-font-size": {
+            "to": "--neo-empty-state-description-font-size",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-gap": {
+            "to": "--neo-empty-state-gap",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-glyph-color": {
+            "to": "--neo-empty-state-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-glyph-size": {
+            "to": "--neo-empty-state-glyph-size",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-padding": {
+            "to": "--neo-empty-state-padding",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-padding-narrow": {
+            "to": "--neo-empty-state-padding-narrow",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-title-color": {
+            "to": "--neo-empty-state-title-color",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-title-font-size": {
+            "to": "--neo-empty-state-title-font-size",
+            "rule": "neo-prefix"
+        },
+        "--empty-state-title-font-weight": {
+            "to": "--neo-empty-state-title-font-weight",
+            "rule": "neo-prefix"
+        },
+        "--event-blue-background-color": {
+            "to": "--neo-event-blue-background-color",
+            "rule": "neo-prefix"
+        },
+        "--event-blue-background-color-focus": {
+            "to": "--neo-event-blue-background-color-focus",
+            "rule": "neo-prefix"
+        },
+        "--event-blue-color": {
+            "to": "--neo-event-blue-color",
+            "rule": "neo-prefix"
+        },
+        "--event-green-background-color": {
+            "to": "--neo-event-green-background-color",
+            "rule": "neo-prefix"
+        },
+        "--event-green-background-color-focus": {
+            "to": "--neo-event-green-background-color-focus",
+            "rule": "neo-prefix"
+        },
+        "--event-green-color": {
+            "to": "--neo-event-green-color",
+            "rule": "neo-prefix"
+        },
+        "--event-orange-background-color": {
+            "to": "--neo-event-orange-background-color",
+            "rule": "neo-prefix"
+        },
+        "--event-orange-background-color-focus": {
+            "to": "--neo-event-orange-background-color-focus",
+            "rule": "neo-prefix"
+        },
+        "--event-orange-color": {
+            "to": "--neo-event-orange-color",
+            "rule": "neo-prefix"
+        },
+        "--event-pink-background-color": {
+            "to": "--neo-event-pink-background-color",
+            "rule": "neo-prefix"
+        },
+        "--event-pink-background-color-focus": {
+            "to": "--neo-event-pink-background-color-focus",
+            "rule": "neo-prefix"
+        },
+        "--event-pink-color": {
+            "to": "--neo-event-pink-color",
+            "rule": "neo-prefix"
+        },
+        "--event-red-background-color": {
+            "to": "--neo-event-red-background-color",
+            "rule": "neo-prefix"
+        },
+        "--event-red-background-color-focus": {
+            "to": "--neo-event-red-background-color-focus",
+            "rule": "neo-prefix"
+        },
+        "--event-red-color": {
+            "to": "--neo-event-red-color",
+            "rule": "neo-prefix"
+        },
+        "--event-yellow-background-color": {
+            "to": "--neo-event-yellow-background-color",
+            "rule": "neo-prefix"
+        },
+        "--event-yellow-background-color-focus": {
+            "to": "--neo-event-yellow-background-color-focus",
+            "rule": "neo-prefix"
+        },
+        "--event-yellow-border-color": {
+            "to": "--neo-event-yellow-border-color",
+            "rule": "neo-prefix"
+        },
+        "--event-yellow-color": {
+            "to": "--neo-event-yellow-color",
+            "rule": "neo-prefix"
+        },
+        "--event-yellow-color-focus": {
+            "to": "--neo-event-yellow-color-focus",
+            "rule": "neo-prefix"
+        },
+        "--fieldset-background-color": {
+            "to": "--neo-fieldset-background-color",
+            "rule": "neo-prefix"
+        },
+        "--fieldset-border": {
+            "to": "--neo-fieldset-border",
+            "rule": "neo-prefix"
+        },
+        "--fieldset-legend-color": {
+            "to": "--neo-fieldset-legend-color",
+            "rule": "neo-prefix"
+        },
+        "--fieldset-legend-icon-color": {
+            "to": "--neo-fieldset-legend-icon-color",
+            "rule": "neo-prefix"
+        },
+        "--fileuploadfield-background-color": {
+            "to": "--neo-fileuploadfield-background-color",
+            "rule": "neo-prefix"
+        },
+        "--fileuploadfield-border-color": {
+            "to": "--neo-fileuploadfield-border-color",
+            "rule": "neo-prefix"
+        },
+        "--fileuploadfield-color": {
+            "to": "--neo-fileuploadfield-color",
+            "rule": "neo-prefix"
+        },
+        "--fileuploadfield-downloadable-state-color": {
+            "to": "--neo-fileuploadfield-downloadable-state-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--fileuploadfield-error-color": {
+            "to": "--neo-fileuploadfield-error-color",
+            "rule": "neo-prefix"
+        },
+        "--fileuploadfield-focus-color": {
+            "to": "--neo-fileuploadfield-border-color-focus",
+            "rule": "neo-prefix+css-property-suffix+state-last"
+        },
+        "--fileuploadfield-hover-color": {
+            "to": "--neo-fileuploadfield-background-color-hover",
+            "rule": "neo-prefix+css-property-suffix+state-last"
+        },
+        "--fileuploadfield-pressed-color": {
+            "to": "--neo-fileuploadfield-background-color-active",
+            "rule": "neo-prefix+css-property-suffix+state-last",
+            "reason": "Read in .neo-file-upload-action-button:active background-color"
+        },
+        "--fileuploadfield-progress-color": {
+            "to": "--neo-fileuploadfield-progress-color",
+            "rule": "neo-prefix"
+        },
+        "--fileuploadfield-success-color": {
+            "to": "--neo-fileuploadfield-success-color",
+            "rule": "neo-prefix"
+        },
+        "--flip-x": {
+            "to": "--neo-board-stack-flip-x",
+            "rule": "neo-prefix+component-stem",
+            "reason": "Set by Neo.board.SortZone on .neo-board-stack-card"
+        },
+        "--flip-y": {
+            "to": "--neo-board-stack-flip-y",
+            "rule": "neo-prefix+component-stem",
+            "reason": "Set by Neo.board.SortZone on .neo-board-stack-card"
+        },
+        "--gallery-background-color": {
+            "to": "--neo-gallery-background-color",
+            "rule": "neo-prefix"
+        },
+        "--gallery-border-color": {
+            "to": "--neo-gallery-border-color",
+            "rule": "neo-prefix"
+        },
+        "--gantt-task-proxy-box-shadow": {
+            "to": "--neo-gantt-task-proxy-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--gantt-task-proxy-milestone-filter": {
+            "to": "--neo-gantt-task-proxy-milestone-filter",
+            "rule": "neo-prefix"
+        },
+        "--global-code-background-color": {
+            "to": "--neo-global-code-background-color",
+            "rule": "neo-prefix"
+        },
+        "--global-code-border": {
+            "to": "--neo-global-code-border",
+            "rule": "neo-prefix"
+        },
+        "--global-code-border-radius": {
+            "to": "--neo-global-code-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--global-code-font-family": {
+            "to": "--neo-global-code-font-family",
+            "rule": "neo-prefix"
+        },
+        "--global-code-font-size": {
+            "to": "--neo-global-code-font-size",
+            "rule": "neo-prefix"
+        },
+        "--global-code-padding": {
+            "to": "--neo-global-code-padding",
+            "rule": "neo-prefix"
+        },
+        "--global-heading-code-color": {
+            "to": "--neo-global-heading-code-color",
+            "rule": "neo-prefix"
+        },
+        "--global-heading-code-margin": {
+            "to": "--neo-global-heading-code-margin",
+            "rule": "neo-prefix"
+        },
+        "--global-heading-code-padding": {
+            "to": "--neo-global-heading-code-padding",
+            "rule": "neo-prefix"
+        },
+        "--global-heading-letter-spacing": {
+            "to": "--neo-global-heading-letter-spacing",
+            "rule": "neo-prefix"
+        },
+        "--global-mark-background-color": {
+            "to": "--neo-global-mark-background-color",
+            "rule": "neo-prefix"
+        },
+        "--global-mark-color": {
+            "to": "--neo-global-mark-color",
+            "rule": "neo-prefix"
+        },
+        "--global-mark-padding": {
+            "to": "--neo-global-mark-padding",
+            "rule": "neo-prefix"
+        },
+        "--global-paragraph-color": {
+            "to": "--neo-global-paragraph-color",
+            "rule": "neo-prefix"
+        },
+        "--gray-100": {
+            "to": "--neo-gray-100",
+            "rule": "old-skeleton-prefix"
+        },
+        "--gray-200": {
+            "to": "--neo-gray-200",
+            "rule": "old-skeleton-prefix"
+        },
+        "--gray-300": {
+            "to": "--neo-gray-300",
+            "rule": "old-skeleton-prefix"
+        },
+        "--gray-400": {
+            "to": "--neo-gray-400",
+            "rule": "old-skeleton-prefix"
+        },
+        "--gray-50": {
+            "to": "--neo-gray-50",
+            "rule": "old-skeleton-prefix"
+        },
+        "--gray-500": {
+            "to": "--neo-gray-500",
+            "rule": "old-skeleton-prefix"
+        },
+        "--gray-600": {
+            "to": "--neo-gray-600",
+            "rule": "old-skeleton-prefix"
+        },
+        "--gray-700": {
+            "to": "--neo-gray-700",
+            "rule": "old-skeleton-prefix"
+        },
+        "--gray-800": {
+            "to": "--neo-gray-800",
+            "rule": "old-skeleton-prefix"
+        },
+        "--gray-900": {
+            "to": "--neo-gray-900",
+            "rule": "old-skeleton-prefix"
+        },
+        "--green-100": {
+            "to": "--neo-green-100",
+            "rule": "old-skeleton-prefix"
+        },
+        "--green-200": {
+            "to": "--neo-green-200",
+            "rule": "old-skeleton-prefix"
+        },
+        "--green-300": {
+            "to": "--neo-green-300",
+            "rule": "old-skeleton-prefix"
+        },
+        "--green-400": {
+            "to": "--neo-green-400",
+            "rule": "old-skeleton-prefix"
+        },
+        "--green-50": {
+            "to": "--neo-green-50",
+            "rule": "old-skeleton-prefix"
+        },
+        "--green-500": {
+            "to": "--neo-green-500",
+            "rule": "old-skeleton-prefix"
+        },
+        "--green-600": {
+            "to": "--neo-green-600",
+            "rule": "old-skeleton-prefix"
+        },
+        "--green-700": {
+            "to": "--neo-green-700",
+            "rule": "old-skeleton-prefix"
+        },
+        "--green-800": {
+            "to": "--neo-green-800",
+            "rule": "old-skeleton-prefix"
+        },
+        "--green-900": {
+            "to": "--neo-green-900",
+            "rule": "old-skeleton-prefix"
+        },
+        "--grid-border-color": {
+            "to": "--neo-grid-border-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-animated-negative-background-color": {
+            "to": "--neo-grid-cell-animated-negative-background-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-animated-positive-background-color": {
+            "to": "--neo-grid-cell-animated-positive-background-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-background-color": {
+            "to": "--neo-grid-cell-background-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-background-color-hover": {
+            "to": "--neo-grid-cell-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-color": {
+            "to": "--neo-grid-cell-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-ismodified-color": {
+            "to": "--neo-grid-cell-ismodified-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-ismodified-size": {
+            "to": "--neo-grid-cell-ismodified-size",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-progress-active-color": {
+            "to": "--neo-grid-cell-progress-value-background-color",
+            "rule": "neo-prefix+css-property-suffix",
+            "reason": "Names the filled progress value bar (::-webkit-progress-value), not the :active state"
+        },
+        "--grid-cell-progress-border-radius": {
+            "to": "--neo-grid-cell-progress-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-progress-box-shadow": {
+            "to": "--neo-grid-cell-progress-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-progress-height": {
+            "to": "--neo-grid-cell-progress-height",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-progress-track-color": {
+            "to": "--neo-grid-cell-progress-track-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--grid-cell-value-band-1-background-color": {
+            "to": "--neo-grid-cell-value-band-1-background-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-cell-value-band-2-background-color": {
+            "to": "--neo-grid-cell-value-band-2-background-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-cellmodel-selected-cell-background-color": {
+            "to": "--neo-grid-cellmodel-cell-background-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-cellmodel-selected-cell-color": {
+            "to": "--neo-grid-cellmodel-cell-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-cellmodel-selected-column-cell-background-color": {
+            "to": "--neo-grid-cellmodel-column-cell-background-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-cellmodel-selected-column-cell-color": {
+            "to": "--neo-grid-cellmodel-column-cell-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-cellrowmodel-selected-cell-background-color": {
+            "to": "--neo-grid-cellrowmodel-cell-background-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-cellrowmodel-selected-cell-color": {
+            "to": "--neo-grid-cellrowmodel-cell-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-cellrowmodel-selected-row-cell-background-color": {
+            "to": "--neo-grid-cellrowmodel-row-cell-background-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-cellrowmodel-selected-row-cell-color": {
+            "to": "--neo-grid-cellrowmodel-row-cell-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-column-icon-font-size": {
+            "to": "--neo-grid-column-icon-font-size",
+            "rule": "neo-prefix"
+        },
+        "--grid-column-icon-link-font-size": {
+            "to": "--neo-grid-column-icon-link-font-size",
+            "rule": "neo-prefix"
+        },
+        "--grid-column-icon-link-label-font-size": {
+            "to": "--neo-grid-column-icon-link-label-font-size",
+            "rule": "neo-prefix"
+        },
+        "--grid-column-menu-box-shadow": {
+            "to": "--neo-grid-column-menu-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--grid-container-border-color": {
+            "to": "--neo-grid-container-border-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-container-cell-background-color": {
+            "to": "--neo-grid-container-cell-background-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-container-cell-background-color-even": {
+            "to": "--neo-grid-container-cell-background-color-even",
+            "rule": "neo-prefix"
+        },
+        "--grid-container-color": {
+            "to": "--neo-grid-container-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-container-color-scheme": {
+            "to": "--neo-grid-container-color-scheme",
+            "rule": "neo-prefix"
+        },
+        "--grid-container-font-size": {
+            "to": "--neo-grid-container-font-size",
+            "rule": "neo-prefix"
+        },
+        "--grid-footer-toolbar-background-color": {
+            "to": "--neo-grid-footer-toolbar-background-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-footer-toolbar-color": {
+            "to": "--neo-grid-footer-toolbar-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-footer-toolbar-padding": {
+            "to": "--neo-grid-footer-toolbar-padding",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-background-color": {
+            "to": "--neo-grid-header-button-background-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-background-color-hover": {
+            "to": "--neo-grid-header-button-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-background-image": {
+            "to": "--neo-grid-header-button-background-image",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-border-hover-color": {
+            "to": "--neo-grid-header-button-border-color-hover",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-header-button-border-right-color": {
+            "to": "--neo-grid-header-button-border-right-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-border-right-hover-color": {
+            "to": "--neo-grid-header-button-border-right-color-hover",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-header-button-box-shadow-hover": {
+            "to": "--neo-grid-header-button-box-shadow-hover",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-color": {
+            "to": "--neo-grid-header-button-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-color-hover": {
+            "to": "--neo-grid-header-button-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-filtered-color": {
+            "to": "--neo-grid-header-button-filtered-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-font-size": {
+            "to": "--neo-grid-header-button-font-size",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-font-weight": {
+            "to": "--neo-grid-header-button-font-weight",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-glyph-color": {
+            "to": "--neo-grid-header-button-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-glyph-color-hover": {
+            "to": "--neo-grid-header-button-glyph-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-justify-content": {
+            "to": "--neo-grid-header-button-justify-content",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-opacity-is-dragging": {
+            "to": "--neo-grid-header-button-dragging-opacity",
+            "rule": "neo-prefix+css-property-suffix",
+            "reason": "Modifier .neo-is-dragging precedes CSS property opacity"
+        },
+        "--grid-header-button-padding": {
+            "to": "--neo-grid-header-button-padding",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-button-transition": {
+            "to": "--neo-grid-header-button-transition",
+            "rule": "neo-prefix"
+        },
+        "--grid-header-group-row-height": {
+            "to": "--neo-grid-header-group-row-height",
+            "rule": "neo-prefix"
+        },
+        "--grid-row-pin-offset": {
+            "to": "--neo-grid-row-pin-offset",
+            "rule": "neo-prefix"
+        },
+        "--grid-rowmodel-selected-cell-background-color": {
+            "to": "--neo-grid-rowmodel-cell-background-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-rowmodel-selected-cell-color": {
+            "to": "--neo-grid-rowmodel-cell-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--grid-scroll-left": {
+            "to": "--neo-grid-scroll-left",
+            "rule": "neo-prefix"
+        },
+        "--grid-scrollbar-color-scheme": {
+            "to": "--neo-grid-scrollbar-color-scheme",
+            "rule": "neo-prefix"
+        },
+        "--grid-scrollbar-thumb-color": {
+            "to": "--neo-grid-scrollbar-thumb-color",
+            "rule": "neo-prefix"
+        },
+        "--grid-scrollbar-touch-width": {
+            "to": "--neo-grid-scrollbar-touch-width",
+            "rule": "neo-prefix"
+        },
+        "--grid-scrollbar-width": {
+            "to": "--neo-grid-scrollbar-width",
+            "rule": "neo-prefix"
+        },
+        "--grid-view-focus-outline": {
+            "to": "--neo-grid-view-outline-focus",
+            "rule": "neo-prefix+state-last"
+        },
+        "--height-16": {
+            "to": "--neo-height-16",
+            "rule": "old-skeleton-prefix"
+        },
+        "--height-2": {
+            "to": "--neo-height-2",
+            "rule": "old-skeleton-prefix"
+        },
+        "--height-24": {
+            "to": "--neo-height-24",
+            "rule": "old-skeleton-prefix"
+        },
+        "--height-32": {
+            "to": "--neo-height-32",
+            "rule": "old-skeleton-prefix"
+        },
+        "--height-4": {
+            "to": "--neo-height-4",
+            "rule": "old-skeleton-prefix"
+        },
+        "--height-48": {
+            "to": "--neo-height-48",
+            "rule": "old-skeleton-prefix"
+        },
+        "--height-56": {
+            "to": "--neo-height-56",
+            "rule": "old-skeleton-prefix"
+        },
+        "--height-8": {
+            "to": "--neo-height-8",
+            "rule": "old-skeleton-prefix"
+        },
+        "--helix-background-color": {
+            "to": "--neo-helix-background-color",
+            "rule": "neo-prefix"
+        },
+        "--helix-border-color": {
+            "to": "--neo-helix-border-color",
+            "rule": "neo-prefix"
+        },
+        "--helix-contact-item-box-shadow": {
+            "to": "--neo-helix-contact-item-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--helix-contact-name-text-shadow": {
+            "to": "--neo-helix-contact-name-text-shadow",
+            "rule": "neo-prefix"
+        },
+        "--helix-item-background-color": {
+            "to": "--neo-helix-item-background-color",
+            "rule": "neo-prefix"
+        },
+        "--helix-item-box-shadow-selected": {
+            "to": "--neo-helix-item-box-shadow-selected",
+            "rule": "neo-prefix"
+        },
+        "--highlight-addition-background": {
+            "to": "--neo-highlight-addition-background",
+            "rule": "neo-prefix"
+        },
+        "--highlight-background-color": {
+            "to": "--neo-highlight-background-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-builtin-color": {
+            "to": "--neo-highlight-builtin-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-code-color": {
+            "to": "--neo-highlight-code-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-color": {
+            "to": "--neo-highlight-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-comment-color": {
+            "to": "--neo-highlight-comment-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-deletion-background": {
+            "to": "--neo-highlight-deletion-background",
+            "rule": "neo-prefix"
+        },
+        "--highlight-doctag-color": {
+            "to": "--neo-highlight-doctag-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-keyword-color": {
+            "to": "--neo-highlight-keyword-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-meta-color": {
+            "to": "--neo-highlight-meta-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-number-color": {
+            "to": "--neo-highlight-number-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-params-color": {
+            "to": "--neo-highlight-params-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-regexp-color": {
+            "to": "--neo-highlight-regexp-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-string-color": {
+            "to": "--neo-highlight-string-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-subst-color": {
+            "to": "--neo-highlight-subst-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-symbol-color": {
+            "to": "--neo-highlight-symbol-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-tag-color": {
+            "to": "--neo-highlight-tag-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-title-color": {
+            "to": "--neo-highlight-title-color",
+            "rule": "neo-prefix"
+        },
+        "--highlight-type-color": {
+            "to": "--neo-highlight-type-color",
+            "rule": "neo-prefix"
+        },
+        "--hljs-line-numbers-background-color": {
+            "to": "--neo-hljs-line-numbers-background-color",
+            "rule": "neo-prefix"
+        },
+        "--hljs-line-numbers-border-right": {
+            "to": "--neo-hljs-line-numbers-border-right",
+            "rule": "neo-prefix"
+        },
+        "--hljs-line-numbers-color": {
+            "to": "--neo-hljs-line-numbers-color",
+            "rule": "neo-prefix"
+        },
+        "--hljs-line-numbers-highlighted-line": {
+            "to": "--neo-hljs-line-numbers-highlighted-line",
+            "rule": "neo-prefix"
+        },
+        "--icon-color": {
+            "to": "--neo-icon-color",
+            "rule": "neo-prefix"
+        },
+        "--icon-font-size": {
+            "to": "--neo-icon-font-size",
+            "rule": "neo-prefix"
+        },
+        "--icon-link-color": {
+            "to": "--neo-icon-link-color",
+            "rule": "neo-prefix"
+        },
+        "--icon-link-font-size": {
+            "to": "--neo-icon-link-font-size",
+            "rule": "neo-prefix"
+        },
+        "--icon-link-hover-color": {
+            "to": "--neo-icon-link-color-hover",
+            "rule": "neo-prefix+state-last"
+        },
+        "--icon-link-text-decoration": {
+            "to": "--neo-icon-link-text-decoration",
+            "rule": "neo-prefix"
+        },
+        "--k": {
+            "to": "--neo-timer-k",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-timer; holds current/full ratio in Timer.css"
+        },
+        "--list-border-color": {
+            "to": "--neo-list-border-color",
+            "rule": "neo-prefix"
+        },
+        "--list-container-background-color": {
+            "to": "--neo-list-container-background-color",
+            "rule": "neo-prefix"
+        },
+        "--list-container-border": {
+            "to": "--neo-list-container-border",
+            "rule": "neo-prefix"
+        },
+        "--list-container-list-color": {
+            "to": "--neo-list-container-list-color",
+            "rule": "neo-prefix"
+        },
+        "--list-item-background-color": {
+            "to": "--neo-list-item-background-color",
+            "rule": "neo-prefix"
+        },
+        "--list-item-background-color-active": {
+            "to": "--neo-list-item-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--list-item-background-color-hover": {
+            "to": "--neo-list-item-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--list-item-background-color-selected": {
+            "to": "--neo-list-item-background-color-selected",
+            "rule": "neo-prefix"
+        },
+        "--list-item-border-color-active": {
+            "to": "--neo-list-item-border-color-active",
+            "rule": "neo-prefix"
+        },
+        "--list-item-color-selected": {
+            "to": "--neo-list-item-color-selected",
+            "rule": "neo-prefix"
+        },
+        "--list-item-focus-outline": {
+            "to": "--neo-list-item-outline-focus",
+            "rule": "neo-prefix+state-last"
+        },
+        "--list-item-focus-outline-offset": {
+            "to": "--neo-list-item-outline-offset-focus",
+            "rule": "neo-prefix+state-last"
+        },
+        "--list-item-glyph-color": {
+            "to": "--neo-list-item-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--list-item-highlight-search-color": {
+            "to": "--neo-list-item-highlight-search-color",
+            "rule": "neo-prefix"
+        },
+        "--list-item-padding": {
+            "to": "--neo-list-item-padding",
+            "rule": "neo-prefix"
+        },
+        "--list-scrollbar-color-scheme": {
+            "to": "--neo-list-scrollbar-color-scheme",
+            "rule": "neo-prefix"
+        },
+        "--live-preview-border-color": {
+            "to": "--neo-live-preview-border-color",
+            "rule": "neo-prefix"
+        },
+        "--live-preview-container-box-shadow": {
+            "to": "--neo-live-preview-container-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--live-preview-header-background-color": {
+            "to": "--neo-live-preview-header-background-color",
+            "rule": "neo-prefix"
+        },
+        "--magic-move-text-background-color": {
+            "to": "--neo-magic-move-text-background-color",
+            "rule": "neo-prefix"
+        },
+        "--magic-move-text-color": {
+            "to": "--neo-magic-move-text-color",
+            "rule": "neo-prefix"
+        },
+        "--markdown-bg": {
+            "to": "--neo-markdown-background-color",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--markdown-blockquote-bg": {
+            "to": "--neo-markdown-blockquote-background-color",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--markdown-blockquote-border": {
+            "to": "--neo-markdown-blockquote-border",
+            "rule": "neo-prefix"
+        },
+        "--markdown-code-bg": {
+            "to": "--neo-markdown-code-background-color",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--markdown-code-border": {
+            "to": "--neo-markdown-code-border",
+            "rule": "neo-prefix"
+        },
+        "--markdown-details-icon-color": {
+            "to": "--neo-markdown-details-icon-color",
+            "rule": "neo-prefix"
+        },
+        "--markdown-details-summary-color": {
+            "to": "--neo-markdown-details-summary-color",
+            "rule": "neo-prefix"
+        },
+        "--markdown-h1-color": {
+            "to": "--neo-markdown-h1-color",
+            "rule": "neo-prefix"
+        },
+        "--markdown-hr-border": {
+            "to": "--neo-markdown-hr-border",
+            "rule": "neo-prefix"
+        },
+        "--markdown-lab-shadow": {
+            "to": "--neo-markdown-lab-box-shadow",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--markdown-lab-shadow-hover": {
+            "to": "--neo-markdown-lab-box-shadow-hover",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--markdown-link-color": {
+            "to": "--neo-markdown-link-color",
+            "rule": "neo-prefix"
+        },
+        "--markdown-list-marker-color": {
+            "to": "--neo-markdown-list-marker-color",
+            "rule": "neo-prefix"
+        },
+        "--markdown-pre-border": {
+            "to": "--neo-markdown-pre-border",
+            "rule": "neo-prefix"
+        },
+        "--markdown-table-border": {
+            "to": "--neo-markdown-table-border",
+            "rule": "neo-prefix"
+        },
+        "--markdown-table-header-bg": {
+            "to": "--neo-markdown-table-header-background-color",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--markdown-text-color": {
+            "to": "--neo-markdown-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--markdown-vdom-code-padding": {
+            "to": "--neo-markdown-vdom-code-padding",
+            "rule": "neo-prefix"
+        },
+        "--markdown-vdom-link-color": {
+            "to": "--neo-markdown-vdom-link-color",
+            "rule": "neo-prefix"
+        },
+        "--menu-border-color": {
+            "to": "--neo-menu-border-color",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-background-color": {
+            "to": "--neo-menu-list-background-color",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-border-color": {
+            "to": "--neo-menu-list-border-color",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-background-color": {
+            "to": "--neo-menu-list-item-background-color",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-background-color-disabled": {
+            "to": "--neo-menu-list-item-background-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-background-color-hover": {
+            "to": "--neo-menu-list-item-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-background-color-selected": {
+            "to": "--neo-menu-list-item-background-color-selected",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-color": {
+            "to": "--neo-menu-list-item-color",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-color-disabled": {
+            "to": "--neo-menu-list-item-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-font-family": {
+            "to": "--neo-menu-list-item-font-family",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-font-weight": {
+            "to": "--neo-menu-list-item-font-weight",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-height": {
+            "to": "--neo-menu-list-item-height",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-icon-color": {
+            "to": "--neo-menu-list-item-icon-color",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-icon-color-disabled": {
+            "to": "--neo-menu-list-item-icon-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-icon-color-selected": {
+            "to": "--neo-menu-list-item-icon-color-selected",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-icon-gap": {
+            "to": "--neo-menu-list-item-icon-gap",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-line-height": {
+            "to": "--neo-menu-list-item-line-height",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-opacity-disabled": {
+            "to": "--neo-menu-list-item-opacity-disabled",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-outline-focus": {
+            "to": "--neo-menu-list-item-outline-focus",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-padding": {
+            "to": "--neo-menu-list-item-padding",
+            "rule": "neo-prefix"
+        },
+        "--menu-list-item-text-transform": {
+            "to": "--neo-menu-list-item-text-transform",
+            "rule": "neo-prefix"
+        },
+        "--menu-separator-color": {
+            "to": "--neo-menu-separator-color",
+            "rule": "neo-prefix"
+        },
+        "--menu-separator-inset": {
+            "to": "--neo-menu-separator-inset",
+            "rule": "neo-prefix"
+        },
+        "--menu-separator-margin": {
+            "to": "--neo-menu-separator-margin",
+            "rule": "neo-prefix"
+        },
+        "--menu-separator-thickness": {
+            "to": "--neo-menu-separator-thickness",
+            "rule": "neo-prefix"
+        },
+        "--menu-spawn-distance": {
+            "to": "--neo-menu-spawn-distance",
+            "rule": "neo-prefix"
+        },
+        "--monaco-editor-background-color": {
+            "to": "--neo-monaco-editor-background-color",
+            "rule": "neo-prefix"
+        },
+        "--motion-base": {
+            "to": "--neo-duration-base",
+            "rule": "motion-role"
+        },
+        "--motion-fast": {
+            "to": "--neo-duration-fast",
+            "rule": "motion-role"
+        },
+        "--motion-panel": {
+            "to": "--neo-duration-panel",
+            "rule": "motion-role"
+        },
+        "--motion-stage": {
+            "to": "--neo-duration-stage",
+            "rule": "motion-role"
+        },
+        "--motion-stagger": {
+            "to": "--neo-duration-stagger",
+            "rule": "motion-role"
+        },
+        "--neo-app-content-sections-bg": {
+            "to": "--neo-app-content-sections-background-color",
+            "rule": "bg-to-background-color"
+        },
+        "--neo-app-content-sections-btn-bg": {
+            "to": "--neo-app-content-sections-button-background-color",
+            "rule": "part-follows-class+bg-to-background-color",
+            "reason": "DOM class is .sections-container-button"
+        },
+        "--neo-app-content-sections-btn-disabled-bg": {
+            "to": "--neo-app-content-sections-button-background-color-disabled",
+            "rule": "part-follows-class+bg-to-background-color+state-last",
+            "reason": "DOM class is .sections-container-button; disabled moves last"
+        },
+        "--neo-app-content-sections-shadow": {
+            "to": "--neo-app-content-sections-box-shadow",
+            "rule": "css-property-suffix"
+        },
+        "--neo-app-content-sidenav-bg": {
+            "to": "--neo-app-content-sidenav-background-color",
+            "rule": "bg-to-background-color"
+        },
+        "--neo-app-content-sidenav-btn-bg": {
+            "to": "--neo-app-content-sidenav-button-background-color",
+            "rule": "part-follows-class+bg-to-background-color",
+            "reason": "DOM class is .sidenav-button"
+        },
+        "--neo-app-content-sidenav-shadow": {
+            "to": "--neo-app-content-sidenav-box-shadow",
+            "rule": "css-property-suffix"
+        },
+        "--neo-app-content-toolbar-btn-bg": {
+            "to": "--neo-app-content-toolbar-button-background-color",
+            "rule": "part-follows-class+bg-to-background-color",
+            "reason": "DOM class is .neo-button inside .content-bottom-toolbar"
+        },
+        "--neo-app-content-toolbar-text-color": {
+            "to": "--neo-app-content-toolbar-color",
+            "rule": "text-to-color"
+        },
+        "--neo-background-color": {
+            "to": "--neo-global-background-color",
+            "rule": "component-stem",
+            "reason": "src/Global.css reads --global-* component variables (ADR 0044 §2.5)"
+        },
+        "--neo-board-card-accent": {
+            "to": "--neo-board-card-accent-color",
+            "rule": "css-property-suffix",
+            "reason": "Holds per-card accent colour read in border-left and progress bar"
+        },
+        "--neo-board-card-hover-border-color": {
+            "to": "--neo-board-card-border-color-hover",
+            "rule": "state-last"
+        },
+        "--neo-board-card-selected-background": {
+            "to": "--neo-board-card-background-selected",
+            "rule": "state-last"
+        },
+        "--neo-board-card-selected-border-color": {
+            "to": "--neo-board-card-border-color-selected",
+            "rule": "state-last"
+        },
+        "--neo-board-card-shadow": {
+            "to": "--neo-board-card-box-shadow",
+            "rule": "css-property-suffix"
+        },
+        "--neo-board-column-accent": {
+            "to": "--neo-board-column-accent-color",
+            "rule": "css-property-suffix",
+            "reason": "Set by Neo.board.Column#applyColor for column header accent colour"
+        },
+        "--neo-board-editor-shadow": {
+            "to": "--neo-board-editor-box-shadow",
+            "rule": "css-property-suffix"
+        },
+        "--neo-board-focus-color": {
+            "to": "--neo-board-outline-color-focus",
+            "rule": "css-property-suffix+state-last",
+            "reason": "Paints focus outline colour on board cards, columns, and lanes"
+        },
+        "--neo-board-radius": {
+            "to": "--neo-board-border-radius",
+            "rule": "css-property-suffix"
+        },
+        "--neo-board-track-color": {
+            "to": "--neo-board-track-background",
+            "rule": "css-property-suffix"
+        },
+        "--neo-color": {
+            "to": "--neo-global-color",
+            "rule": "component-stem",
+            "reason": "src/Global.css reads --global-* component variables (ADR 0044 §2.5)"
+        },
+        "--neo-disabled-opacity": {
+            "to": "--neo-global-opacity-disabled",
+            "rule": "component-stem+state-last",
+            "reason": "src/Global.css disabled opacity hook; state word disabled moves last"
+        },
+        "--neo-duration": {
+            "to": "--neo-grid-animate-rows-transition-duration",
+            "rule": "component-stem+css-property-suffix",
+            "reason": "Set by Neo.grid.plugin.AnimateRows for row transition duration"
+        },
+        "--neo-easing": {
+            "to": "--neo-grid-animate-rows-transition-timing-function",
+            "rule": "component-stem+css-property-suffix",
+            "reason": "Set by Neo.grid.plugin.AnimateRows for row transition-timing-function"
+        },
+        "--neo-font-family": {
+            "to": "--neo-global-font-family",
+            "rule": "component-stem",
+            "reason": "src/Global.css body font-family hook; roles are --neo-font-family-sans and --neo-font-family-mono"
+        },
+        "--neo-gantt-divider-color": {
+            "to": "--neo-gantt-divider-border-color",
+            "rule": "css-property-suffix"
+        },
+        "--neo-gantt-milestone-bg": {
+            "to": "--neo-gantt-milestone-fill",
+            "rule": "css-property-suffix",
+            "reason": "Read by SVG polygon fill in src/gantt/Container.css"
+        },
+        "--neo-gantt-milestone-border": {
+            "to": "--neo-gantt-milestone-stroke",
+            "rule": "css-property-suffix",
+            "reason": "Read by SVG polygon stroke in src/gantt/Container.css"
+        },
+        "--neo-gantt-summary-bg": {
+            "to": "--neo-gantt-summary-background",
+            "rule": "bg-to-background"
+        },
+        "--neo-gantt-summary-border": {
+            "to": "--neo-gantt-summary-border-color",
+            "rule": "css-property-suffix"
+        },
+        "--neo-scheduler-bar-amber-bg": {
+            "to": "--neo-scheduler-bar-amber-background",
+            "rule": "bg-to-background"
+        },
+        "--neo-scheduler-bar-amber-border": {
+            "to": "--neo-scheduler-bar-amber-border-color",
+            "rule": "css-property-suffix"
+        },
+        "--neo-scheduler-bar-emerald-bg": {
+            "to": "--neo-scheduler-bar-emerald-background",
+            "rule": "bg-to-background"
+        },
+        "--neo-scheduler-bar-emerald-border": {
+            "to": "--neo-scheduler-bar-emerald-border-color",
+            "rule": "css-property-suffix"
+        },
+        "--neo-scheduler-bar-violet-bg": {
+            "to": "--neo-scheduler-bar-violet-background",
+            "rule": "bg-to-background"
+        },
+        "--neo-scheduler-bar-violet-border": {
+            "to": "--neo-scheduler-bar-violet-border-color",
+            "rule": "css-property-suffix"
+        },
+        "--neo-scheduler-divider-color": {
+            "to": "--neo-scheduler-divider-border-color",
+            "rule": "css-property-suffix"
+        },
+        "--neo-timeline-bar-hover-border-color": {
+            "to": "--neo-timeline-bar-border-color-hover",
+            "rule": "state-last"
+        },
+        "--neo-timeline-bar-radius": {
+            "to": "--neo-timeline-bar-border-radius",
+            "rule": "css-property-suffix"
+        },
+        "--neo-timeline-bar-shadow": {
+            "to": "--neo-timeline-bar-box-shadow",
+            "rule": "css-property-suffix"
+        },
+        "--neo-timeline-editor-radius": {
+            "to": "--neo-timeline-editor-border-radius",
+            "rule": "css-property-suffix"
+        },
+        "--neo-timeline-editor-shadow": {
+            "to": "--neo-timeline-editor-box-shadow",
+            "rule": "css-property-suffix"
+        },
+        "--neo-timeline-focus-color": {
+            "to": "--neo-timeline-outline-color-focus",
+            "rule": "css-property-suffix+state-last",
+            "reason": "Focus ring/border colour matching --board-outline-color-focus"
+        },
+        "--neo-timeline-non-working-bg": {
+            "to": "--neo-timeline-non-working-background",
+            "rule": "bg-to-background"
+        },
+        "--neo-timeline-non-working-border": {
+            "to": "--neo-timeline-non-working-border-color",
+            "rule": "css-property-suffix"
+        },
+        "--neo-transition-time": {
+            "to": "--neo-magic-move-text-transition-duration",
+            "rule": "component-stem+css-property-suffix",
+            "reason": "Set by Neo.component.MagicMoveText for character transition duration"
+        },
+        "--neo-tree-level": {
+            "to": "--neo-tree-list-level",
+            "rule": "component-stem",
+            "reason": "Set by Neo.tree.List per item alongside --tree-list-indent-base and --tree-list-indent-step"
+        },
+        "--orange-500": {
+            "to": "--neo-orange-500",
+            "rule": "old-skeleton-prefix"
+        },
+        "--orange-700": {
+            "to": "--neo-orange-700",
+            "rule": "old-skeleton-prefix"
+        },
+        "--panel-border-color": {
+            "to": "--neo-panel-border-color",
+            "rule": "neo-prefix"
+        },
+        "--panel-header-border-color": {
+            "to": "--neo-panel-header-border-color",
+            "rule": "neo-prefix"
+        },
+        "--panel-header-text-color": {
+            "to": "--neo-panel-header-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--perspective": {
+            "to": "--neo-layout-cube-perspective",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-layout-cube"
+        },
+        "--pickerfield-container-background-color": {
+            "to": "--neo-pickerfield-container-background-color",
+            "rule": "neo-prefix"
+        },
+        "--pickerfield-container-border": {
+            "to": "--neo-pickerfield-container-border",
+            "rule": "neo-prefix"
+        },
+        "--pickerfield-container-box-shadow": {
+            "to": "--neo-pickerfield-container-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--popover-box-shadow": {
+            "to": "--neo-popover-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--process-arrow-color": {
+            "to": "--neo-process-arrow-color",
+            "rule": "neo-prefix"
+        },
+        "--process-background-color": {
+            "to": "--neo-process-background-color",
+            "rule": "neo-prefix"
+        },
+        "--process-icon-color": {
+            "to": "--neo-process-icon-color",
+            "rule": "neo-prefix"
+        },
+        "--process-icon-size": {
+            "to": "--neo-process-icon-size",
+            "rule": "neo-prefix"
+        },
+        "--process-shadow-color": {
+            "to": "--neo-process-shadow-color",
+            "rule": "neo-prefix"
+        },
+        "--process-text-color": {
+            "to": "--neo-process-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--process-title-color": {
+            "to": "--neo-process-title-color",
+            "rule": "neo-prefix"
+        },
+        "--progress-label-color": {
+            "to": "--neo-progress-label-color",
+            "rule": "neo-prefix"
+        },
+        "--purple-100": {
+            "to": "--neo-purple-100",
+            "rule": "old-skeleton-prefix"
+        },
+        "--purple-200": {
+            "to": "--neo-purple-200",
+            "rule": "old-skeleton-prefix"
+        },
+        "--purple-300": {
+            "to": "--neo-purple-300",
+            "rule": "old-skeleton-prefix"
+        },
+        "--purple-400": {
+            "to": "--neo-purple-400",
+            "rule": "old-skeleton-prefix"
+        },
+        "--purple-500": {
+            "to": "--neo-purple-500",
+            "rule": "old-skeleton-prefix"
+        },
+        "--purple-600": {
+            "to": "--neo-purple-600",
+            "rule": "old-skeleton-prefix"
+        },
+        "--purple-700": {
+            "to": "--neo-purple-700",
+            "rule": "old-skeleton-prefix"
+        },
+        "--purple-800": {
+            "to": "--neo-purple-800",
+            "rule": "old-skeleton-prefix"
+        },
+        "--purple-900": {
+            "to": "--neo-purple-900",
+            "rule": "old-skeleton-prefix"
+        },
+        "--purple-950": {
+            "to": "--neo-purple-950",
+            "rule": "old-skeleton-prefix"
+        },
+        "--rangefield-thumb-background": {
+            "to": "--neo-rangefield-thumb-background",
+            "rule": "neo-prefix"
+        },
+        "--rangefield-thumb-border-color": {
+            "to": "--neo-rangefield-thumb-border-color",
+            "rule": "neo-prefix"
+        },
+        "--rangefield-thumb-box-shadow-active": {
+            "to": "--neo-rangefield-thumb-box-shadow-active",
+            "rule": "neo-prefix"
+        },
+        "--rangefield-track-background": {
+            "to": "--neo-rangefield-track-background",
+            "rule": "neo-prefix"
+        },
+        "--red-100": {
+            "to": "--neo-red-100",
+            "rule": "old-skeleton-prefix"
+        },
+        "--red-500": {
+            "to": "--neo-red-500",
+            "rule": "old-skeleton-prefix"
+        },
+        "--red-800": {
+            "to": "--neo-red-800",
+            "rule": "old-skeleton-prefix"
+        },
+        "--red-900": {
+            "to": "--neo-red-900",
+            "rule": "old-skeleton-prefix"
+        },
+        "--resizable-color": {
+            "to": "--neo-resizable-color",
+            "rule": "neo-prefix"
+        },
+        "--rot-x": {
+            "to": "--neo-layout-cube-rot-x",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-layout-cube"
+        },
+        "--rot-y": {
+            "to": "--neo-layout-cube-rot-y",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-layout-cube"
+        },
+        "--rot-z": {
+            "to": "--neo-layout-cube-rot-z",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-layout-cube"
+        },
+        "--scheduler-drag-preview-box-shadow": {
+            "to": "--neo-scheduler-drag-preview-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--searchfield-glyph-color": {
+            "to": "--neo-searchfield-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-background": {
+            "to": "--neo-selectfield-background-color",
+            "rule": "neo-prefix+background-to-background-color"
+        },
+        "--selectfield-background-disabled": {
+            "to": "--neo-selectfield-background-color-disabled",
+            "rule": "neo-prefix+background-to-background-color"
+        },
+        "--selectfield-border-color": {
+            "to": "--neo-selectfield-border-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-border-color-disabled": {
+            "to": "--neo-selectfield-border-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-border-color-hovered": {
+            "to": "--neo-selectfield-border-color-hover",
+            "rule": "neo-prefix+state-last"
+        },
+        "--selectfield-border-radius": {
+            "to": "--neo-selectfield-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-border-width": {
+            "to": "--neo-selectfield-border-width",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-checkmark-color": {
+            "to": "--neo-selectfield-checkmark-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-color": {
+            "to": "--neo-selectfield-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-color-disabled": {
+            "to": "--neo-selectfield-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-divider-color": {
+            "to": "--neo-selectfield-divider-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-error-color": {
+            "to": "--neo-selectfield-error-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-focus-color": {
+            "to": "--neo-selectfield-border-color-focus",
+            "rule": "neo-prefix+css-property-suffix+state-last"
+        },
+        "--selectfield-input-font": {
+            "to": "--neo-selectfield-input-font",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-input-height": {
+            "to": "--neo-selectfield-input-height",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-input-padding": {
+            "to": "--neo-selectfield-input-padding",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-label-color": {
+            "to": "--neo-selectfield-label-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-label-color-disabled": {
+            "to": "--neo-selectfield-label-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-label-top-margin": {
+            "to": "--neo-selectfield-label-top-margin",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-opacity-disabled": {
+            "to": "--neo-selectfield-opacity-disabled",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-option-background-color-hover": {
+            "to": "--neo-selectfield-option-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-option-background-color-selected": {
+            "to": "--neo-selectfield-option-background-color-selected",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-option-color": {
+            "to": "--neo-selectfield-option-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-option-color-disabled": {
+            "to": "--neo-selectfield-option-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-option-color-selected": {
+            "to": "--neo-selectfield-option-color-selected",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-picker-background-color": {
+            "to": "--neo-selectfield-picker-background-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-picker-border-color": {
+            "to": "--neo-selectfield-picker-border-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-picker-box-shadow": {
+            "to": "--neo-selectfield-picker-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-placeholder-color": {
+            "to": "--neo-selectfield-placeholder-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-trigger-background-color-hover": {
+            "to": "--neo-selectfield-trigger-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-trigger-border-width": {
+            "to": "--neo-selectfield-trigger-border-width",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-trigger-color": {
+            "to": "--neo-selectfield-trigger-color",
+            "rule": "neo-prefix"
+        },
+        "--selectfield-trigger-color-hover": {
+            "to": "--neo-selectfield-trigger-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--sem-borderradius-large": {
+            "to": "--neo-sem-borderradius-large",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-borderradius-medium": {
+            "to": "--neo-sem-borderradius-medium",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-borderradius-none": {
+            "to": "--neo-sem-borderradius-none",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-borderwidth-focus": {
+            "to": "--neo-sem-borderwidth-focus",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-bg-neutral-active": {
+            "to": "--neo-sem-color-bg-neutral-active",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-bg-neutral-contrast": {
+            "to": "--neo-sem-color-bg-neutral-contrast",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-bg-neutral-default": {
+            "to": "--neo-sem-color-bg-neutral-default",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-bg-neutral-disabled": {
+            "to": "--neo-sem-color-bg-neutral-disabled",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-bg-neutral-highlighted": {
+            "to": "--neo-sem-color-bg-neutral-highlighted",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-bg-neutral-hover": {
+            "to": "--neo-sem-color-bg-neutral-hover",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-bg-primary-active": {
+            "to": "--neo-sem-color-bg-primary-active",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-bg-primary-background": {
+            "to": "--neo-sem-color-bg-primary-background",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-bg-primary-default": {
+            "to": "--neo-sem-color-bg-primary-default",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-bg-primary-disabled": {
+            "to": "--neo-sem-color-bg-primary-disabled",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-bg-primary-hover": {
+            "to": "--neo-sem-color-bg-primary-hover",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-border-contrast": {
+            "to": "--neo-sem-color-border-contrast",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-border-default": {
+            "to": "--neo-sem-color-border-default",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-border-focus": {
+            "to": "--neo-sem-color-border-focus",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-border-subtle": {
+            "to": "--neo-sem-color-border-subtle",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-fg-neutral-contrast": {
+            "to": "--neo-sem-color-fg-neutral-contrast",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-fg-neutral-default": {
+            "to": "--neo-sem-color-fg-neutral-default",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-fg-neutral-disabled": {
+            "to": "--neo-sem-color-fg-neutral-disabled",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-fg-neutral-inverted": {
+            "to": "--neo-sem-color-fg-neutral-inverted",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-fg-neutral-subdued": {
+            "to": "--neo-sem-color-fg-neutral-subdued",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-fg-primary-base": {
+            "to": "--neo-sem-color-fg-primary-base",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-fg-primary-faded": {
+            "to": "--neo-sem-color-fg-primary-faded",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-fg-primary-highlighted": {
+            "to": "--neo-sem-color-fg-primary-highlighted",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-icon-neutral-contrast": {
+            "to": "--neo-sem-color-icon-neutral-contrast",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-icon-neutral-default": {
+            "to": "--neo-sem-color-icon-neutral-default",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-icon-neutral-reversed": {
+            "to": "--neo-sem-color-icon-neutral-reversed",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-icon-neutral-subdued": {
+            "to": "--neo-sem-color-icon-neutral-subdued",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-icon-primary-default": {
+            "to": "--neo-sem-color-icon-primary-default",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-surface-disabled": {
+            "to": "--neo-sem-color-surface-disabled",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-surface-neutral-active": {
+            "to": "--neo-sem-color-surface-neutral-active",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-surface-neutral-default": {
+            "to": "--neo-sem-color-surface-neutral-default",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-surface-neutral-highlighted": {
+            "to": "--neo-sem-color-surface-neutral-highlighted",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-surface-neutral-hover": {
+            "to": "--neo-sem-color-surface-neutral-hover",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-surface-primary-active": {
+            "to": "--neo-sem-color-surface-primary-active",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-surface-primary-background": {
+            "to": "--neo-sem-color-surface-primary-background",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-surface-primary-default": {
+            "to": "--neo-sem-color-surface-primary-default",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-surface-primary-hover": {
+            "to": "--neo-sem-color-surface-primary-hover",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-text-disabled": {
+            "to": "--neo-sem-color-text-disabled",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-text-neutral-contrast": {
+            "to": "--neo-sem-color-text-neutral-contrast",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-text-neutral-default": {
+            "to": "--neo-sem-color-text-neutral-default",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-text-neutral-reversed": {
+            "to": "--neo-sem-color-text-neutral-reversed",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-text-neutral-subdued": {
+            "to": "--neo-sem-color-text-neutral-subdued",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-color-text-primary-default": {
+            "to": "--neo-sem-color-text-primary-default",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-height-large": {
+            "to": "--neo-sem-height-large",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-height-medium": {
+            "to": "--neo-sem-height-medium",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-height-small": {
+            "to": "--neo-sem-height-small",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-height-xlarge": {
+            "to": "--neo-sem-height-xlarge",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-height-xsmall": {
+            "to": "--neo-sem-height-xsmall",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-height-xxlarge": {
+            "to": "--neo-sem-height-xxlarge",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-height-xxsmall": {
+            "to": "--neo-sem-height-xxsmall",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-spacing-large": {
+            "to": "--neo-sem-spacing-large",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-spacing-medium": {
+            "to": "--neo-sem-spacing-medium",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-spacing-small": {
+            "to": "--neo-sem-spacing-small",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-spacing-xlarge": {
+            "to": "--neo-sem-spacing-xlarge",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-spacing-xsmall": {
+            "to": "--neo-sem-spacing-xsmall",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-spacing-xxlarge": {
+            "to": "--neo-sem-spacing-xxlarge",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-spacing-xxsmall": {
+            "to": "--neo-sem-spacing-xxsmall",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-spacing-xxxlarge": {
+            "to": "--neo-sem-spacing-xxxlarge",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-spacing-xxxsmall": {
+            "to": "--neo-sem-spacing-xxxsmall",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-body-fontFamily": {
+            "to": "--neo-sem-typo-body-fontFamily",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-body-fontSize": {
+            "to": "--neo-sem-typo-body-fontSize",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-body-fontWeight": {
+            "to": "--neo-sem-typo-body-fontWeight",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-body-letterSpacing": {
+            "to": "--neo-sem-typo-body-letterSpacing",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-body-lineHeight": {
+            "to": "--neo-sem-typo-body-lineHeight",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-body-paragraphIndent": {
+            "to": "--neo-sem-typo-body-paragraphIndent",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-body-paragraphSpacing": {
+            "to": "--neo-sem-typo-body-paragraphSpacing",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-body-textDecoration": {
+            "to": "--neo-sem-typo-body-textDecoration",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-h1-fontFamily": {
+            "to": "--neo-sem-typo-h1-fontFamily",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-h1-fontSize": {
+            "to": "--neo-sem-typo-h1-fontSize",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-h1-fontWeight": {
+            "to": "--neo-sem-typo-h1-fontWeight",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-h1-letterSpacing": {
+            "to": "--neo-sem-typo-h1-letterSpacing",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-h1-lineHeight": {
+            "to": "--neo-sem-typo-h1-lineHeight",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-h1-textDecoration": {
+            "to": "--neo-sem-typo-h1-textDecoration",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-h2-fontFamily": {
+            "to": "--neo-sem-typo-h2-fontFamily",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-h2-fontSize": {
+            "to": "--neo-sem-typo-h2-fontSize",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-h2-fontWeight": {
+            "to": "--neo-sem-typo-h2-fontWeight",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-h2-lineHeight": {
+            "to": "--neo-sem-typo-h2-lineHeight",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-label-medium-fontFamily": {
+            "to": "--neo-sem-typo-label-medium-fontFamily",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-label-medium-fontSize": {
+            "to": "--neo-sem-typo-label-medium-fontSize",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-label-medium-fontWeight": {
+            "to": "--neo-sem-typo-label-medium-fontWeight",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-label-regular-fontFamily": {
+            "to": "--neo-sem-typo-label-regular-fontFamily",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-label-regular-fontSize": {
+            "to": "--neo-sem-typo-label-regular-fontSize",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-label-regular-fontWeight": {
+            "to": "--neo-sem-typo-label-regular-fontWeight",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-label-small-fontFamily": {
+            "to": "--neo-sem-typo-label-small-fontFamily",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-label-small-fontSize": {
+            "to": "--neo-sem-typo-label-small-fontSize",
+            "rule": "old-skeleton-prefix"
+        },
+        "--sem-typo-label-small-fontWeight": {
+            "to": "--neo-sem-typo-label-small-fontWeight",
+            "rule": "old-skeleton-prefix"
+        },
+        "--side-x": {
+            "to": "--neo-layout-cube-side-x",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-layout-cube"
+        },
+        "--side-y": {
+            "to": "--neo-layout-cube-side-y",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-layout-cube"
+        },
+        "--side-z": {
+            "to": "--neo-layout-cube-side-z",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-layout-cube"
+        },
+        "--spacing-12": {
+            "to": "--neo-spacing-12",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-16": {
+            "to": "--neo-spacing-16",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-2": {
+            "to": "--neo-spacing-2",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-20": {
+            "to": "--neo-spacing-20",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-24": {
+            "to": "--neo-spacing-24",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-32": {
+            "to": "--neo-spacing-32",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-4": {
+            "to": "--neo-spacing-4",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-40": {
+            "to": "--neo-spacing-40",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-48": {
+            "to": "--neo-spacing-48",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-64": {
+            "to": "--neo-spacing-64",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-8": {
+            "to": "--neo-spacing-8",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-80": {
+            "to": "--neo-spacing-80",
+            "rule": "old-skeleton-prefix"
+        },
+        "--spacing-96": {
+            "to": "--neo-spacing-96",
+            "rule": "old-skeleton-prefix"
+        },
+        "--splitter-background-color": {
+            "to": "--neo-splitter-background-color",
+            "rule": "neo-prefix"
+        },
+        "--splitter-border": {
+            "to": "--neo-splitter-border",
+            "rule": "neo-prefix"
+        },
+        "--splitter-border-radius": {
+            "to": "--neo-splitter-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--splitter-hover-color": {
+            "to": "--neo-splitter-background-color-hover",
+            "rule": "neo-prefix+css-property-suffix+state-last",
+            "reason": "Read by background-color and border-color alongside --splitter-background-color"
+        },
+        "--splitter-margin-horizontal": {
+            "to": "--neo-splitter-margin-horizontal",
+            "rule": "neo-prefix"
+        },
+        "--splitter-margin-vertical": {
+            "to": "--neo-splitter-margin-vertical",
+            "rule": "neo-prefix"
+        },
+        "--stack-angle": {
+            "to": "--neo-board-stack-angle",
+            "rule": "neo-prefix+component-stem",
+            "reason": "Set by Neo.board.SortZone on .neo-board-stack-card"
+        },
+        "--stack-offset": {
+            "to": "--neo-board-stack-offset",
+            "rule": "neo-prefix+component-stem",
+            "reason": "Set by Neo.board.SortZone on .neo-board-stack-card"
+        },
+        "--stack-opacity": {
+            "to": "--neo-board-stack-opacity",
+            "rule": "neo-prefix+component-stem",
+            "reason": "Set by Neo.board.SortZone on .neo-board-stack-card"
+        },
+        "--status-badge-align-items": {
+            "to": "--neo-status-badge-align-items",
+            "rule": "neo-prefix"
+        },
+        "--status-badge-font-family": {
+            "to": "--neo-status-badge-font-family",
+            "rule": "neo-prefix"
+        },
+        "--status-badge-font-size": {
+            "to": "--neo-status-badge-font-size",
+            "rule": "neo-prefix"
+        },
+        "--status-badge-font-weight": {
+            "to": "--neo-status-badge-font-weight",
+            "rule": "neo-prefix"
+        },
+        "--status-badge-line-height": {
+            "to": "--neo-status-badge-line-height",
+            "rule": "neo-prefix"
+        },
+        "--status-badge-padding": {
+            "to": "--neo-status-badge-padding",
+            "rule": "neo-prefix"
+        },
+        "--status-badge-state-alert-background-color": {
+            "to": "--neo-status-badge-state-alert-background-color",
+            "rule": "neo-prefix"
+        },
+        "--status-badge-state-alert-text-color": {
+            "to": "--neo-status-badge-state-alert-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--status-badge-state-error-background-color": {
+            "to": "--neo-status-badge-state-error-background-color",
+            "rule": "neo-prefix"
+        },
+        "--status-badge-state-error-text-color": {
+            "to": "--neo-status-badge-state-error-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--status-badge-state-info-background-color": {
+            "to": "--neo-status-badge-state-info-background-color",
+            "rule": "neo-prefix"
+        },
+        "--status-badge-state-info-text-color": {
+            "to": "--neo-status-badge-state-info-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--status-badge-state-neutral-background-color": {
+            "to": "--neo-status-badge-state-neutral-background-color",
+            "rule": "neo-prefix"
+        },
+        "--status-badge-state-neutral-text-color": {
+            "to": "--neo-status-badge-state-neutral-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--status-badge-state-success-background-color": {
+            "to": "--neo-status-badge-state-success-background-color",
+            "rule": "neo-prefix"
+        },
+        "--status-badge-state-success-text-color": {
+            "to": "--neo-status-badge-state-success-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--status-badge-transform": {
+            "to": "--neo-status-badge-transform",
+            "rule": "neo-prefix"
+        },
+        "--success-icon-codepoint": {
+            "to": "--neo-fileuploadfield-success-icon-codepoint",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-fileuploadfield"
+        },
+        "--switchfield-bordercolor-focused": {
+            "to": "--neo-switchfield-outline-color-focus",
+            "rule": "neo-prefix+css-property-suffix+state-last",
+            "reason": "Read in outline shorthand colour slot on :focus"
+        },
+        "--switchfield-borderwidth-focused": {
+            "to": "--neo-switchfield-outline-width-focus",
+            "rule": "neo-prefix+css-property-suffix+state-last",
+            "reason": "Read in outline shorthand width slot on :focus"
+        },
+        "--switchfield-color-icon-off": {
+            "to": "--neo-switchfield-icon-off-border-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--switchfield-color-icon-on": {
+            "to": "--neo-switchfield-icon-on-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--switchfield-color-knob": {
+            "to": "--neo-switchfield-knob-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--switchfield-color-off": {
+            "to": "--neo-switchfield-off-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--switchfield-color-off-disabled": {
+            "to": "--neo-switchfield-off-background-color-disabled",
+            "rule": "neo-prefix+css-property-suffix+state-last"
+        },
+        "--switchfield-color-off-hovered": {
+            "to": "--neo-switchfield-off-background-color-hover",
+            "rule": "neo-prefix+css-property-suffix+state-last"
+        },
+        "--switchfield-color-on": {
+            "to": "--neo-switchfield-on-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--switchfield-color-on-disabled": {
+            "to": "--neo-switchfield-on-background-color-disabled",
+            "rule": "neo-prefix+css-property-suffix+state-last"
+        },
+        "--switchfield-color-on-hovered": {
+            "to": "--neo-switchfield-on-background-color-hover",
+            "rule": "neo-prefix+css-property-suffix+state-last"
+        },
+        "--switchfield-height": {
+            "to": "--neo-switchfield-height",
+            "rule": "neo-prefix"
+        },
+        "--switchfield-knobsize": {
+            "to": "--neo-switchfield-knobsize",
+            "rule": "neo-prefix"
+        },
+        "--switchfield-opacity-disabled": {
+            "to": "--neo-switchfield-opacity-disabled",
+            "rule": "neo-prefix"
+        },
+        "--switchfield-width": {
+            "to": "--neo-switchfield-width",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-background-color": {
+            "to": "--neo-tab-button-background-color",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-background-color-active": {
+            "to": "--neo-tab-button-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-background-color-disabled": {
+            "to": "--neo-tab-button-background-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-background-color-hover": {
+            "to": "--neo-tab-button-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-background-image": {
+            "to": "--neo-tab-button-background-image",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-background-image-bottom": {
+            "to": "--neo-tab-button-bottom-background-image",
+            "rule": "neo-prefix+css-property-suffix",
+            "reason": "Dock side bottom precedes CSS property background-image"
+        },
+        "--tab-button-background-image-left": {
+            "to": "--neo-tab-button-left-background-image",
+            "rule": "neo-prefix+css-property-suffix",
+            "reason": "Dock side left precedes CSS property background-image"
+        },
+        "--tab-button-background-image-pressed": {
+            "to": "--neo-tab-button-background-image-pressed",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-background-image-pressed-bottom": {
+            "to": "--neo-tab-button-bottom-background-image-pressed",
+            "rule": "neo-prefix+state-last"
+        },
+        "--tab-button-background-image-pressed-left": {
+            "to": "--neo-tab-button-left-background-image-pressed",
+            "rule": "neo-prefix+state-last"
+        },
+        "--tab-button-background-image-pressed-right": {
+            "to": "--neo-tab-button-right-background-image-pressed",
+            "rule": "neo-prefix+state-last"
+        },
+        "--tab-button-background-image-right": {
+            "to": "--neo-tab-button-right-background-image",
+            "rule": "neo-prefix+css-property-suffix",
+            "reason": "Dock side right precedes CSS property background-image"
+        },
+        "--tab-button-border": {
+            "to": "--neo-tab-button-border",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-border-bottom": {
+            "to": "--neo-tab-button-border-bottom",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-border-bottom-pressed": {
+            "to": "--neo-tab-button-border-bottom-pressed",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-border-pressed": {
+            "to": "--neo-tab-button-border-pressed",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-border-radius": {
+            "to": "--neo-tab-button-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-gap": {
+            "to": "--neo-tab-button-gap",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-glyph-color": {
+            "to": "--neo-tab-button-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-glyph-color-active": {
+            "to": "--neo-tab-button-glyph-color-active",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-glyph-color-hover": {
+            "to": "--neo-tab-button-glyph-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-glyph-color-pressed": {
+            "to": "--neo-tab-button-glyph-color-pressed",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-height": {
+            "to": "--neo-tab-button-height",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-height-pressed": {
+            "to": "--neo-tab-button-height-pressed",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-margin-bottom": {
+            "to": "--neo-tab-button-margin-bottom",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-padding": {
+            "to": "--neo-tab-button-padding",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-text-color": {
+            "to": "--neo-tab-button-color",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--tab-button-text-color-pressed": {
+            "to": "--neo-tab-button-color-pressed",
+            "rule": "neo-prefix+text-to-color"
+        },
+        "--tab-button-text-font-size": {
+            "to": "--neo-tab-button-text-font-size",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-text-font-weight": {
+            "to": "--neo-tab-button-text-font-weight",
+            "rule": "neo-prefix"
+        },
+        "--tab-button-text-transform": {
+            "to": "--neo-tab-button-text-transform",
+            "rule": "neo-prefix"
+        },
+        "--tab-container-content-border": {
+            "to": "--neo-tab-container-content-border",
+            "rule": "neo-prefix"
+        },
+        "--tab-header-action-background-color-active": {
+            "to": "--neo-tab-header-action-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--tab-header-action-background-color-hover": {
+            "to": "--neo-tab-header-action-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--tab-header-action-border-radius": {
+            "to": "--neo-tab-header-action-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--tab-header-action-glyph-color": {
+            "to": "--neo-tab-header-action-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--tab-header-action-glyph-color-active": {
+            "to": "--neo-tab-header-action-glyph-color-active",
+            "rule": "neo-prefix"
+        },
+        "--tab-header-action-glyph-color-hover": {
+            "to": "--neo-tab-header-action-glyph-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--tab-header-action-size": {
+            "to": "--neo-tab-header-action-size",
+            "rule": "neo-prefix"
+        },
+        "--tab-header-inline-background-color": {
+            "to": "--neo-tab-header-inline-background-color",
+            "rule": "neo-prefix"
+        },
+        "--tab-header-inline-background-image": {
+            "to": "--neo-tab-header-inline-background-image",
+            "rule": "neo-prefix"
+        },
+        "--tab-header-inline-box-shadow": {
+            "to": "--neo-tab-header-inline-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--tab-indicator-background-color-active": {
+            "to": "--neo-tab-indicator-background-color-active",
+            "rule": "neo-prefix"
+        },
+        "--tab-inline-button-border-radius": {
+            "to": "--neo-tab-inline-button-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--tab-inline-button-gap": {
+            "to": "--neo-tab-inline-button-gap",
+            "rule": "neo-prefix"
+        },
+        "--tab-inline-button-height": {
+            "to": "--neo-tab-inline-button-height",
+            "rule": "neo-prefix"
+        },
+        "--tab-inline-button-height-pressed": {
+            "to": "--neo-tab-inline-button-height-pressed",
+            "rule": "neo-prefix"
+        },
+        "--tab-inline-button-padding": {
+            "to": "--neo-tab-inline-button-padding",
+            "rule": "neo-prefix"
+        },
+        "--tab-inline-button-text-font-size": {
+            "to": "--neo-tab-inline-button-text-font-size",
+            "rule": "neo-prefix"
+        },
+        "--tab-inline-button-text-font-weight": {
+            "to": "--neo-tab-inline-button-text-font-weight",
+            "rule": "neo-prefix"
+        },
+        "--tab-standalone-button-border-radius": {
+            "to": "--neo-tab-standalone-button-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--tab-standalone-button-gap": {
+            "to": "--neo-tab-standalone-button-gap",
+            "rule": "neo-prefix"
+        },
+        "--tab-standalone-button-height": {
+            "to": "--neo-tab-standalone-button-height",
+            "rule": "neo-prefix"
+        },
+        "--tab-standalone-button-height-pressed": {
+            "to": "--neo-tab-standalone-button-height-pressed",
+            "rule": "neo-prefix"
+        },
+        "--tab-standalone-button-padding": {
+            "to": "--neo-tab-standalone-button-padding",
+            "rule": "neo-prefix"
+        },
+        "--tab-strip-background-color": {
+            "to": "--neo-tab-strip-background-color",
+            "rule": "neo-prefix"
+        },
+        "--tab-strip-height": {
+            "to": "--neo-tab-strip-height",
+            "rule": "neo-prefix"
+        },
+        "--table-cell-background-color-hover": {
+            "to": "--neo-table-cell-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--table-cell-ismodified-color": {
+            "to": "--neo-table-cell-ismodified-color",
+            "rule": "neo-prefix"
+        },
+        "--table-cell-ismodified-size": {
+            "to": "--neo-table-cell-ismodified-size",
+            "rule": "neo-prefix"
+        },
+        "--table-cellmodel-selected-cell-background-color": {
+            "to": "--neo-table-cellmodel-cell-background-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--table-cellmodel-selected-cell-color": {
+            "to": "--neo-table-cellmodel-cell-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--table-cellmodel-selected-column-cell-background-color": {
+            "to": "--neo-table-cellmodel-column-cell-background-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--table-cellmodel-selected-column-cell-color": {
+            "to": "--neo-table-cellmodel-column-cell-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--table-cellrowmodel-selected-cell-background-color": {
+            "to": "--neo-table-cellrowmodel-cell-background-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--table-cellrowmodel-selected-cell-color": {
+            "to": "--neo-table-cellrowmodel-cell-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--table-cellrowmodel-selected-row-cell-background-color": {
+            "to": "--neo-table-cellrowmodel-row-cell-background-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--table-cellrowmodel-selected-row-cell-color": {
+            "to": "--neo-table-cellrowmodel-row-cell-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--table-container-border-color": {
+            "to": "--neo-table-container-border-color",
+            "rule": "neo-prefix"
+        },
+        "--table-container-cell-background-color": {
+            "to": "--neo-table-container-cell-background-color",
+            "rule": "neo-prefix"
+        },
+        "--table-container-cell-background-color-even": {
+            "to": "--neo-table-container-cell-background-color-even",
+            "rule": "neo-prefix"
+        },
+        "--table-container-cell-border-bottom": {
+            "to": "--neo-table-container-cell-border-bottom",
+            "rule": "neo-prefix"
+        },
+        "--table-container-cell-height": {
+            "to": "--neo-table-container-cell-height",
+            "rule": "neo-prefix"
+        },
+        "--table-container-cell-padding": {
+            "to": "--neo-table-container-cell-padding",
+            "rule": "neo-prefix"
+        },
+        "--table-container-color": {
+            "to": "--neo-table-container-color",
+            "rule": "neo-prefix"
+        },
+        "--table-container-header-cell-border-bottom": {
+            "to": "--neo-table-container-header-cell-border-bottom",
+            "rule": "neo-prefix"
+        },
+        "--table-container-scrollbar-thumb-background": {
+            "to": "--neo-table-container-scrollbar-thumb-background",
+            "rule": "neo-prefix"
+        },
+        "--table-container-scrollbar-thumb-background-hover": {
+            "to": "--neo-table-container-scrollbar-thumb-background-hover",
+            "rule": "neo-prefix"
+        },
+        "--table-container-scrollbar-thumb-background-inactive": {
+            "to": "--neo-table-container-scrollbar-thumb-inactive-background",
+            "rule": "neo-prefix+css-property-suffix",
+            "reason": "WebKit :window-inactive modifier precedes CSS property background"
+        },
+        "--table-container-scrollbar-track-background": {
+            "to": "--neo-table-container-scrollbar-track-background",
+            "rule": "neo-prefix"
+        },
+        "--table-header-button-background-color": {
+            "to": "--neo-table-header-button-background-color",
+            "rule": "neo-prefix"
+        },
+        "--table-header-button-background-image": {
+            "to": "--neo-table-header-button-background-image",
+            "rule": "neo-prefix"
+        },
+        "--table-header-button-color": {
+            "to": "--neo-table-header-button-color",
+            "rule": "neo-prefix"
+        },
+        "--table-header-button-glyph-color": {
+            "to": "--neo-table-header-button-glyph-color",
+            "rule": "neo-prefix"
+        },
+        "--table-header-button-opacity-is-dragging": {
+            "to": "--neo-table-header-button-dragging-opacity",
+            "rule": "neo-prefix+css-property-suffix",
+            "reason": "Modifier .neo-is-dragging precedes CSS property opacity"
+        },
+        "--table-header-button-ripple-background-color": {
+            "to": "--neo-table-header-button-ripple-background-color",
+            "rule": "neo-prefix"
+        },
+        "--table-rowmodel-selected-cell-background-color": {
+            "to": "--neo-table-rowmodel-cell-background-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--table-rowmodel-selected-cell-color": {
+            "to": "--neo-table-rowmodel-cell-color-selected",
+            "rule": "neo-prefix+state-last"
+        },
+        "--textfield-border-color": {
+            "to": "--neo-textfield-border-color",
+            "rule": "neo-prefix"
+        },
+        "--textfield-border-color-active": {
+            "to": "--neo-textfield-border-color-active",
+            "rule": "neo-prefix"
+        },
+        "--textfield-border-color-alert": {
+            "to": "--neo-textfield-border-color-alert",
+            "rule": "neo-prefix"
+        },
+        "--textfield-border-color-disabled": {
+            "to": "--neo-textfield-border-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--textfield-border-color-hovered": {
+            "to": "--neo-textfield-border-color-hover",
+            "rule": "neo-prefix+state-last"
+        },
+        "--textfield-border-color-invalid": {
+            "to": "--neo-textfield-border-color-invalid",
+            "rule": "neo-prefix"
+        },
+        "--textfield-border-color-readonly": {
+            "to": "--neo-textfield-border-color-readonly",
+            "rule": "neo-prefix"
+        },
+        "--textfield-border-radius": {
+            "to": "--neo-textfield-border-radius",
+            "rule": "neo-prefix"
+        },
+        "--textfield-border-width": {
+            "to": "--neo-textfield-border-width",
+            "rule": "neo-prefix"
+        },
+        "--textfield-input-background-color": {
+            "to": "--neo-textfield-input-background-color",
+            "rule": "neo-prefix"
+        },
+        "--textfield-input-background-color-disabled": {
+            "to": "--neo-textfield-input-background-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--textfield-input-background-color-readonly": {
+            "to": "--neo-textfield-input-background-color-readonly",
+            "rule": "neo-prefix"
+        },
+        "--textfield-input-color": {
+            "to": "--neo-textfield-input-color",
+            "rule": "neo-prefix"
+        },
+        "--textfield-input-color-disabled": {
+            "to": "--neo-textfield-input-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--textfield-input-color-readonly": {
+            "to": "--neo-textfield-input-color-readonly",
+            "rule": "neo-prefix"
+        },
+        "--textfield-input-font": {
+            "to": "--neo-textfield-input-font",
+            "rule": "neo-prefix"
+        },
+        "--textfield-input-height": {
+            "to": "--neo-textfield-input-height",
+            "rule": "neo-prefix"
+        },
+        "--textfield-input-padding": {
+            "to": "--neo-textfield-input-padding",
+            "rule": "neo-prefix"
+        },
+        "--textfield-input-placeholder-color": {
+            "to": "--neo-textfield-input-placeholder-color",
+            "rule": "neo-prefix"
+        },
+        "--textfield-input-placeholder-opacity": {
+            "to": "--neo-textfield-input-placeholder-opacity",
+            "rule": "neo-prefix"
+        },
+        "--textfield-label-color": {
+            "to": "--neo-textfield-label-color",
+            "rule": "neo-prefix"
+        },
+        "--textfield-label-color-disabled": {
+            "to": "--neo-textfield-label-color-disabled",
+            "rule": "neo-prefix"
+        },
+        "--textfield-label-color-readonly": {
+            "to": "--neo-textfield-label-color-readonly",
+            "rule": "neo-prefix"
+        },
+        "--textfield-label-top-margin": {
+            "to": "--neo-textfield-label-top-margin",
+            "rule": "neo-prefix"
+        },
+        "--textfield-opacity-disabled": {
+            "to": "--neo-textfield-opacity-disabled",
+            "rule": "neo-prefix"
+        },
+        "--textfield-opacity-readonly": {
+            "to": "--neo-textfield-opacity-readonly",
+            "rule": "neo-prefix"
+        },
+        "--textfield-outline-active": {
+            "to": "--neo-textfield-outline-active",
+            "rule": "neo-prefix"
+        },
+        "--textfield-outline-hovered": {
+            "to": "--neo-textfield-outline-hover",
+            "rule": "neo-prefix+state-last"
+        },
+        "--textfield-sublabel-color": {
+            "to": "--neo-textfield-sublabel-color",
+            "rule": "neo-prefix"
+        },
+        "--textfield-sublabel-font-size": {
+            "to": "--neo-textfield-sublabel-font-size",
+            "rule": "neo-prefix"
+        },
+        "--textfield-sublabel-margin": {
+            "to": "--neo-textfield-sublabel-margin",
+            "rule": "neo-prefix"
+        },
+        "--timer-button-color": {
+            "to": "--neo-timer-button-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--timer-color-end": {
+            "to": "--neo-timer-color-end",
+            "rule": "neo-prefix"
+        },
+        "--timer-color-start": {
+            "to": "--neo-timer-color-start",
+            "rule": "neo-prefix"
+        },
+        "--timer-dimension": {
+            "to": "--neo-timer-dimension",
+            "rule": "neo-prefix"
+        },
+        "--toast-background-color": {
+            "to": "--neo-toast-background-color",
+            "rule": "neo-prefix"
+        },
+        "--toast-color": {
+            "to": "--neo-toast-color",
+            "rule": "neo-prefix"
+        },
+        "--toast-danger-background-color": {
+            "to": "--neo-toast-danger-background-color",
+            "rule": "neo-prefix"
+        },
+        "--toast-danger-color": {
+            "to": "--neo-toast-danger-color",
+            "rule": "neo-prefix"
+        },
+        "--toast-shadow-color": {
+            "to": "--neo-toast-shadow-color",
+            "rule": "neo-prefix"
+        },
+        "--toast-success-background-color": {
+            "to": "--neo-toast-success-background-color",
+            "rule": "neo-prefix"
+        },
+        "--toast-success-color": {
+            "to": "--neo-toast-success-color",
+            "rule": "neo-prefix"
+        },
+        "--toolbar-background-color": {
+            "to": "--neo-toolbar-background-color",
+            "rule": "neo-prefix"
+        },
+        "--toolbar-button-font-size": {
+            "to": "--neo-toolbar-button-font-size",
+            "rule": "neo-prefix"
+        },
+        "--toolbar-button-height": {
+            "to": "--neo-toolbar-button-height",
+            "rule": "neo-prefix"
+        },
+        "--toolbar-button-min-width": {
+            "to": "--neo-toolbar-button-min-width",
+            "rule": "neo-prefix"
+        },
+        "--toolbar-button-padding": {
+            "to": "--neo-toolbar-button-padding",
+            "rule": "neo-prefix"
+        },
+        "--toolbar-padding": {
+            "to": "--neo-toolbar-padding",
+            "rule": "neo-prefix"
+        },
+        "--tooltip-bg": {
+            "to": "--neo-tooltip-background-color",
+            "rule": "neo-prefix+bg-to-background-color"
+        },
+        "--tooltip-border": {
+            "to": "--neo-tooltip-border",
+            "rule": "neo-prefix"
+        },
+        "--tooltip-borderradius": {
+            "to": "--neo-tooltip-border-radius",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--tooltip-boxshadow": {
+            "to": "--neo-tooltip-box-shadow",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--tooltip-color": {
+            "to": "--neo-tooltip-color",
+            "rule": "neo-prefix"
+        },
+        "--tooltip-fontsize": {
+            "to": "--neo-tooltip-font-size",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--tooltip-height": {
+            "to": "--neo-tooltip-height",
+            "rule": "neo-prefix"
+        },
+        "--tooltip-padding": {
+            "to": "--neo-tooltip-padding",
+            "rule": "neo-prefix"
+        },
+        "--Transparent": {
+            "to": "--neo-Transparent",
+            "rule": "old-skeleton-prefix"
+        },
+        "--tree-depth": {
+            "to": "--neo-tree-depth",
+            "rule": "neo-prefix"
+        },
+        "--tree-helper-line-color": {
+            "to": "--neo-tree-helper-line-color",
+            "rule": "neo-prefix"
+        },
+        "--tree-indent": {
+            "to": "--neo-tree-indent",
+            "rule": "neo-prefix"
+        },
+        "--tree-list-color": {
+            "to": "--neo-tree-list-color",
+            "rule": "neo-prefix"
+        },
+        "--tree-list-folder-icon": {
+            "to": "--neo-tree-list-folder-icon",
+            "rule": "neo-prefix"
+        },
+        "--tree-list-indent-base": {
+            "to": "--neo-tree-list-indent-base",
+            "rule": "neo-prefix"
+        },
+        "--tree-list-indent-step": {
+            "to": "--neo-tree-list-indent-step",
+            "rule": "neo-prefix"
+        },
+        "--tree-list-menu-item-color": {
+            "to": "--neo-tree-list-menu-item-color",
+            "rule": "neo-prefix"
+        },
+        "--tree-sort-proxy-box-shadow": {
+            "to": "--neo-tree-sort-proxy-box-shadow",
+            "rule": "neo-prefix"
+        },
+        "--tree-toggle-icon-collapsed": {
+            "to": "--neo-tree-toggle-icon-collapsed",
+            "rule": "neo-prefix"
+        },
+        "--tree-toggle-icon-expanded": {
+            "to": "--neo-tree-toggle-icon-expanded",
+            "rule": "neo-prefix"
+        },
+        "--tree-toggle-icon-leaf": {
+            "to": "--neo-tree-toggle-icon-leaf",
+            "rule": "neo-prefix"
+        },
+        "--tree-toggle-width": {
+            "to": "--neo-tree-toggle-width",
+            "rule": "neo-prefix"
+        },
+        "--trigger-background-color-hover": {
+            "to": "--neo-trigger-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--trigger-border-width": {
+            "to": "--neo-trigger-border-width",
+            "rule": "neo-prefix"
+        },
+        "--trigger-color": {
+            "to": "--neo-trigger-color",
+            "rule": "neo-prefix"
+        },
+        "--trigger-color-hover": {
+            "to": "--neo-trigger-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--trigger-time-background-color-hover": {
+            "to": "--neo-trigger-time-background-color-hover",
+            "rule": "neo-prefix"
+        },
+        "--trigger-time-pointer-color": {
+            "to": "--neo-trigger-time-pointer-color",
+            "rule": "neo-prefix"
+        },
+        "--upload-icon-codepoint": {
+            "to": "--neo-fileuploadfield-upload-icon-codepoint",
+            "rule": "neo-prefix+component-stem",
+            "reason": "DOM class is .neo-fileuploadfield"
+        },
+        "--upload-progress": {
+            "to": "--neo-fileuploadfield-upload-progress",
+            "rule": "neo-prefix+component-stem",
+            "reason": "Set by Neo.form.field.FileUpload on .neo-fileuploadfield"
+        },
+        "--video-ghost-color": {
+            "to": "--neo-video-ghost-color",
+            "rule": "neo-prefix"
+        },
+        "--video-ghost-size": {
+            "to": "--neo-video-ghost-size",
+            "rule": "neo-prefix"
+        },
+        "--viewport-background-color": {
+            "to": "--neo-viewport-background-color",
+            "rule": "neo-prefix"
+        },
+        "--white": {
+            "to": "--neo-white",
+            "rule": "old-skeleton-prefix"
+        },
+        "--white-off": {
+            "to": "--neo-white-off",
+            "rule": "old-skeleton-prefix"
+        },
+        "--yellow-500": {
+            "to": "--neo-yellow-500",
+            "rule": "old-skeleton-prefix"
+        },
+        "--yellow-600": {
+            "to": "--neo-yellow-600",
+            "rule": "old-skeleton-prefix"
+        },
+        "--yellow-700": {
+            "to": "--neo-yellow-700",
+            "rule": "old-skeleton-prefix"
+        }
+    }
+}

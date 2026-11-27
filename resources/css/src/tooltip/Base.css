@@ -1,12 +1,12 @@
 .neo-tooltip {
-    background-color: var(--tooltip-bg);
-    border          : var(--tooltip-border);
-    border-radius   : var(--tooltip-borderradius);
-    box-shadow      : var(--tooltip-boxshadow);
-    color           : var(--tooltip-color);
-    font-size       : var(--tooltip-fontsize);
-    height          : var(--tooltip-height);
-    padding         : var(--tooltip-padding);
+    background-color: var(--neo-tooltip-background-color);
+    border          : var(--neo-tooltip-border);
+    border-radius   : var(--neo-tooltip-border-radius);
+    box-shadow      : var(--neo-tooltip-box-shadow);
+    color           : var(--neo-tooltip-color);
+    font-size       : var(--neo-tooltip-font-size);
+    height          : var(--neo-tooltip-height);
+    padding         : var(--neo-tooltip-padding);
     position        : absolute;
 
     /* Out of sight until Main aligned it, which writes the zone class: a tooltip hidden while its insert was on its

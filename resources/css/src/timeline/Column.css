@@ -13,10 +13,10 @@
    border-bottom lies outside the clipped track */
 .neo-grid-body .neo-grid-row .neo-grid-cell.neo-timeline-cell {
     border-bottom-width: 0;
-    box-shadow         : inset 0 -1px var(--grid-container-border-color);
+    box-shadow         : inset 0 -1px var(--neo-grid-container-border-color);
 
     &.neo-last-column {
-        box-shadow: 1px 0 var(--grid-container-border-color), inset 0 -1px var(--grid-container-border-color);
+        box-shadow: 1px 0 var(--neo-grid-container-border-color), inset 0 -1px var(--neo-grid-container-border-color);
     }
 }
 
@@ -34,9 +34,9 @@
 }
 
 .neo-timeline-non-working {
-    background    : var(--neo-timeline-non-working-bg);
-    border-left   : 1px solid var(--neo-timeline-non-working-border);
-    border-right  : 1px solid var(--neo-timeline-non-working-border);
+    background    : var(--neo-timeline-non-working-background);
+    border-left   : 1px solid var(--neo-timeline-non-working-border-color);
+    border-right  : 1px solid var(--neo-timeline-non-working-border-color);
     bottom        : 0;
     box-sizing    : border-box;
     pointer-events: none;
@@ -61,8 +61,8 @@
     align-items  : center;
     background   : var(--neo-timeline-bar-background);
     border       : 1px solid var(--neo-timeline-bar-border-color);
-    border-radius: var(--neo-timeline-bar-radius, 4px);
-    box-shadow   : var(--neo-timeline-bar-shadow);
+    border-radius: var(--neo-timeline-bar-border-radius, 4px);
+    box-shadow   : var(--neo-timeline-bar-box-shadow);
     box-sizing   : border-box;
     color        : var(--neo-timeline-bar-color);
     display      : flex;
@@ -75,11 +75,11 @@
     z-index      : 1;
 
     &:hover {
-        border-color: var(--neo-timeline-bar-hover-border-color);
+        border-color: var(--neo-timeline-bar-border-color-hover);
     }
 
     &:focus-visible {
-        outline       : 2px solid var(--neo-timeline-focus-color);
+        outline       : 2px solid var(--neo-timeline-outline-color-focus);
         outline-offset: 1px;
     }
 
@@ -92,8 +92,8 @@
 
     &.neo-timeline-bar-highlighted {
         background  : var(--neo-timeline-bar-highlighted-background, var(--neo-timeline-bar-background));
-        border-color: var(--neo-timeline-bar-highlighted-border-color, var(--neo-timeline-focus-color));
-        box-shadow  : 0 0 0 1px var(--neo-timeline-bar-highlighted-border-color, var(--neo-timeline-focus-color));
+        border-color: var(--neo-timeline-bar-highlighted-border-color, var(--neo-timeline-outline-color-focus));
+        box-shadow  : 0 0 0 1px var(--neo-timeline-bar-highlighted-border-color, var(--neo-timeline-outline-color-focus));
     }
 
     .neo-timeline-bar-progress {
@@ -108,7 +108,7 @@
     /* While the bar's start is scrolled out, the title moves into its visible part:
        the body's scroll offset, less the track's and the bar's offsets, keeping 48px of the bar */
     .neo-timeline-bar-label {
-        --neo-timeline-bar-label-shift: clamp(0px, calc(var(--grid-scroll-left, 0px) - var(--neo-timeline-track-x, 0px) - var(--neo-timeline-bar-left, 0px)), calc(var(--neo-timeline-bar-width, 0px) - 48px));
+        --neo-timeline-bar-label-shift: clamp(0px, calc(var(--neo-grid-scroll-left, 0px) - var(--neo-timeline-track-x, 0px) - var(--neo-timeline-bar-left, 0px)), calc(var(--neo-timeline-bar-width, 0px) - 48px));
 
         left         : var(--neo-timeline-bar-label-shift);
         max-width    : calc(100% - var(--neo-timeline-bar-label-shift));

@@ -159,7 +159,7 @@ test('each board column wears the colour the schedule dresses its status\'s bars
     for (const [status, cls] of Object.entries(SchedulerPane.statusBarCls)) {
         const variant = cls.match(/^neo-scheduler-bar-(\w+)$/)?.[1];
 
-        variant && expect(colors[status], `${status} reads its bars' border`).toBe(`var(--neo-scheduler-bar-${variant}-border)`)
+        variant && expect(colors[status], `${status} reads its bars' border`).toBe(`var(--neo-scheduler-bar-${variant}-border-color)`)
     }
 });
 

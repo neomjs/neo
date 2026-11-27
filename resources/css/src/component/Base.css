@@ -2,26 +2,26 @@
 
 /* Shadow at the bottom */
 .neo-aligned-bottom {
-    box-shadow: var(--aligned-bottom-box-shadow);
+    box-shadow: var(--neo-aligned-bottom-box-shadow);
 }
 
 /* Shadow at the left */
 .neo-aligned-left {
-    box-shadow: var(--aligned-left-box-shadow);
+    box-shadow: var(--neo-aligned-left-box-shadow);
 }
 
 /* Shadow at the right */
 .neo-aligned-right {
-    box-shadow: var(--aligned-right-box-shadow);
+    box-shadow: var(--neo-aligned-right-box-shadow);
 }
 
 /* Shadow at the top */
 .neo-aligned-top {
-    box-shadow: var(--aligned-top-box-shadow);
+    box-shadow: var(--neo-aligned-top-box-shadow);
 }
 
 .neo-floating {
-    background-color: var(--neo-background-color);
+    background-color: var(--neo-global-background-color);
     left            : -10000px;
     position        : fixed;
     top             : -10000px;
@@ -67,8 +67,8 @@
 }
 
 .neo-store-load-mask .neo-load-mask-body {
-    background-color: var(--neo-background-color);
+    background-color: var(--neo-global-background-color);
     border-radius   : 50%;
-    color           : var(--neo-color);
+    color           : var(--neo-global-color);
     padding         : .5em;
 }

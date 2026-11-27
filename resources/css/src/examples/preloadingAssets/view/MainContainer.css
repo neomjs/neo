@@ -1,6 +1,6 @@
 .neo-preload-demo.neo-viewport {
-    background: var(--sem-color-surface-neutral-default);
-    color: var(--sem-color-text-neutral-default);
+    background: var(--neo-sem-color-surface-neutral-default);
+    color: var(--neo-sem-color-text-neutral-default);
     gap: 16px;
     overflow: auto;
     padding: clamp(16px, 4vw, 48px);
@@ -35,24 +35,24 @@
 
     .neo-preload-intro,
     .neo-preload-profile-copy p {
-        color: var(--sem-color-text-neutral-subdued);
+        color: var(--neo-sem-color-text-neutral-subdued);
     }
 
     .neo-preload-counter {
-        border: 1px solid var(--sem-color-border-default);
+        border: 1px solid var(--neo-sem-color-border-default);
         border-radius: 6px;
         font-variant-numeric: tabular-nums;
         padding: 7px 10px;
     }
 
     .neo-preload-profiles {
-        border: 1px solid var(--sem-color-border-default);
+        border: 1px solid var(--neo-sem-color-border-default);
         border-radius: 12px;
         overflow: clip;
     }
 
     .neo-preload-profile {
-        background: var(--sem-color-surface-neutral-highlighted);
+        background: var(--neo-sem-color-surface-neutral-highlighted);
         border-end-end-radius: 12px;
         border-end-start-radius: 12px;
         gap: clamp(16px, 5vw, 40px);
@@ -68,7 +68,7 @@
     }
 
     .neo-preload-activity {
-        border-inline-start: 3px solid var(--sem-color-border-default);
+        border-inline-start: 3px solid var(--neo-sem-color-border-default);
         min-height: 3em;
         padding-inline-start: 12px;
     }

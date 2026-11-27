@@ -1,8 +1,8 @@
 .neo-magic-move-text {
-    --neo-transition-time: 500ms;
+    --neo-magic-move-text-transition-duration: 500ms;
 
-    background-color: var(--magic-move-text-background-color);
-    color           : var(--magic-move-text-color);
+    background-color: var(--neo-magic-move-text-background-color);
+    color           : var(--neo-magic-move-text-color);
     font-size       : 30px;
     font-weight     : bold;
 
@@ -18,9 +18,9 @@
             position  : absolute;
             transition:
                 color   0.2s ease-out,
-                left    var(--neo-transition-time) ease-out,
-                opacity var(--neo-transition-time) ease-out,
-                top     var(--neo-transition-time) ease-out;
+                left    var(--neo-magic-move-text-transition-duration) ease-out,
+                opacity var(--neo-magic-move-text-transition-duration) ease-out,
+                top     var(--neo-magic-move-text-transition-duration) ease-out;
         }
     }
 

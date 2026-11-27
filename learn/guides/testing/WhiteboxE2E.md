@@ -47,7 +47,7 @@ The engine tier (the `e2e-engine` jobs of `.github/workflows/test.yml`) runs wit
 No CI test job provisions a Brain. The specs that need one run only locally, with `NEO_AGENTOS_RUNTIME_ROOT` set: the Bridge's own sessions, imports of Brain services, and the window specs the off-socket adapter cannot run yet. Run the ones your change reaches before you hand it off. `LOCAL_ONLY` in `e2eCiSelection.mjs` names each one with its reason, and the tier refuses to start while a Neural Link spec is in neither `ADAPTER_ELIGIBLE_SPECS` nor `LOCAL_ONLY`, so a new spec is never silently left out of CI.
 
 The shared scope classifier picks the tier's population:
-- A **`dev` push** runs the tier in **full**, on eighteen shards.
+- A **`dev` push** runs the tier in **full**, on twenty shards.
 - A **pull request** whose change reaches the E2E impact boundary runs only the specs it can reach. `buildScripts/util/e2eSpecReach.mjs` maps each spec to the app it navigates and that app's static import closure, plus the helpers the spec imports. `selectSpecs` in `e2eCiSelection.mjs` then picks:
   - every spec that reaches a changed file, or whose app fetches it;
   - every changed spec;

@@ -126,9 +126,9 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
 
         expect(after.map(([file]) => file)).toEqual(before.map(([file]) => file));
         expect(read(path.join(target, 'Global.css'))).toContain(':where(.neo-theme-acme)');
-        expect(read(path.join(target, 'Global.css'))).toMatch(/--core-fontfamily-sans\s*:/);
+        expect(read(path.join(target, 'Global.css'))).toMatch(/--neo-core-fontfamily-sans\s*:/);
         // The motion vocabulary belongs to every theme root through the Engine's src/Global.css, never to a snapshot
-        expect(read(path.join(target, 'Global.css'))).not.toContain('--motion-fast');
+        expect(read(path.join(target, 'Global.css'))).not.toContain('--neo-duration-fast');
         expect(read(path.join(target, 'button/Base.css'))).toContain(':where(.neo-theme-acme)');
         expect(snapshot(base)).toEqual(before);
     });
@@ -151,11 +151,11 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
 
         expect(global).toContain(':where(.neo-theme-acme)');
         expect(global).toMatch(/--neo-color-scheme\s*:\s*dark/);
-        expect(global).toMatch(/--core-fontfamily-sans\s*:/);
+        expect(global).toMatch(/--neo-core-fontfamily-sans\s*:/);
         expect(global).not.toContain('.neo-theme-neo-dark');
-        expect(structural).toMatch(/--motion-fast\s*:\s*120ms/);
+        expect(structural).toMatch(/--neo-duration-fast\s*:\s*120ms/);
         expect(button).toContain(':where(.neo-theme-acme)');
-        expect(button).toMatch(/--button-background-color\s*:/);
+        expect(button).toMatch(/--neo-button-background-color\s*:/);
         expect(button).not.toContain('.neo-theme-neo-dark');
         expect(map.Neo.Global).toContain('theme-acme');
         expect(map.Neo.button.Base).toEqual(expect.arrayContaining(['src', 'theme-acme']));

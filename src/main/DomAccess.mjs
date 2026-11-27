@@ -1114,7 +1114,7 @@ class DomAccess extends Base {
 
             // Measure the scrollHeight when forced to overflow, then set height to encompass the scrollHeight
             style.height = style.minHeight = 0;
-            inputStyle.setProperty('--textfield-input-height', `${target.scrollHeight + 5}px`);
+            inputStyle.setProperty('--neo-textfield-input-height', `${target.scrollHeight + 5}px`);
             inputStyle.setProperty('height', '');
             style.height = style.minHeight = ''
         }

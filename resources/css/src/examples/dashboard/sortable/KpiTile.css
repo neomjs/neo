@@ -1,10 +1,10 @@
 /* A key-figure tile of the sortable dashboard. The rules hang on the tile itself, not on the dashboard page, so a
    tile keeps its look in a window of its own and in the drag proxy. */
 .sortable-kpi-tile.neo-dashboard-panel {
-    background   : color-mix(in srgb, var(--neo-color) 4%, var(--neo-background-color));
-    border       : 1px solid color-mix(in srgb, var(--neo-color) 12%, transparent);
+    background   : color-mix(in srgb, var(--neo-global-color) 4%, var(--neo-global-background-color));
+    border       : 1px solid color-mix(in srgb, var(--neo-global-color) 12%, transparent);
     border-radius: 10px;
-    color        : var(--neo-color);
+    color        : var(--neo-global-color);
     min-height   : 64px;
 
     /* The title bar is the handle: a grip and the label to drag by, the window button at its end */
@@ -60,11 +60,11 @@
 
         /* Mixed toward the text colour: darker on a light theme, lighter on a dark one, legible on both */
         &.sortable-good {
-            color: color-mix(in srgb, var(--green-500, #22c55e) 65%, var(--neo-color));
+            color: color-mix(in srgb, var(--neo-green-500, #22c55e) 65%, var(--neo-global-color));
         }
 
         &.sortable-bad {
-            color: color-mix(in srgb, var(--red-500, #ef4444) 70%, var(--neo-color));
+            color: color-mix(in srgb, var(--neo-red-500, #ef4444) 70%, var(--neo-global-color));
         }
     }
 

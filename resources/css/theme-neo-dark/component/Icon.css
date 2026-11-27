@@ -1,4 +1,4 @@
 :where(.neo-theme-neo-dark) {
-    --icon-color    : inherit;
-    --icon-font-size: inherit;
+    --neo-icon-color    : inherit;
+    --neo-icon-font-size: inherit;
 }

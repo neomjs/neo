@@ -68,8 +68,8 @@ test.describe('Grid header↔cell rect sync through drag passes (#12955)', () =>
             bodyScrollLeft   : body.scrollLeft,
             bodyLeft         : Math.round(clip.left),
             rowTransform     : getComputedStyle(row).transform,
-            scrollVar        : getComputedStyle(body).getPropertyValue('--grid-scroll-left') ||
-                               getComputedStyle(body.parentElement).getPropertyValue('--grid-scroll-left')
+            scrollVar        : getComputedStyle(body).getPropertyValue('--neo-grid-scroll-left') ||
+                               getComputedStyle(body.parentElement).getPropertyValue('--neo-grid-scroll-left')
         };
 
         return {headers, cells, scrollCtx};
@@ -126,8 +126,8 @@ test.describe('Grid header↔cell rect sync through drag passes (#12955)', () =>
             addEventListener('mouseup', () => {held = false}, {capture: true});
             toolbar.addEventListener('scroll', () => {
                 const body  = document.getElementById('neo-grid-body-1'),
-                      truth = getComputedStyle(body).getPropertyValue('--grid-scroll-left') ||
-                              getComputedStyle(body.parentElement).getPropertyValue('--grid-scroll-left');
+                      truth = getComputedStyle(body).getPropertyValue('--neo-grid-scroll-left') ||
+                              getComputedStyle(body.parentElement).getPropertyValue('--neo-grid-scroll-left');
 
                 window.__headerCellScrollTrace.push({
                     gridScrollLeft   : Number.parseFloat(truth),

@@ -1,5 +1,5 @@
 :root .neo-theme-light { /* .neo-code-live-preview */
-    --live-preview-border-color           : #ddd;
-    --live-preview-container-box-shadow   : rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
-    --live-preview-header-background-color: #f2f2f2;
+    --neo-live-preview-border-color           : #ddd;
+    --neo-live-preview-container-box-shadow   : rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
+    --neo-live-preview-header-background-color: #f2f2f2;
 }

@@ -1,45 +1,45 @@
 .neo-desktop-taskbar {
     /* Glass buttons instead of the theme's primary fill */
-    --button-background-color       : transparent;
-    --button-background-color-active: var(--desktop-taskbar-item-background-color-active);
-    --button-background-color-hover : var(--desktop-taskbar-item-background-color-hover);
-    --button-border-radius          : 12px;
-    --button-glyph-color            : var(--desktop-taskbar-color);
-    --button-glyph-color-active     : var(--desktop-taskbar-color);
-    --button-glyph-color-hover      : var(--desktop-taskbar-color);
-    --button-height                 : 40px;
-    --button-text-color             : var(--desktop-taskbar-color);
-    --button-text-color-active      : var(--desktop-taskbar-color);
-    --button-text-color-hover       : var(--desktop-taskbar-color);
+    --neo-button-background-color       : transparent;
+    --neo-button-background-color-active: var(--neo-desktop-taskbar-item-background-color-active);
+    --neo-button-background-color-hover : var(--neo-desktop-taskbar-item-background-color-hover);
+    --neo-button-border-radius          : 12px;
+    --neo-button-glyph-color            : var(--neo-desktop-taskbar-color);
+    --neo-button-glyph-color-active     : var(--neo-desktop-taskbar-color);
+    --neo-button-glyph-color-hover      : var(--neo-desktop-taskbar-color);
+    --neo-button-height                 : 40px;
+    --neo-button-color             : var(--neo-desktop-taskbar-color);
+    --neo-button-color-active      : var(--neo-desktop-taskbar-color);
+    --neo-button-color-hover       : var(--neo-desktop-taskbar-color);
 
     backdrop-filter : blur(24px) saturate(160%);
-    background-color: var(--desktop-taskbar-background-color);
-    border-top      : 1px solid var(--desktop-taskbar-border-color);
+    background-color: var(--neo-desktop-taskbar-background-color);
+    border-top      : 1px solid var(--neo-desktop-taskbar-border-color);
     gap             : 6px;
     height          : 60px;
     padding         : 0 12px;
 
     .neo-button.pressed {
-        background-color: var(--desktop-taskbar-item-background-color-active);
+        background-color: var(--neo-desktop-taskbar-item-background-color-active);
     }
 
     .neo-desktop-start-button {
-        --button-background-color       : var(--desktop-taskbar-accent-color);
-        --button-background-color-active: color-mix(in srgb, var(--desktop-taskbar-accent-color) 80%, black);
-        --button-background-color-hover : color-mix(in srgb, var(--desktop-taskbar-accent-color) 85%, white);
-        --button-glyph-color            : var(--desktop-start-button-color);
-        --button-glyph-color-active     : var(--desktop-start-button-color);
-        --button-glyph-color-hover      : var(--desktop-start-button-color);
-        --button-text-color             : var(--desktop-start-button-color);
-        --button-text-color-active      : var(--desktop-start-button-color);
-        --button-text-color-hover       : var(--desktop-start-button-color);
+        --neo-button-background-color       : var(--neo-desktop-taskbar-accent-color);
+        --neo-button-background-color-active: color-mix(in srgb, var(--neo-desktop-taskbar-accent-color) 80%, black);
+        --neo-button-background-color-hover : color-mix(in srgb, var(--neo-desktop-taskbar-accent-color) 85%, white);
+        --neo-button-glyph-color            : var(--neo-desktop-start-button-color);
+        --neo-button-glyph-color-active     : var(--neo-desktop-start-button-color);
+        --neo-button-glyph-color-hover      : var(--neo-desktop-start-button-color);
+        --neo-button-color             : var(--neo-desktop-start-button-color);
+        --neo-button-color-active      : var(--neo-desktop-start-button-color);
+        --neo-button-color-hover       : var(--neo-desktop-start-button-color);
 
-        box-shadow: 0 8px 20px -8px var(--desktop-taskbar-accent-color);
+        box-shadow: 0 8px 20px -8px var(--neo-desktop-taskbar-accent-color);
     }
 
     /* The time over the date, right-aligned at the bar's end */
     .neo-desktop-taskbar-clock {
-        color               : var(--desktop-taskbar-color);
+        color               : var(--neo-desktop-taskbar-color);
         display             : flex;
         flex-direction      : column;
         font-variant-numeric: tabular-nums;
@@ -65,17 +65,17 @@
    main view, so every menu over a desktop takes the look. */
 .neo-desktop-start-menu,
 .neo-viewport:has(.neo-desktop) .neo-menu-list {
-    --menu-list-background-color           : var(--desktop-start-menu-background-color);
-    --menu-list-border-color               : var(--desktop-start-menu-border-color);
-    --menu-list-item-background-color-hover: var(--desktop-start-menu-item-background-color-hover);
-    --menu-list-item-color                 : var(--desktop-start-menu-color);
-    --menu-list-item-icon-color            : var(--desktop-start-menu-icon-color);
-    --menu-list-item-icon-gap              : .7em;
-    --menu-list-item-padding               : 8px 12px;
+    --neo-menu-list-background-color           : var(--neo-desktop-start-menu-background-color);
+    --neo-menu-list-border-color               : var(--neo-desktop-start-menu-border-color);
+    --neo-menu-list-item-background-color-hover: var(--neo-desktop-start-menu-item-background-color-hover);
+    --neo-menu-list-item-color                 : var(--neo-desktop-start-menu-color);
+    --neo-menu-list-item-icon-color            : var(--neo-desktop-start-menu-icon-color);
+    --neo-menu-list-item-icon-gap              : .7em;
+    --neo-menu-list-item-padding               : 8px 12px;
 
     backdrop-filter: blur(24px) saturate(160%);
     border-radius  : 14px;
-    box-shadow     : var(--desktop-start-menu-shadow);
+    box-shadow     : var(--neo-desktop-start-menu-box-shadow);
     min-width      : 220px;
     padding        : 6px;
 

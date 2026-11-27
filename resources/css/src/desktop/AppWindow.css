@@ -1,32 +1,32 @@
 /* An app window drawn as desktop glass. `.neo-dialog` in the selector outranks the dialog's own chrome rules. */
 .neo-dialog.neo-desktop-app-window {
     /* A dialog renders outside the desktop, so it needs its own see-through containers */
-    --container-background-color: transparent;
+    --neo-container-background-color: transparent;
 
     backdrop-filter : blur(30px) saturate(160%);
-    background-color: var(--desktop-app-window-background-color);
-    border          : 1px solid var(--desktop-app-window-border-color);
+    background-color: var(--neo-desktop-app-window-background-color);
+    border          : 1px solid var(--neo-desktop-app-window-border-color);
     border-radius   : 16px;
-    box-shadow      : var(--desktop-app-window-shadow);
-    color           : var(--desktop-app-window-color);
+    box-shadow      : var(--neo-desktop-app-window-box-shadow);
+    color           : var(--neo-desktop-app-window-color);
     overflow        : hidden;
 
     /* Declared on the header itself, so they win over the theme's dialog values inherited from the window */
     .neo-header-toolbar {
-        --dialog-header-color     : var(--desktop-app-window-color);
-        --dialog-icon-color       : var(--desktop-app-window-icon-color);
-        --toolbar-background-color: transparent;
+        --neo-dialog-header-color     : var(--neo-desktop-app-window-color);
+        --neo-dialog-icon-color       : var(--neo-desktop-app-window-icon-color);
+        --neo-toolbar-background-color: transparent;
 
-        border-bottom: 1px solid var(--desktop-app-window-border-color);
+        border-bottom: 1px solid var(--neo-desktop-app-window-border-color);
     }
 
     /* Maximized fills the workspace, the area above the 60px taskbar (`Taskbar.css`), not the dialog's 98% of the
        viewport. A window is `position: fixed` on the body, so the percentages read the viewport. */
     &.neo-maximized {
-        --dialog-maximized-height: calc(100% - 60px);
-        --dialog-maximized-left  : 0;
-        --dialog-maximized-top   : 0;
-        --dialog-maximized-width : 100%;
+        --neo-dialog-maximized-height: calc(100% - 60px);
+        --neo-dialog-maximized-left  : 0;
+        --neo-dialog-maximized-top   : 0;
+        --neo-dialog-maximized-width : 100%;
 
         border-radius: 0;
     }
@@ -36,9 +36,9 @@
    `color` and `font-size` outrank `component/Icon.css` when `Icon.css` links after `AppWindow.css`. */
 .neo-icon.neo-desktop-app-window-icon {
     align-items     : center;
-    background-color: var(--desktop-app-color);
+    background-color: var(--neo-desktop-app-color);
     border-radius   : 7px;
-    color           : var(--desktop-app-window-glyph-color);
+    color           : var(--neo-desktop-app-window-glyph-color);
     display         : inline-flex;
     flex            : none;
     font-size       : 12px;

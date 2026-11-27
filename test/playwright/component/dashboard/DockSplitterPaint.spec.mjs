@@ -117,8 +117,8 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the rendered affo
             // 36/2 pair rather than "non-zero" is what makes an unloaded stylesheet impossible to
             // mistake for a pass — nothing else in the document produces that pair.
             expect(measured.handleContent, 'the grab handle is rendered').toBe('""');
-            expect(measured.handleHeight, 'the long axis is --dock-splitter-handle-size').toBe('36px');
-            expect(measured.handleWidth, 'the short axis is --dock-splitter-handle-thickness').toBe('2px');
+            expect(measured.handleHeight, 'the long axis is --neo-dock-splitter-handle-size').toBe('36px');
+            expect(measured.handleWidth, 'the short axis is --neo-dock-splitter-handle-thickness').toBe('2px');
             expect(measured.handleBackground,
                 'and the handle is painted, not merely present').not.toBe('rgba(0, 0, 0, 0)')
         })
@@ -127,7 +127,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the rendered affo
     test('the ACTIVE handle colour comes from the engine token an app sets', async ({page}) => {
         await applyTheme(page, 'neo-theme-neo-dark');
 
-        // The rendered half of the token contract. Before this change the engine had `--dock-splitter-handle-color`
+        // The rendered half of the token contract. Before this change the engine had `--neo-dock-splitter-handle-color`
         // and `-hover` but no `-active`, so an app wanting a distinct drag colour had nowhere to put
         // it except `&:active::after { background: ... }` in its own stylesheet — precisely the
         // app-layer paint this promotion exists to end. If the engine consumer is missing, the token
@@ -173,7 +173,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the rendered affo
             const style = document.createElement('style');
 
             style.textContent =
-                '.test-app-a .neo-dashboard-dock-splitter { --dock-splitter-handle-color-active: rgb(255, 0, 0) }';
+                '.test-app-a .neo-dashboard-dock-splitter { --neo-dock-splitter-handle-color-active: rgb(255, 0, 0) }';
             document.head.appendChild(style);
             document.querySelector('.neo-dashboard').classList.add('test-app-a')
         });
@@ -456,7 +456,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the rendered affo
     test('the flat opt-out collapses the handle and keeps the band', async ({page}) => {
         await applyTheme(page, 'neo-theme-neo-light');
 
-        // `--dock-splitter-handle-size: 0` is a design statement that greps, not an omission. It
+        // `--neo-dock-splitter-handle-size: 0` is a design statement that greps, not an omission. It
         // must remove the HANDLE without removing the affordance: a consumer opting out of the grip
         // still gets a visible band, or the opt-out would silently re-ship the invisible-splitter
         // defect this floor exists to end.
@@ -471,7 +471,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the rendered affo
                   style  = document.createElement('style');
 
             style.textContent =
-                '.test-app-fm .neo-dashboard-dock-splitter { --dock-splitter-handle-size: 0 }';
+                '.test-app-fm .neo-dashboard-dock-splitter { --neo-dock-splitter-handle-size: 0 }';
             document.head.appendChild(style);
             document.querySelector('.neo-dashboard').classList.add('test-app-fm');
 
@@ -530,7 +530,7 @@ test.describe('examples/dashboard/dock — the consumer the defect was reported 
                 // The app declares no splitter token anywhere; if it ever did, this arm would be
                 // measuring an app override while claiming to measure the engine floor.
                 appSetsTokens    : splitters.some(el =>
-                    ['--dock-splitter-background', '--dock-splitter-handle-color']
+                    ['--neo-dock-splitter-background-color', '--neo-dock-splitter-handle-color']
                         .some(name => getComputedStyle(el).getPropertyValue(name).includes('workstation')))
             };
 
@@ -559,8 +559,8 @@ test.describe('examples/dashboard/dock — the consumer the defect was reported 
                 ? [splitter.handleLong, splitter.handleShort]
                 : [splitter.handleShort, splitter.handleLong];
 
-            expect(long, 'the handle long axis is --dock-splitter-handle-size').toBe('36px');
-            expect(short, 'the short axis is --dock-splitter-handle-thickness').toBe('2px')
+            expect(long, 'the handle long axis is --neo-dock-splitter-handle-size').toBe('36px');
+            expect(short, 'the short axis is --neo-dock-splitter-handle-thickness').toBe('2px')
         }
     })
 });

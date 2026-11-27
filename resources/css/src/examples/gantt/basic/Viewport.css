@@ -11,16 +11,16 @@
     .project-save-status:empty { display: none; }
     .project-zoom-group { gap: 6px; }
     .project-control {
-        --button-background-color-hover: var(--project-hover);
-        --button-secondary-background-color-hover: var(--project-hover);
-        --button-secondary-border-hover: 1px solid var(--project-border);
-        --button-secondary-border-pressed: 1px solid var(--project-selected);
-        --button-secondary-text-color: var(--project-muted);
-        --button-secondary-text-color-active: var(--project-title);
-        --button-secondary-text-color-hover: var(--project-title);
-        --button-text-color: var(--project-muted);
-        --button-text-color-active: var(--project-title);
-        --button-text-color-hover: var(--project-title);
+        --neo-button-background-color-hover: var(--project-hover);
+        --neo-button-secondary-background-color-hover: var(--project-hover);
+        --neo-button-secondary-border-hover: 1px solid var(--project-border);
+        --neo-button-secondary-border-pressed: 1px solid var(--project-selected);
+        --neo-button-secondary-color: var(--project-muted);
+        --neo-button-secondary-color-active: var(--project-title);
+        --neo-button-secondary-color-hover: var(--project-title);
+        --neo-button-color: var(--project-muted);
+        --neo-button-color-active: var(--project-title);
+        --neo-button-color-hover: var(--project-title);
         background: var(--project-control);
         border: 1px solid var(--project-border);
         border-radius: 6px;
@@ -28,16 +28,16 @@
         padding: 0 12px;
 
         &.pressed {
-            --button-background-color-hover: var(--project-selected);
-            --button-secondary-background-color-hover: var(--project-selected);
-            --button-secondary-border-hover: 1px solid var(--project-selected);
-            --button-secondary-border-pressed: 1px solid var(--project-selected);
-            --button-secondary-text-color: var(--project-selected-text);
-            --button-secondary-text-color-active: var(--project-selected-text);
-            --button-secondary-text-color-hover: var(--project-selected-text);
-            --button-text-color: var(--project-selected-text);
-            --button-text-color-active: var(--project-selected-text);
-            --button-text-color-hover: var(--project-selected-text);
+            --neo-button-background-color-hover: var(--project-selected);
+            --neo-button-secondary-background-color-hover: var(--project-selected);
+            --neo-button-secondary-border-hover: 1px solid var(--project-selected);
+            --neo-button-secondary-border-pressed: 1px solid var(--project-selected);
+            --neo-button-secondary-color: var(--project-selected-text);
+            --neo-button-secondary-color-active: var(--project-selected-text);
+            --neo-button-secondary-color-hover: var(--project-selected-text);
+            --neo-button-color: var(--project-selected-text);
+            --neo-button-color-active: var(--project-selected-text);
+            --neo-button-color-hover: var(--project-selected-text);
             background: var(--project-selected);
             border-color: var(--project-selected);
             .neo-button-text { color: var(--project-selected-text); }

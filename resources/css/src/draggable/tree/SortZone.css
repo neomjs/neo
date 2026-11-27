@@ -1,7 +1,7 @@
 /* The proxy shows the item's label only and floats beside the pointer, clear of the item it passes and its slot */
 .neo-dragproxy.neo-tree-sort-proxy {
     border-radius: 4px;
-    box-shadow   : var(--tree-sort-proxy-box-shadow);
+    box-shadow   : var(--neo-tree-sort-proxy-box-shadow);
     overflow     : hidden;
     width        : max-content !important;
 }
@@ -20,16 +20,16 @@
 /* Where a drop lands: a line above or below an item, or the folder it enters, tinted and outlined */
 .neo-tree-list .neo-list-item {
     &.neo-drop-before {
-        box-shadow: inset 0 3px 0 0 var(--sem-color-border-focus, #1c60a0);
+        box-shadow: inset 0 3px 0 0 var(--neo-sem-color-border-focus, #1c60a0);
     }
 
     &.neo-drop-after {
-        box-shadow: inset 0 -3px 0 0 var(--sem-color-border-focus, #1c60a0);
+        box-shadow: inset 0 -3px 0 0 var(--neo-sem-color-border-focus, #1c60a0);
     }
 
     &.neo-drop-inside {
-        background-color: color-mix(in srgb, var(--sem-color-border-focus, #1c60a0) 16%, transparent);
-        outline         : 2px solid var(--sem-color-border-focus, #1c60a0);
+        background-color: color-mix(in srgb, var(--neo-sem-color-border-focus, #1c60a0) 16%, transparent);
+        outline         : 2px solid var(--neo-sem-color-border-focus, #1c60a0);
         outline-offset  : -2px;
     }
 }

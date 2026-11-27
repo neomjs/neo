@@ -9,7 +9,7 @@
     grid-column          : 1 / 3;
     grid-template-columns: subgrid;
     height               : auto;
-    min-height           : calc(var(--textfield-input-height) + var(--textfield-border-width) * 2);
+    min-height           : calc(var(--neo-textfield-input-height) + var(--neo-textfield-border-width) * 2);
 
     > .neo-textfield-label {
       grid-column: 1 / 2;

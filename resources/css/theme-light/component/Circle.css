@@ -1,12 +1,12 @@
 :root .neo-theme-light { /* .neo-circle-component */
-    --circle-back-background-color   : #1f2627;
-    --circle-back-color              : rgb(223, 220, 215);
-    --circle-background-color        : #000;
-    --circle-border-color            : #3c3f41;
-    --circle-inner-background-color  : rgba(62, 123, 134, 0.302);
-    --circle-inner-background-image  : linear-gradient(#468b95, #366b77);
-    --circle-inner-color             : rgb(223, 220, 215);
-    --circle-item-box-shadow-selected: 0 0 0 3px red;
-    --circle-outer-background-color  : rgba(62, 123, 134, 0.302);
-    --circle-outer-color             : #fff;
+    --neo-circle-back-background-color   : #1f2627;
+    --neo-circle-back-color              : rgb(223, 220, 215);
+    --neo-circle-background-color        : #000;
+    --neo-circle-border-color            : #3c3f41;
+    --neo-circle-inner-background-color  : rgba(62, 123, 134, 0.302);
+    --neo-circle-inner-background-image  : linear-gradient(#468b95, #366b77);
+    --neo-circle-inner-color             : rgb(223, 220, 215);
+    --neo-circle-item-box-shadow-selected: 0 0 0 3px red;
+    --neo-circle-outer-background-color  : rgba(62, 123, 134, 0.302);
+    --neo-circle-outer-color             : #fff;
 }

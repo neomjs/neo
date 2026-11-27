@@ -1,15 +1,15 @@
 :root .neo-theme-dark { /* .neo-chip */
-    --chip-align-items             : center;
-    --chip-background-color        : #33343d;
-    --chip-border                  : 1px solid #424242;
-    --chip-border-color-focus      : #5d83a7;
-    --chip-border-radius           : 15px;
-    --chip-close-button-color      : #424242;
-    --chip-close-button-color-hover: #ddd;
-    --chip-glyph-color             : #bbb;
-    --chip-height                  : 30px;
-    --chip-justify-content         : center;
-    --chip-text-align              : left;
-    --chip-text-color              : #bbb;
-    --chip-text-font-size          : 12px;
+    --neo-chip-align-items             : center;
+    --neo-chip-background-color        : #33343d;
+    --neo-chip-border                  : 1px solid #424242;
+    --neo-chip-border-color-focus      : #5d83a7;
+    --neo-chip-border-radius           : 15px;
+    --neo-chip-close-button-color      : #424242;
+    --neo-chip-close-button-color-hover: #ddd;
+    --neo-chip-glyph-color             : #bbb;
+    --neo-chip-height                  : 30px;
+    --neo-chip-justify-content         : center;
+    --neo-chip-text-align              : left;
+    --neo-chip-color              : #bbb;
+    --neo-chip-text-font-size          : 12px;
 }

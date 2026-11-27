@@ -1,3 +1,3 @@
 :root .neo-theme-dark { /* .neo-grid-header-toolbar.neo-is-dragging */
-    --grid-header-button-opacity-is-dragging: 0.3;
+    --neo-grid-header-button-dragging-opacity: 0.3;
 }

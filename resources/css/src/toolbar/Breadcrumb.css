@@ -3,9 +3,9 @@
         &:not(:last-child) {
             margin-right: 30px;
 
-            /* The crumbs are tertiary buttons; --button-text-color belongs to filled ones and vanishes on a toolbar */
+            /* The crumbs are tertiary buttons; --neo-button-color belongs to filled ones and vanishes on a toolbar */
             &::after {
-                color       : var(--button-tertiary-text-color);
+                color       : var(--neo-button-tertiary-color);
                 content     : "\f105";
                 display     : block;
                 font-family : var(--fa-style-family-classic);

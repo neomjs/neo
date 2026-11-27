@@ -100,7 +100,7 @@ ratio from an ancestor, and a split never learns an edge's extent.
 
 The floor is where the boundary earns its keep. Drag the same splitter 900 pixels to the right, far past the band's own
 width. The preview stops at 128 pixels, because the band's CSS minimum is a bound the live resize reads and clamps
-against; the dock's `--dock-edge-band-min-inline-size` token defaults to `8rem`. The release commits `extent: 0.08`. The
+against; the dock's `--neo-dock-edge-band-min-inline-size` token defaults to `8rem`. The release commits `extent: 0.08`. The
 preview never painted a size the document could not hold, so there is nothing to correct after the commit.
 
 ## Moving a tab: the order is easy, the identity is not

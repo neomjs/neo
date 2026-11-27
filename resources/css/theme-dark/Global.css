@@ -5,10 +5,10 @@
 }
 
 :root .neo-theme-dark {
-    --neo-background-color: #323232;
-    --neo-color           : #bbb;
-    --neo-disabled-opacity: 0.5;
-    --neo-font-family     : "Helvetica Neue", "Helvetica", "Arial", "Lucida Grande", sans-serif;
+    --neo-global-background-color: #323232;
+    --neo-global-color           : #bbb;
+    --neo-global-opacity-disabled: 0.5;
+    --neo-global-font-family     : "Helvetica Neue", "Helvetica", "Arial", "Lucida Grande", sans-serif;
     --neo-font-smoothing  : antialiased;
 
     /* Global element typography — this family DECLINES it (#18232), and `initial` is how a family
@@ -20,29 +20,29 @@
 
        This replaces the hand-written `p { …: inherit }` reset. That block stated the same intent for
        one element; these declarations state it for every element the structure layer now covers. */
-    --core-fontfamily-sans         : initial;
-    --core-fontsize-body           : initial;
-    --core-fontsize-h1             : initial;
-    --core-fontsize-h2             : initial;
-    --core-fontsize-h3             : initial;
-    --core-fontweight-regular      : initial;
-    --core-fontweight-semibold     : initial;
-    --core-lineheight-headline     : initial;
-    --core-lineheight-paragraph    : initial;
-    --sem-color-fg-neutral-contrast: initial;
+    --neo-core-fontfamily-sans         : initial;
+    --neo-core-fontsize-body           : initial;
+    --neo-core-fontsize-h1             : initial;
+    --neo-core-fontsize-h2             : initial;
+    --neo-core-fontsize-h3             : initial;
+    --neo-core-fontweight-regular      : initial;
+    --neo-core-fontweight-semibold     : initial;
+    --neo-core-lineheight-headline     : initial;
+    --neo-core-lineheight-paragraph    : initial;
+    --neo-sem-color-fg-neutral-contrast: initial;
 
-    --global-code-background-color : initial;
-    --global-code-border           : initial;
-    --global-code-font-family      : initial;
-    --global-code-border-radius    : initial;
-    --global-code-font-size        : initial;
-    --global-code-padding          : initial;
-    --global-heading-code-color    : initial;
-    --global-heading-code-margin   : initial;
-    --global-heading-code-padding  : initial;
-    --global-heading-letter-spacing: initial;
-    --global-mark-background-color : initial;
-    --global-mark-color            : initial;
-    --global-mark-padding          : initial;
-    --global-paragraph-color       : initial;
+    --neo-global-code-background-color : initial;
+    --neo-global-code-border           : initial;
+    --neo-global-code-font-family      : initial;
+    --neo-global-code-border-radius    : initial;
+    --neo-global-code-font-size        : initial;
+    --neo-global-code-padding          : initial;
+    --neo-global-heading-code-color    : initial;
+    --neo-global-heading-code-margin   : initial;
+    --neo-global-heading-code-padding  : initial;
+    --neo-global-heading-letter-spacing: initial;
+    --neo-global-mark-background-color : initial;
+    --neo-global-mark-color            : initial;
+    --neo-global-mark-padding          : initial;
+    --neo-global-paragraph-color       : initial;
 }

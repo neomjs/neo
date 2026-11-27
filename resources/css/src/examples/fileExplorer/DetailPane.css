@@ -1,10 +1,10 @@
 /* The explorer's detail pane: the selected entry's icon, name and path, then its facts as label and value rows */
 .fe-detail {
     background   : transparent;
-    border       : 1px solid color-mix(in srgb, var(--neo-color) 14%, transparent);
+    border       : 1px solid color-mix(in srgb, var(--neo-global-color) 14%, transparent);
     border-radius: 8px;
     box-sizing   : border-box;
-    color        : var(--neo-color);
+    color        : var(--neo-global-color);
     overflow     : auto;
     padding      : 20px 24px;
 

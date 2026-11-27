@@ -18,7 +18,7 @@ const readGeometry = () => {
           bar   = rect('.neo-dashboard-dock-perspective-toolbar'),
           shell = document.querySelector('.neo-dashboard-dock-edge-zone.neo-dashboard'),
           root  = rect('.neo-dock-workspace'),
-          gap   = shell ? parseFloat(getComputedStyle(shell).getPropertyValue('--dock-maximize-gap')) || 0 : null;
+          gap   = shell ? parseFloat(getComputedStyle(shell).getPropertyValue('--neo-dock-maximize-gap')) || 0 : null;
 
     return pane && bar && shell && root ? {
         barBottom : bar.bottom,

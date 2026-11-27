@@ -59,8 +59,8 @@ test('a committed Mail popup returns only after its native window dwells over th
 
         async function expectIdleWorkspace() {
             await expect(dwell).toHaveCount(0);
-            await expect(workspace).toHaveCSS('--desktop-return-dwell', '0ms');
-            await expect(workspace).toHaveCSS('--desktop-return-offset', '0ms')
+            await expect(workspace).toHaveCSS('--neo-desktop-return-dwell', '0ms');
+            await expect(workspace).toHaveCSS('--neo-desktop-return-offset', '0ms')
         }
 
         // A missing event is the observation: allow a whole 1200 ms native dwell plus its

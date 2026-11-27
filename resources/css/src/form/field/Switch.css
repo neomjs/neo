@@ -1,11 +1,11 @@
 .neo-switchfield {
     .neo-switchfield-input {
-        background-color: var(--switchfield-color-off);
+        background-color: var(--neo-switchfield-off-background-color);
         border-radius   : 999px;
-        height          : var(--switchfield-height);
+        height          : var(--neo-switchfield-height);
         margin          : 0;
         position        : relative;
-        width           : var(--switchfield-width);
+        width           : var(--neo-switchfield-width);
 
         -webkit-appearance         : none;
         -webkit-tap-highlight-color: transparent;
@@ -17,17 +17,17 @@
         }
 
         &:before {
-            background-color: var(--switchfield-color-knob);
+            background-color: var(--neo-switchfield-knob-background-color);
             border-radius   : 50%;
-            height          : var(--switchfield-knobsize);
+            height          : var(--neo-switchfield-knobsize);
             left            : 2px;
             top             : 2px;
             transition      : transform 150ms ease-out;
-            width           : var(--switchfield-knobsize);
+            width           : var(--neo-switchfield-knobsize);
         }
 
         &:after {
-            border       : 1px solid var(--switchfield-color-icon-off);
+            border       : 1px solid var(--neo-switchfield-icon-off-border-color);
             border-radius: 50%;
             bottom       : 8px;
             height       : 6px;
@@ -36,14 +36,14 @@
         }
 
         &:checked {
-            background-color: var(--switchfield-color-on);
+            background-color: var(--neo-switchfield-on-background-color);
 
             &:before {
                 transform: translateX(80%);
             }
 
             &:after {
-                background-color: var(--switchfield-color-icon-on);
+                background-color: var(--neo-switchfield-icon-on-background-color);
                 border          : 0;
                 border-radius   : 0;
                 height          : 8px;
@@ -53,16 +53,16 @@
             }
 
             &:hover {
-                background-color: var(--switchfield-color-on-hovered);
+                background-color: var(--neo-switchfield-on-background-color-hover);
             }
         }
 
         &:focus {
-            outline: var(--switchfield-borderwidth-focused) solid var(--switchfield-bordercolor-focused);
+            outline: var(--neo-switchfield-outline-width-focus) solid var(--neo-switchfield-outline-color-focus);
         }
 
         &:hover {
-            background-color: var(--switchfield-color-off-hovered);
+            background-color: var(--neo-switchfield-off-background-color-hover);
         }
     }
 
@@ -74,13 +74,13 @@
 .neo-disabled {
     .neo-switchfield,
     &.neo-switchfield {
-        opacity: var(--switchfield-opacity-disabled);
+        opacity: var(--neo-switchfield-opacity-disabled);
 
         .neo-switchfield-input {
-            background-color: var(--switchfield-color-off-disabled);
+            background-color: var(--neo-switchfield-off-background-color-disabled);
 
             &:checked {
-                background-color: var(--switchfield-color-on-disabled);
+                background-color: var(--neo-switchfield-on-background-color-disabled);
             }
         }
     }

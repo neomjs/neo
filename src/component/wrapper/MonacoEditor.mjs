@@ -121,7 +121,7 @@ class MonacoEditor extends Base {
          * Maps a Neo theme onto one of {@link #editorThemes}.
          *
          * A map rather than a substring test on the theme name, because the name does not carry the
-         * answer: `neo-theme-cyberpunk` is dark — `--neo-background-color: #0d1117`, and its own
+         * answer: `neo-theme-cyberpunk` is dark — `--neo-global-background-color: #0d1117`, and its own
          * `--neo-color-scheme` says `dark` — and is named neither. Every theme declares that token,
          * but the main-thread reader for it is protected and absent from the app remote manifest, so
          * a component in the App Worker cannot ask. Same shape and same reason as the sibling

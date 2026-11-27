@@ -1,17 +1,17 @@
 .neo-toolbar {
-    background-color: var(--toolbar-background-color);
+    background-color: var(--neo-toolbar-background-color);
     box-sizing: border-box;
-    padding: var(--toolbar-padding);
+    padding: var(--neo-toolbar-padding);
 }
 
 /* A toolbar's buttons take their theme's toolbar size, whatever an ancestor raises a button to, such as the Portal's
    calls to action. Each theme declares `--toolbar-button-*` on its own scope, so in a nested scope the nearest theme
    wins, and zero specificity leaves a toolbar's own size, such as the taskbar's, in charge. */
 :where(.neo-toolbar) {
-    --button-height        : var(--toolbar-button-height);
-    --button-min-width     : var(--toolbar-button-min-width);
-    --button-padding       : var(--toolbar-button-padding);
-    --button-text-font-size: var(--toolbar-button-font-size);
+    --neo-button-height        : var(--neo-toolbar-button-height);
+    --neo-button-min-width     : var(--neo-toolbar-button-min-width);
+    --neo-button-padding       : var(--neo-toolbar-button-padding);
+    --neo-button-text-font-size: var(--neo-toolbar-button-font-size);
 }
 
 .neo-toolbar .neo-button {
@@ -21,7 +21,7 @@
 /* A phone's toolbar padding for a button without a size; a size class re-values the variable on the button itself */
 @media (max-width: 600px) {
     :where(.neo-toolbar) {
-        --button-padding: 0 5px;
+        --neo-button-padding: 0 5px;
     }
 }
 
@@ -52,31 +52,31 @@
 }
 
 .neo-toolbar.neo-dock-left .neo-button-badge.neo-bottom-left {
-    bottom: var(--button-badge-margin-top);
+    bottom: var(--neo-button-badge-margin-top);
     left: unset;
-    right: var(--button-badge-margin-left);
+    right: var(--neo-button-badge-margin-left);
     top: unset;
 }
 
 .neo-toolbar.neo-dock-left .neo-button-badge.neo-bottom-right {
     bottom: unset;
     left: unset;
-    right: var(--button-badge-margin-left);
-    top: var(--button-badge-margin-top);
+    right: var(--neo-button-badge-margin-left);
+    top: var(--neo-button-badge-margin-top);
 }
 
 .neo-toolbar.neo-dock-left .neo-button-badge.neo-top-left {
-    bottom: var(--button-badge-margin-top);
-    left: var(--button-badge-margin-left);
+    bottom: var(--neo-button-badge-margin-top);
+    left: var(--neo-button-badge-margin-left);
     right: unset;
     top: unset;
 }
 
 .neo-toolbar.neo-dock-left .neo-button-badge.neo-top-right {
     bottom: unset;
-    left: var(--button-badge-margin-left);
+    left: var(--neo-button-badge-margin-left);
     right: unset;
-    top: var(--button-badge-margin-top);
+    top: var(--neo-button-badge-margin-top);
 }
 
 .neo-toolbar.neo-dock-left .neo-button-glyph {
@@ -113,14 +113,14 @@
 
 .neo-toolbar.neo-dock-right .neo-button-badge.neo-bottom-left {
     bottom: unset;
-    left: var(--button-badge-margin-left);
+    left: var(--neo-button-badge-margin-left);
     right: unset;
-    top: var(--button-badge-margin-top);
+    top: var(--neo-button-badge-margin-top);
 }
 
 .neo-toolbar.neo-dock-right .neo-button-badge.neo-bottom-right {
-    bottom: var(--button-badge-margin-top);
-    left: var(--button-badge-margin-left);
+    bottom: var(--neo-button-badge-margin-top);
+    left: var(--neo-button-badge-margin-left);
     right: unset;
     top: unset;
 }
@@ -128,14 +128,14 @@
 .neo-toolbar.neo-dock-right .neo-button-badge.neo-top-left {
     bottom: unset;
     left: unset;
-    right: var(--button-badge-margin-left);
-    top: var(--button-badge-margin-top);
+    right: var(--neo-button-badge-margin-left);
+    top: var(--neo-button-badge-margin-top);
 }
 
 .neo-toolbar.neo-dock-right .neo-button-badge.neo-top-right {
-    bottom: var(--button-badge-margin-top);
+    bottom: var(--neo-button-badge-margin-top);
     left: unset;
-    right: var(--button-badge-margin-left);
+    right: var(--neo-button-badge-margin-left);
     top: unset;
 }
 
@@ -154,7 +154,7 @@
 }
 
 .neo-toolbar.neo-dock-bottom .neo-button.icon-left .neo-button-glyph, .neo-toolbar.neo-dock-top .neo-button.icon-left .neo-button-glyph {
-    margin: var(--button-glyph-margin);
+    margin: var(--neo-button-glyph-margin);
 }
 
 .neo-toolbar.neo-dock-bottom .neo-label, .neo-toolbar.neo-dock-top .neo-label {

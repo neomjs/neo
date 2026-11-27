@@ -1,7 +1,7 @@
 .neo-markdown-component {
-    background-color: var(--markdown-bg);
+    background-color: var(--neo-markdown-background-color);
     border-radius: 8px;
-    color: var(--markdown-text-color);
+    color: var(--neo-markdown-color);
     letter-spacing: 1px;
     margin: 0 auto;
     max-width: 1200px;
@@ -18,12 +18,12 @@
 }
 
 .neo-markdown-component a {
-    color: var(--markdown-link-color);
+    color: var(--neo-markdown-link-color);
 }
 
 .neo-markdown-component blockquote {
-    background-color: var(--markdown-blockquote-bg);
-    border-left: 4px solid var(--markdown-blockquote-border);
+    background-color: var(--neo-markdown-blockquote-background-color);
+    border-left: 4px solid var(--neo-markdown-blockquote-border);
     font-style: italic;
     margin-left: 0;
     margin-right: 0;
@@ -54,7 +54,7 @@
 
 .neo-markdown-component details summary {
     align-items: center;
-    color: var(--markdown-details-summary-color);
+    color: var(--neo-markdown-details-summary-color);
     cursor: pointer;
     display: flex;
     font-weight: bold;
@@ -66,7 +66,7 @@
 }
 
 .neo-markdown-component details summary::before {
-    color: var(--markdown-details-icon-color);
+    color: var(--neo-markdown-details-icon-color);
     content: "\f055";
     font-family: var(--fa-style-family, "Font Awesome 7 Free");
     font-size: 1em;
@@ -76,7 +76,7 @@
 }
 
 .neo-markdown-component h1.neo-h1 {
-    color: var(--markdown-h1-color);
+    color: var(--neo-markdown-h1-color);
 }
 
 .neo-markdown-component h1.neo-h1 code {
@@ -94,12 +94,12 @@
 
 .neo-markdown-component hr {
     border: 0;
-    border-top: 1px solid var(--markdown-hr-border);
+    border-top: 1px solid var(--neo-markdown-hr-border);
     margin: 2rem 0;
 }
 
 .neo-markdown-component .lab {
-    box-shadow: var(--markdown-lab-shadow);
+    box-shadow: var(--neo-markdown-lab-box-shadow);
     font-size: 1em;
     margin-bottom: 1em;
     padding: 2px 16px;
@@ -108,11 +108,11 @@
 
 .neo-markdown-component .lab:hover {
     /* On mouse-over, add a deeper shadow */
-    box-shadow: var(--markdown-lab-shadow-hover);
+    box-shadow: var(--neo-markdown-lab-box-shadow-hover);
 }
 
 .neo-markdown-component li::marker {
-    color: var(--markdown-list-marker-color);
+    color: var(--neo-markdown-list-marker-color);
 }
 
 .neo-markdown-component p {
@@ -120,8 +120,8 @@
 }
 
 .neo-markdown-component pre code.language-text:not(.hljs) {
-    background-color: var(--markdown-code-bg);
-    border: thin solid var(--markdown-code-border);
+    background-color: var(--neo-markdown-code-background-color);
+    border: thin solid var(--neo-markdown-code-border);
     display: block;
     font-size: 13px;
     overflow-x: auto;
@@ -130,7 +130,7 @@
 }
 
 .neo-markdown-component pre.hljs {
-    border: thin solid var(--markdown-pre-border);
+    border: thin solid var(--neo-markdown-pre-border);
     border-radius: 4px;
     letter-spacing: 0;
     overflow-x: scroll;
@@ -144,7 +144,7 @@
 .neo-markdown-component .neo-frontmatter-table,
 .neo-markdown-component > table,
 .neo-markdown-component .neo-markdown-table-wrapper > table {
-    border: 1px solid var(--markdown-table-border);
+    border: 1px solid var(--neo-markdown-table-border);
     border-collapse: separate;
     border-radius: 4px;
     border-spacing: 0;
@@ -158,8 +158,8 @@
 .neo-markdown-component > table td,
 .neo-markdown-component .neo-markdown-table-wrapper > table th,
 .neo-markdown-component .neo-markdown-table-wrapper > table td {
-    border-bottom: 1px solid var(--markdown-table-border);
-    border-right: 1px solid var(--markdown-table-border);
+    border-bottom: 1px solid var(--neo-markdown-table-border);
+    border-right: 1px solid var(--neo-markdown-table-border);
     max-width: 48ch;
     overflow-wrap: anywhere;
     padding: 8px 12px;
@@ -185,7 +185,7 @@
 .neo-markdown-component .neo-frontmatter-table th,
 .neo-markdown-component > table th,
 .neo-markdown-component .neo-markdown-table-wrapper > table th {
-    background-color: var(--markdown-table-header-bg);
+    background-color: var(--neo-markdown-table-header-background-color);
     font-weight: bold;
 }
 

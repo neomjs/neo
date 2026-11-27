@@ -13,8 +13,8 @@
                     /* Expanded/Collapsed last child: top half line only, with gap for icon */
                     background-image: linear-gradient(
                         to bottom,
-                        var(--tree-helper-line-color, var(--grid-container-border-color)) 0%,
-                        var(--tree-helper-line-color, var(--grid-container-border-color)) calc(50% - 8px),
+                        var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) 0%,
+                        var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) calc(50% - 8px),
                         transparent calc(50% - 8px),
                         transparent 100%
                     );
@@ -23,8 +23,8 @@
                         /* Leaf last child: continuous line stopping at 50% */
                         background-image: linear-gradient(
                             to bottom,
-                            var(--tree-helper-line-color, var(--grid-container-border-color)) 0%,
-                            var(--tree-helper-line-color, var(--grid-container-border-color)) 50%,
+                            var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) 0%,
+                            var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) 50%,
                             transparent 50%,
                             transparent 100%
                         );
@@ -42,11 +42,11 @@
             background-image: repeating-linear-gradient(
                 to right,
                 transparent,
-                transparent calc(var(--tree-toggle-width, 24px) / 2 - 1px),
-                var(--tree-helper-line-color, var(--grid-container-border-color)) calc(var(--tree-toggle-width, 24px) / 2 - 1px),
-                var(--tree-helper-line-color, var(--grid-container-border-color)) calc(var(--tree-toggle-width, 24px) / 2),
-                transparent calc(var(--tree-toggle-width, 24px) / 2),
-                transparent var(--tree-indent, 16px)
+                transparent calc(var(--neo-tree-toggle-width, 24px) / 2 - 1px),
+                var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) calc(var(--neo-tree-toggle-width, 24px) / 2 - 1px),
+                var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) calc(var(--neo-tree-toggle-width, 24px) / 2),
+                transparent calc(var(--neo-tree-toggle-width, 24px) / 2),
+                transparent var(--neo-tree-indent, 16px)
             );
         }
 
@@ -60,21 +60,21 @@
                Vertical line with a gap in the middle for the icon */
             background-image   : linear-gradient(
                 to bottom,
-                var(--tree-helper-line-color, var(--grid-container-border-color)) 0%,
-                var(--tree-helper-line-color, var(--grid-container-border-color)) calc(50% - 8px),
+                var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) 0%,
+                var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) calc(50% - 8px),
                 transparent calc(50% - 8px),
                 transparent calc(50% + 8px),
-                var(--tree-helper-line-color, var(--grid-container-border-color)) calc(50% + 8px),
-                var(--tree-helper-line-color, var(--grid-container-border-color)) 100%
+                var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) calc(50% + 8px),
+                var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) 100%
             );
             /* Same x as the .neo-tree-indent lanes: `center` would put the 1px line 1px further right */
-            background-position: calc(var(--tree-toggle-width, 24px) / 2 - 1px) 0;
+            background-position: calc(var(--neo-tree-toggle-width, 24px) / 2 - 1px) 0;
             background-repeat  : no-repeat;
             background-size    : 1px 100%;
 
             /* Horizontal line starting after the icon */
             &::after {
-                border-top: 1px solid var(--tree-helper-line-color, var(--grid-container-border-color));
+                border-top: 1px solid var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color));
                 content   : '';
                 left      : calc(50% + 8px);
                 position  : absolute;
@@ -92,8 +92,8 @@
                 /* Continuous vertical line */
                 background-image: linear-gradient(
                     to bottom,
-                    var(--tree-helper-line-color, var(--grid-container-border-color)) 0%,
-                    var(--tree-helper-line-color, var(--grid-container-border-color)) 100%
+                    var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) 0%,
+                    var(--neo-tree-helper-line-color, var(--neo-grid-container-border-color)) 100%
                 );
 
                 /* Horizontal line starting from the center */

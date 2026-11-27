@@ -1,11 +1,11 @@
 .neo-desktop-task-list {
-    --list-container-list-color        : var(--desktop-task-list-color);
-    --list-item-background-color       : transparent;
-    --list-item-background-color-active: var(--desktop-task-list-item-background-color-active);
-    --list-item-background-color-hover : var(--desktop-task-list-item-background-color-hover);
-    --list-item-focus-outline          : 2px solid var(--desktop-task-list-accent-color);
-    --list-item-focus-outline-offset   : -2px;
-    --list-item-padding                : 0 12px 0 8px;
+    --neo-list-container-list-color        : var(--neo-desktop-task-list-color);
+    --neo-list-item-background-color       : transparent;
+    --neo-list-item-background-color-active: var(--neo-desktop-task-list-item-background-color-active);
+    --neo-list-item-background-color-hover : var(--neo-desktop-task-list-item-background-color-hover);
+    --neo-list-item-outline-focus          : 2px solid var(--neo-desktop-task-list-accent-color);
+    --neo-list-item-outline-offset-focus   : -2px;
+    --neo-list-item-padding                : 0 12px 0 8px;
 
     align-items: center;
     display    : flex;
@@ -24,14 +24,14 @@
         /* Only this absolute, 3px-high marker changes size. Moving its edges preserves the 2px
            rounded ends as any label width shrinks to the same centered 6px mark. */
         &::after {
-            background-color: var(--desktop-task-list-accent-color);
+            background-color: var(--neo-desktop-task-list-accent-color);
             border-radius   : 2px;
             bottom          : 3px;
             content         : '';
             height          : 3px;
             inset-inline    : 8px;
             position        : absolute;
-            transition      : inset-inline var(--motion-base) var(--ease-out-soft);
+            transition      : inset-inline var(--neo-duration-base) var(--neo-ease-out);
         }
 
         &.neo-desktop-task-minimized {
@@ -45,9 +45,9 @@
 
     .neo-desktop-task-icon {
         align-items     : center;
-        background-color: var(--desktop-app-color);
+        background-color: var(--neo-desktop-app-color);
         border-radius   : 8px;
-        color           : var(--desktop-task-list-icon-color);
+        color           : var(--neo-desktop-task-list-icon-color);
         display         : flex;
         font-size       : 13px;
         height          : 26px;

@@ -1,10 +1,10 @@
 :root .neo-theme-dark { /* .neo-toolbar */
-    --toolbar-background-color: #323232;
-    --toolbar-padding         : 5px;
+    --neo-toolbar-background-color: #323232;
+    --neo-toolbar-padding         : 5px;
 
     /* A toolbar's buttons: the medium size, which is the theme's default, whatever an ancestor raises a button to */
-    --toolbar-button-font-size: var(--button-size-medium-font-size);
-    --toolbar-button-height   : var(--button-size-medium-height);
-    --toolbar-button-min-width: auto;
-    --toolbar-button-padding  : var(--button-size-medium-padding);
+    --neo-toolbar-button-font-size: var(--neo-button-size-medium-font-size);
+    --neo-toolbar-button-height   : var(--neo-button-size-medium-height);
+    --neo-toolbar-button-min-width: auto;
+    --neo-toolbar-button-padding  : var(--neo-button-size-medium-padding);
 }

@@ -124,12 +124,30 @@ test.describe('buildScripts/util/theme-equality', () => {
             }
         }));
 
-        const fromRepoRoot = resolveBuiltTree(root, 'development'),
-              fromCssDir   = resolveBuiltTree(cssDir, 'development');
+        const fromStubRoot   = resolveBuiltTree(root, 'development'),
+              fromStubCssDir = resolveBuiltTree(cssDir, 'development'),
+              fromExplicitWs = resolveBuiltTree(cssDir, 'development', {repoRoot: REPO_ROOT, sourceRoot: 'workspace'});
 
-        expect(fromRepoRoot.cssRoot).toBe(cssDir);
-        expect(fromCssDir.cssRoot).toBe(cssDir);
-        expect(fromCssDir.themeMap?.themes?.['neo-theme-neo-light']).toEqual(['theme-neo']);
+        expect(fromStubRoot.cssRoot).toBe(cssDir);
+        expect(fromStubRoot.sourceRoot).toBeNull();
+        expect(fromStubRoot.sourceMode).toBe('portable-unresolved');
+        expect(fromStubCssDir.cssRoot).toBe(cssDir);
+        expect(fromStubCssDir.sourceRoot).toBeNull();
+        expect(fromStubCssDir.sourceMode).toBe('portable-unresolved');
+        expect(fromStubCssDir.themeMap?.themes?.['neo-theme-neo-light']).toEqual(['theme-neo']);
+        expect(fromExplicitWs.sourceRoot).toBe(REPO_ROOT);
+        expect(fromExplicitWs.sourceMode).toBe('explicit-workspace');
+        expect(() => resolveBuiltTree(cssDir, 'development', {sourceRoot: root})).toThrow(/Explicit source root.*missing Engine JavaScript/);
+
+        fs.writeFileSync(path.join(jsSrc, 'DefaultConfig.mjs'), 'export default {};\n');
+        const fromRepoRoot = resolveBuiltTree(root, 'development'),
+              fromBuiltCss = resolveBuiltTree(cssDir, 'development');
+
+        expect(fromRepoRoot.sourceRoot).toBe(root);
+        expect(fromRepoRoot.sourceMode).toBe('checkout');
+        expect(fromBuiltCss.cssRoot).toBe(cssDir);
+        expect(fromBuiltCss.sourceRoot).toBe(root);
+        expect(fromBuiltCss.sourceMode).toBe('inferred-checkout');
 
         const urls = collectThemeStylesheetUrls(fromRepoRoot, 'neo-theme-neo-light');
 

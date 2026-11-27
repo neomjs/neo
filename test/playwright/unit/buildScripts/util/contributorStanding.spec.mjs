@@ -28,6 +28,9 @@ const
     LIST_URL = `${REPO_URL}/issues?q=${encodeURIComponent('is:issue is:open no:assignee -linked:pr label:"good first issue","help wanted"')}`,
     ENGINE   = ['src/grid/Body.mjs'],
     DOCS     = ['learn/guides/Intro.md'],
+    // A Fleet app file: a sibling repository's `apps/` holds its own app, not the engine
+    FLEET           = ['apps/agentos/util/SpineBanner.mjs'],
+    INSTITUTION_URL = 'https://github.com/neomjs/neo-agent-institution',
     NEXT     = `**Next, if you want one:** #20701 (also \`grid\`) and #20702 are open and unclaimed; a comment on either claims it. [The full list](${LIST_URL}) has more if both are taken by then.`;
 
 const BADGE_URL = 'https://neomjs.com/badges/outside-dev-4242/';
@@ -155,11 +158,14 @@ test.describe('buildScripts/util/contributorStanding', () => {
         expect(nextIssues({candidates, seed: 'alice'})[0].number).not.toBe(nextIssues({candidates, seed: 'bob'})[0].number)
     });
 
-    test('the invitation follows what the pull request changed', () => {
+    test('the invitation follows what the pull request changed, and in which repository', () => {
         expect(invitation(ENGINE)).toBe(INVITATIONS.engine);
         expect(invitation(['resources/css/src/grid/Body.css', 'CONTRIBUTING.md'])).toBe(INVITATIONS.engine);
         expect(invitation(DOCS)).toBe(INVITATIONS.skills);
-        expect(invitation([])).toBe(INVITATIONS.skills)
+        expect(invitation([])).toBe(INVITATIONS.skills);
+        expect(invitation(ENGINE, REPO_URL)).toBe(INVITATIONS.engine);
+        // A sibling's app sits under `apps/` too, and is not the engine
+        expect(invitation(FLEET, INSTITUTION_URL)).toBe(INVITATIONS.skills)
     });
 
     test.describe('decideMergeComment', () => {
@@ -280,7 +286,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
         /**
          * Runs the workflow's script against a stand-in GitHub, recording every query, post and warning.
          */
-        const run = async ({author = {}, comments = [], eventName = 'pull_request_target', folderStatus = 404, incomplete = () => false, inputs, optOutText = '[]', permission = 'read', searchError} = {}) => {
+        const run = async ({author = {}, comments = [], eventName = 'pull_request_target', folderStatus = 404, incomplete = () => false, inputs, optOutText = '[]', paths = ENGINE, permission = 'read', repo = 'neo', searchError} = {}) => {
             const calls = {contents: [], inFlight: 0, info: [], peakSearches: 0, permissions: [], posted: [], queries: [], summary: [], warnings: []};
 
             const github = {
@@ -296,7 +302,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
                     },
                     pulls : {
                         get      : async () => ({data: pullRequest(author)}),
-                        listFiles: async () => ({data: ENGINE.map(filename => ({filename}))})
+                        listFiles: async () => ({data: paths.map(filename => ({filename}))})
                     },
                     repos : {
                         // The author can read unless the arm passes a permission, and null answers Not Found
@@ -347,7 +353,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
 
             await runStep(
                 github,
-                {eventName, payload: {inputs, pull_request: pullRequest(author)}, repo: {owner: 'neomjs', repo: 'neo'}},
+                {eventName, payload: {inputs, pull_request: pullRequest(author)}, repo: {owner: 'neomjs', repo}},
                 {info: message => calls.info.push(message), summary, warning: message => calls.warnings.push(message)}
             );
 
@@ -379,12 +385,12 @@ test.describe('buildScripts/util/contributorStanding', () => {
             }
         };
 
-        let checkoutOutcome, workspace;
+        let fetchOutcome, workspace;
 
         test.beforeAll(() => {
-            checkoutOutcome              = process.env.CHECKOUT_OUTCOME;
+            fetchOutcome                 = process.env.FETCH_OUTCOME;
             workspace                    = process.env.GITHUB_WORKSPACE;
-            process.env.CHECKOUT_OUTCOME = 'success';
+            process.env.FETCH_OUTCOME    = 'success';
             process.env.GITHUB_WORKSPACE = process.cwd()
         });
 
@@ -392,19 +398,45 @@ test.describe('buildScripts/util/contributorStanding', () => {
             process.env.GITHUB_WORKSPACE = workspace;
 
             // Assigning undefined would store the string "undefined"
-            if (checkoutOutcome === undefined) {
-                delete process.env.CHECKOUT_OUTCOME
+            if (fetchOutcome === undefined) {
+                delete process.env.FETCH_OUTCOME
             } else {
-                process.env.CHECKOUT_OUTCOME = checkoutOutcome
+                process.env.FETCH_OUTCOME = fetchOutcome
             }
         });
 
-        test('it checks out only the two modules, never the head, and reads the payload in script only', () => {
-            expect(raw).toMatch(/\non:\n  pull_request_target:\n    types: \[closed\]\n  workflow_dispatch:/);
-            expect(raw).toMatch(/persist-credentials: false\n {10}sparse-checkout: \|\n {12}buildScripts\/util\/claimResponse\.mjs\n {12}buildScripts\/util\/contributorStanding\.mjs\n/);
+        test('it fetches only the two modules, from neomjs/neo at its own commit, and reads the payload in script only', () => {
+            const shell = raw.split('run: |\n')[1].split('\n\n')[0];
+
+            expect(raw).toMatch(/\non:\n  pull_request_target:\n    types: \[closed\]\n  workflow_call:\n  workflow_dispatch:/);
+            expect(raw).not.toContain('actions/checkout');
+            expect(raw).toContain('WORKFLOW_SHA: ${{ job.workflow_sha }}');
+            expect(shell).toMatch(/\[\[ ! "\$WORKFLOW_SHA" =~ \^\[0-9a-f\]\{40\}\$ \]\]/);
+            expect(shell).toMatch(/for module in claimResponse\.mjs contributorStanding\.mjs; do\n +gh api -H 'Accept: application\/vnd\.github\.raw' \\\n +"repos\/neomjs\/neo\/contents\/buildScripts\/util\/\$\{module\}\?ref=\$\{WORKFLOW_SHA\}"/);
+            // The one shell step expands no expression: event data never reaches a shell
+            expect(raw.match(/^\s+run:/gm)).toHaveLength(1);
+            expect(shell).not.toContain('${{');
             expect(raw).not.toMatch(/^\s+ref:/m);
-            expect(raw).not.toMatch(/^\s+run:/m);
             expect(raw).toMatch(COMMENT_PERMISSIONS)
+        });
+
+        test('a sibling\'s call comments on its own pull request with its own next issues and invitation, from the same org-wide count and badge reads', async () => {
+            const [calls, engine] = [await run({paths: FLEET, repo: 'neo-agent-institution'}), await run()];
+
+            expect(calls.queries).toEqual([
+                'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00Z',
+                'repo:neomjs/neo-agent-institution is:issue is:open label:"good first issue" no:assignee -linked:pr',
+                'repo:neomjs/neo-agent-institution is:issue is:open label:"help wanted" no:assignee -linked:pr'
+            ]);
+            expect(calls.contents).toEqual(['neomjs/pages@main:badges/optout.json', 'neomjs/pages@main:badges/outside-dev-4242']);
+            expect(calls.posted).toHaveLength(1);
+            expect(calls.posted[0]).toMatchObject({issue_number: 20999, owner: 'neomjs', repo: 'neo-agent-institution'});
+            expect(calls.posted[0].body).toBe(comment(0, {paths: FLEET, repoUrl: INSTITUTION_URL}));
+            // The words a Fleet author reads at a first merge, pinned apart from the renderer, against an Engine control
+            expect(calls.posted[0].body).toContain('**Take it with you:**');
+            expect(calls.posted[0].body).not.toContain('the engine you changed');
+            expect(engine.posted[0].body).toContain('**See it run:** the engine you changed runs live in the browser');
+            expect(calls.warnings).toEqual([])
         });
 
         test('the team is whoever can write here: its author gets nothing and costs no search, at a merge and on a dispatch with post', async () => {
@@ -486,7 +518,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
             }
         });
 
-        test('modules that fail to load warn and post nothing, and a failed checkout does not fail the job', async () => {
+        test('modules that fail to load warn and post nothing, and a failed fetch does not fail the job', async () => {
             const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'merge-comment-'));
 
             process.env.GITHUB_WORKSPACE = empty;
@@ -501,23 +533,23 @@ test.describe('buildScripts/util/contributorStanding', () => {
                 fs.rmSync(empty, {force: true, recursive: true})
             }
 
-            expect(raw).toMatch(/uses: actions\/checkout@v7\n(?: +#.*\n)* +continue-on-error: true\n/)
+            expect(raw).toMatch(/id: fetch\n(?: +#.*\n)* +continue-on-error: true\n/)
         });
 
-        test('a checkout that failed after writing both modules warns and posts nothing: the step\'s outcome decides, not the files', async () => {
-            expect(raw).toMatch(/- name: Check out the comment modules\n {8}id: checkout\n/);
-            expect(raw).toContain('CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}');
+        test('a fetch that failed after writing both modules warns and posts nothing: the step\'s outcome decides, not the files', async () => {
+            expect(raw).toMatch(/- name: Fetch the comment modules\n {8}id: fetch\n/);
+            expect(raw).toContain('FETCH_OUTCOME: ${{ steps.fetch.outcome }}');
 
-            process.env.CHECKOUT_OUTCOME = 'failure';
+            process.env.FETCH_OUTCOME = 'failure';
 
             try {
                 const calls = await run();
 
                 expect(calls.queries).toEqual([]);
                 expect(calls.posted).toEqual([]);
-                expect(calls.warnings).toEqual(['No merge comment: the checkout ended failure'])
+                expect(calls.warnings).toEqual(['No merge comment: the module fetch ended failure'])
             } finally {
-                process.env.CHECKOUT_OUTCOME = 'success'
+                process.env.FETCH_OUTCOME = 'success'
             }
         });
 

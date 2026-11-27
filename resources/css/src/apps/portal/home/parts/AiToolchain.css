@@ -1,6 +1,6 @@
 .portal-home-parts-aitoolchain {
     background-color : transparent;
-    color            : var(--sem-color-text-neutral-default);
+    color            : var(--neo-sem-color-text-neutral-default);
     gap              : 4rem;
     padding          : 6em 2em 0; /* Removing bottom padding as FooterContainer is attached */
     scroll-snap-align: start;
@@ -26,7 +26,7 @@
     }
 
     .neo-h3 {
-        color      : var(--sem-color-text-neutral-subdued) !important;
+        color      : var(--neo-sem-color-text-neutral-subdued) !important;
         font-size  : 1.5rem;
         line-height: 1.5;
         margin     : 0;
@@ -73,19 +73,19 @@
         }
 
         article {
-            border-top : 1px solid var(--sem-color-border-subtle);
+            border-top : 1px solid var(--neo-sem-color-border-subtle);
             padding-top: 1rem;
         }
 
         h3 {
-            color      : var(--sem-color-text-neutral-default);
+            color      : var(--neo-sem-color-text-neutral-default);
             font-size  : 1.1rem;
             line-height: 1.35;
             margin     : 0 0 0.5rem;
         }
 
         p {
-            color      : var(--sem-color-text-neutral-subdued);
+            color      : var(--neo-sem-color-text-neutral-subdued);
             font-size  : 1rem;
             line-height: 1.6;
             margin     : 0;

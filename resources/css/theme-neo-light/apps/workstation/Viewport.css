@@ -22,15 +22,15 @@
     /* Projections into the DockPreview component-domain aliases (the settled app-neutral
        boundary): Workstation renders the reused preview/indicator family through ITS OWN
        daylight palette — without these, the shared sheets silently run on dark fallbacks. */
-    --agent-dock-preview-accept        : var(--workstation-signal);
-    --agent-dock-preview-accept-fill   : rgba(15, 118, 110, 0.14);
-    --agent-dock-preview-reject        : #be123c;
-    --agent-dock-preview-reject-fill   : rgba(190, 18, 60, 0.12);
-    --agent-dock-preview-signal        : var(--workstation-signal);
-    --agent-dock-preview-signal-fill   : rgba(15, 118, 110, 0.14);
-    --agent-dock-preview-signal-ground : rgba(255, 255, 255, 0.94);
-    --agent-dock-proxy-border          : color-mix(in srgb, var(--workstation-signal) 38%, var(--workstation-line));
-    --agent-dock-proxy-ground          : var(--workstation-panel);
-    --agent-dock-proxy-shadow          : color-mix(in srgb, var(--workstation-ink-dim) 45%, transparent);
-    --agent-dock-proxy-text            : var(--workstation-ink);
+    --neo-dock-preview-accept-color        : var(--workstation-signal);
+    --neo-dock-preview-accept-background-color   : rgba(15, 118, 110, 0.14);
+    --neo-dock-preview-reject-color        : #be123c;
+    --neo-dock-preview-reject-background-color   : rgba(190, 18, 60, 0.12);
+    --neo-dock-preview-signal-color        : var(--workstation-signal);
+    --neo-dock-preview-signal-background-color   : rgba(15, 118, 110, 0.14);
+    --neo-dock-preview-signal-background : rgba(255, 255, 255, 0.94);
+    --neo-dock-proxy-border-color          : color-mix(in srgb, var(--workstation-signal) 38%, var(--workstation-line));
+    --neo-dock-proxy-background          : var(--workstation-panel);
+    --neo-dock-proxy-box-shadow          : color-mix(in srgb, var(--workstation-ink-dim) 45%, transparent);
+    --neo-dock-proxy-color            : var(--workstation-ink);
 }

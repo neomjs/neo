@@ -1,11 +1,11 @@
 :where(.neo-theme-light) { /* .neo-gantt */
-    --neo-gantt-divider-color          : var(--grid-container-border-color, #ddd);
-    --neo-gantt-arrow-color            : var(--button-text-color, #1c60a0);
+    --neo-gantt-divider-border-color          : var(--neo-grid-container-border-color, #ddd);
+    --neo-gantt-arrow-color            : var(--neo-button-color, #1c60a0);
     --neo-gantt-highlight-color        : #c62828;
-    --neo-gantt-summary-bg             : #e6ebf1;
-    --neo-gantt-summary-border         : var(--grid-header-button-background-color, #5d83a7);
-    --neo-gantt-milestone-bg           : #fef3c7;
-    --neo-gantt-milestone-border       : #b45309;
-    --gantt-task-proxy-box-shadow      : 0 5px 18px rgba(0, 0, 0, .28);
-    --gantt-task-proxy-milestone-filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .32));
+    --neo-gantt-summary-background             : #e6ebf1;
+    --neo-gantt-summary-border-color         : var(--neo-grid-header-button-background-color, #5d83a7);
+    --neo-gantt-milestone-fill           : #fef3c7;
+    --neo-gantt-milestone-stroke       : #b45309;
+    --neo-gantt-task-proxy-box-shadow      : 0 5px 18px rgba(0, 0, 0, .28);
+    --neo-gantt-task-proxy-milestone-filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .32));
 }

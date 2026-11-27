@@ -1,15 +1,15 @@
 :where(.neo-theme-neo-dark) { /* .neo-calendar-weekcomponent */
-    --c-w-allday-event-color-focus          : #fff;
-    --c-w-background-color                  : var(--sem-color-bg-neutral-default);
-    --c-w-border-color                      : var(--sem-color-border-default);
-    --c-w-event-color-focus                 : #fff;
-    --c-w-event-resizable-color            : var(--sem-color-border-focus);
-    --c-w-header-background-color           : var(--sem-color-surface-neutral-default);
-    --c-w-header-date-background-color-hover: var(--sem-color-bg-neutral-hover);
-    --c-w-header-date-color                 : var(--sem-color-text-neutral-default);
-    --c-w-header-date-color-hover           : var(--sem-color-text-neutral-default);
-    --c-w-header-day-color                  : var(--sem-color-text-neutral-subdued);
-    --c-w-header-today-background-color     : red;
-    --c-w-header-today-color                : var(--sem-color-text-neutral-contrast);
-    --c-w-weekend-background-color          : color-mix(in srgb, var(--sem-color-bg-neutral-highlighted) 35%, transparent);
+    --neo-calendar-week-allday-event-color-focus          : #fff;
+    --neo-calendar-week-background-color                  : var(--neo-sem-color-bg-neutral-default);
+    --neo-calendar-week-border-color                      : var(--neo-sem-color-border-default);
+    --neo-calendar-week-event-color-focus                 : #fff;
+    --neo-calendar-week-event-resizable-color            : var(--neo-sem-color-border-focus);
+    --neo-calendar-week-header-background-color           : var(--neo-sem-color-surface-neutral-default);
+    --neo-calendar-week-header-date-background-color-hover: var(--neo-sem-color-bg-neutral-hover);
+    --neo-calendar-week-header-date-color                 : var(--neo-sem-color-text-neutral-default);
+    --neo-calendar-week-header-date-color-hover           : var(--neo-sem-color-text-neutral-default);
+    --neo-calendar-week-header-day-color                  : var(--neo-sem-color-text-neutral-subdued);
+    --neo-calendar-week-header-today-background-color     : red;
+    --neo-calendar-week-header-today-color                : var(--neo-sem-color-text-neutral-contrast);
+    --neo-calendar-week-weekend-background-color          : color-mix(in srgb, var(--neo-sem-color-bg-neutral-highlighted) 35%, transparent);
 }

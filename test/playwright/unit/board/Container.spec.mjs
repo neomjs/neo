@@ -366,7 +366,7 @@ test.describe('Neo.board.Container', () => {
         expect(full[2]['aria-valuenow']).toBe(10);
         expect(full[3].cn.map(node => node.text)).toEqual(['AL', 'GH']);
         expect(bare.map(node => node.cls[0])).toEqual(['neo-board-card-title', 'neo-board-card-menu-button']);
-        expect(tinted.style['--neo-board-card-accent']).toBe('#f59e0b')
+        expect(tinted.style['--neo-board-card-accent-color']).toBe('#f59e0b')
     });
 
     test('a field change outside status and order re-renders the card where it is', () => {

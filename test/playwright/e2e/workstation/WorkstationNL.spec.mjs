@@ -373,7 +373,7 @@ const expectSplitterUnderPointer = (page, box) => expect.poll(() => page.evaluat
 
 /**
  * @summary Reads the dock chrome once the horizontal splitter's colour transitions have settled.
- * Its hover and active paints transition over `--dock-transition-duration-fast`, so a read taken as
+ * Its hover and active paints transition over `--neo-dock-transition-duration-fast`, so a read taken as
  * the state flips reports the colour it is leaving, and two such reads compare equal.
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<Object>}
@@ -475,7 +475,7 @@ const readOverflowMenuSkin = page => page.evaluate(() => {
 
             return (values[0] + .05) / (values[1] + .05)
         },
-        iconToken = menuStyle.getPropertyValue('--menu-list-item-icon-color').trim();
+        iconToken = menuStyle.getPropertyValue('--neo-menu-list-item-icon-color').trim();
 
     return {
         controlThemeClasses: themes(control),
@@ -510,10 +510,10 @@ const readOverflowMenuSkin = page => page.evaluate(() => {
             text: contrast(itemStyle.color, menuStyle.backgroundColor)
         },
         tokens           : {
-            background: menuStyle.getPropertyValue('--menu-list-background-color').trim(),
-            hover     : menuStyle.getPropertyValue('--menu-list-item-background-color-hover').trim(),
+            background: menuStyle.getPropertyValue('--neo-menu-list-background-color').trim(),
+            hover     : menuStyle.getPropertyValue('--neo-menu-list-item-background-color-hover').trim(),
             icon      : iconToken,
-            ink       : menuStyle.getPropertyValue('--menu-list-item-color').trim()
+            ink       : menuStyle.getPropertyValue('--neo-menu-list-item-color').trim()
         }
     }
 });
@@ -1129,7 +1129,7 @@ test.describe('Workstation — dense living-data composition', () => {
                 tourButton  = document.querySelector('.workstation-tour-play'),
                 themeButton = document.querySelector('.workstation-theme-button'),
                 rippleToken = element => getComputedStyle(element)
-                    .getPropertyValue('--button-ripple-background-color').trim().toLowerCase();
+                    .getPropertyValue('--neo-button-ripple-background-color').trim().toLowerCase();
 
             return {
                 gridBackground : getComputedStyle(gridHeader).backgroundColor,
@@ -2747,7 +2747,7 @@ test.describe('Workstation — dense living-data composition', () => {
             maximizeTarget     = await page.evaluate(id => {
                 const host = document.querySelector(`#${id} .neo-dashboard`),
                       rect = host?.getBoundingClientRect(),
-                      gap  = host ? parseFloat(getComputedStyle(host).getPropertyValue('--dock-maximize-gap')) || 0 : 0;
+                      gap  = host ? parseFloat(getComputedStyle(host).getPropertyValue('--neo-dock-maximize-gap')) || 0 : 0;
 
                 return rect && {
                     height: rect.height - 2 * gap,

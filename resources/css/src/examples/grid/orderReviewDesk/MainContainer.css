@@ -2,33 +2,33 @@
 .neo-examples-grid-order-review-desk [class*=neo-theme-],
 body:has(.neo-examples-grid-order-review-desk) .neo-dragproxy,
 body:has(.neo-examples-grid-order-review-desk) .neo-dragproxy [class*=neo-theme-] {
-    --grid-container-border-color                : var(--order-desk-border);
-    --grid-container-cell-background-color       : var(--order-desk-surface);
-    --grid-container-cell-background-color-even  : var(--order-desk-alternate);
-    --grid-container-color                       : var(--order-desk-text);
-    --grid-container-font-size                   : 13px;
-    --grid-cell-background-color-hover           : var(--order-desk-hover);
-    --grid-header-button-background-color        : var(--order-desk-header);
-    --grid-header-button-background-color-hover  : var(--order-desk-hover);
-    --grid-header-button-background-image        : none;
-    --grid-header-button-border-right-color      : var(--order-desk-border);
-    --grid-header-button-color                   : var(--order-desk-title);
-    --grid-header-button-color-hover             : var(--order-desk-accent);
-    --grid-header-button-font-size               : 12px;
-    --grid-header-button-font-weight             : 600;
-    --grid-cellmodel-selected-cell-background-color: var(--order-desk-selected-bg);
-    --grid-cellmodel-selected-cell-color         : var(--order-desk-title);
-    --textfield-border-color                     : var(--order-desk-border);
-    --textfield-border-color-active              : var(--order-desk-accent);
-    --textfield-input-background-color           : var(--order-desk-surface);
-    --textfield-input-color                      : var(--order-desk-title);
+    --neo-grid-container-border-color                : var(--order-desk-border);
+    --neo-grid-container-cell-background-color       : var(--order-desk-surface);
+    --neo-grid-container-cell-background-color-even  : var(--order-desk-alternate);
+    --neo-grid-container-color                       : var(--order-desk-text);
+    --neo-grid-container-font-size                   : 13px;
+    --neo-grid-cell-background-color-hover           : var(--order-desk-hover);
+    --neo-grid-header-button-background-color        : var(--order-desk-header);
+    --neo-grid-header-button-background-color-hover  : var(--order-desk-hover);
+    --neo-grid-header-button-background-image        : none;
+    --neo-grid-header-button-border-right-color      : var(--order-desk-border);
+    --neo-grid-header-button-color                   : var(--order-desk-title);
+    --neo-grid-header-button-color-hover             : var(--order-desk-accent);
+    --neo-grid-header-button-font-size               : 12px;
+    --neo-grid-header-button-font-weight             : 600;
+    --neo-grid-cellmodel-cell-background-color-selected: var(--order-desk-selected-bg);
+    --neo-grid-cellmodel-cell-color-selected         : var(--order-desk-title);
+    --neo-textfield-border-color                     : var(--order-desk-border);
+    --neo-textfield-border-color-active              : var(--order-desk-accent);
+    --neo-textfield-input-background-color           : var(--order-desk-surface);
+    --neo-textfield-input-color                      : var(--order-desk-title);
 }
 
 .neo-examples-grid-order-review-desk.neo-viewport {
     background-color: var(--order-desk-background);
     box-sizing      : border-box;
     color           : var(--order-desk-text);
-    font-family     : var(--neo-font-family);
+    font-family     : var(--neo-global-font-family);
     gap             : 10px;
     overflow-x      : hidden;
     padding         : 16px 20px 12px;
@@ -89,14 +89,14 @@ body:has(.neo-examples-grid-order-review-desk) .neo-dragproxy [class*=neo-theme-
         padding         : 3px;
 
         .order-desk-filter-btn.neo-button {
-            --button-background-color      : transparent;
-            --button-background-color-hover: var(--order-desk-hover);
-            --button-background-image      : none;
-            --button-border                : 1px solid transparent;
-            --button-border-hover          : 1px solid transparent;
-            --button-border-radius         : 999px;
-            --button-text-color            : var(--order-desk-muted);
-            --button-text-color-hover      : var(--order-desk-title);
+            --neo-button-background-color      : transparent;
+            --neo-button-background-color-hover: var(--order-desk-hover);
+            --neo-button-background-image      : none;
+            --neo-button-border                : 1px solid transparent;
+            --neo-button-border-hover          : 1px solid transparent;
+            --neo-button-border-radius         : 999px;
+            --neo-button-color            : var(--order-desk-muted);
+            --neo-button-color-hover      : var(--order-desk-title);
             font-size                      : 12px;
             font-variant-numeric           : tabular-nums;
             font-weight                    : 600;
@@ -104,25 +104,25 @@ body:has(.neo-examples-grid-order-review-desk) .neo-dragproxy [class*=neo-theme-
             padding                        : 0 12px;
 
             &.pressed {
-                --button-background-color      : var(--order-desk-pill-active-bg);
-                --button-background-color-hover: var(--order-desk-pill-active-bg);
-                --button-border                : 1px solid var(--order-desk-accent);
-                --button-text-color            : var(--order-desk-pill-active-text);
-                --button-text-color-hover      : var(--order-desk-pill-active-text);
+                --neo-button-background-color      : var(--order-desk-pill-active-bg);
+                --neo-button-background-color-hover: var(--order-desk-pill-active-bg);
+                --neo-button-border                : 1px solid var(--order-desk-accent);
+                --neo-button-color            : var(--order-desk-pill-active-text);
+                --neo-button-color-hover      : var(--order-desk-pill-active-text);
             }
         }
     }
 
     .order-desk-action-btn.neo-button,
     .order-desk-theme-btn.neo-button {
-        --button-background-color      : var(--order-desk-surface);
-        --button-background-color-hover: var(--order-desk-hover);
-        --button-background-image      : none;
-        --button-border                : 1px solid var(--order-desk-border);
-        --button-border-hover          : 1px solid var(--order-desk-accent);
-        --button-border-radius         : 8px;
-        --button-text-color            : var(--order-desk-title);
-        --button-text-color-hover      : var(--order-desk-title);
+        --neo-button-background-color      : var(--order-desk-surface);
+        --neo-button-background-color-hover: var(--order-desk-hover);
+        --neo-button-background-image      : none;
+        --neo-button-border                : 1px solid var(--order-desk-border);
+        --neo-button-border-hover          : 1px solid var(--order-desk-accent);
+        --neo-button-border-radius         : 8px;
+        --neo-button-color            : var(--order-desk-title);
+        --neo-button-color-hover      : var(--order-desk-title);
         font-size                      : 12px;
         font-weight                    : 600;
         min-height                     : 32px;

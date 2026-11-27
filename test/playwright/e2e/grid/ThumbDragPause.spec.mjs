@@ -18,7 +18,7 @@ import {expect, test} from '../../fixtures.mjs';
  * zero and writes nothing observable. The sequence below therefore engages the pin with a real
  * jump, proves it engaged, and only then stops the world.
  *
- * The observable is `--grid-row-pin-offset` — the CSS custom property `applyPinning` writes
+ * The observable is `--neo-grid-row-pin-offset` — the CSS custom property `applyPinning` writes
  * onto the body nodes — rather than a screenshot, so the assertion and the defect are the same
  * quantity and no rendering judgement enters the loop.
  */
@@ -82,7 +82,7 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
 
                     window.__PIN_SAMPLES.push({
                         t        : performance.now(),
-                        offset   : body.style.getPropertyValue('--grid-row-pin-offset') || '',
+                        offset   : body.style.getPropertyValue('--neo-grid-row-pin-offset') || '',
                         rowCount : rows.length,
                         painted,
                         scrollTop: wrapper.scrollTop
@@ -154,7 +154,7 @@ test.describe('Desktop (1920x1080): BigData Grid Paused Thumb Drag Pinning', () 
 
         const settled = await page.evaluate(async () => {
             const body  = document.querySelector('.neo-grid-body'),
-                  read  = () => Math.abs(parseFloat(body.style.getPropertyValue('--grid-row-pin-offset')) || 0),
+                  read  = () => Math.abs(parseFloat(body.style.getPropertyValue('--neo-grid-row-pin-offset')) || 0),
                   start = performance.now();
 
             while (performance.now() - start < 4000) {

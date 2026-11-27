@@ -1,8 +1,8 @@
 .webdesktop-viewport {
     /* Containers stay see-through, so the sign-in screen shows the desktop's wallpaper (`Neo.desktop.Container`) */
-    --container-background-color: transparent;
+    --neo-container-background-color: transparent;
 
-    background : var(--desktop-wallpaper);
+    background : var(--neo-desktop-wallpaper);
     color      : var(--webdesktop-ink);
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     overflow   : hidden;

@@ -207,10 +207,10 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
                     textColor      : textStyle.color
                 },
                 tokens      : {
-                    border: proxyStyle.getPropertyValue('--agent-dock-proxy-border').trim(),
-                    ground: proxyStyle.getPropertyValue('--agent-dock-proxy-ground').trim(),
-                    shadow: proxyStyle.getPropertyValue('--agent-dock-proxy-shadow').trim(),
-                    text  : proxyStyle.getPropertyValue('--agent-dock-proxy-text').trim()
+                    border: proxyStyle.getPropertyValue('--neo-dock-proxy-border-color').trim(),
+                    ground: proxyStyle.getPropertyValue('--neo-dock-proxy-background').trim(),
+                    shadow: proxyStyle.getPropertyValue('--neo-dock-proxy-box-shadow').trim(),
+                    text  : proxyStyle.getPropertyValue('--neo-dock-proxy-color').trim()
                 }
             }
         })

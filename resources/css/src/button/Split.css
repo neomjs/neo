@@ -21,6 +21,6 @@
     .neo-trigger-button {
         border-bottom-left-radius: 0;
         border-top-left-radius   : 0;
-        margin-left              : calc(-1 * var(--button-border-width));
+        margin-left              : calc(-1 * var(--neo-button-border-width));
     }
 }

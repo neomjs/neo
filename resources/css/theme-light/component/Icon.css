@@ -1,4 +1,4 @@
 :root .neo-theme-light { /* .neo-icon */
-    --icon-color    : inherit;
-    --icon-font-size: inherit;
+    --neo-icon-color    : inherit;
+    --neo-icon-font-size: inherit;
 }

@@ -35,19 +35,19 @@
         }
 
         .editorial-segmented.neo-segmented-button {
-            --toolbar-background-color       : var(--editorial-seg-track-bg);
-            --button-background-color        : transparent;
-            --button-background-color-hover  : var(--editorial-seg-hover-bg);
-            --button-background-color-pressed: var(--editorial-seg-active-bg);
-            --button-border                  : 1px solid transparent;
-            --button-border-hover            : 1px solid transparent;
-            --button-border-pressed          : 1px solid var(--editorial-seg-active-border);
-            --button-text-color              : var(--editorial-muted);
-            --button-text-color-active       : var(--editorial-title);
-            --button-text-color-hover        : var(--editorial-title);
-            --button-text-color-pressed      : var(--editorial-seg-active-text);
-            --button-text-font-size          : 12px;
-            --button-text-font-weight        : 600;
+            --neo-toolbar-background-color       : var(--editorial-seg-track-bg);
+            --neo-button-background-color        : transparent;
+            --neo-button-background-color-hover  : var(--editorial-seg-hover-bg);
+            --neo-button-background-color-pressed: var(--editorial-seg-active-bg);
+            --neo-button-border                  : 1px solid transparent;
+            --neo-button-border-hover            : 1px solid transparent;
+            --neo-button-border-pressed          : 1px solid var(--editorial-seg-active-border);
+            --neo-button-color              : var(--editorial-muted);
+            --neo-button-color-active       : var(--editorial-title);
+            --neo-button-color-hover        : var(--editorial-title);
+            --neo-button-color-pressed      : var(--editorial-seg-active-text);
+            --neo-button-text-font-size          : 12px;
+            --neo-button-text-font-weight        : 600;
             border: 1px solid var(--editorial-seg-border);
 
             > .neo-button {
@@ -136,17 +136,17 @@
         --neo-board-card-background        : var(--editorial-card-bg);
         --neo-board-card-border-color      : var(--editorial-card-border);
         --neo-board-card-color             : var(--editorial-title);
-        --neo-board-card-hover-border-color: var(--editorial-card-hover-border);
+        --neo-board-card-border-color-hover: var(--editorial-card-hover-border);
         --neo-board-card-muted-color       : var(--editorial-muted);
-        --neo-board-card-shadow            : var(--editorial-card-shadow);
+        --neo-board-card-box-shadow            : var(--editorial-card-shadow);
         --neo-board-column-background      : var(--editorial-col-bg);
         --neo-board-column-border-color    : var(--editorial-border);
         --neo-board-column-color           : var(--editorial-title);
         --neo-board-column-width           : 272px;
-        --neo-board-focus-color            : var(--editorial-focus);
+        --neo-board-outline-color-focus            : var(--editorial-focus);
         --neo-board-gap                    : 12px;
         --neo-board-padding                : 14px;
-        --neo-board-track-color            : var(--editorial-progress-track);
+        --neo-board-track-background            : var(--editorial-progress-track);
 
         .neo-board-column-header {
             border-bottom: 1px solid var(--editorial-border);
@@ -284,7 +284,7 @@
                 width                : 100%;
 
                 > .neo-button {
-                    --button-text-font-size: 11.5px;
+                    --neo-button-text-font-size: 11.5px;
                     justify-content: center;
                     min-height     : 28px;
                     padding        : 0 8px;

@@ -31,7 +31,7 @@
             justify-content: flex-start;
 
             &:not(:hover) {
-                background-color: var(--neo-app-content-toolbar-btn-bg);
+                background-color: var(--neo-app-content-toolbar-button-background-color);
             }
 
             .neo-button-text, .neo-button-glyph {
@@ -46,24 +46,24 @@
         }
 
         .content-bottom-toolbar-previous:before {
-            color      : var(--neo-app-content-toolbar-text-color); /* required for mobile */
+            color      : var(--neo-app-content-toolbar-color); /* required for mobile */
             content    : 'Previous Page';
-            font-family: var(--core-fontfamily-sans);
-            left       : var(--app-content-toolbar-text-inset);
+            font-family: var(--neo-core-fontfamily-sans);
+            left       : var(--neo-app-content-toolbar-text-inset);
             position   : absolute;
-            top        : var(--app-content-toolbar-text-inset);
+            top        : var(--neo-app-content-toolbar-text-inset);
         }
 
         .content-bottom-toolbar-next {
             grid-column: 2/3;
 
             &:before {
-                color      : var(--neo-app-content-toolbar-text-color); /* required for mobile */
+                color      : var(--neo-app-content-toolbar-color); /* required for mobile */
                 content    : 'Next Page';
-                font-family: var(--core-fontfamily-sans);
+                font-family: var(--neo-core-fontfamily-sans);
                 position   : absolute;
-                right      : var(--app-content-toolbar-text-inset);
-                top        : var(--app-content-toolbar-text-inset);
+                right      : var(--neo-app-content-toolbar-text-inset);
+                top        : var(--neo-app-content-toolbar-text-inset);
             }
         }
     }

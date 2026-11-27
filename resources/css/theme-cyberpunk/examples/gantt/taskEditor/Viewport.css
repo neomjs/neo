@@ -1,6 +1,6 @@
 :where(.neo-theme-cyberpunk) {
-    --te-header-bg: var(--cyber-bg);
-    --te-border   : var(--cyber-border);
-    --te-title    : var(--cyber-cyan);
-    --te-muted    : var(--cyber-text);
+    --te-header-bg: var(--neo-cyber-background-color);
+    --te-border   : var(--neo-cyber-border);
+    --te-title    : var(--neo-cyber-cyan);
+    --te-muted    : var(--neo-cyber-color);
 }

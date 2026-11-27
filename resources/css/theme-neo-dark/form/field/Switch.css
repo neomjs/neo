@@ -1,17 +1,17 @@
 :where(.neo-theme-neo-dark) { /* .neo-switchfield */
-    --switchfield-bordercolor-focused: var(--purple-400);
-    --switchfield-borderwidth-focused: 4px;
-    --switchfield-color-knob         : var(--white);
-    --switchfield-color-icon-on      : var(--white);
-    --switchfield-color-icon-off     : var(--gray-500);
-    --switchfield-color-off          : var(--gray-700);
-    --switchfield-color-off-disabled : var(--gray-800);
-    --switchfield-color-off-hovered  : var(--gray-600);
-    --switchfield-color-on           : var(--purple-400);
-    --switchfield-color-on-disabled  : var(--purple-800);
-    --switchfield-color-on-hovered   : var(--purple-500);
-    --switchfield-height             : 24px;
-    --switchfield-knobsize           : 20px;
-    --switchfield-opacity-disabled   : .5;
-    --switchfield-width              : 40px;
+    --neo-switchfield-outline-color-focus: var(--neo-purple-400);
+    --neo-switchfield-outline-width-focus: 4px;
+    --neo-switchfield-knob-background-color         : var(--neo-white);
+    --neo-switchfield-icon-on-background-color      : var(--neo-white);
+    --neo-switchfield-icon-off-border-color     : var(--neo-gray-500);
+    --neo-switchfield-off-background-color          : var(--neo-gray-700);
+    --neo-switchfield-off-background-color-disabled : var(--neo-gray-800);
+    --neo-switchfield-off-background-color-hover  : var(--neo-gray-600);
+    --neo-switchfield-on-background-color           : var(--neo-purple-400);
+    --neo-switchfield-on-background-color-disabled  : var(--neo-purple-800);
+    --neo-switchfield-on-background-color-hover   : var(--neo-purple-500);
+    --neo-switchfield-height             : 24px;
+    --neo-switchfield-knobsize           : 20px;
+    --neo-switchfield-opacity-disabled   : .5;
+    --neo-switchfield-width              : 40px;
 }

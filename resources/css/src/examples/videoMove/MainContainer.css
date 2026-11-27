@@ -1,6 +1,6 @@
 .examples-videomove-maincontainer.neo-viewport {
-    background: var(--sem-color-surface-neutral-default);
-    color: var(--sem-color-text-neutral-default);
+    background: var(--neo-sem-color-surface-neutral-default);
+    color: var(--neo-sem-color-text-neutral-default);
     gap: 12px;
     min-height: 100%;
     overflow: auto;
@@ -25,7 +25,7 @@
     }
 
     .neo-videomove-intro {
-        color: var(--sem-color-text-neutral-subdued);
+        color: var(--neo-sem-color-text-neutral-subdued);
         line-height: 1.45;
         margin-block: 0;
     }
@@ -36,15 +36,15 @@
     }
 
     .neo-videomove-bar {
-        background: var(--sem-color-surface-neutral-highlighted);
-        border: 1px solid var(--sem-color-border-default);
+        background: var(--neo-sem-color-surface-neutral-highlighted);
+        border: 1px solid var(--neo-sem-color-border-default);
         border-radius: 10px;
         gap: 14px;
         padding: 10px 14px;
     }
 
     .neo-videomove-readout {
-        color: var(--sem-color-text-neutral-default);
+        color: var(--neo-sem-color-text-neutral-default);
         font-size: 14px;
         font-variant-numeric: tabular-nums;
         font-weight: 500;
@@ -62,8 +62,8 @@
     }
 
     .neo-videomove-card {
-        background: var(--sem-color-surface-neutral-highlighted);
-        border: 1px solid var(--sem-color-border-default);
+        background: var(--neo-sem-color-surface-neutral-highlighted);
+        border: 1px solid var(--neo-sem-color-border-default);
         border-radius: 12px;
         gap: 10px;
         min-width: 0;
@@ -76,7 +76,7 @@
     }
 
     .neo-videomove-badge {
-        color: var(--sem-color-text-neutral-subdued);
+        color: var(--neo-sem-color-text-neutral-subdued);
         font-size: 13px;
         font-variant-numeric: tabular-nums;
     }
@@ -84,8 +84,8 @@
     .neo-videomove-stage {
         align-items: center;
         aspect-ratio: 16 / 9;
-        background: var(--sem-color-surface-neutral-default);
-        border: 1px solid var(--sem-color-border-default);
+        background: var(--neo-sem-color-surface-neutral-default);
+        border: 1px solid var(--neo-sem-color-border-default);
         border-radius: 8px;
         display: flex;
         justify-content: center;
@@ -98,7 +98,7 @@
         }
 
         &:empty::before {
-            color: var(--sem-color-text-neutral-subdued);
+            color: var(--neo-sem-color-text-neutral-subdued);
             content: 'Empty panel — press Move Video to move the playing <video> node here';
             font-size: 13px;
             line-height: 1.45;

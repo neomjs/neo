@@ -1,12 +1,12 @@
 :root .neo-theme-dark { /* .neo-dialog */
-    --dialog-border-color                : #3c3f41;
-    --dialog-box-shadow                  : 0 5px 10px rgba(0,0,0,.4);
-    --dialog-footer-button-border-radius: var(--button-border-radius);
-    --dialog-footer-button-height       : var(--button-height);
-    --dialog-footer-button-margin-left  : 0;
-    --dialog-header-color                : floralwhite;
-    --dialog-icon-color                  : floralwhite;
-    --dialog-header-button-background-color-hover: var(--button-background-color-hover);
-    --dialog-icon-color-hover                    : var(--dialog-icon-color);
-    --dialog-modal-mask-background-color         : rgba(100, 100, 100, 0.5);
+    --neo-dialog-border-color                : #3c3f41;
+    --neo-dialog-box-shadow                  : 0 5px 10px rgba(0,0,0,.4);
+    --neo-dialog-footer-button-border-radius: var(--neo-button-border-radius);
+    --neo-dialog-footer-button-height       : var(--neo-button-height);
+    --neo-dialog-footer-button-margin-left  : 0;
+    --neo-dialog-header-color                : floralwhite;
+    --neo-dialog-icon-color                  : floralwhite;
+    --neo-dialog-header-button-background-color-hover: var(--neo-button-background-color-hover);
+    --neo-dialog-icon-color-hover                    : var(--neo-dialog-icon-color);
+    --neo-dialog-modal-mask-background-color         : rgba(100, 100, 100, 0.5);
 }

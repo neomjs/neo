@@ -1,4 +1,4 @@
 :where(.neo-theme-neo-light) { /* .neo-video */
-    --video-ghost-color: rgba(50, 50, 50, 0.3);
-    --video-ghost-size : 30px;
+    --neo-video-ghost-color: rgba(50, 50, 50, 0.3);
+    --neo-video-ghost-size : 30px;
 }

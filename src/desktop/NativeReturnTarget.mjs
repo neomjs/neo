@@ -130,8 +130,8 @@ class NativeReturnTarget extends Base {
             NativeReturnTarget.#cueOwners.set(workspace, me);
             me.#armedAt = dwell.armedAt;
             workspace.style = {...workspace.style,
-                '--desktop-return-dwell' : dwell.durationMs + 'ms',
-                '--desktop-return-offset': Math.min(dwell.durationMs, Math.max(0, Date.now() - dwell.armedAt)) + 'ms'
+                '--neo-desktop-return-dwell' : dwell.durationMs + 'ms',
+                '--neo-desktop-return-offset': Math.min(dwell.durationMs, Math.max(0, Date.now() - dwell.armedAt)) + 'ms'
             };
             workspace.addCls('neo-desktop-window-dwelling')
         }
@@ -146,7 +146,7 @@ class NativeReturnTarget extends Base {
         NativeReturnTarget.#cueOwners.delete(workspace);
         if (!workspace.isDestroyed) {
             workspace.removeCls('neo-desktop-window-dwelling');
-            workspace.style = {...workspace.style, '--desktop-return-dwell': null, '--desktop-return-offset': null}
+            workspace.style = {...workspace.style, '--neo-desktop-return-dwell': null, '--neo-desktop-return-offset': null}
         }
     }
 

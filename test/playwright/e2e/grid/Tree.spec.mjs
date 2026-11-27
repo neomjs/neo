@@ -21,7 +21,7 @@ const helperLineXs = (page, folderText, childText) => page.evaluate(([folderText
           folderIndent = row(folderText).querySelector('.neo-tree-indent'),
           childIndent  = row(childText) .querySelector('.neo-tree-indent'),
           style        = getComputedStyle(folderToggle),
-          indent       = parseFloat(style.getPropertyValue('--tree-indent')) || 16,
+          indent       = parseFloat(style.getPropertyValue('--neo-tree-indent')) || 16,
           toggleWidth  = folderToggle.getBoundingClientRect().width,
           depth        = folderIndent.getBoundingClientRect().width / indent,
           position     = style.backgroundPositionX,
@@ -173,7 +173,7 @@ test.describe('Tree Grid E2E', () => {
         expect(stemX).toBe(laneX);
 
         // A custom toggle width moves the indent lanes, so the toggle has to follow it
-        await page.locator('.neo-grid-container').evaluate(el => el.style.setProperty('--tree-toggle-width', '30px'));
+        await page.locator('.neo-grid-container').evaluate(el => el.style.setProperty('--neo-tree-toggle-width', '30px'));
 
         ({laneX, stemX, toggleWidth} = await helperLineXs(page, 'Runtime Engine', 'V8 Worker Pool'));
         expect(toggleWidth).toBe(30);

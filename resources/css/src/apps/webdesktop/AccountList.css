@@ -1,13 +1,13 @@
 .webdesktop-account-list {
-    --list-container-list-color          : var(--webdesktop-ink);
-    --list-item-background-color         : transparent;
-    --list-item-background-color-active  : var(--webdesktop-glass-active);
-    --list-item-background-color-hover   : var(--webdesktop-glass-hover);
-    --list-item-background-color-selected: var(--webdesktop-glass-active);
-    --list-item-color-selected           : var(--webdesktop-ink);
-    --list-item-focus-outline            : 2px solid var(--webdesktop-accent);
-    --list-item-focus-outline-offset     : -2px;
-    --list-item-padding                  : 10px 12px;
+    --neo-list-container-list-color          : var(--webdesktop-ink);
+    --neo-list-item-background-color         : transparent;
+    --neo-list-item-background-color-active  : var(--webdesktop-glass-active);
+    --neo-list-item-background-color-hover   : var(--webdesktop-glass-hover);
+    --neo-list-item-background-color-selected: var(--webdesktop-glass-active);
+    --neo-list-item-color-selected           : var(--webdesktop-ink);
+    --neo-list-item-outline-focus            : 2px solid var(--webdesktop-accent);
+    --neo-list-item-outline-offset-focus     : -2px;
+    --neo-list-item-padding                  : 10px 12px;
 
     display       : flex;
     flex-direction: column;
@@ -18,7 +18,7 @@
         border-radius: 14px;
         display      : flex;
         gap          : 14px;
-        transition   : background-color var(--motion-fast) var(--ease-out-soft);
+        transition   : background-color var(--neo-duration-fast) var(--neo-ease-out);
 
         &:hover .webdesktop-account-go {
             opacity  : 1;
@@ -34,6 +34,6 @@
         color     : var(--webdesktop-ink-dim);
         opacity   : 0;
         transform : translateX(-6px);
-        transition: opacity var(--motion-fast) var(--ease-out-soft), transform var(--motion-base) var(--ease-out-soft);
+        transition: opacity var(--neo-duration-fast) var(--neo-ease-out), transform var(--neo-duration-base) var(--neo-ease-out);
     }
 }

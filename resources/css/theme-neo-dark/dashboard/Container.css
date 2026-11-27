@@ -15,41 +15,41 @@
    Provenance: the converged application language. The accents, `signal-ground`, the proxy
    ground/shadow and the line color are the values agentos and the workstation independently
    ship (the signal teal is the preview design artifact's «Signal glow» identity);
-   `--dock-preview-ground` keeps the cockpit's indicator ground byte-near its former
+   `--neo-dock-preview-background` keeps the cockpit's indicator ground byte-near its former
    `--fm-panel-2` read (the app-palette leak this layer retires). */
 
 :where(.neo-theme-neo-dark) {
     /* The accent family this sheet's structure reader paints indicators, chips and the
-       Signal-glow variant with. `--agent-dock-preview-signal{,-fill}` are read WITHOUT a
+       Signal-glow variant with. `--neo-dock-preview-signal-color{,-fill}` are read WITHOUT a
        literal fallback over there, so omitting them here does not degrade to a default —
        the whole declaration drops and the chip renders with no ground and no border. */
-    --agent-dock-preview-accept      : #5eead4;
-    --agent-dock-preview-accept-fill : rgba(94, 234, 212, 0.20);
-    --agent-dock-preview-reject      : #f4718b;
-    --agent-dock-preview-reject-fill : rgba(244, 113, 139, 0.16);
+    --neo-dock-preview-accept-color      : #5eead4;
+    --neo-dock-preview-accept-background-color : rgba(94, 234, 212, 0.20);
+    --neo-dock-preview-reject-color      : #f4718b;
+    --neo-dock-preview-reject-background-color : rgba(244, 113, 139, 0.16);
 
     /* «Signal glow» variant: glow teal + an 18% flood on the deep ground (the ground itself is an
        indicator/chip surface and lives in the Container values sheet). */
-    --agent-dock-preview-signal      : #5eead4;
-    --agent-dock-preview-signal-fill : rgba(94, 234, 212, 0.18);
+    --neo-dock-preview-signal-color      : #5eead4;
+    --neo-dock-preview-signal-background-color : rgba(94, 234, 212, 0.18);
 
     /* Indicator/chip surfaces (default family): a floating dark ground + the converged line. */
-    --agent-dock-preview-signal-ground: rgba(11, 14, 19, 0.92);
-    --dock-preview-ground             : rgba(26, 33, 44, 0.92);
-    --dock-preview-line               : #262f3d;
+    --neo-dock-preview-signal-background: rgba(11, 14, 19, 0.92);
+    --neo-dock-preview-background             : rgba(26, 33, 44, 0.92);
+    --neo-dock-preview-border               : #262f3d;
 
     /* Cross-window arrival pulse: the signal teal at outline strength. */
-    --dock-arrival-outline            : rgba(94, 234, 212, 0.55);
+    --neo-dock-arrival-outline            : rgba(94, 234, 212, 0.55);
 
     /* The drag proxy (mounts at document.body with the theme class stamped on it).
        The border repeats the signal teal above as a literal, so an app's projection of the
        accent tokens leaves it unchanged. */
-    --agent-dock-proxy-border         : color-mix(in srgb, #5eead4 38%, #262f3d);
-    --agent-dock-proxy-ground         : #141a23;
-    --agent-dock-proxy-shadow         : #0b0e13;
-    --agent-dock-proxy-text           : #d6dce6;
+    --neo-dock-proxy-border-color         : color-mix(in srgb, #5eead4 38%, #262f3d);
+    --neo-dock-proxy-background         : #141a23;
+    --neo-dock-proxy-box-shadow         : #0b0e13;
+    --neo-dock-proxy-color           : #d6dce6;
 
     /* The drop chips' shadow, and the Signal-glow chip's. */
-    --dashboard-dock-drop-chip-box-shadow       : 0 2px 8px rgba(0, 0, 0, 0.35);
-    --dashboard-dock-drop-chip-signal-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+    --neo-dashboard-dock-drop-chip-box-shadow       : 0 2px 8px rgba(0, 0, 0, 0.35);
+    --neo-dashboard-dock-drop-chip-signal-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }

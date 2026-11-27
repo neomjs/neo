@@ -1,29 +1,29 @@
 .neo-examples-grid-tree,
 .neo-examples-grid-tree [class*=neo-theme-] {
-    --grid-container-border-color                  : var(--tree-grid-border);
-    --grid-container-cell-background-color         : var(--tree-grid-surface);
-    --grid-container-cell-background-color-even    : var(--tree-grid-alternate);
-    --grid-container-color                         : var(--tree-grid-text);
-    --grid-container-font-size                     : 13px;
-    --grid-cell-background-color-hover             : var(--tree-grid-hover);
-    --grid-header-button-background-color          : var(--tree-grid-header);
-    --grid-header-button-background-color-hover    : var(--tree-grid-hover);
-    --grid-header-button-background-image          : none;
-    --grid-header-button-border-right-color        : var(--tree-grid-border);
-    --grid-header-button-color                     : var(--tree-grid-title);
-    --grid-header-button-color-hover               : var(--tree-grid-accent);
-    --grid-header-button-font-size                 : 12px;
-    --grid-header-button-font-weight               : 600;
-    --grid-header-button-glyph-color               : var(--tree-grid-muted);
-    --grid-header-button-glyph-color-hover         : var(--tree-grid-accent);
-    --grid-rowmodel-selected-cell-background-color : var(--tree-grid-hover);
-    --grid-rowmodel-selected-cell-color            : var(--tree-grid-title);
+    --neo-grid-container-border-color                  : var(--tree-grid-border);
+    --neo-grid-container-cell-background-color         : var(--tree-grid-surface);
+    --neo-grid-container-cell-background-color-even    : var(--tree-grid-alternate);
+    --neo-grid-container-color                         : var(--tree-grid-text);
+    --neo-grid-container-font-size                     : 13px;
+    --neo-grid-cell-background-color-hover             : var(--tree-grid-hover);
+    --neo-grid-header-button-background-color          : var(--tree-grid-header);
+    --neo-grid-header-button-background-color-hover    : var(--tree-grid-hover);
+    --neo-grid-header-button-background-image          : none;
+    --neo-grid-header-button-border-right-color        : var(--tree-grid-border);
+    --neo-grid-header-button-color                     : var(--tree-grid-title);
+    --neo-grid-header-button-color-hover               : var(--tree-grid-accent);
+    --neo-grid-header-button-font-size                 : 12px;
+    --neo-grid-header-button-font-weight               : 600;
+    --neo-grid-header-button-glyph-color               : var(--tree-grid-muted);
+    --neo-grid-header-button-glyph-color-hover         : var(--tree-grid-accent);
+    --neo-grid-rowmodel-cell-background-color-selected : var(--tree-grid-hover);
+    --neo-grid-rowmodel-cell-color-selected            : var(--tree-grid-title);
 }
 
 .neo-examples-grid-tree.neo-viewport {
     background-color: var(--tree-grid-background);
     color           : var(--tree-grid-text);
-    font-family     : var(--neo-font-family);
+    font-family     : var(--neo-global-font-family);
 
     .tree-grid-toolbar {
         background-color: var(--tree-grid-background);

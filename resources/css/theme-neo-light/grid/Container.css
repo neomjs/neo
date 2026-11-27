@@ -1,10 +1,10 @@
 :where(.neo-theme-neo-light) { /* .neo-grid-container */
-    --grid-container-border-color              : #ddd;
-    --grid-container-cell-background-color     : #fff;
-    --grid-container-cell-background-color-even: #f2f2f2;
-    --grid-cell-value-band-1-background-color  : #e6f7ff;
-    --grid-cell-value-band-2-background-color  : #fff;
-    --grid-container-color                     : #666;
-    --grid-container-color-scheme              : light;
-    --grid-container-font-size                 : 13px;
+    --neo-grid-container-border-color              : #ddd;
+    --neo-grid-container-cell-background-color     : #fff;
+    --neo-grid-container-cell-background-color-even: #f2f2f2;
+    --neo-grid-cell-value-band-1-background-color  : #e6f7ff;
+    --neo-grid-cell-value-band-2-background-color  : #fff;
+    --neo-grid-container-color                     : #666;
+    --neo-grid-container-color-scheme              : light;
+    --neo-grid-container-font-size                 : 13px;
 }

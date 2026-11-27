@@ -245,9 +245,9 @@ test.describe('build-themes theme-map regeneration (#17222)', () => {
             fs.writeFileSync(filePath, css, 'utf8');
         };
 
-        writeCss('src/Global.css', ':where([class^="neo-theme-"]) { --motion-fast: 120ms; } .neo-theme-scope { color-scheme: var(--neo-color-scheme); }\n');
-        writeCss('src/button/Base.css', '.neo-button { color: var(--button-text-color); }\n');
-        writeCss('theme-base/button/Base.css', '[class*="neo-theme-"] { --button-text-color: var(--neo-color-text-default); }\n');
+        writeCss('src/Global.css', ':where([class^="neo-theme-"]) { --neo-duration-fast: 120ms; } .neo-theme-scope { color-scheme: var(--neo-color-scheme); }\n');
+        writeCss('src/button/Base.css', '.neo-button { color: var(--neo-button-color); }\n');
+        writeCss('theme-base/button/Base.css', '[class*="neo-theme-"] { --neo-button-color: var(--neo-color-text-default); }\n');
         // Folder name intentionally differs from both declared classes, while theme-neo-dark coexists during migration
         writeCss('shared-neo/Global.css', [
             '/* .neo-theme-commented-out { --ignored: 1; } */',

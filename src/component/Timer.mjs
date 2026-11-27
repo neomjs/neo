@@ -308,13 +308,13 @@ class Timer extends Component {
             style['--neo-timer-full'] = `${properties.full}!important`
         }
         if (properties.colorEnd !== undefined) {
-            style['--timer-color-end'] = `${properties.colorEnd}!important`
+            style['--neo-timer-color-end'] = `${properties.colorEnd}!important`
         }
         if (properties.colorStart !== undefined) {
-            style['--timer-color-start'] = `${properties.colorStart}!important`
+            style['--neo-timer-color-start'] = `${properties.colorStart}!important`
         }
         if (properties.dimensions !== undefined) {
-            style['--timer-dimension'] = `${properties.dimensions}!important`
+            style['--neo-timer-dimension'] = `${properties.dimensions}!important`
         }
 
         this.style = style

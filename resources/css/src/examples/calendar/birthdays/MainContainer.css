@@ -109,22 +109,22 @@ body.neo-theme-neo-light .birthday-book,
 }
 .birthday-picker { overflow: hidden; }
 .birthday-book .birthday-picker.neo-dateselector {
-    --dateselector-background-color: var(--birthday-surface);
-    --dateselector-border-color: var(--birthday-line);
-    --dateselector-cell-background-color: var(--birthday-surface);
-    --dateselector-cell-background-color-disabled: var(--birthday-surface);
-    --dateselector-cell-color: var(--birthday-text);
-    --dateselector-cell-color-disabled: var(--birthday-muted);
-    --dateselector-header-background-color: var(--birthday-surface-soft);
-    --dateselector-header-cell-background-color: var(--birthday-surface-soft);
-    --dateselector-header-cell-color: var(--birthday-muted);
-    --dateselector-header-month-text-color: var(--birthday-text);
-    --dateselector-header-year-text-color: var(--birthday-text);
-    --dateselector-nav-button-background-color: var(--birthday-surface-soft);
-    --dateselector-nav-button-color: var(--birthday-text);
-    --dateselector-nav-button-color-hover: var(--birthday-accent);
-    --dateselector-cell-today-border-color: var(--birthday-accent);
-    --dateselector-cell-color-selected: var(--birthday-bg);
+    --neo-dateselector-background-color: var(--birthday-surface);
+    --neo-dateselector-border-color: var(--birthday-line);
+    --neo-dateselector-cell-background-color: var(--birthday-surface);
+    --neo-dateselector-cell-background-color-disabled: var(--birthday-surface);
+    --neo-dateselector-cell-color: var(--birthday-text);
+    --neo-dateselector-cell-color-disabled: var(--birthday-muted);
+    --neo-dateselector-header-background-color: var(--birthday-surface-soft);
+    --neo-dateselector-header-cell-background-color: var(--birthday-surface-soft);
+    --neo-dateselector-header-cell-color: var(--birthday-muted);
+    --neo-dateselector-header-month-color: var(--birthday-text);
+    --neo-dateselector-header-year-color: var(--birthday-text);
+    --neo-dateselector-nav-button-background-color: var(--birthday-surface-soft);
+    --neo-dateselector-nav-button-color: var(--birthday-text);
+    --neo-dateselector-nav-button-color-hover: var(--birthday-accent);
+    --neo-dateselector-cell-today-border-color: var(--birthday-accent);
+    --neo-dateselector-cell-color-selected: var(--birthday-bg);
 }
 .birthday-detail { padding: 18px 22px; }
 .birthday-date {

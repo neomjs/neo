@@ -42,18 +42,18 @@
     }
 
     .fs-legend-heat-pumps {
-        --fs-swatch       : var(--neo-scheduler-bar-emerald-bg);
-        --fs-swatch-border: var(--neo-scheduler-bar-emerald-border);
+        --fs-swatch       : var(--neo-scheduler-bar-emerald-background);
+        --fs-swatch-border: var(--neo-scheduler-bar-emerald-border-color);
     }
 
     .fs-legend-electrical {
-        --fs-swatch       : var(--neo-scheduler-bar-amber-bg);
-        --fs-swatch-border: var(--neo-scheduler-bar-amber-border);
+        --fs-swatch       : var(--neo-scheduler-bar-amber-background);
+        --fs-swatch-border: var(--neo-scheduler-bar-amber-border-color);
     }
 
     .fs-legend-plumbing {
-        --fs-swatch       : var(--neo-scheduler-bar-violet-bg);
-        --fs-swatch-border: var(--neo-scheduler-bar-violet-border);
+        --fs-swatch       : var(--neo-scheduler-bar-violet-background);
+        --fs-swatch-border: var(--neo-scheduler-bar-violet-border-color);
     }
 
     .fs-hint {

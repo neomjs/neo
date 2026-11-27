@@ -2,7 +2,7 @@
    ends with room to spare, so its last paragraph stays clear of the caption a card lays over the cover's lower part. */
 .neo-examples-markdown-viewport {
     .neo-examples-markdown-toolbar {
-        border-bottom: 1px solid color-mix(in srgb, var(--neo-color) 14%, transparent);
+        border-bottom: 1px solid color-mix(in srgb, var(--neo-global-color) 14%, transparent);
     }
 
     .neo-examples-markdown-output {

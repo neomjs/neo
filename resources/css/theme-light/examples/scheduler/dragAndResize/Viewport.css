@@ -1,17 +1,17 @@
 :where(.neo-theme-light) {
-    --depot-header-bg        : var(--neo-background-color);
+    --depot-header-bg        : var(--neo-global-background-color);
     --depot-status-bg        : #f7f9fc;
-    --depot-border           : var(--grid-container-border-color, #ddd);
+    --depot-border           : var(--neo-grid-container-border-color, #ddd);
     --depot-title            : #163a5f;
     --depot-muted            : #4d4d4d;
     --depot-badge-bg         : #edf4fc;
     --depot-badge-border     : #bed3ea;
     --depot-badge-text       : #163a5f;
-    --depot-control-bg       : var(--button-background-color, #ffffff);
+    --depot-control-bg       : var(--neo-button-background-color, #ffffff);
     --depot-hover-bg         : #eef4fa;
-    --depot-selected-bg      : var(--button-text-color, #1c60a0);
-    --depot-selected-text    : var(--button-background-color, #ffffff);
-    --depot-focus            : var(--button-text-color, #1c60a0);
+    --depot-selected-bg      : var(--neo-button-color, #1c60a0);
+    --depot-selected-text    : var(--neo-button-background-color, #ffffff);
+    --depot-focus            : var(--neo-button-color, #1c60a0);
     --depot-preview-pill-bg  : #e0ecff;
     --depot-preview-pill-text: #1c60a0;
     --depot-moved-pill-bg    : #dcfce7;

@@ -1,10 +1,10 @@
 @keyframes grid-animated-cell {
-    50%  {background-color: var(--button-ripple-background-color);}
+    50%  {background-color: var(--neo-button-ripple-background-color);}
 }
 
 /* The same keyframes under a second name: a change inside a live mark switches to them, which restarts the animation */
 @keyframes grid-animated-cell-alt {
-    50%  {background-color: var(--button-ripple-background-color);}
+    50%  {background-color: var(--neo-button-ripple-background-color);}
 }
 
 .neo-grid-container .neo-grid-row .neo-grid-cell.neo-animated, .neo-grid-container .neo-grid-row.neo-even .neo-grid-cell.neo-animated {

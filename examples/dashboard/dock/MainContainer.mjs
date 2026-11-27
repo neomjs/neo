@@ -270,7 +270,7 @@ class MainContainer extends DockWorkspace {
             layout: {ntype: 'hbox', align: 'center'},
             ntype : 'toolbar',
             style : {
-                borderBottom: '1px solid var(--sem-color-border-default, #ddd)',
+                borderBottom: '1px solid var(--neo-sem-color-border-default, #ddd)',
                 padding     : '8px 10px'
             }
         }

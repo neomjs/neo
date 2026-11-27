@@ -12,9 +12,9 @@
 
     /* A setting beside the page's action, so lower and lighter than that action */
     .portal-examples-build-control.neo-button {
-        --button-height          : 36px;
-        --button-text-font-size  : 14px;
-        --button-text-font-weight: var(--core-fontweight-regular);
+        --neo-button-height          : 36px;
+        --neo-button-text-font-size  : 14px;
+        --neo-button-text-font-weight: var(--neo-core-fontweight-regular);
 
         border-radius: 8px;
         white-space  : nowrap;
@@ -22,21 +22,21 @@
 
     /* Synchronized cross-group find field shown in desktop sidebar and mobile crumb header. */
     .portal-examples-find-field.neo-searchfield.neo-textfield {
-        --searchfield-glyph-color            : var(--portal-examples-accent);
-        --textfield-border-color             : var(--portal-examples-border);
-        --textfield-border-color-active      : var(--portal-examples-accent);
-        --textfield-border-color-hovered     : var(--portal-examples-accent);
-        --textfield-border-radius            : 8px;
-        --textfield-input-background-color   : var(--portal-examples-bg-raised);
-        --textfield-input-color              : var(--portal-examples-text);
-        --textfield-input-height             : 34px;
-        --textfield-input-padding            : 4px 10px;
-        --textfield-input-placeholder-color  : var(--portal-examples-text-muted);
-        --textfield-input-placeholder-opacity: 0.9;
-        --trigger-background-color-hover     : transparent;
-        --trigger-border-width               : 0px;
-        --trigger-color                      : var(--portal-examples-text-muted);
-        --trigger-color-hover                : var(--portal-examples-text);
+        --neo-searchfield-glyph-color            : var(--portal-examples-accent);
+        --neo-textfield-border-color             : var(--portal-examples-border);
+        --neo-textfield-border-color-active      : var(--portal-examples-accent);
+        --neo-textfield-border-color-hover     : var(--portal-examples-accent);
+        --neo-textfield-border-radius            : 8px;
+        --neo-textfield-input-background-color   : var(--portal-examples-bg-raised);
+        --neo-textfield-input-color              : var(--portal-examples-text);
+        --neo-textfield-input-height             : 34px;
+        --neo-textfield-input-padding            : 4px 10px;
+        --neo-textfield-input-placeholder-color  : var(--portal-examples-text-muted);
+        --neo-textfield-input-placeholder-opacity: 0.9;
+        --neo-trigger-background-color-hover     : transparent;
+        --neo-trigger-border-width               : 0px;
+        --neo-trigger-color                      : var(--portal-examples-text-muted);
+        --neo-trigger-color-hover                : var(--portal-examples-text);
 
         margin  : 0;
         position: relative;
@@ -88,7 +88,7 @@
         overflow : visible;
 
         .neo-button {
-            --button-margin: 0;
+            --neo-button-margin: 0;
         }
     }
 
@@ -97,7 +97,7 @@
     }
 
     .portal-examples-group-button.neo-button {
-        --button-padding: 0 10px;
+        --neo-button-padding: 0 10px;
 
         border-radius: 8px;
         min-width    : 0;
@@ -109,7 +109,7 @@
 
         /* The caret says the button opens a list */
         &::after {
-            color      : var(--button-secondary-glyph-color, var(--portal-examples-text));
+            color      : var(--neo-button-secondary-glyph-color, var(--portal-examples-text));
             content    : "\f0d7";
             font-family: var(--fa-style-family-classic);
             font-weight: 900;

@@ -1,6 +1,6 @@
 :where(.neo-theme-neo-dark) { /* .neo-fieldset */
-    --fieldset-background-color : var(--sem-color-surface-primary-background);
-    --fieldset-border           : 1px solid var(--purple-800);
-    --fieldset-legend-color     : var(--sem-color-text-primary-default);
-    --fieldset-legend-icon-color: var(--sem-color-icon-primary-default);
+    --neo-fieldset-background-color : var(--neo-sem-color-surface-primary-background);
+    --neo-fieldset-border           : 1px solid var(--neo-purple-800);
+    --neo-fieldset-legend-color     : var(--neo-sem-color-text-primary-default);
+    --neo-fieldset-legend-icon-color: var(--neo-sem-color-icon-primary-default);
 }

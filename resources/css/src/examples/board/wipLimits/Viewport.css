@@ -128,9 +128,9 @@
         --neo-board-column-width: clamp(276px, calc((100% - 3 * var(--neo-board-gap)) / 4), 380px);
 
         .neo-board-column {
-            transition: background-color var(--motion-fast) var(--ease-out-soft),
-                        border-color var(--motion-fast) var(--ease-out-soft),
-                        box-shadow var(--motion-fast) var(--ease-out-soft);
+            transition: background-color var(--neo-duration-fast) var(--neo-ease-out),
+                        border-color var(--neo-duration-fast) var(--neo-ease-out),
+                        box-shadow var(--neo-duration-fast) var(--neo-ease-out);
 
             &.neo-board-column-wip-exceeded {
                 border-top: 3px solid var(--neo-board-wip-color);
@@ -138,7 +138,7 @@
                 > .neo-board-column-header {
                     background   : var(--workshop-exceeded-col-bg);
                     border-bottom: 1px solid var(--workshop-exceeded-col-border);
-                    border-radius: calc(var(--neo-board-radius) - 1px) calc(var(--neo-board-radius) - 1px) 0 0;
+                    border-radius: calc(var(--neo-board-border-radius) - 1px) calc(var(--neo-board-border-radius) - 1px) 0 0;
                     margin-bottom: 6px;
                 }
 
@@ -282,7 +282,7 @@
 
 body:has(.workshop-viewport) .neo-dragproxy > .neo-board-card {
     border-color     : var(--workshop-focus);
-    border-left-color: var(--neo-board-card-accent, var(--workshop-focus));
+    border-left-color: var(--neo-board-card-accent-color, var(--workshop-focus));
 }
 
 @media (max-width: 720px) {

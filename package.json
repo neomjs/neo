@@ -31,6 +31,7 @@
         "capture-examples"                     : "node ./buildScripts/docs/captureExamples.mjs",
         "check-theme-class-prefix"             : "node ./buildScripts/util/check-theme-class-prefix.mjs",
         "check-theme-palette"                  : "node ./buildScripts/util/check-theme-palette.mjs",
+        "check-theme-property-prefix"          : "node ./buildScripts/util/check-theme-property-prefix.mjs",
         "check-theme-surfaces"                 : "node ./buildScripts/util/check-theme-surfaces.mjs",
         "check-class-module-scope"             : "node ./buildScripts/util/check-class-module-scope.mjs",
         "check-coding-guidelines"              : "node ./buildScripts/util/check-coding-guidelines.mjs",
@@ -184,6 +185,9 @@
             "node ./buildScripts/util/check-class-module-scope.mjs",
             "node ./buildScripts/util/check-theme-class-prefix.mjs"
         ],
+        "{apps,examples,src,test}/**/*.mjs": [
+            "node ./buildScripts/util/check-theme-property-prefix.mjs"
+        ],
         "{apps,examples}/**/*.html": [
             "node ./buildScripts/util/check-theme-class-prefix.mjs"
         ],
@@ -192,6 +196,7 @@
         ],
         "resources/css/**/*.css": [
             "node ./buildScripts/util/check-theme-class-prefix.mjs",
+            "node ./buildScripts/util/check-theme-property-prefix.mjs",
             "node ./buildScripts/util/check-theme-coverage.mjs",
             "node ./buildScripts/util/check-theme-palette.mjs",
             "node ./buildScripts/util/check-theme-value-files.mjs",

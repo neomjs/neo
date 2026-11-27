@@ -160,7 +160,7 @@ test.describe('ChipListComponent theme surfaces', () => {
                             frame = style => style.borderTopStyle === 'none' ? 'none' : `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`;
 
                       // Resolves the theme's tokens where the item reads them
-                      probe.style.cssText = 'background-color: var(--chip-background-color); border-top: var(--list-container-border)';
+                      probe.style.cssText = 'background-color: var(--neo-chip-background-color); border-top: var(--neo-list-container-border)';
 
                       const values = {
                           background    : getComputedStyle(node).backgroundColor,

@@ -1,5 +1,5 @@
 :root .neo-theme-dark { /* .neo-tab-strip */
-    --tab-indicator-background-color-active: #5d83a7;
-    --tab-strip-background-color           : #3c3f41;
-    --tab-strip-height                     : 4px;
+    --neo-tab-indicator-background-color-active: #5d83a7;
+    --neo-tab-strip-background-color           : #3c3f41;
+    --neo-tab-strip-height                     : 4px;
 }

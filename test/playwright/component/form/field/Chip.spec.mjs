@@ -280,7 +280,7 @@ test.describe('Neo.form.field.Chip', () => {
 
             await expect(field).toHaveClass(new RegExp(theme));
             await expect.poll(() => field.evaluate(element =>
-                getComputedStyle(element).getPropertyValue('--chip-text-color').trim()
+                getComputedStyle(element).getPropertyValue('--neo-chip-color').trim()
             )).not.toBe('');
 
             tokens[theme] = await field.evaluate(element => {
@@ -291,11 +291,11 @@ test.describe('Neo.form.field.Chip', () => {
                     wrapper    = element.querySelector('.neo-input-wrapper');
 
                 return {
-                    chipTextColor: fieldStyle.getPropertyValue('--chip-text-color').trim(),
+                    chipTextColor: fieldStyle.getPropertyValue('--neo-chip-color').trim(),
                     flowWrap     : getComputedStyle(flow).flexWrap,
                     listDisplay  : getComputedStyle(valueList).display,
-                    textHeight   : fieldStyle.getPropertyValue('--textfield-input-height').trim(),
-                    textPadding  : fieldStyle.getPropertyValue('--textfield-input-padding').trim(),
+                    textHeight   : fieldStyle.getPropertyValue('--neo-textfield-input-height').trim(),
+                    textPadding  : fieldStyle.getPropertyValue('--neo-textfield-input-padding').trim(),
                     wrapperWrap  : getComputedStyle(wrapper).flexWrap
                 }
             });

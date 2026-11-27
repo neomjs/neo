@@ -11,37 +11,37 @@
  *                div.neo-face.neo-face-y.bottom
  */
 .neo-layout-cube {
-    --backface-visibility: visible;
-    --perspective        : 600px;
+    --neo-layout-cube-backface-visibility: visible;
+    --neo-layout-cube-perspective        : 600px;
 
-    --rot-x: 0deg;
-    --rot-y: 0deg;
-    --rot-z: 0deg;
+    --neo-layout-cube-rot-x: 0deg;
+    --neo-layout-cube-rot-y: 0deg;
+    --neo-layout-cube-rot-z: 0deg;
 
-    --side-x: 0;
-    --side-y: 0;
-    --side-z: 0;
+    --neo-layout-cube-side-x: 0;
+    --neo-layout-cube-side-y: 0;
+    --neo-layout-cube-side-z: 0;
 
     background-color  : transparent;
-    height            : var(--side-y);
+    height            : var(--neo-layout-cube-side-y);
     overflow          : visible;
-    perspective       : var(--perspective);
+    perspective       : var(--neo-layout-cube-perspective);
     perspective-origin: center center;
-    width             : var(--side-x);
+    width             : var(--neo-layout-cube-side-x);
 
     .neo-plane {
-        transform      : translateZ(calc(var(--side-z) / -2));
+        transform      : translateZ(calc(var(--neo-layout-cube-side-z) / -2));
         transform-style: preserve-3d;
     }
 
     .neo-box {
-        height          : var(--side-y);
+        height          : var(--neo-layout-cube-side-y);
         position        : relative;
-        transform       : rotateX(var(--rot-x)) rotateY(var(--rot-y)) rotateZ(var(--rot-z));
+        transform       : rotateX(var(--neo-layout-cube-rot-x)) rotateY(var(--neo-layout-cube-rot-y)) rotateZ(var(--neo-layout-cube-rot-z));
         transform-style : preserve-3d;
         transform-origin: center center;
-        translate       : 0 0 calc(var(--side-z) / -2);
-        width           : var(--side-x);
+        translate       : 0 0 calc(var(--neo-layout-cube-side-z) / -2);
+        width           : var(--neo-layout-cube-side-x);
     }
 
     &.neo-animate {
@@ -51,30 +51,30 @@
     }
 
     .neo-face {
-        backface-visibility: var(--backface-visibility);
+        backface-visibility: var(--neo-layout-cube-backface-visibility);
         background         : center/cover no-repeat;
         position           : absolute;
 
-        &.front  {transform: rotateY(  0deg) translateZ(calc(var(--side-z) / 2));}
-        &.back   {transform: rotateY(180deg) translateZ(calc(var(--side-z) / 2));}
-        &.left   {transform: rotateY(-90deg) translateZ(calc(var(--side-z) / 2));}
-        &.right  {transform: rotateY( 90deg) translateZ(calc(var(--side-x) - var(--side-z) / 2));}
-        &.top    {transform: rotateX( 90deg) translateZ(calc(var(--side-z) / 2));}
-        &.bottom {transform: rotateX(-90deg) translateZ(calc(var(--side-y) - var(--side-z) / 2));}
+        &.front  {transform: rotateY(  0deg) translateZ(calc(var(--neo-layout-cube-side-z) / 2));}
+        &.back   {transform: rotateY(180deg) translateZ(calc(var(--neo-layout-cube-side-z) / 2));}
+        &.left   {transform: rotateY(-90deg) translateZ(calc(var(--neo-layout-cube-side-z) / 2));}
+        &.right  {transform: rotateY( 90deg) translateZ(calc(var(--neo-layout-cube-side-x) - var(--neo-layout-cube-side-z) / 2));}
+        &.top    {transform: rotateX( 90deg) translateZ(calc(var(--neo-layout-cube-side-z) / 2));}
+        &.bottom {transform: rotateX(-90deg) translateZ(calc(var(--neo-layout-cube-side-y) - var(--neo-layout-cube-side-z) / 2));}
     }
 
     .neo-face-x {
-        height: var(--side-y);
-        width : var(--side-z);
+        height: var(--neo-layout-cube-side-y);
+        width : var(--neo-layout-cube-side-z);
     }
 
     .neo-face-y {
-        height: var(--side-z);
-        width : var(--side-x);
+        height: var(--neo-layout-cube-side-z);
+        width : var(--neo-layout-cube-side-x);
     }
 
     .neo-face-z {
-        height: var(--side-y);
-        width : var(--side-x);
+        height: var(--neo-layout-cube-side-y);
+        width : var(--neo-layout-cube-side-x);
     }
 }

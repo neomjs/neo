@@ -55,8 +55,8 @@
     }
 
     .neo-examples-data-pipeline-pulse-track {
-        background   : var(--sem-color-surface-neutral-default);
-        border       : 1px solid var(--sem-color-border-default);
+        background   : var(--neo-sem-color-surface-neutral-default);
+        border       : 1px solid var(--neo-sem-color-border-default);
         border-radius: 8px;
         height       : 16px;
         position     : relative;
@@ -64,7 +64,7 @@
     }
 
     .neo-examples-data-pipeline-pulse-dot {
-        background   : var(--sem-color-text-primary-default);
+        background   : var(--neo-sem-color-text-primary-default);
         border-radius: 50%;
         height       : 10px;
         margin-left  : -5px;
@@ -111,8 +111,8 @@
     }
 
     .neo-examples-data-pipeline-heartbeat-bar {
-        background   : var(--sem-color-surface-neutral-default);
-        border       : 1px solid var(--sem-color-border-default);
+        background   : var(--neo-sem-color-surface-neutral-default);
+        border       : 1px solid var(--neo-sem-color-border-default);
         border-radius: 4px;
         height       : 20px;
         overflow     : hidden;
@@ -128,7 +128,7 @@
     }
 
     .neo-examples-data-pipeline-heartbeat-alive {
-        background: var(--sem-color-text-primary-default);
+        background: var(--neo-sem-color-text-primary-default);
         opacity   : .55;
     }
 
@@ -164,8 +164,8 @@
 
         .neo-list-item {
             align-content: start;
-            background   : var(--sem-color-surface-neutral-default);
-            border       : 1px solid var(--sem-color-border-default);
+            background   : var(--neo-sem-color-surface-neutral-default);
+            border       : 1px solid var(--neo-sem-color-border-default);
             border-radius: 8px;
             cursor       : default;
             display      : grid;

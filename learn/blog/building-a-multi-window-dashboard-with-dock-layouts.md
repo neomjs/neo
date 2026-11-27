@@ -235,13 +235,13 @@ The dock's chrome reads design tokens. Scope your values through the workspace r
 
 ```scss readonly
 .my-dashboard-theme .neo-dock-workspace .neo-dashboard {
-    --dock-splitter-handle-size: 48px;
-    --dock-preview-ground      : rgb(18 22 28 / 94%);
-    --dock-transition-duration : 180ms;
+    --neo-dock-splitter-handle-size: 48px;
+    --neo-dock-preview-background      : rgb(18 22 28 / 94%);
+    --neo-dock-transition-duration : 180ms;
 }
 ```
 
-Those three are real engine tokens, and setting `--dock-splitter-handle-size: 0` is the sanctioned way to drop the visible handle ([Decision 4](https://github.com/neomjs/neo/blob/dev/learn/guides/uibuildingblocks/DockLayoutsAdoption.md#decision-4--skin-it-with-tokens-on-the-right-scope)). The defaults sit on the projected zones, so an app that configures nothing still gets visible, usable affordances.
+Those three are real engine tokens, and setting `--neo-dock-splitter-handle-size: 0` is the sanctioned way to drop the visible handle ([Decision 4](https://github.com/neomjs/neo/blob/dev/learn/guides/uibuildingblocks/DockLayoutsAdoption.md#decision-4--skin-it-with-tokens-on-the-right-scope)). The defaults sit on the projected zones, so an app that configures nothing still gets visible, usable affordances.
 
 ## Where it stops
 

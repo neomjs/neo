@@ -35,7 +35,7 @@
 
     .neo-magic-move-text {
         background-color: transparent;
-        color           : var(--sem-color-text-neutral-default);
+        color           : var(--neo-sem-color-text-neutral-default);
         font-size       : 2.5rem;
         height          : 2em;
         letter-spacing  : -0.02em;
@@ -53,12 +53,12 @@
     }
 
     .hero-audience-cue {
-        --button-secondary-background-color: var(--sem-color-bg-neutral-highlighted);
-        --button-secondary-text-color      : var(--sem-color-text-neutral-default);
+        --neo-button-secondary-background-color: var(--neo-sem-color-bg-neutral-highlighted);
+        --neo-button-secondary-color      : var(--neo-sem-color-text-neutral-default);
     }
 
     .neo-h1 {
-        color      : var(--sem-color-text-neutral-contrast);
+        color      : var(--neo-sem-color-text-neutral-contrast);
         font-family: "GT-Planar", sans-serif;
         font-size  : 5rem;
         line-height: 1.1;
@@ -66,7 +66,7 @@
     }
 
     .neo-h2 {
-        color      : var(--sem-color-text-neutral-default);
+        color      : var(--neo-sem-color-text-neutral-default);
         font-size  : 2.5rem;
         font-weight: 800;
         margin     : 0;
@@ -83,13 +83,13 @@
         }
 
         .hero-lead {
-            color      : var(--sem-color-text-neutral-default);
+            color      : var(--neo-sem-color-text-neutral-default);
             font-size  : 1.35rem;
             line-height: 1.42;
         }
 
         .hero-projects {
-            color      : var(--sem-color-text-neutral-subdued);
+            color      : var(--neo-sem-color-text-neutral-subdued);
             font-size  : 1.05rem;
             line-height: 1.5;
             margin-top : 0.5rem;

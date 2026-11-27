@@ -1,15 +1,15 @@
 :root .neo-theme-light { /* .neo-calendar-weekcomponent */
-    --c-w-allday-event-color-focus          : #fff;
-    --c-w-background-color                  : #fff;
-    --c-w-border-color                      : #ddd;
-    --c-w-event-color-focus                 : #fff;
-    --c-w-event-resizable-color            : #1c60a0;
-    --c-w-header-background-color           : #fff;
-    --c-w-header-date-background-color-hover: #eee;
-    --c-w-header-date-color                 : #666;
-    --c-w-header-date-color-hover           : #666;
-    --c-w-header-day-color                  : #666;
-    --c-w-header-today-background-color     : red;
-    --c-w-header-today-color                : #fff;
-    --c-w-weekend-background-color          : rgba(240, 240, 240, .35);
+    --neo-calendar-week-allday-event-color-focus          : #fff;
+    --neo-calendar-week-background-color                  : #fff;
+    --neo-calendar-week-border-color                      : #ddd;
+    --neo-calendar-week-event-color-focus                 : #fff;
+    --neo-calendar-week-event-resizable-color            : #1c60a0;
+    --neo-calendar-week-header-background-color           : #fff;
+    --neo-calendar-week-header-date-background-color-hover: #eee;
+    --neo-calendar-week-header-date-color                 : #666;
+    --neo-calendar-week-header-date-color-hover           : #666;
+    --neo-calendar-week-header-day-color                  : #666;
+    --neo-calendar-week-header-today-background-color     : red;
+    --neo-calendar-week-header-today-color                : #fff;
+    --neo-calendar-week-weekend-background-color          : rgba(240, 240, 240, .35);
 }

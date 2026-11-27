@@ -1,10 +1,10 @@
 :root .neo-theme-dark { /* .neo-grid-container */
-    --grid-container-border-color              : #2b2b2b;
-    --grid-container-cell-background-color     : #3c3f41;
-    --grid-container-cell-background-color-even: #323232;
-    --grid-cell-value-band-1-background-color  : #2d3e50;
-    --grid-cell-value-band-2-background-color  : #3c3f41;
-    --grid-container-color                     : #bbb;
-    --grid-container-color-scheme              : dark;
-    --grid-container-font-size                 : 13px;
+    --neo-grid-container-border-color              : #2b2b2b;
+    --neo-grid-container-cell-background-color     : #3c3f41;
+    --neo-grid-container-cell-background-color-even: #323232;
+    --neo-grid-cell-value-band-1-background-color  : #2d3e50;
+    --neo-grid-cell-value-band-2-background-color  : #3c3f41;
+    --neo-grid-container-color                     : #bbb;
+    --neo-grid-container-color-scheme              : dark;
+    --neo-grid-container-font-size                 : 13px;
 }

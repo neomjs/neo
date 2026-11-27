@@ -1,6 +1,6 @@
 :root .neo-theme-dark { /* .neo-icon-link */
-    --icon-link-color          : #64b5f6;
-    --icon-link-font-size      : inherit;
-    --icon-link-hover-color    : #90caf9;
-    --icon-link-text-decoration: none;
+    --neo-icon-link-color          : #64b5f6;
+    --neo-icon-link-font-size      : inherit;
+    --neo-icon-link-color-hover    : #90caf9;
+    --neo-icon-link-text-decoration: none;
 }

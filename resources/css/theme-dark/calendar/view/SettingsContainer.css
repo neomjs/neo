@@ -1,4 +1,4 @@
 :root .neo-theme-dark { /* .neo-calendar-settingscontainer */
-    --calendar-settings-header-background-color: #33343d;
-    --calendar-settings-header-color           : #ccc;
+    --neo-calendar-settings-header-background-color: #33343d;
+    --neo-calendar-settings-header-color           : #ccc;
 }

@@ -44,7 +44,7 @@ class TaskList extends List {
             cls: record.minimized ? ['neo-desktop-task-minimized'] : [],
             cn : [{
                 cls  : ['neo-desktop-task-icon'],
-                style: {'--desktop-app-color': record.color},
+                style: {'--neo-desktop-app-color': record.color},
                 cn   : [{tag: 'i', cls: record.iconCls ? record.iconCls.split(' ') : []}]
             }, {
                 cls : ['neo-desktop-task-text'],

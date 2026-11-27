@@ -32,11 +32,11 @@
         }
 
         .print-plain-switch.neo-button {
-            --button-background-color-hover: var(--print-switch-hover-bg);
-            --button-border-hover          : 1px solid var(--print-switch-border);
-            --button-text-color            : var(--print-title);
-            --button-text-color-active     : var(--print-title);
-            --button-text-color-hover      : var(--print-title);
+            --neo-button-background-color-hover: var(--print-switch-hover-bg);
+            --neo-button-border-hover          : 1px solid var(--print-switch-border);
+            --neo-button-color            : var(--print-title);
+            --neo-button-color-active     : var(--print-title);
+            --neo-button-color-hover      : var(--print-title);
             align-items   : center;
             background    : var(--print-switch-surface);
             border        : 1px solid var(--print-switch-border);
@@ -50,7 +50,7 @@
             min-height    : 32px;
             padding       : 0 12px 0 40px;
             position      : relative;
-            transition    : background-color var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft);
+            transition    : background-color var(--neo-duration-fast) var(--neo-ease-out), border-color var(--neo-duration-fast) var(--neo-ease-out);
 
             &::before {
                 background   : var(--print-switch-track-off);
@@ -63,7 +63,7 @@
                 position     : absolute;
                 top          : 50%;
                 transform    : translateY(-50%);
-                transition   : background-color var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft);
+                transition   : background-color var(--neo-duration-fast) var(--neo-ease-out), border-color var(--neo-duration-fast) var(--neo-ease-out);
                 width        : 24px;
             }
 
@@ -76,7 +76,7 @@
                 position     : absolute;
                 top          : 50%;
                 transform    : translate(0, -50%);
-                transition   : transform var(--motion-fast) var(--ease-out-soft), background-color var(--motion-fast) var(--ease-out-soft);
+                transition   : transform var(--neo-duration-fast) var(--neo-ease-out), background-color var(--neo-duration-fast) var(--neo-ease-out);
                 width        : 10px;
             }
 
@@ -121,7 +121,7 @@
             display    : inline-flex;
             flex-wrap  : wrap;
             gap        : 8px;
-            transition : opacity var(--motion-fast) var(--ease-out-soft);
+            transition : opacity var(--neo-duration-fast) var(--neo-ease-out);
         }
 
         &.is-plain .print-legend {
@@ -177,10 +177,10 @@
         background: var(--print-header-bg);
 
         .neo-grid-header-toolbar .neo-grid-header-button {
-            --button-background-color      : var(--print-subbar-bg);
-            --button-background-color-hover: var(--print-subbar-bg);
-            --button-text-color            : var(--print-title);
-            --button-text-color-hover      : var(--print-title);
+            --neo-button-background-color      : var(--print-subbar-bg);
+            --neo-button-background-color-hover: var(--print-subbar-bg);
+            --neo-button-color            : var(--print-title);
+            --neo-button-color-hover      : var(--print-title);
             background   : var(--print-subbar-bg);
             border-bottom: 1px solid var(--print-border);
             border-right : 1px solid var(--print-border);

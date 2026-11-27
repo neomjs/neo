@@ -27,7 +27,7 @@
     }
 
     .neo-h1 {
-        color      : var(--purple-400);
+        color      : var(--neo-purple-400);
         font-size  : min(max(4.5vw, 30px), 44px);
         line-height: 1em;
         margin     : 0;

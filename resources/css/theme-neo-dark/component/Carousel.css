@@ -1,9 +1,9 @@
 :where(.neo-theme-neo-dark) { /* .neo-carousel */
-    --carousel-background-color      : var(--sem-color-bg-neutral-default);
-    --carousel-duration              : .7s;
-    --carousel-inner-background-color: var(--sem-color-text-neutral-reversed);
-    --carousel-inner-color           : var(--sem-color-surface-primary-default);
-    --carousel-transition-timing     : cubic-bezier(.4, 0, .2, 1);
-    --carousel-translate-x           : 0;
-    --carousel-translate-y           : 0;
+    --neo-carousel-background-color      : var(--neo-sem-color-bg-neutral-default);
+    --neo-carousel-duration              : .7s;
+    --neo-carousel-inner-background-color: var(--neo-sem-color-text-neutral-reversed);
+    --neo-carousel-inner-color           : var(--neo-sem-color-surface-primary-default);
+    --neo-carousel-transition-timing     : cubic-bezier(.4, 0, .2, 1);
+    --neo-carousel-translate-x           : 0;
+    --neo-carousel-translate-y           : 0;
 }

@@ -86,7 +86,7 @@ test.describe('Portal.view.examples.ListModel', () => {
         // One shared rule carries the reflection and the glint for the card wrap and the tile crop
         expect(css).toMatch(/\.preview-image-wrap,\s*&\.portal-examples-tiles \.neo-list-item \.preview-image \{/);
         expect(css).toMatch(/\.neo-list-item:hover \.preview-image-wrap::after,\s*&\.portal-examples-tiles \.neo-list-item:hover \.preview-image::after \{/);
-        expect(css).toContain('animation: portal-examples-list-glint calc(var(--motion-stage) * 1.5) var(--ease-out-soft) forwards');
+        expect(css).toContain('animation: portal-examples-list-glint calc(var(--neo-duration-stage) * 1.5) var(--neo-ease-out) forwards');
 
         // The tile crop keeps its 4:3 and blends into its own stacking context, never the page behind
         const tileBranch = css.match(/&\.portal-examples-tiles \{[\s\S]*?\n    \}$/m)?.[0] ?? '',

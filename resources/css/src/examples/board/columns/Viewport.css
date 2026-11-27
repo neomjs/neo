@@ -59,16 +59,16 @@
     }
 
     .studio-reset-btn.neo-button {
-        --button-background-color : var(--studio-btn-bg);
-        --button-background-image : none;
-        --button-border           : 1px solid var(--studio-btn-border);
-        --button-border-radius    : 999px;
-        --button-height           : 32px;
-        --button-min-width        : 0;
-        --button-padding          : 0 14px;
-        --button-text-color       : var(--studio-btn-text);
-        --button-text-font-size   : 12.5px;
-        --button-text-font-weight : 600;
+        --neo-button-background-color : var(--studio-btn-bg);
+        --neo-button-background-image : none;
+        --neo-button-border           : 1px solid var(--studio-btn-border);
+        --neo-button-border-radius    : 999px;
+        --neo-button-height           : 32px;
+        --neo-button-min-width        : 0;
+        --neo-button-padding          : 0 14px;
+        --neo-button-color       : var(--studio-btn-text);
+        --neo-button-text-font-size   : 12.5px;
+        --neo-button-text-font-weight : 600;
         background-color          : var(--studio-btn-bg);
         background-image          : none;
         border                    : 1px solid var(--studio-btn-border);
@@ -156,7 +156,7 @@
 
             &:not(.neo-board-column-collapsed) > .neo-board-column-header {
                 border-bottom: 1px solid transparent;
-                border-radius: calc(var(--neo-board-radius) - 1px) calc(var(--neo-board-radius) - 1px) 0 0;
+                border-radius: calc(var(--neo-board-border-radius) - 1px) calc(var(--neo-board-border-radius) - 1px) 0 0;
                 padding      : 10px 12px;
                 transition   : background-color 140ms ease, border-color 140ms ease;
 
@@ -230,7 +230,7 @@
 
 body:has(.studio-viewport) .neo-dragproxy > .neo-board-column {
     border-color    : var(--studio-focus);
-    border-top-color: var(--neo-board-column-accent, var(--studio-focus));
+    border-top-color: var(--neo-board-column-accent-color, var(--studio-focus));
     box-shadow      : var(--studio-drag-shadow);
 
     > .neo-board-column-header {
@@ -267,9 +267,9 @@ body:has(.studio-viewport) .neo-dragproxy > .neo-board-column {
         }
 
         .studio-reset-btn.neo-button {
-            --button-height        : 30px;
-            --button-padding       : 0 11px;
-            --button-text-font-size: 11.5px;
+            --neo-button-height        : 30px;
+            --neo-button-padding       : 0 11px;
+            --neo-button-text-font-size: 11.5px;
 
             .neo-button-text {
                 font-size: 11.5px;

@@ -425,7 +425,7 @@ jobs:
 
             // `prepare.mjs` stamps `src/DefaultConfig.mjs` with the release version on `config.version`
             // and its matching `@default` tag. Comparing the file at both refs after normalizing that
-            // single paired stamp keeps a mechanical version bump from forcing all 18 E2E shards as a
+            // single paired stamp keeps a mechanical version bump from forcing all 20 E2E shards as a
             // foundation change, while any edit to another DefaultConfig setting, a mismatched `@default`,
             // or an unreadable ref still retains full coverage.
             async function defaultConfigRelevance() {
@@ -553,7 +553,7 @@ jobs:
             //                                          executed by SourceMoveWorkspaceNL
             //
             // A unit arm reds when either premise stops holding. A false positive is not cheap either:
-            // one starts the engine tier's eighteen shards from the org's shared runner pool.
+            // one starts the engine tier's twenty shards from the org's shared runner pool.
             const isPortalBlogRegistry      = file => file === 'apps/portal/resources/data/blog.json';
             const isPortalServerOnlySeoData = file =>
               file === 'apps/portal/resources/data/seo.json' ||

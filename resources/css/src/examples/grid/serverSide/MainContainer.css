@@ -1,7 +1,7 @@
 .neo-examples-grid-server-side.neo-viewport {
     background-color: var(--server-side-background);
     color: var(--server-side-text);
-    font-family: var(--neo-font-family);
+    font-family: var(--neo-global-font-family);
     padding: 20px;
     gap: 12px;
 
@@ -9,7 +9,7 @@
         background-color: transparent;
 
         h1, p {
-            font-family: var(--neo-font-family);
+            font-family: var(--neo-global-font-family);
         }
 
         gap: 16px;
@@ -106,7 +106,7 @@
         }
 
         .neo-grid-header-button {
-            --grid-header-button-font-size: 12px;
+            --neo-grid-header-button-font-size: 12px;
             gap: 0;
             padding: 6px 4px;
 

@@ -1,9 +1,9 @@
 :root .neo-theme-dark {
-    --process-arrow-color     : #6d5f28;
-    --process-background-color: #2b2b2b;
-    --process-icon-color      : #a3996f;
-    --process-icon-size       : 2rem;
-    --process-shadow-color    : rgba(0, 0, 0, .5);
-    --process-text-color      : #bbb;
-    --process-title-color     : #ccc;
+    --neo-process-arrow-color     : #6d5f28;
+    --neo-process-background-color: #2b2b2b;
+    --neo-process-icon-color      : #a3996f;
+    --neo-process-icon-size       : 2rem;
+    --neo-process-shadow-color    : rgba(0, 0, 0, .5);
+    --neo-process-color      : #bbb;
+    --neo-process-title-color     : #ccc;
 }

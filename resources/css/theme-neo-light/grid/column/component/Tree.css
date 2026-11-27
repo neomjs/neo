@@ -1,6 +1,6 @@
 :where(.neo-theme-neo-light) {
-    --tree-indent               : 16px;
-    --tree-toggle-icon-collapsed: "\f054";
-    --tree-toggle-icon-expanded : "\f078";
-    --tree-toggle-icon-leaf     : "";
+    --neo-tree-indent               : 16px;
+    --neo-tree-toggle-icon-collapsed: "\f054";
+    --neo-tree-toggle-icon-expanded : "\f078";
+    --neo-tree-toggle-icon-leaf     : "";
 }

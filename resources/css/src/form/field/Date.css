@@ -20,7 +20,7 @@
 @-moz-document url-prefix() {
     .neo-datefield {
         .neo-field-trigger {
-            background-color: var(--textfield-input-background-color);
+            background-color: var(--neo-textfield-input-background-color);
         }
 
         .neo-textfield-input {

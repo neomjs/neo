@@ -372,7 +372,7 @@ class Maximize extends Plugin {
      * @summary The four inline rect values of a maximized node: the measured host rect inset by
      * the gap token on every side.
      *
-     * The gap is a paint-contract value (`--dock-maximize-gap` on `.neo-dashboard`), never a
+     * The gap is a paint-contract value (`--neo-dock-maximize-gap` on `.neo-dashboard`), never a
      * worker literal, so the rect is written as `calc()` against the token and resolves in CSS —
      * a consumer tunes the gap without a worker round trip. The FLIP measures the DOM and is
      * unaffected by how the values are expressed.
@@ -381,7 +381,7 @@ class Maximize extends Plugin {
      * @protected
      */
     rectStyle(rect) {
-        const gap = 'var(--dock-maximize-gap, 0px)';
+        const gap = 'var(--neo-dock-maximize-gap, 0px)';
 
         return {
             height: `calc(${rect.height}px - 2 * ${gap})`,

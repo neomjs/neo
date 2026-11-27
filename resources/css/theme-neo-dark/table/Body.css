@@ -1,15 +1,15 @@
 :where(.neo-theme-neo-dark) { /* .neo-table-body */
-    --table-cell-background-color-hover                    : var(--sem-color-surface-neutral-hover);
-    --table-cell-ismodified-color                          : orange;
-    --table-cell-ismodified-size                           : 10px;
-    --table-cellmodel-selected-cell-background-color       : var(--sem-color-surface-primary-default);
-    --table-cellmodel-selected-cell-color                  : var(--sem-color-text-neutral-reversed);
-    --table-cellmodel-selected-column-cell-background-color: var(--sem-color-surface-primary-active);
-    --table-cellmodel-selected-column-cell-color           : var(--sem-color-text-neutral-reversed);
-    --table-cellrowmodel-selected-cell-background-color    : var(--sem-color-surface-primary-default);
-    --table-cellrowmodel-selected-cell-color               : var(--sem-color-text-neutral-reversed);
-    --table-cellrowmodel-selected-row-cell-background-color: var(--sem-color-surface-primary-active);
-    --table-cellrowmodel-selected-row-cell-color           : var(--sem-color-text-neutral-reversed);
-    --table-rowmodel-selected-cell-background-color        : var(--sem-color-surface-primary-default);
-    --table-rowmodel-selected-cell-color                   : var(--sem-color-text-neutral-reversed);
+    --neo-table-cell-background-color-hover                    : var(--neo-sem-color-surface-neutral-hover);
+    --neo-table-cell-ismodified-color                          : orange;
+    --neo-table-cell-ismodified-size                           : 10px;
+    --neo-table-cellmodel-cell-background-color-selected       : var(--neo-sem-color-surface-primary-default);
+    --neo-table-cellmodel-cell-color-selected                  : var(--neo-sem-color-text-neutral-reversed);
+    --neo-table-cellmodel-column-cell-background-color-selected: var(--neo-sem-color-surface-primary-active);
+    --neo-table-cellmodel-column-cell-color-selected           : var(--neo-sem-color-text-neutral-reversed);
+    --neo-table-cellrowmodel-cell-background-color-selected    : var(--neo-sem-color-surface-primary-default);
+    --neo-table-cellrowmodel-cell-color-selected               : var(--neo-sem-color-text-neutral-reversed);
+    --neo-table-cellrowmodel-row-cell-background-color-selected: var(--neo-sem-color-surface-primary-active);
+    --neo-table-cellrowmodel-row-cell-color-selected           : var(--neo-sem-color-text-neutral-reversed);
+    --neo-table-rowmodel-cell-background-color-selected        : var(--neo-sem-color-surface-primary-default);
+    --neo-table-rowmodel-cell-color-selected                   : var(--neo-sem-color-text-neutral-reversed);
 }

@@ -198,7 +198,7 @@ class Cube extends Card {
      * @protected
      */
     afterSetPerspective(value, oldValue) {
-        this.updateContainerCssVar('--perspective', value + 'px')
+        this.updateContainerCssVar('--neo-layout-cube-perspective', value + 'px')
     }
 
     /**
@@ -238,7 +238,7 @@ class Cube extends Card {
      * @protected
      */
     afterSetSideX(value, oldValue) {
-        this.updateContainerCssVar('--side-x', value + 'px')
+        this.updateContainerCssVar('--neo-layout-cube-side-x', value + 'px')
     }
 
     /**
@@ -248,7 +248,7 @@ class Cube extends Card {
      * @protected
      */
     afterSetSideY(value, oldValue) {
-        this.updateContainerCssVar('--side-y', value + 'px')
+        this.updateContainerCssVar('--neo-layout-cube-side-y', value + 'px')
     }
 
     /**
@@ -258,7 +258,7 @@ class Cube extends Card {
      * @protected
      */
     afterSetSideZ(value, oldValue) {
-        this.updateContainerCssVar('--side-z', value + 'px')
+        this.updateContainerCssVar('--neo-layout-cube-side-z', value + 'px')
     }
 
     /**
@@ -387,13 +387,13 @@ class Cube extends Card {
         NeoArray.remove(cls, 'neo-animate');
 
         Object.assign(style, {
-            '--perspective': null,
-            '--rot-x'      : null,
-            '--rot-y'      : null,
-            '--rot-z'      : null,
-            '--side-x'     : null,
-            '--side-y'     : null,
-            '--side-z'     : null
+            '--neo-layout-cube-perspective': null,
+            '--neo-layout-cube-rot-x'      : null,
+            '--neo-layout-cube-rot-y'      : null,
+            '--neo-layout-cube-rot-z'      : null,
+            '--neo-layout-cube-side-x'     : null,
+            '--neo-layout-cube-side-y'     : null,
+            '--neo-layout-cube-side-z'     : null
         });
 
         container.set({cls, style});
@@ -425,9 +425,9 @@ class Cube extends Card {
             {container} = me,
             {style}     = container;
 
-        if (Neo.isNumber(x)) {me._rotateX = x; style['--rot-x'] = x + 'deg'}
-        if (Neo.isNumber(y)) {me._rotateY = y; style['--rot-y'] = y + 'deg'}
-        if (Neo.isNumber(z)) {me._rotateZ = z; style['--rot-z'] = z + 'deg'}
+        if (Neo.isNumber(x)) {me._rotateX = x; style['--neo-layout-cube-rot-x'] = x + 'deg'}
+        if (Neo.isNumber(y)) {me._rotateY = y; style['--neo-layout-cube-rot-y'] = y + 'deg'}
+        if (Neo.isNumber(z)) {me._rotateZ = z; style['--neo-layout-cube-rot-z'] = z + 'deg'}
 
         container.style = style
     }

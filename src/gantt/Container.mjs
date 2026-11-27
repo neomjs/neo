@@ -59,7 +59,7 @@ class Container extends SchedulerContainer {
         ntype: 'gantt',
         /**
          * Moves the bars and links a cascade changed from their previous to their final dates over the chart's
-         * `--motion-panel` with `--ease-out-soft`, instead of in one update. A dragged or resized task stays where
+         * `--neo-duration-panel` with `--neo-ease-out`, instead of in one update. A dragged or resized task stays where
          * its preview dropped it while its successors move. Reduced motion collapses that tier to `0ms` and keeps
          * one update, and so does a chart whose tier read has not answered yet. A scroll, a zoom, a store load,
          * filter or sort, and the next move land a running move at once; another store drops it. A service decision

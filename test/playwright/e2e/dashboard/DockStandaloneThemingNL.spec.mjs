@@ -11,11 +11,11 @@ import { test, expect } from '../../fixtures.mjs';
  * layer (`dashboard/` sheets under both neo themes, both legacy themes and cyberpunk).
  *
  * The proof has two levels and a mutation half:
- *   1. TOKEN level — the theme host resolves the values-layer tokens (`--agent-dock-preview-accept`,
- *      `--dock-preview-ground`) to the layer's values, per theme.
+ *   1. TOKEN level — the theme host resolves the values-layer tokens (`--neo-dock-preview-accept-color`,
+ *      `--neo-dock-preview-background`) to the layer's values, per theme.
  *   2. PAINT level — a specimen carrying the REAL indicator classes (the same elements a live
  *      drag renders, without a drag's nondeterminism) resolves the accept accent through the
- *      `::before` chevron's `border-color`, which reads `var(--agent-dock-preview-accept, …)` with
+ *      `::before` chevron's `border-color`, which reads `var(--neo-dock-preview-accept-color, …)` with
  *      no transition — transition-free by construction, so the assertion is timing-safe.
  *   3. MUTATION control — with the values layer's stylesheet requests aborted, the same specimen
  *      falls back to the structure layer's literal (#4493f8). A proof that stays green with the
@@ -69,7 +69,7 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
               'neo-theme-cyberpunk'
           ],
 
-          // The structure layer's literal fallback for --agent-dock-preview-accept (#4493f8).
+          // The structure layer's literal fallback for --neo-dock-preview-accept-color (#4493f8).
           FALLBACK_PAINT = 'rgb(68, 147, 248)';
 
     /**
@@ -172,12 +172,12 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
                 const style = getComputedStyle(document.body);
 
                 return {
-                    accept: style.getPropertyValue('--agent-dock-preview-accept').trim(),
-                    ground: style.getPropertyValue('--dock-preview-ground').trim()
+                    accept: style.getPropertyValue('--neo-dock-preview-accept-color').trim(),
+                    ground: style.getPropertyValue('--neo-dock-preview-background').trim()
                 };
             });
-            expect(tokens.accept, `--agent-dock-preview-accept under ${theme}`).toBe(expected.acceptToken);
-            expect(tokens.ground, `--dock-preview-ground under ${theme}`).toBe(expected.groundToken);
+            expect(tokens.accept, `--neo-dock-preview-accept-color under ${theme}`).toBe(expected.acceptToken);
+            expect(tokens.ground, `--neo-dock-preview-background under ${theme}`).toBe(expected.groundToken);
 
             // PAINT level: the structure layer's var() chain resolves the token into real paint.
             await mountSpecimen(page);
@@ -195,7 +195,7 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
 
             // The blocked layer must be observable at token level too.
             const accept = await page.evaluate(() =>
-                getComputedStyle(document.body).getPropertyValue('--agent-dock-preview-accept').trim()
+                getComputedStyle(document.body).getPropertyValue('--neo-dock-preview-accept-color').trim()
             );
             expect(accept, `the ${theme} values-layer token is absent when its sheet is blocked`).toBe('');
 

@@ -1,11 +1,11 @@
 /* The note fills its window as a plain writing surface. The field's own variables drop its frame and take the
    window's text colour, so no rule here competes with the field's rules. */
 .desktop-basic-notes {
-    --textfield-border-width          : 0;
-    --textfield-input-background-color: transparent;
-    --textfield-input-color           : var(--desktop-app-window-color);
-    --textfield-input-font            : 400 15px/1.6 var(--neo-font-family);
-    --textfield-input-padding         : 16px 20px;
+    --neo-textfield-border-width          : 0;
+    --neo-textfield-input-background-color: transparent;
+    --neo-textfield-input-color           : var(--neo-desktop-app-window-color);
+    --neo-textfield-input-font            : 400 15px/1.6 var(--neo-global-font-family);
+    --neo-textfield-input-padding         : 16px 20px;
 
     .neo-textfield-input {
         height: 100%;

@@ -1,9 +1,9 @@
 /* The sortable dashboard example: a header above a column of key-figure tiles. Colours come from the theme's own
    tokens, so the page follows neo-light and neo-dark without a theme file of its own. */
 .sortable-dashboard-viewport {
-    background: var(--neo-background-color);
+    background: var(--neo-global-background-color);
     box-sizing: border-box;
-    color     : var(--neo-color);
+    color     : var(--neo-global-color);
     gap       : 12px;
     padding   : 16px 20px;
 
@@ -35,7 +35,7 @@
            inline and positions it absolutely, and a pseudo-element can opt back into visibility, so the outline needs
            no engine hook */
         > :not(.sortable-kpi-tile)::after {
-            border       : 2px dashed color-mix(in srgb, var(--neo-color) 35%, transparent);
+            border       : 2px dashed color-mix(in srgb, var(--neo-global-color) 35%, transparent);
             border-radius: 10px;
             box-sizing   : border-box;
             content      : '';
@@ -50,7 +50,7 @@
 .sortable-drag-proxy {
     border-radius: 10px;
     box-shadow   : 0 18px 40px rgba(0, 0, 0, 0.45),
-                   0 0 0 2px color-mix(in srgb, var(--neo-color) 35%, transparent);
+                   0 0 0 2px color-mix(in srgb, var(--neo-global-color) 35%, transparent);
 }
 
 @media (max-width: 640px) {

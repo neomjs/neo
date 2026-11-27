@@ -1,3 +1,3 @@
 :where(.neo-theme-neo-dark) { /* .neo-calendar-timeaxis */
-    --c-w-timeaxis-item-color: #999;
+    --neo-calendar-week-timeaxis-item-color: #999;
 }

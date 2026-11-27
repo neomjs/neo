@@ -1,10 +1,10 @@
 :where(.neo-theme-neo-light) {
     --portal-examples-accent       : var(--portal-headline-primary);
     --portal-examples-bg           : var(--portal-bg-main);
-    --portal-examples-bg-raised    : var(--sem-color-surface-neutral-default);
-    --portal-examples-border       : var(--sem-color-border-subtle);
+    --portal-examples-bg-raised    : var(--neo-sem-color-surface-neutral-default);
+    --portal-examples-border       : var(--neo-sem-color-border-subtle);
     --portal-examples-entry-current: color-mix(in srgb, var(--portal-headline-primary) 12%, transparent);
-    --portal-examples-entry-hover  : var(--sem-color-surface-neutral-hover);
-    --portal-examples-text         : var(--sem-color-text-neutral-default);
-    --portal-examples-text-muted   : var(--sem-color-text-neutral-subdued);
+    --portal-examples-entry-hover  : var(--neo-sem-color-surface-neutral-hover);
+    --portal-examples-text         : var(--neo-sem-color-text-neutral-default);
+    --portal-examples-text-muted   : var(--neo-sem-color-text-neutral-subdued);
 }

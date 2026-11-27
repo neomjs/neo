@@ -1,7 +1,7 @@
 :where(.neo-theme-neo-light) { /* .neo-table-header-button */
-    --table-header-button-background-color       : #5d83a7;
-    --table-header-button-background-image       : none;
-    --table-header-button-color                  : #fff;
-    --table-header-button-glyph-color            : #fff;
-    --table-header-button-ripple-background-color: rgb(28.8501960784%, 41.3082352941%, 53.1105882353%);
+    --neo-table-header-button-background-color       : #5d83a7;
+    --neo-table-header-button-background-image       : none;
+    --neo-table-header-button-color                  : #fff;
+    --neo-table-header-button-glyph-color            : #fff;
+    --neo-table-header-button-ripple-background-color: rgb(28.8501960784%, 41.3082352941%, 53.1105882353%);
 }

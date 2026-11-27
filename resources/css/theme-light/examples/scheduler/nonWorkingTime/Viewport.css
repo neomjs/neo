@@ -1,19 +1,19 @@
 :where(.neo-theme-light) {
-    --site-header-bg            : var(--neo-background-color, #ffffff);
+    --site-header-bg            : var(--neo-global-background-color, #ffffff);
     --site-status-bg            : #f5f8fb;
-    --site-border               : var(--grid-container-border-color, #d5dce4);
+    --site-border               : var(--neo-grid-container-border-color, #d5dce4);
     --site-title                : #163a5f;
     --site-muted                : #4d5968;
     --site-badge-bg             : #e8f2fc;
     --site-badge-border         : #aac9ea;
     --site-badge-text           : #163a5f;
-    --site-control-bg           : var(--button-background-color, #ffffff);
+    --site-control-bg           : var(--neo-button-background-color, #ffffff);
     --site-hover-bg             : #eef4fa;
     --site-switch-off-bg        : #dde5ee;
     --site-switch-active-surface: #e7f1fb;
-    --site-selected-bg          : var(--button-text-color, #1c60a0);
-    --site-selected-text        : var(--button-background-color, #ffffff);
-    --site-focus                : var(--button-text-color, #1c60a0);
+    --site-selected-bg          : var(--neo-button-color, #1c60a0);
+    --site-selected-text        : var(--neo-button-background-color, #ffffff);
+    --site-focus                : var(--neo-button-color, #1c60a0);
     --site-nw-bg                : rgba(22, 58, 95, 0.055);
     --site-nw-stripe            : rgba(22, 58, 95, 0.065);
     --site-nw-swatch-bg         : rgba(22, 58, 95, 0.1);

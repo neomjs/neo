@@ -1,14 +1,14 @@
 :where(.neo-theme-light) {
-    --plan-header-bg   : var(--neo-background-color);
-    --plan-border      : var(--grid-container-border-color, #ddd);
+    --plan-header-bg   : var(--neo-global-background-color);
+    --plan-border      : var(--neo-grid-container-border-color, #ddd);
     --plan-title       : #163a5f;
     --plan-muted       : #4d4d4d;
     --plan-badge-bg    : #edf4fc;
     --plan-badge-border: #bed3ea;
     --plan-badge-text  : #163a5f;
-    --plan-control-bg  : var(--button-background-color, #ffffff);
+    --plan-control-bg  : var(--neo-button-background-color, #ffffff);
     --plan-hover-bg    : #eef4fa;
-    --plan-selected-bg : var(--button-text-color, #1c60a0);
-    --plan-selected-text: var(--button-background-color, #ffffff);
-    --plan-focus       : var(--button-text-color, #1c60a0);
+    --plan-selected-bg : var(--neo-button-color, #1c60a0);
+    --plan-selected-text: var(--neo-button-background-color, #ffffff);
+    --plan-focus       : var(--neo-button-color, #1c60a0);
 }

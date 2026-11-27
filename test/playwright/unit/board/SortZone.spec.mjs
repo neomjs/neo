@@ -962,14 +962,14 @@ test.describe('Neo.board.SortZone', () => {
         expect(lead3.cls).not.toContain('neo-board-card-ghost');
         expect(stackCards3).toHaveLength(2);
         expect(badge3).toEqual({tag: 'span', cls: ['neo-board-stack-count'], text: '3'});
-        expect(stackCards3[0].style['--stack-angle']).toBe('3deg');
-        expect(stackCards3[1].style['--stack-angle']).toBe('-4deg');
-        expect(stackCards3[0].style['--stack-opacity']).toBe('0.9');
-        expect(stackCards3[1].style['--stack-opacity']).toBe('0.8');
-        expect(stackCards3[0].style['--flip-x']).toBe('300px');
-        expect(stackCards3[0].style['--flip-y']).toBe('0px');
-        expect(stackCards3[1].style['--flip-x']).toBe('300px');
-        expect(stackCards3[1].style['--flip-y']).toBe('100px');
+        expect(stackCards3[0].style['--neo-board-stack-angle']).toBe('3deg');
+        expect(stackCards3[1].style['--neo-board-stack-angle']).toBe('-4deg');
+        expect(stackCards3[0].style['--neo-board-stack-opacity']).toBe('0.9');
+        expect(stackCards3[1].style['--neo-board-stack-opacity']).toBe('0.8');
+        expect(stackCards3[0].style['--neo-board-stack-flip-x']).toBe('300px');
+        expect(stackCards3[0].style['--neo-board-stack-flip-y']).toBe('0px');
+        expect(stackCards3[1].style['--neo-board-stack-flip-x']).toBe('300px');
+        expect(stackCards3[1].style['--neo-board-stack-flip-y']).toBe('100px');
 
         await zone.onDragCancel({});
 
@@ -985,8 +985,8 @@ test.describe('Neo.board.SortZone', () => {
 
         expect(stack7.cn[0].cls).toContain('neo-board-stack-lead');
         expect(stackCards7).toHaveLength(4);
-        expect(stackCards7.map(node => node.style['--stack-angle'])).toEqual(['3deg', '-4deg', '5deg', '-6deg']);
-        expect(stackCards7.map(node => node.style['--stack-opacity'])).toEqual(['0.9', '0.8', '0.7', '0.6']);
+        expect(stackCards7.map(node => node.style['--neo-board-stack-angle'])).toEqual(['3deg', '-4deg', '5deg', '-6deg']);
+        expect(stackCards7.map(node => node.style['--neo-board-stack-opacity'])).toEqual(['0.9', '0.8', '0.7', '0.6']);
         expect(badge7).toEqual({tag: 'span', cls: ['neo-board-stack-count'], text: '7'});
 
         await zone.onDragCancel({});
@@ -1355,7 +1355,7 @@ test.describe('Neo.board.SortZone', () => {
         expect(proxyCard.id).toBeUndefined();
         expect(proxyCard.cls).not.toContain('neo-board-card-slot');
         expect(proxyCard.cls).not.toContain('neo-board-card-ghost');
-        expect(proxyCard.style).toEqual({'--neo-board-card-accent': '#e5484d'});
+        expect(proxyCard.style).toEqual({'--neo-board-card-accent-color': '#e5484d'});
 
         await zone.onDragCancel({});
         expectNothingPinned()

@@ -10,7 +10,7 @@
 
     /* Style and position the progress bar */
     .portal-home-progress {
-        background      : var(--sem-color-surface-primary-background);
+        background      : var(--neo-sem-color-surface-primary-background);
         height          : 4px;
         position        : fixed;
         /* Note: Using 0.001 instead of 0 for the X scale is a critical hack for Firefox (as of v150 Nightly).

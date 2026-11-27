@@ -42,8 +42,8 @@ async function geometry(locator) {
 }
 
 /**
- * The theme owns every `--desktop-*` variable the loaded stylesheets read, except the colour each app sets on its icon,
- * task and window. A variable that is undefined, or refers to one that is, computes to nothing.
+ * The theme owns every `--neo-desktop-*` variable the loaded stylesheets read, except the colour each app sets on its
+ * icon, task and window. A variable that is undefined, or refers to one that is, computes to nothing.
  * @param {Object} page
  * @returns {Promise<String[]>} The variables that compute to nothing on the desktop
  */
@@ -53,17 +53,17 @@ function unresolvedVariables(page) {
 
         for (const sheet of document.styleSheets) {
             for (const rule of sheet.cssRules) {
-                for (const [, name] of rule.cssText.matchAll(/var\((--desktop-[a-z-]+)/g)) {
+                for (const [, name] of rule.cssText.matchAll(/var\((--neo-desktop-[a-z-]+)/g)) {
                     names.add(name)
                 }
             }
         }
 
-        names.delete('--desktop-app-color');
+        names.delete('--neo-desktop-app-color');
 
         const style = getComputedStyle(document.querySelector('.neo-desktop'));
 
-        return names.size ? [...names].filter(name => !style.getPropertyValue(name).trim()) : ['no stylesheet reads a --desktop-* variable']
+        return names.size ? [...names].filter(name => !style.getPropertyValue(name).trim()) : ['no stylesheet reads a --neo-desktop-* variable']
     })
 }
 

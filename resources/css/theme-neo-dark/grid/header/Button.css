@@ -1,18 +1,18 @@
 :where(.neo-theme-neo-dark) { /* .neo-grid-header-button */
-    --grid-header-button-background-color        : var(--purple-900);
-    --grid-header-button-background-color-hover  : var(--purple-500);
-    --grid-header-button-background-image        : none;
-    --grid-header-button-border-hover-color      : transparent;
-    --grid-header-button-border-right-color      : var(--grid-container-border-color);
-    --grid-header-button-border-right-hover-color: var(--grid-container-border-color);
-    --grid-header-button-box-shadow-hover        : none;
-    --grid-header-button-color                   : var(--sem-color-text-neutral-default);
-    --grid-header-button-color-hover             : var(--sem-color-text-neutral-contrast);
-    --grid-header-button-font-size               : 13px;
-    --grid-header-button-font-weight             : 400;
-    --grid-header-button-glyph-color             : var(--sem-color-icon-neutral-default);
-    --grid-header-button-glyph-color-hover       : var(--sem-color-icon-neutral-contrast);
-    --grid-header-button-justify-content         : start;
-    --grid-header-button-padding                 : 0 10px;
-    --grid-header-button-transition              : none;
+    --neo-grid-header-button-background-color        : var(--neo-purple-900);
+    --neo-grid-header-button-background-color-hover  : var(--neo-purple-500);
+    --neo-grid-header-button-background-image        : none;
+    --neo-grid-header-button-border-color-hover      : transparent;
+    --neo-grid-header-button-border-right-color      : var(--neo-grid-container-border-color);
+    --neo-grid-header-button-border-right-color-hover: var(--neo-grid-container-border-color);
+    --neo-grid-header-button-box-shadow-hover        : none;
+    --neo-grid-header-button-color                   : var(--neo-sem-color-text-neutral-default);
+    --neo-grid-header-button-color-hover             : var(--neo-sem-color-text-neutral-contrast);
+    --neo-grid-header-button-font-size               : 13px;
+    --neo-grid-header-button-font-weight             : 400;
+    --neo-grid-header-button-glyph-color             : var(--neo-sem-color-icon-neutral-default);
+    --neo-grid-header-button-glyph-color-hover       : var(--neo-sem-color-icon-neutral-contrast);
+    --neo-grid-header-button-justify-content         : start;
+    --neo-grid-header-button-padding                 : 0 10px;
+    --neo-grid-header-button-transition              : none;
 }

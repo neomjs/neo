@@ -1,14 +1,14 @@
 :where(.neo-theme-dark) {
-    --plan-header-bg   : var(--grid-container-border-color, #2b2b2b);
+    --plan-header-bg   : var(--neo-grid-container-border-color, #2b2b2b);
     --plan-border      : #4b5052;
     --plan-title       : #e8eaed;
-    --plan-muted       : var(--neo-color);
+    --plan-muted       : var(--neo-global-color);
     --plan-badge-bg    : #34393c;
     --plan-badge-border: #5a6266;
     --plan-badge-text  : #e8eaed;
-    --plan-control-bg  : var(--grid-container-cell-background-color, #3c3f41);
-    --plan-hover-bg    : var(--grid-cell-background-color-hover, #54595c);
-    --plan-selected-bg : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --plan-control-bg  : var(--neo-grid-container-cell-background-color, #3c3f41);
+    --plan-hover-bg    : var(--neo-grid-cell-background-color-hover, #54595c);
+    --plan-selected-bg : var(--neo-grid-rowmodel-cell-background-color-selected, #64b5f6);
     --plan-selected-text: #1e242b;
-    --plan-focus       : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --plan-focus       : var(--neo-grid-rowmodel-cell-background-color-selected, #64b5f6);
 }

@@ -41,8 +41,8 @@
         margin-bottom: 20px;
 
         .neo-release-badge {
-            background-color: var(--button-background-color);
-            color           : var(--button-text-color);
+            background-color: var(--neo-button-background-color);
+            color           : var(--neo-button-color);
             cursor          : pointer;
             text-decoration : none;
 

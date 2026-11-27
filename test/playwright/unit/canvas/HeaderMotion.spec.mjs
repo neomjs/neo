@@ -63,31 +63,31 @@ test.describe('Header motion preference', () => {
         const read = () => HeaderCanvas.prototype.readMotion.call(host);
         try {
             const stale = read(), current = read();
-            styles[1]({'--motion-base': '0ms'});
+            styles[1]({'--neo-duration-base': '0ms'});
             await current;
-            styles[0]({'--motion-base': '200ms'});
+            styles[0]({'--neo-duration-base': '200ms'});
             await stale;
-            expect(reads[0]).toEqual({id: 'header', style: '--motion-base', windowId: 'one'});
+            expect(reads[0]).toEqual({id: 'header', style: '--neo-duration-base', windowId: 'one'});
             expect(host.still).toBe(true);
 
             const allowed = read();
-            styles[2]({'--motion-base': '200ms'});
+            styles[2]({'--neo-duration-base': '200ms'});
             await allowed;
             const retired = read();
             host.rendererGraph = {};
-            styles[3]({'--motion-base': '0ms'});
+            styles[3]({'--neo-duration-base': '0ms'});
             await retired;
             expect(host.still).toBe(false);
 
             const departed = read();
             host.windowId = 'two';
-            styles[4]({'--motion-base': '0ms'});
+            styles[4]({'--neo-duration-base': '0ms'});
             await departed;
             expect(host.still).toBe(false);
 
             const unmounted = read();
             host.mounted = false;
-            styles[5]({'--motion-base': '0ms'});
+            styles[5]({'--neo-duration-base': '0ms'});
             await unmounted;
             expect(host.still).toBe(false)
         } finally {

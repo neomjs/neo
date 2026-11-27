@@ -1,15 +1,15 @@
 :where(.neo-theme-neo-dark) { /* .neo-desktop-taskbar and its start menu: dark glass */
-    --desktop-start-button-color                    : #fff;
-    --desktop-start-menu-background-color           : rgba(15, 23, 42, .84);
-    --desktop-start-menu-border-color               : rgba(255, 255, 255, .10);
-    --desktop-start-menu-color                      : #f1f5f9;
-    --desktop-start-menu-icon-color                 : #93c5fd;
-    --desktop-start-menu-item-background-color-hover: rgba(255, 255, 255, .08);
-    --desktop-start-menu-shadow                     : 0 30px 80px -20px rgba(2, 6, 23, .70);
-    --desktop-taskbar-accent-color                  : #60a5fa;
-    --desktop-taskbar-background-color              : rgba(15, 23, 42, .74);
-    --desktop-taskbar-border-color                  : rgba(255, 255, 255, .10);
-    --desktop-taskbar-color                         : #f1f5f9;
-    --desktop-taskbar-item-background-color-active  : rgba(255, 255, 255, .14);
-    --desktop-taskbar-item-background-color-hover   : rgba(255, 255, 255, .08);
+    --neo-desktop-start-button-color                    : #fff;
+    --neo-desktop-start-menu-background-color           : rgba(15, 23, 42, .84);
+    --neo-desktop-start-menu-border-color               : rgba(255, 255, 255, .10);
+    --neo-desktop-start-menu-color                      : #f1f5f9;
+    --neo-desktop-start-menu-icon-color                 : #93c5fd;
+    --neo-desktop-start-menu-item-background-color-hover: rgba(255, 255, 255, .08);
+    --neo-desktop-start-menu-box-shadow                     : 0 30px 80px -20px rgba(2, 6, 23, .70);
+    --neo-desktop-taskbar-accent-color                  : #60a5fa;
+    --neo-desktop-taskbar-background-color              : rgba(15, 23, 42, .74);
+    --neo-desktop-taskbar-border-color                  : rgba(255, 255, 255, .10);
+    --neo-desktop-taskbar-color                         : #f1f5f9;
+    --neo-desktop-taskbar-item-background-color-active  : rgba(255, 255, 255, .14);
+    --neo-desktop-taskbar-item-background-color-hover   : rgba(255, 255, 255, .08);
 }

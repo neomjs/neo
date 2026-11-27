@@ -1,9 +1,9 @@
 :root .neo-theme-light { /* .neo-carousel */
-    --carousel-background-color      : #fff;
-    --carousel-duration              : .7s;
-    --carousel-inner-background-color: #1c60a0;
-    --carousel-inner-color           : #fff;
-    --carousel-transition-timing     : cubic-bezier(.4, 0, .2, 1);
-    --carousel-translate-x           : 0;
-    --carousel-translate-y           : 0;
+    --neo-carousel-background-color      : #fff;
+    --neo-carousel-duration              : .7s;
+    --neo-carousel-inner-background-color: #1c60a0;
+    --neo-carousel-inner-color           : #fff;
+    --neo-carousel-transition-timing     : cubic-bezier(.4, 0, .2, 1);
+    --neo-carousel-translate-x           : 0;
+    --neo-carousel-translate-y           : 0;
 }

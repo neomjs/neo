@@ -162,13 +162,13 @@ test.describe('Neo.board.Card', () => {
         expect(card.vdom.cn.map(node => node.id)).toEqual([
             `${card.id}__title`, `${card.id}__text__description`, `${card.id}__progress`
         ]);
-        expect(card.style['--neo-board-card-accent']).toBe('#5eead4');
+        expect(card.style['--neo-board-card-accent-color']).toBe('#5eead4');
 
         card.record = {...record, title: 'Helix trace II', description: null, color: null};
 
         expect(card.vdom.cn.map(node => node.cls[0])).toEqual(['neo-board-card-title', 'neo-board-card-progress']);
         expect(card.vdom.cn[0].text).toBe('Helix trace II');
-        expect(card.style['--neo-board-card-accent']).toBeUndefined();
+        expect(card.style['--neo-board-card-accent-color']).toBeUndefined();
 
         card.destroy()
     });

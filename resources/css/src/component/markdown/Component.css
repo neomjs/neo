@@ -21,16 +21,16 @@
     }
 
     a {
-        color: var(--markdown-vdom-link-color, revert);
+        color: var(--neo-markdown-vdom-link-color, revert);
     }
 
     /* A fenced block is one surface: its `code` child must not repeat the global inline-code chip per line. */
     .neo-md-code {
-        background-color: var(--global-code-background-color, revert);
-        border          : var(--global-code-border, revert);
-        border-radius   : var(--global-code-border-radius, revert);
+        background-color: var(--neo-global-code-background-color, revert);
+        border          : var(--neo-global-code-border, revert);
+        border-radius   : var(--neo-global-code-border-radius, revert);
         overflow-x      : auto;
-        padding         : var(--markdown-vdom-code-padding, revert);
+        padding         : var(--neo-markdown-vdom-code-padding, revert);
 
         > code {
             background-color: transparent;
@@ -43,13 +43,13 @@
         border-collapse: collapse;
 
         th, td {
-            border : 1px solid var(--grid-border-color, #444);
+            border : 1px solid var(--neo-grid-border-color, #444);
             padding: .3em .6em;
         }
     }
 
     .neo-md-quote {
-        border-inline-start: 3px solid var(--blockquote-border-color, #888);
+        border-inline-start: 3px solid var(--neo-markdown-blockquote-border-color, #888);
         margin             : .5em 0;
         padding-inline     : .8em;
     }

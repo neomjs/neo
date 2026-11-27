@@ -6,9 +6,9 @@
     .neo-grid-cell {
         &.neo-is-modified {
             &:after {
-                border-color: transparent var(--grid-cell-ismodified-color) transparent transparent;
+                border-color: transparent var(--neo-grid-cell-ismodified-color) transparent transparent;
                 border-style: solid;
-                border-width: 0 var(--grid-cell-ismodified-size) var(--grid-cell-ismodified-size) 0;
+                border-width: 0 var(--neo-grid-cell-ismodified-size) var(--neo-grid-cell-ismodified-size) 0;
                 content     : '';
                 height      : 0;
                 position    : absolute;
@@ -25,7 +25,7 @@
 
     /* A drop target opts out the way it does from the drag shield, `draggable/DragProxyComponent.css` */
     &.neo-is-scrolling * {
-        pointer-events: var(--drop-target-pointer-events, none) !important;
+        pointer-events: var(--neo-drop-target-pointer-events, none) !important;
     }
 
     .neo-grid-body-content {
@@ -48,15 +48,15 @@
 
         &.neo-even {
             .neo-grid-cell {
-                background-color: var(--grid-container-cell-background-color-even);
+                background-color: var(--neo-grid-container-cell-background-color-even);
             }
         }
 
          .neo-grid-cell {
              align-items     : center;
-             background-color: var(--grid-container-cell-background-color);
-             border-bottom   : 1px solid var(--grid-container-border-color);
-             border-right    : 1px solid var(--grid-container-border-color);
+             background-color: var(--neo-grid-container-cell-background-color);
+             border-bottom   : 1px solid var(--neo-grid-container-border-color);
+             border-right    : 1px solid var(--neo-grid-container-border-color);
              contain         : layout paint style;
              display         : flex;
              height          : inherit;
@@ -68,19 +68,19 @@
                 wherever the column meets its region's end: only unused width ever shows it. */
              &.neo-last-column {
                  border-right-width : 0;
-                 box-shadow         : 1px 0 var(--grid-container-border-color);
+                 box-shadow         : 1px 0 var(--neo-grid-container-border-color);
              }
 
              &.neo-locked-end-first-column {
-                 border-left: 1px solid var(--grid-container-border-color);
+                 border-left: 1px solid var(--neo-grid-container-border-color);
              }
 
              &.neo-value-band-1 {
-                 background-color: var(--grid-cell-value-band-1-background-color, transparent);
+                 background-color: var(--neo-grid-cell-value-band-1-background-color, transparent);
              }
 
              &.neo-value-band-2 {
-                 background-color: var(--grid-cell-value-band-2-background-color, transparent);
+                 background-color: var(--neo-grid-cell-value-band-2-background-color, transparent);
              }
 
              &.neo-locked-start,
@@ -90,13 +90,13 @@
 
              /* selection.CellModel */
              &.neo-selected {
-                 background-color: var(--grid-cellmodel-selected-cell-background-color) !important;
-                 color           : var(--grid-cellmodel-selected-cell-color) !important;
+                 background-color: var(--neo-grid-cellmodel-cell-background-color-selected) !important;
+                 color           : var(--neo-grid-cellmodel-cell-color-selected) !important;
              }
 
              &.selected-column-cell {
-                 background-color: var(--grid-cellmodel-selected-column-cell-background-color);
-                 color           : var(--grid-cellmodel-selected-column-cell-color);
+                 background-color: var(--neo-grid-cellmodel-column-cell-background-color-selected);
+                 color           : var(--neo-grid-cellmodel-column-cell-color-selected);
              }
 
              /* Content-sized rows: the text of a wrapText column, whose height the grid view measures. As a flex item
@@ -110,14 +110,14 @@
          }
 
          .neo-grid-cell:not(.neo-locked-start):not(.neo-locked-end) {
-             transform: translateX(calc(var(--grid-scroll-left, 0px) * -1));
+             transform: translateX(calc(var(--neo-grid-scroll-left, 0px) * -1));
          }
 
          /* selection.RowModel */
          &.neo-selected {
              .neo-grid-cell {
-                 background-color: var(--grid-rowmodel-selected-cell-background-color);
-                 color           : var(--grid-rowmodel-selected-cell-color);
+                 background-color: var(--neo-grid-rowmodel-cell-background-color-selected);
+                 color           : var(--neo-grid-rowmodel-cell-color-selected);
              }
          }
      }
@@ -129,7 +129,7 @@
             &:hover,
             &.neo-hover {
                 .neo-grid-cell {
-                    background-color: var(--grid-cell-background-color-hover);
+                    background-color: var(--neo-grid-cell-background-color-hover);
                 }
             }
         }
@@ -141,15 +141,15 @@
     .neo-grid-row {
         &.neo-selected {
             .neo-grid-cell {
-                background-color: var(--grid-cellrowmodel-selected-row-cell-background-color);
-                color           : var(--grid-cellrowmodel-selected-row-cell-color);
+                background-color: var(--neo-grid-cellrowmodel-row-cell-background-color-selected);
+                color           : var(--neo-grid-cellrowmodel-row-cell-color-selected);
             }
         }
 
         .neo-grid-cell {
             &.neo-selected {
-                background-color: var(--grid-cellrowmodel-selected-cell-background-color);
-                color           : var(--grid-cellrowmodel-selected-cell-color);
+                background-color: var(--neo-grid-cellrowmodel-cell-background-color-selected);
+                color           : var(--neo-grid-cellrowmodel-cell-color-selected);
             }
         }
     }
