@@ -144,6 +144,44 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
         ]);
     });
 
+    test('THEME-BASE SHADOWED: a theme declaring the variable itself skips the reads of theme-base\'s declaration, no other', () => {
+        const mapPath = path.join(tmpRoot, 'shadow-theme-map.json'),
+              root    = makeTree({
+                  'theme-base/Button.css': '[class*="neo-theme-"] {\n    --button-text: var(--neo-color-text-default);\n    --button-fill: var(--neo-color-background-accent);\n}',
+                  'classic/Global.css'   : ':where(.neo-theme-classic) {}',
+                  'classic/Button.css'   : ':where(.neo-theme-classic) {--button-text: #111}'
+              });
+
+        fs.writeFileSync(mapPath, JSON.stringify({themes: {'neo-theme-classic': ['classic']}}), 'utf8');
+
+        expect(collect({root, runtimeProperties: {}, themeMapPath: mapPath})).toEqual([
+            '[undefined] classic reads --neo-color-background-accent, which nothing defines: theme-base/Button.css:3'
+        ]);
+    });
+
+    test('PRE-ROLE THEMES: skip theme-base role reads, never a component read; a new theme without roles still fires', () => {
+        const mapPath = path.join(tmpRoot, 'pre-role-map.json'),
+              root    = makeTree({
+                  'theme-base/Tab.css'    : '[class*="neo-theme-"] {\n    --neo-tab-color: var(--neo-color-text-default);\n    --neo-tab-gap: var(--neo-tab-missing-gap);\n}',
+                  'theme-light/Global.css': ':where(.neo-theme-light) {}',
+                  'acme-skin/Global.css'  : ':where(.neo-theme-acme) {}'
+              });
+
+        fs.writeFileSync(mapPath, JSON.stringify({themes: {'neo-theme-acme': ['acme-skin'], 'neo-theme-light': ['theme-light']}}), 'utf8');
+
+        expect(collect({root, runtimeProperties: {}, themeMapPath: mapPath}).sort()).toEqual([
+            '[undefined] acme-skin reads --neo-color-text-default, which nothing defines: theme-base/Tab.css:2',
+            '[undefined] acme-skin reads --neo-tab-missing-gap, which nothing defines: theme-base/Tab.css:3',
+            '[undefined] theme-light reads --neo-tab-missing-gap, which nothing defines: theme-base/Tab.css:3'
+        ]);
+    });
+
+    test('FIRES: a pre-role theme that declares a palette has to leave PRE_ROLE_THEMES', () => {
+        const root = makeTree({'theme-dark/Global.css': ':where(.neo-theme-dark) {--neo-palette-neutral-50: #fff}'});
+
+        expect(collect({root, runtimeProperties: {}})).toContain('[burn-down] theme-dark declares a palette, so remove it from PRE_ROLE_THEMES');
+    });
+
     test('SPLIT THEME: resolves definitions across all folders mapped to one theme class', () => {
         const mapPath = path.join(tmpRoot, 'split-theme-map.json'),
               root    = makeTree({
@@ -167,6 +205,27 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
         expect(collect({root, runtimeProperties: {}, themeMapPath: mapPath})).toEqual([
             '[undefined] neo-theme-split reads --missing-border, which nothing defines: split-widgets/Button.css:1'
         ]);
+    });
+
+    test('requires each theme class to define fallback-free structural roles unconditionally in a mapped Global.css', () => {
+        const root = makeTree({
+            'src/Base.css'         : '.neo-x {transition-duration: VAR(--neo-duration-fast); transition-timing-function: var(--neo-ease-out, ease)}',
+            'src/Global.css'       : ':where(.neo-theme-a, .neo-theme-b) {@media (prefers-reduced-motion: reduce) {--neo-duration-fast: 0ms}}',
+            'theme-dual/Global.css': [
+                ':where(.neo-theme-a) {--neo-duration-fast: 120ms}',
+                ':where(.neo-theme-b) {@media (width > 100px) {--neo-duration-fast: 120ms}}'
+            ].join('\n'),
+            'theme-dual/Button.css': ':where(.neo-theme-b) {--neo-duration-fast: 120ms}'
+        });
+
+        expect(collect({root, runtimeProperties: {}})).toEqual([
+            '[undefined-role] neo-theme-b lacks an unconditional Global.css definition for --neo-duration-fast, read without a fallback in src/'
+        ]);
+
+        fs.appendFileSync(path.join(root, 'theme-dual/Global.css'),
+            '\n@layer neo.roles {:where(.neo-theme-b) {--neo-duration-fast: 120ms}}');
+
+        expect(collect({root, runtimeProperties: {}})).toEqual([]);
     });
 
     test('FAILS CLOSED: a root without src/ or theme directories is a failure, never a vacuous green', () => {

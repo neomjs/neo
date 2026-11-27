@@ -1,4 +1,5 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}    from '@playwright/test';
+import {themeSheetHrefs} from '../../util/themeSheets.mjs';
 
 const THEMES = [
     'neo-theme-light',
@@ -50,25 +51,9 @@ const EXPECTED = {
 
 let componentIds = [];
 
-/** Links the four tab value layers into the persistent component-test document. */
+/** Links the four themes' tab value layers into the persistent component-test document. */
 async function loadThemeStylesheets(page) {
-    const hrefs = THEMES.flatMap(theme => {
-        const directory = theme.replace('neo-theme-', 'theme-'),
-              files     = [
-                  `/dist/development/css/${directory}/button/Base.css`,
-                  `/dist/development/css/${directory}/tab/Container.css`,
-                  `/dist/development/css/${directory}/tab/Strip.css`,
-                  `/dist/development/css/${directory}/tab/header/Button.css`,
-                  `/dist/development/css/${directory}/toolbar/Base.css`
-              ];
-
-        if (theme.includes('neo-light') || theme.includes('neo-dark')) {
-            // The neo themes' design tokens live in their Global sheet
-            files.unshift(`/dist/development/css/${directory}/Global.css`)
-        }
-
-        return files
-    });
+    const hrefs = themeSheetHrefs(THEMES, ['button.Base', 'tab.Container', 'tab.Strip', 'tab.header.Button', 'toolbar.Base']);
 
     await page.evaluate(async hrefs => {
         for (const href of hrefs) {

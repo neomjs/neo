@@ -7,7 +7,7 @@ import TextField    from '../../../src/form/field/Text.mjs';
 
 /**
  * @summary Modal form dialog for editing a partner row's nested `user` and `address` fields with explicit Save/Cancel
- * commit semantics, keyboard focus trapping, focus restoration to the triggering row button, and a position kept
+ * commit semantics, keyboard focus trapping, focus restoration to the actual opener, and a position kept
  * inside the viewport when the window narrows while it is open.
  * @class Neo.examples.grid.nestedRecordFields.EditUserDialog
  * @extends Neo.dialog.Base
@@ -114,8 +114,7 @@ class EditUserDialog extends Dialog {
     }
 
     /**
-     * @summary The row's `Edit` button that opened the dialog takes focus back, ahead of the component focus came
-     * from: the grid view takes focus on the way in. The engine hands it over as the dialog leaves the DOM.
+     * @summary Restores focus to the row or floating Edit button that opened the dialog as it leaves the DOM.
      * @returns {Neo.component.Base|null}
      */
     getFocusReturnTarget() {

@@ -1,4 +1,6 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}    from '@playwright/test';
+import {toRgb}           from '../../util/srgb.mjs';
+import {themeSheetHrefs} from '../../util/themeSheets.mjs';
 
 /**
  * @summary `Neo.button.Base#pressed` sets a pressed button apart from its rest state in the neo themes, for every `ui`,
@@ -35,17 +37,13 @@ const linkStylesheets = (page, hrefs) => page.evaluate(async hrefs => {
 }, hrefs);
 
 /**
- * Each theme's button values, the neo themes' design tokens and neo-light's tab values
+ * Each theme's button values and Global sheets, and neo-light's tab values
  * @param {Object} page
  */
-const loadThemeStylesheets = page => linkStylesheets(page, [...NEO_THEMES, ...CLASSIC_THEMES].flatMap(theme => {
-    const directory = theme.replace('neo-theme-', 'theme-'),
-          files     = [`/dist/development/css/${directory}/button/Base.css`];
-
-    theme.includes('-neo-') && files.unshift(`/dist/development/css/${directory}/Global.css`);
-
-    return files
-}).concat('/dist/development/css/theme-neo-light/tab/header/Button.css'));
+const loadThemeStylesheets = page => linkStylesheets(page, [
+    ...themeSheetHrefs([...NEO_THEMES, ...CLASSIC_THEMES], ['button.Base']),
+    '/dist/development/css/theme-neo-light/tab/header/Button.css'
+]);
 
 /**
  * Replaces the document theme without keeping a competing theme ancestor
@@ -61,12 +59,12 @@ const applyTheme = (page, theme) => page.evaluate(name => {
 }, theme);
 
 /**
- * Reads a button's background, label colour and top border colour
+ * Reads a button's background, label colour and top border colour, as sRGB
  * @param {Object} page
  * @param {String} id
  * @returns {Promise<Object>}
  */
-const readColors = (page, id) => page.evaluate(buttonId => {
+const readColors = async (page, id) => Object.fromEntries(Object.entries(await page.evaluate(buttonId => {
     const button = document.getElementById(buttonId),
           style  = getComputedStyle(button),
           probe  = document.createElement('div');
@@ -86,7 +84,7 @@ const readColors = (page, id) => page.evaluate(buttonId => {
         surface,
         text       : getComputedStyle(button.querySelector('.neo-button-text')).color
     }
-}, id);
+}, id)).map(([key, value]) => [key, toRgb(value)]));
 
 /**
  * Reads a button's colours with the pointer over it

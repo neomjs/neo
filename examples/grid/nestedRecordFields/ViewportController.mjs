@@ -35,37 +35,66 @@ class ViewportController extends Component {
     }
 
     /**
-     * Opens `EditUserDialog` anchored to the clicked/activated row `Edit` button.
+     * @summary Opens the editor for the row represented by the activated Edit button.
      * @param {Object} data
      */
     editButtonHandler(data) {
-        let me                          = this,
-            {dialog}                    = me,
-            button                      = data.component,
-            {appName, record, windowId} = button,
-            theme                       = me.component.theme || button.theme;
+        const button = data.component;
 
-        if (!dialog) {
-            import('./EditUserDialog.mjs').then(module => {
+        return this.openEditor(button.record, button)
+    }
+
+    /**
+     * @summary Edits the current Grid selection from the compact floating Button.
+     * @param {Object} data
+     */
+    onFloatingEditClick(data) {
+        const button   = data.component,
+              [record] = this.getReference('grid').view.selectedRecords;
+
+        if (record) {
+            return this.openEditor(record, button)
+        }
+
+        Neo.toast({
+            appName : button.appName,
+            msg     : 'Select a row to edit a contact.',
+            position: 'bl',
+            windowId: button.windowId
+        })
+    }
+
+    /**
+     * @summary Opens the shared contact editor with the actual action as its focus-return target.
+     * @param {Neo.data.Record} record
+     * @param {Neo.button.Base} opener
+     * @protected
+     */
+    async openEditor(record, opener) {
+        const me                  = this,
+              {appName, windowId} = opener,
+              theme               = me.component.theme || opener.theme;
+
+        if (!me.dialog) {
+            const {default: EditUserDialog} = await import('./EditUserDialog.mjs');
+
+            if (!me.dialog) {
                 me.dialog = Neo.create({
-                    module         : module.default,
-                    animateTargetId: button.id,
+                    module         : EditUserDialog,
+                    animateTargetId: opener.id,
                     appName,
                     record,
                     stateProvider  : {parent: me.getStateProvider()},
                     theme,
                     windowId
-                })
-            })
-        } else {
-            dialog.set({
-                animateTargetId: button.id,
-                record,
-                theme
-            });
+                });
 
-            dialog.show()
+                return
+            }
         }
+
+        me.dialog.set({animateTargetId: opener.id, record, theme});
+        me.dialog.show()
     }
 
     /**

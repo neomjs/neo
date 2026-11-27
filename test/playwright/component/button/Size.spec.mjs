@@ -1,4 +1,5 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}    from '@playwright/test';
+import {themeSheetHrefs} from '../../util/themeSheets.mjs';
 
 /**
  * @summary `Neo.button.Base#size` sets a button's height, padding and text in every theme, over the size of its
@@ -26,18 +27,11 @@ const SIZES = [null, 'small', 'medium', 'large'];
 let componentIds = [];
 
 /**
- * Links each theme's button and toolbar values, and the neo themes' design tokens
+ * Links each theme's button and toolbar values, and its Global sheets
  * @param {Object} page
  */
 async function loadThemeStylesheets(page) {
-    const hrefs = THEMES.flatMap(theme => {
-        const directory = theme.replace('neo-theme-', 'theme-'),
-              files     = [`/dist/development/css/${directory}/button/Base.css`, `/dist/development/css/${directory}/toolbar/Base.css`];
-
-        theme.includes('-neo-') && files.unshift(`/dist/development/css/${directory}/Global.css`);
-
-        return files
-    });
+    const hrefs = themeSheetHrefs(THEMES, ['button.Base', 'toolbar.Base']);
 
     await page.evaluate(async hrefs => {
         for (const href of hrefs) {

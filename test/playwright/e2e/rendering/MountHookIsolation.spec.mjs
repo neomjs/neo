@@ -35,7 +35,7 @@ function read(page, id, key) {
  */
 test.describe('A mount hook that throws (#19916)', () => {
     test('resolves its render and mounts its siblings, so no later update inserts a node twice', async ({page, workerErrors}) => {
-        const logged = /^App Worker: syncVnodeTree: a mount hook failed mount-hook-view /;
+        const logged = /^App Worker: syncVnodeTree: a mount hook failed mount-hook-thrower /;
 
         workerErrors.expect(logged);
 
@@ -98,5 +98,103 @@ test.describe('A mount hook that throws (#19916)', () => {
         await expect.poll(() => workerErrors.lines.some(line => logged.test(line)), {
             message: 'the hook\'s error still reaches the console, naming the component whose mount failed'
         }).toBe(true)
+    })
+});
+
+/**
+ * @summary Verifies in Chromium across App, VDom, and Main threads that an item added while its container's first
+ * render is in flight stays unmounted while absent from the DOM and mounts once on the follow-up render that draws it.
+ */
+test.describe('An item added while its container\'s first render is in flight', () => {
+    test('stays unmounted while absent from the DOM and mounts once on the follow-up render that draws it', async ({page}) => {
+        await page.goto('/examples/container/base/index.html');
+        await expect(page.locator('.neo-button').first()).toBeVisible();
+
+        await runInAppWorker(page, `
+            class LateChild extends Neo.component.Base {
+                static config = {className: 'Test.E2E.MountHookIsolation.LateChild'}
+
+                mountEvents = []
+
+                afterSetMounted(value, oldValue) {
+                    if (oldValue !== undefined && value) {
+                        this.mountEvents.push({hasVnode: Boolean(this.vnode)})
+                    }
+                    super.afterSetMounted(value, oldValue)
+                }
+            }
+
+            const LateChildClass = Neo.setupClass(LateChild),
+                  main           = Object.values(Neo.apps).find(app => app.name === 'Neo.examples.container.base').mainView,
+                  parent         = Neo.create(Neo.container.Base, {
+                      appName : main.appName,
+                      id      : 'm1-parent',
+                      parentId: 'document.body',
+                      windowId: main.windowId
+                  });
+
+            let notifyFlightCaptured, releaseFirstFlight;
+            const flightCaptured  = new Promise(resolve => { notifyFlightCaptured = resolve }),
+                  firstFlightGate = new Promise(resolve => { releaseFirstFlight   = resolve }),
+                  realCreate      = parent.createVnodeTree.bind(parent);
+
+            parent.createVnodeTree = async function(config, afterCreate) {
+                delete parent.createVnodeTree;
+                notifyFlightCaptured();
+                await firstFlightGate;
+                return realCreate(config, afterCreate)
+            };
+
+            const firstFlight = parent.initVnode(true);
+            await flightCaptured;
+
+            const child = parent.add({module: LateChildClass, id: 'm1-late-child', text: 'Late child'}, true);
+
+            releaseFirstFlight();
+            await firstFlight;
+
+            parent.afterFirstFlight = {
+                childHasVnode   : Boolean(child.vnode),
+                childMounted    : child.mounted,
+                childMountEvents: [...child.mountEvents],
+                parentMounted   : parent.mounted
+            };
+        `);
+
+        await expect(page.locator('#m1-parent')).toHaveCount(1);
+
+        expect({
+            domCount        : await page.locator('#m1-late-child').count(),
+            afterFirstFlight: await read(page, 'm1-parent', 'afterFirstFlight')
+        }).toEqual({
+            domCount        : 0,
+            afterFirstFlight: {
+                childHasVnode   : false,
+                childMounted    : false,
+                childMountEvents: [],
+                parentMounted   : true
+            }
+        });
+
+        await runInAppWorker(page, `
+            const parent = Neo.getComponent('m1-parent'),
+                  child  = Neo.getComponent('m1-late-child');
+
+            parent.updateDepth = -1;
+            await parent.promiseUpdate();
+
+            parent.afterFollowUp = {
+                childHasVnode   : Boolean(child.vnode),
+                childMounted    : child.mounted,
+                childMountEvents: [...child.mountEvents]
+            };
+        `);
+
+        await expect(page.locator('#m1-late-child')).toHaveText('Late child');
+        expect(await read(page, 'm1-parent', 'afterFollowUp')).toEqual({
+            childHasVnode   : true,
+            childMounted    : true,
+            childMountEvents: [{hasVnode: true}]
+        })
     })
 });

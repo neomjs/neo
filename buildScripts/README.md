@@ -315,9 +315,9 @@ existing destination fails without overwriting files.
 
 Customize the generated variables, then put `"neo-theme-acme"` first in the relevant application's
 `neo-config.json` `themes` array to make it the default. Build again after editing the sources. This is
-a snapshot of the base's current values; future base changes are not copied automatically. Values every
-theme shares, such as the motion vocabulary, come from the Engine's `src/Global.css` for any
-`neo-theme-*` root, so the snapshot does not copy them.
+a snapshot of the base's current values. Future base changes are not copied automatically. The
+snapshot includes the base's seven motion roles in its `Global.css`. The Engine's `src/Global.css`
+sets the duration roles to zero when reduced motion is enabled.
 
 ## `npm run create-class`
 **Script:** `buildScripts/create/class.mjs`
