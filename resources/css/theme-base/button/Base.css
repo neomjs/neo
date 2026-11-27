@@ -1,0 +1,215 @@
+/* Button, every theme: each variable bound to a role (ADR 0044 decision 4). A theme re-values one in its own
+   button/Base.css only where its design language deviates. The rules in src/button/Base.css read these. */
+[class*="neo-theme-"] {
+    /* .neo-button – Styles that will be inherited by ALL button styles */
+    --neo-button-margin                             : var(--neo-space-1);
+    --neo-button-text-font-family                   : var(--neo-font-family-sans);
+    --neo-button-text-font-weight                   : var(--neo-font-weight-semibold);
+    --neo-button-text-line-height                   : inherit;
+    --neo-button-text-transform                     : none;
+    --neo-button-border-radius                      : var(--neo-control-radius);
+    --neo-button-border-width                       : var(--neo-control-border-width);
+    --neo-button-badge-background-color             : var(--neo-color-background-inverse);
+    --neo-button-badge-color                        : var(--neo-color-text-inverse);
+    --neo-button-badge-margin-left                  : -10px;
+    --neo-button-badge-margin-top                   : -10px;
+
+    /* {module: Button; ui: null (neutral application control)} ––––––––––––––––––––––––––––
+       Background Color */
+    --neo-button-background-color                   : transparent;
+    --neo-button-background-color-active            : var(--neo-color-background-neutral-active);
+    --neo-button-background-color-disabled          : var(--neo-color-background-disabled);
+    --neo-button-background-color-hover             : var(--neo-color-background-neutral-hover);
+    --neo-button-background-color-pressed           : var(--neo-color-background-selected);
+
+    /* Border */
+    --neo-button-border                             : var(--neo-control-border-width) solid var(--neo-color-border-strong);
+    --neo-button-border-active                      : var(--neo-control-border-width) solid var(--neo-color-border-strong);
+    --neo-button-border-disabled                    : var(--neo-control-border-width) solid var(--neo-color-border-subtle);
+    --neo-button-border-hover                       : var(--neo-control-border-width) solid var(--neo-color-border-strong);
+    --neo-button-border-pressed                     : var(--neo-control-border-width) solid var(--neo-color-border-accent);
+
+    /* Text Color */
+    --neo-button-color                              : var(--neo-color-text-default);
+    --neo-button-color-hover                        : var(--neo-color-text-strong);
+    --neo-button-color-active                       : var(--neo-color-text-strong);
+    --neo-button-color-disabled                     : var(--neo-color-text-disabled);
+    --neo-button-color-pressed                      : var(--neo-color-text-strong);
+
+    /* Icon Color */
+    --neo-button-glyph-color                        : var(--neo-color-text-default);
+    --neo-button-glyph-color-hover                  : var(--neo-color-text-strong);
+    --neo-button-glyph-color-active                 : var(--neo-color-text-strong);
+    --neo-button-glyph-color-disabled               : var(--neo-color-text-disabled);
+    --neo-button-glyph-color-pressed                : var(--neo-color-text-strong);
+    --neo-button-glyph-margin                       : 1px 6px 0 0;
+
+    --neo-button-background-image                   : none;
+    --neo-button-opacity-disabled                   : inherit;
+    --neo-button-outline-active                     : none;
+    --neo-button-ripple-background-color            : var(--neo-color-background-neutral-active);
+
+    /* {module: Button; ui: --primary} –––––––––––––––––––––––––––––––––––––––––––––––––––––
+       Background Color */
+    --neo-button-primary-background-color           : var(--neo-color-background-accent);
+    --neo-button-primary-background-color-active    : var(--neo-color-background-accent-active);
+    --neo-button-primary-background-color-disabled  : var(--neo-color-background-disabled);
+    --neo-button-primary-background-color-hover     : var(--neo-color-background-accent-hover);
+    --neo-button-primary-background-color-pressed   : var(--neo-color-background-accent-active);
+
+    /* Border */
+    --neo-button-primary-border                     : none;
+    --neo-button-primary-border-active              : none;
+    --neo-button-primary-border-disabled            : none;
+    --neo-button-primary-border-hover               : none;
+    --neo-button-primary-border-pressed             : none;
+
+    /* Text Color */
+    --neo-button-primary-color                      : var(--neo-color-text-on-accent);
+    --neo-button-primary-color-hover                : var(--neo-color-text-on-accent);
+    --neo-button-primary-color-active               : var(--neo-color-text-on-accent);
+    --neo-button-primary-color-disabled             : var(--neo-color-text-disabled);
+    --neo-button-primary-color-pressed              : var(--neo-color-text-on-accent);
+
+    /* Icon Color */
+    --neo-button-primary-glyph-color                : var(--neo-color-text-on-accent);
+    --neo-button-primary-glyph-color-hover          : var(--neo-color-text-on-accent);
+    --neo-button-primary-glyph-color-active         : var(--neo-color-text-on-accent);
+    --neo-button-primary-glyph-color-disabled       : var(--neo-color-text-disabled);
+    --neo-button-primary-glyph-color-pressed        : var(--neo-color-text-on-accent);
+
+    --neo-button-primary-background-image           : none;
+    --neo-button-primary-badge-background-color     : var(--neo-color-background-inverse);
+    --neo-button-primary-badge-color                : var(--neo-color-text-inverse);
+    --neo-button-primary-opacity-disabled           : inherit;
+    --neo-button-primary-ripple-background-color    : color-mix(in srgb, var(--neo-color-text-on-accent) 30%, transparent);
+
+    /* {module: Button; ui: --secondary}  ––––––––––––––––––––––––––––––––––––––––––––––––––
+       Background Color */
+    --neo-button-secondary-background-color         : transparent;
+    --neo-button-secondary-background-color-hover   : var(--neo-color-background-neutral-hover);
+    --neo-button-secondary-background-color-active  : var(--neo-color-background-neutral-active);
+    --neo-button-secondary-background-color-disabled: var(--neo-color-background-disabled);
+    --neo-button-secondary-background-color-pressed : var(--neo-color-background-selected);
+
+    /* Border */
+    --neo-button-secondary-border                   : var(--neo-control-border-width) solid var(--neo-color-border-strong);
+    --neo-button-secondary-border-hover             : var(--neo-control-border-width) solid var(--neo-color-border-strong);
+    --neo-button-secondary-border-active            : var(--neo-control-border-width) solid var(--neo-color-border-strong);
+    --neo-button-secondary-border-disabled          : var(--neo-control-border-width) solid var(--neo-color-border-subtle);
+    --neo-button-secondary-border-pressed           : var(--neo-control-border-width) solid var(--neo-color-border-accent);
+
+    /* Text Color */
+    --neo-button-secondary-color                    : var(--neo-color-text-default);
+    --neo-button-secondary-color-hover              : var(--neo-color-text-strong);
+    --neo-button-secondary-color-active             : var(--neo-color-text-strong);
+    --neo-button-secondary-color-disabled           : var(--neo-color-text-disabled);
+    --neo-button-secondary-color-pressed            : var(--neo-color-text-strong);
+
+    /* Icon Color */
+    --neo-button-secondary-glyph-color              : var(--neo-color-text-default);
+    --neo-button-secondary-glyph-color-hover        : var(--neo-color-text-strong);
+    --neo-button-secondary-glyph-color-active       : var(--neo-color-text-strong);
+    --neo-button-secondary-glyph-color-disabled     : var(--neo-color-text-disabled);
+    --neo-button-secondary-glyph-color-pressed      : var(--neo-color-text-strong);
+
+    --neo-button-secondary-background-image         : none;
+    --neo-button-secondary-badge-background-color   : transparent;
+    --neo-button-secondary-badge-color              : transparent;
+    --neo-button-secondary-opacity-disabled         : 1;
+    --neo-button-secondary-ripple-background-color  : var(--neo-color-background-neutral-active);
+
+    /* {module: Button; ui: --ghost}  –––––––––––––––––––––––––––––––––––––––––––––––––––––--
+       Background Color */
+    --neo-button-ghost-background-color             : transparent;
+    --neo-button-ghost-background-color-hover       : var(--neo-color-background-neutral-hover);
+    --neo-button-ghost-background-color-active      : var(--neo-color-background-neutral-active);
+    --neo-button-ghost-background-color-pressed     : var(--neo-color-background-accent);
+
+    /* Border */
+    --neo-button-ghost-border                       : none;
+    --neo-button-ghost-border-active                : none;
+    --neo-button-ghost-border-hover                 : none;
+    --neo-button-ghost-border-pressed               : none;
+
+    /* Text Color */
+    --neo-button-ghost-color                        : var(--neo-color-text-default);
+    --neo-button-ghost-color-hover                  : var(--neo-color-text-strong);
+    --neo-button-ghost-color-active                 : var(--neo-color-text-strong);
+    --neo-button-ghost-color-pressed                : var(--neo-color-text-on-accent);
+
+    /* Icon Color */
+    --neo-button-ghost-glyph-color                  : var(--neo-color-text-default);
+    --neo-button-ghost-glyph-color-hover            : var(--neo-color-text-strong);
+    --neo-button-ghost-glyph-color-active           : var(--neo-color-text-strong);
+    --neo-button-ghost-glyph-color-pressed          : var(--neo-color-text-on-accent);
+
+    --neo-button-ghost-background-image             : none;
+    --neo-button-ghost-badge-background-color       : transparent;
+    --neo-button-ghost-badge-color                  : transparent;
+    --neo-button-ghost-ripple-background-color      : var(--neo-color-background-neutral-active);
+
+    /* {module: Button; ui: --tertiary}  –––––––––––––––––––––––––––––––––––––––––––––––––––
+       Background color */
+    --neo-button-tertiary-background-color          : transparent;
+    --neo-button-tertiary-background-color-hover    : transparent;
+    --neo-button-tertiary-background-color-active   : transparent;
+    --neo-button-tertiary-background-color-disabled : transparent;
+    --neo-button-tertiary-background-color-pressed  : var(--neo-color-background-accent);
+
+    /* Border */
+    --neo-button-tertiary-border                    : none;
+    --neo-button-tertiary-border-hover              : none;
+    --neo-button-tertiary-border-active             : none;
+    --neo-button-tertiary-border-disabled           : none;
+    --neo-button-tertiary-border-pressed            : none;
+
+    /* Text color */
+    --neo-button-tertiary-color                     : var(--neo-color-text-accent);
+    --neo-button-tertiary-color-hover               : var(--neo-color-text-accent);
+    --neo-button-tertiary-color-active              : var(--neo-color-text-strong);
+    --neo-button-tertiary-color-disabled            : var(--neo-color-text-disabled);
+    --neo-button-tertiary-color-pressed             : var(--neo-color-text-on-accent);
+
+    /* Icon color */
+    --neo-button-tertiary-glyph-color               : var(--neo-color-text-accent);
+    --neo-button-tertiary-glyph-color-active        : var(--neo-color-text-accent);
+    --neo-button-tertiary-glyph-color-disabled      : var(--neo-color-text-disabled);
+    --neo-button-tertiary-glyph-color-hover         : var(--neo-color-text-accent);
+    --neo-button-tertiary-glyph-color-pressed       : var(--neo-color-text-on-accent);
+
+    --neo-button-tertiary-background-image          : none;
+    --neo-button-tertiary-badge-background-color    : var(--neo-color-background-inverse);
+    --neo-button-tertiary-badge-color               : var(--neo-color-text-inverse);
+    --neo-button-tertiary-opacity-disabled          : var(--neo-opacity-disabled);
+    --neo-button-tertiary-ripple-background-color   : inherit;
+
+    /* Moved out of a selector block: the rule is structural, only these values are the theme's. */
+    --neo-button-tertiary-text-decoration           : underline;
+    --neo-button-tertiary-text-decoration-color     : var(--neo-color-text-accent);
+    --neo-button-tertiary-text-underline-offset     : 3px;
+    --neo-button-badge-border-radius                : var(--neo-radius-small);
+}
+
+/* The three sizes a button's `size` config picks. The large one is the design system's call to action
+   (--neo-height-48), for a button alone on a wide page. */
+[class*="neo-theme-"] {
+    --neo-button-size-small-font-size               : var(--neo-control-font-size-small);
+    --neo-button-size-small-height                  : var(--neo-control-height-small);
+    --neo-button-size-small-padding                 : 0 var(--neo-control-padding-inline-small);
+    --neo-button-size-medium-font-size              : var(--neo-control-font-size-medium);
+    --neo-button-size-medium-height                 : var(--neo-control-height-medium);
+    --neo-button-size-medium-padding                : 0 var(--neo-control-padding-inline-medium);
+    --neo-button-size-large-font-size               : var(--neo-control-font-size-large);
+    --neo-button-size-large-height                  : var(--neo-control-height-large);
+    --neo-button-size-large-padding                 : 0 var(--neo-control-padding-inline-large);
+}
+
+/* A button without a size is an app control: medium. A toolbar keeps this size under an ancestor that raises it, as
+   the Portal does, through `--toolbar-button-*` (toolbar/Base.css). */
+[class*="neo-theme-"] {
+    --neo-button-height                             : var(--neo-control-height-medium);
+    --neo-button-min-width                          : var(--neo-control-height-medium);
+    --neo-button-padding                            : 0 var(--neo-control-padding-inline-medium);
+    --neo-button-text-font-size                     : var(--neo-control-font-size-medium);
+}

@@ -12,8 +12,9 @@ import {extractThemeClasses}       from '../../../../buildScripts/util/themeCss.
 const repoRoot      = fileURLToPath(new URL('../../../../', import.meta.url)),
       createPath    = path.join(repoRoot, 'buildScripts/create/theme.mjs'),
       buildPath     = path.join(repoRoot, 'buildScripts/build/themes.mjs'),
+      // A theme is a folder whose Global.css declares a theme class, so theme-base is none
       shippedThemes = fs.readdirSync(path.join(repoRoot, 'resources/css'), {withFileTypes: true})
-          .filter(entry => entry.isDirectory() && entry.name.startsWith('theme-'))
+          .filter(entry => entry.isDirectory() && entry.name.startsWith('theme-') && fs.existsSync(path.join(repoRoot, 'resources/css', entry.name, 'Global.css')))
           .map(entry => entry.name).sort();
 
 test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', () => {
@@ -104,6 +105,9 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         for (const theme of ['theme-neo-dark', 'theme-light']) {
             fs.cpSync(path.join(repoRoot, 'resources/css', theme), path.join(engineRoot, 'resources/css', theme), {recursive: true});
         }
+
+        // The base's widget sheet is planted, so the generator's contract does not follow which packages moved to theme-base
+        write(path.join(engineRoot, 'resources/css/theme-neo-dark/button/Base.css'), ':where(.neo-theme-neo-dark) {\n    --neo-button-background-color: #000;\n}\n');
 
         for (const sheet of ['Global.css', 'button/Base.css']) {
             fs.mkdirSync(path.dirname(path.join(engineRoot, 'resources/css/src', sheet)), {recursive: true});

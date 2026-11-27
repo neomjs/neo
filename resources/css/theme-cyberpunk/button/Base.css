@@ -50,8 +50,8 @@
     --neo-button-primary-background-color-hover     : rgba(0, 210, 255, 0.1);
     --neo-button-primary-background-color-pressed   : rgba(0, 210, 255, 0.1);
     --neo-button-primary-background-image           : none;
-    --neo-button-primary-badge-background-color     : var(--neo-button-badge-background-color);
-    --neo-button-primary-badge-color                : var(--neo-button-badge-color);
+    --neo-button-primary-badge-background-color     : var(--neo-cyber-red);
+    --neo-button-primary-badge-color                : #fff;
     --neo-button-primary-border                     : 1px solid var(--neo-cyber-border);
     --neo-button-primary-border-active              : 1px solid var(--neo-cyber-cyan);
     --neo-button-primary-border-disabled            : 1px solid var(--neo-cyber-border);
@@ -77,24 +77,24 @@
     --neo-button-ghost-background-color-hover       : transparent;
     --neo-button-ghost-background-color-pressed     : transparent;
     --neo-button-ghost-background-image             : none;
-    --neo-button-ghost-badge-background-color       : var(--neo-button-badge-color);
-    --neo-button-ghost-badge-color                  : var(--neo-button-badge-background-color);
+    --neo-button-ghost-badge-background-color       : #fff;
+    --neo-button-ghost-badge-color                  : var(--neo-cyber-red);
     --neo-button-ghost-border                       : none;
     --neo-button-ghost-border-active                : 1px solid var(--neo-cyber-cyan);
     --neo-button-ghost-border-disabled              : inherit;
     --neo-button-ghost-border-hover                 : 1px solid var(--neo-cyber-cyan);
     --neo-button-ghost-border-pressed               : 1px solid var(--neo-cyber-cyan);
-    --neo-button-ghost-glyph-color                  : var(--neo-button-color);
-    --neo-button-ghost-glyph-color-active           : var(--neo-button-color);
+    --neo-button-ghost-glyph-color                  : var(--neo-cyber-color);
+    --neo-button-ghost-glyph-color-active           : var(--neo-cyber-color);
     --neo-button-ghost-glyph-color-disabled         : inherit;
-    --neo-button-ghost-glyph-color-hover            : var(--neo-button-color);
+    --neo-button-ghost-glyph-color-hover            : var(--neo-cyber-color);
     --neo-button-ghost-glyph-color-pressed          : var(--neo-cyber-color);
     --neo-button-ghost-opacity-disabled             : var(--neo-global-opacity-disabled);
     --neo-button-ghost-ripple-background-color      : inherit;
-    --neo-button-ghost-color                   : var(--neo-button-color);
-    --neo-button-ghost-color-active            : var(--neo-button-color);
+    --neo-button-ghost-color                   : var(--neo-cyber-color);
+    --neo-button-ghost-color-active            : var(--neo-cyber-color);
     --neo-button-ghost-color-disabled          : inherit;
-    --neo-button-ghost-color-hover             : var(--neo-button-color);
+    --neo-button-ghost-color-hover             : var(--neo-cyber-color);
     --neo-button-ghost-color-pressed           : var(--neo-cyber-color);
 
     /* {module: Button, ui: --secondary} */
@@ -104,8 +104,8 @@
     --neo-button-secondary-background-color-hover   : var(--neo-cyber-cyan);
     --neo-button-secondary-background-color-pressed : var(--neo-cyber-cyan);
     --neo-button-secondary-background-image         : none;
-    --neo-button-secondary-badge-background-color   : var(--neo-button-badge-color);
-    --neo-button-secondary-badge-color              : var(--neo-button-badge-background-color);
+    --neo-button-secondary-badge-background-color   : #fff;
+    --neo-button-secondary-badge-color              : var(--neo-cyber-red);
     --neo-button-secondary-border                   : 1px solid var(--neo-cyber-cyan);
     --neo-button-secondary-border-active            : 1px solid var(--neo-cyber-cyan);
     --neo-button-secondary-border-disabled          : inherit;
@@ -131,24 +131,24 @@
     --neo-button-tertiary-background-color-hover    : rgba(0, 210, 255, 0.1);
     --neo-button-tertiary-background-color-pressed  : rgba(0, 210, 255, 0.1);
     --neo-button-tertiary-background-image          : none;
-    --neo-button-tertiary-badge-background-color    : var(--neo-button-badge-background-color);
-    --neo-button-tertiary-badge-color               : var(--neo-button-badge-color);
+    --neo-button-tertiary-badge-background-color    : var(--neo-cyber-red);
+    --neo-button-tertiary-badge-color               : #fff;
     --neo-button-tertiary-border                    : 1px solid transparent;
     --neo-button-tertiary-border-active             : 1px solid var(--neo-cyber-cyan);
     --neo-button-tertiary-border-disabled           : inherit;
     --neo-button-tertiary-border-hover              : 1px solid var(--neo-cyber-cyan);
     --neo-button-tertiary-border-pressed            : 1px solid var(--neo-cyber-cyan);
-    --neo-button-tertiary-glyph-color               : var(--neo-button-glyph-color);
-    --neo-button-tertiary-glyph-color-active        : var(--neo-button-glyph-color);
+    --neo-button-tertiary-glyph-color               : var(--neo-cyber-cyan);
+    --neo-button-tertiary-glyph-color-active        : var(--neo-cyber-cyan);
     --neo-button-tertiary-glyph-color-disabled      : inherit;
-    --neo-button-tertiary-glyph-color-hover         : var(--neo-button-glyph-color);
+    --neo-button-tertiary-glyph-color-hover         : var(--neo-cyber-cyan);
     --neo-button-tertiary-glyph-color-pressed       : var(--neo-cyber-cyan);
     --neo-button-tertiary-opacity-disabled          : var(--neo-global-opacity-disabled);
     --neo-button-tertiary-ripple-background-color   : inherit;
-    --neo-button-tertiary-color                : var(--neo-button-color);
-    --neo-button-tertiary-color-active         : var(--neo-button-color);
+    --neo-button-tertiary-color                : var(--neo-cyber-color);
+    --neo-button-tertiary-color-active         : var(--neo-cyber-color);
     --neo-button-tertiary-color-disabled       : inherit;
-    --neo-button-tertiary-color-hover          : var(--neo-button-color);
+    --neo-button-tertiary-color-hover          : var(--neo-cyber-color);
     --neo-button-tertiary-color-pressed        : var(--neo-cyber-color);
 
     /* Moved out of a selector block: the rule is structural, only these values are the theme's. */
