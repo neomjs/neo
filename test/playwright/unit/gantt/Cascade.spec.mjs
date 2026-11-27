@@ -83,18 +83,95 @@ test('a cascade uses task keys and scans the dependency population once', () => 
     edges.getSuccessors = edges.getPredecessors = () => { throw Error('unexpected repeated edge scan') };
     const owner = {
         store            : tasks, dependencyStore: edges, timeAxis: null, startDateField: 'startDate', endDateField: 'endDate',
-        resolveTaskRecord: key => tasks.get(key),
-        addLag(...args) { return Cascade.addLag(this, ...args) },
-        convertLagToMs(...args) { return Cascade.convertLagToMs(...args) },
-        computeRequiredStartMs(...args) { return Cascade.computeRequiredStartMs(this, ...args) }
+        resolveTaskRecord: key => tasks.get(key)
     };
+    const cascade = Neo.create(Cascade, {chart: owner});
     try {
-        const changed = Cascade.runDependencyCascade(owner, tasks.get('key-0'));
+        const changed = cascade.runDependencyCascade(tasks.get('key-0'));
         expect(changed).toHaveLength(count - 1);
         expect(reads).toBe(count - 1);
         expect(tasks.get('key-1').startDate.getTime()).toBe(epoch + 6 * 60_000);
         expect(tasks.get(`key-${count - 1}`).startDate.getTime()).toBe(epoch + (count + 4) * 60_000)
-    } finally { edges.destroy(); tasks.destroy(); model.destroy() }
+    } finally { cascade.destroy(); edges.destroy(); tasks.destroy(); model.destroy() }
+});
+
+class BufferedEdgeCascade extends Cascade {
+    static config = {
+        className: 'Test.Unit.Gantt.Cascade.BufferedEdgeCascade',
+        bufferMs : 0
+    }
+
+    computeRequiredStartMs(options) {
+        let extraMs = options.edge?.id === 'ab' ? this.bufferMs : 0;
+        return super.computeRequiredStartMs(options) + extraMs
+    }
+}
+
+BufferedEdgeCascade = Neo.setupClass(BufferedEdgeCascade);
+
+test('a Cascade subclass configured on the chart overrides per-edge placement and honors owned vs borrowed lifecycle', () => {
+    Neo.ns('Neo.main.addon.DragDrop', true);
+    Neo.main.addon.DragDrop = {setConfigs: async () => ({})};
+
+    const at    = hour => new Date(Date.UTC(2026, 10, 9, hour)),
+          tasks = Neo.create(TaskStore, {data: [
+              {id: 'a', parentId: null, isLeaf: true, startDate: at(1), endDate: at(2), duration: 1, durationUnit: 'hour'},
+              {id: 'b', parentId: null, isLeaf: true, startDate: at(2), endDate: at(3), duration: 1, durationUnit: 'hour'},
+              {id: 'c', parentId: null, isLeaf: true, startDate: at(3), endDate: at(4), duration: 1, durationUnit: 'hour'}
+          ]}),
+          edges    = Neo.create(DependencyStore, {data: [
+              {id: 'ab', fromId: 'a', toId: 'b', type: 'FS', lag: 0, lagUnit: 'minute'},
+              {id: 'bc', fromId: 'b', toId: 'c', type: 'FS', lag: 0, lagUnit: 'minute'}
+          ]}),
+          borrowed = Neo.create(BufferedEdgeCascade, {bufferMs: 3_600_000}),
+          chart    = Neo.create(Gantt, {
+              appName        : 'GanttCascadeTest',
+              cascade        : {module: BufferedEdgeCascade, bufferMs: 2 * 3_600_000},
+              dependencyStore: edges,
+              store          : tasks,
+              timeAxis       : {timeZone: 'UTC', start: at(0), end: at(24), snapMinutes: 15}
+          }),
+          owned    = chart.cascade;
+
+    let defaultCascade;
+
+    try {
+        expect(owned).toBeInstanceOf(BufferedEdgeCascade);
+        expect(owned.chart).toBe(chart);
+
+        chart.moveTask('a', {startDate: at(2), endDate: at(3)});
+        expect(tasks.get('b').startDate).toEqual(at(5));
+        expect(tasks.get('b').endDate).toEqual(at(6));
+        expect(tasks.get('c').startDate).toEqual(at(6));
+        expect(tasks.get('c').endDate).toEqual(at(7));
+
+        chart.cascade = borrowed;
+        expect(owned.isDestroyed).toBe(true);
+        expect(borrowed.chart).toBe(chart);
+
+        chart.moveTask('a', {startDate: at(3), endDate: at(4)});
+        expect(tasks.get('b').startDate).toEqual(at(5));
+        expect(tasks.get('c').startDate).toEqual(at(6));
+
+        chart.cascade  = null;
+        defaultCascade = chart.cascade;
+        expect(borrowed.isDestroyed).toBeFalsy();
+        expect(borrowed.chart).toBeNull();
+        expect(defaultCascade).toBeInstanceOf(Cascade);
+        expect(defaultCascade).not.toBe(borrowed);
+        expect(defaultCascade.chart).toBe(chart);
+
+        chart.moveTask('a', {startDate: at(4), endDate: at(5)});
+        expect(tasks.get('b').startDate).toEqual(at(5));
+        expect(tasks.get('c').startDate).toEqual(at(6))
+    } finally {
+        chart.destroy();
+        expect(defaultCascade?.isDestroyed).toBe(true);
+        expect(borrowed.isDestroyed).toBeFalsy();
+        borrowed.destroy();
+        edges.destroy();
+        tasks.destroy()
+    }
 });
 
 for (const working of [false, true]) test(`successor dates remain required beyond the visible axis (${working ? 'working' : 'elapsed'} time)`, () => {

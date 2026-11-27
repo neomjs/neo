@@ -81,6 +81,14 @@ class Container extends SchedulerContainer {
          */
         baseCls: ['neo-gantt', 'neo-grid-container'],
         /**
+         * Dependency arithmetic and downstream cascade collaborator, normalized via
+         * {@link Neo.util.ClassSystem#beforeSetInstance}. Pass `{module: CustomCascade}`, a class, or an instance;
+         * `null` instantiates the default {@link Neo.gantt.Cascade} class (use {@link #cascadeDependencies} to disable edit cascades).
+         * @member {Neo.gantt.Cascade|Object|null} cascade_=null
+         * @reactive
+         */
+        cascade_: null,
+        /**
          * Recompute dependent tasks after an edit.
          * @member {Boolean} cascadeDependencies_=true
          * @reactive
@@ -219,6 +227,12 @@ class Container extends SchedulerContainer {
      */
     _movingTask = false
     /**
+     * The cascade collaborators this chart created from a config or `null`, which it destroys.
+     * @member {WeakSet} #ownedCascades
+     * @private
+     */
+    #ownedCascades = new WeakSet()
+    /**
      * The dependency stores this chart created from a config, which it destroys.
      * @member {WeakSet} #ownedDependencies
      * @private
@@ -263,13 +277,6 @@ class Container extends SchedulerContainer {
     }
 
     /**
-     * @summary Computes a lagged timestamp.
-     * @param {...*} args The arguments of {@link Neo.gantt.Cascade.addLag} after its chart
-     * @returns {Number} Resulting instant in milliseconds
-     */
-    addLag(...args) { return Cascade.addLag(this, ...args) }
-
-    /**
      * @summary Reads the motion tier when the transition is switched on; lands a running move when it is switched off.
      * @param {Boolean} value
      * @protected
@@ -298,6 +305,22 @@ class Container extends SchedulerContainer {
     afterSetBarDraggable(value, oldValue) {
         super.afterSetBarDraggable(value, oldValue);
         if (!value && this.isConstructed && this.dependencyCreation) this.ensureEventDragZone()
+    }
+
+    /**
+     * @summary Destroys a replaced cascade collaborator created by this chart, or detaches a borrowed one.
+     * @param {Neo.gantt.Cascade}      value
+     * @param {Neo.gantt.Cascade|null} oldValue
+     * @protected
+     */
+    afterSetCascade(value, oldValue) {
+        if (oldValue && oldValue !== value) {
+            if (this.#ownedCascades.has(oldValue)) {
+                oldValue.destroy()
+            } else if (oldValue.chart === this) {
+                oldValue.chart = null
+            }
+        }
     }
 
     /**
@@ -522,6 +545,24 @@ class Container extends SchedulerContainer {
     }
 
     /**
+     * @summary Creates or binds the chart's cascade collaborator.
+     * @param {Neo.gantt.Cascade|Function|Object|null} value
+     * @returns {Neo.gantt.Cascade}
+     * @protected
+     */
+    beforeSetCascade(value) {
+        let instance = ClassSystemUtil.beforeSetInstance(value, Cascade, {chart: this});
+
+        if (instance !== value) {
+            this.#ownedCascades.add(instance)
+        } else {
+            instance.chart = this
+        }
+
+        return instance
+    }
+
+    /**
      * @summary Creates and tracks a configured dependency store.
      * @param {Neo.gantt.DependencyStore|Object|null} value
      * @returns {Neo.gantt.DependencyStore|null}
@@ -686,20 +727,6 @@ class Container extends SchedulerContainer {
     }
 
     /**
-     * @summary Computes a successor start.
-     * @param {...*} args The arguments of {@link Neo.gantt.Cascade.computeRequiredStartMs} after its chart
-     * @returns {Number} Required start in milliseconds
-     */
-    computeRequiredStartMs(...args) { return Cascade.computeRequiredStartMs(this, ...args) }
-
-    /**
-     * @summary Converts lag to milliseconds.
-     * @param {...*} args The arguments of {@link Neo.gantt.Cascade.convertLagToMs}
-     * @returns {Number} Lag in milliseconds
-     */
-    convertLagToMs(...args) { return Cascade.convertLagToMs(...args) }
-
-    /**
      * @summary Releases owned dependencies and all chart subscriptions.
      * @param {...*} args Passed on to the scheduler
      */
@@ -713,11 +740,19 @@ class Container extends SchedulerContainer {
         this.#cleanups.forEach(fn => fn());
         this.#storeCleanups.forEach(fn => fn());
         this.#dependencyCleanups.forEach(fn => fn());
-        let deps  = this.dependencyStore,
-            tasks = this.store;
+        let cascade = this.cascade,
+            deps    = this.dependencyStore,
+            tasks   = this.store;
         this.dependencyLayer?.destroy();
         this.dependencyLayer = null;
         super.destroy(...args);
+        if (cascade) {
+            if (this.#ownedCascades.has(cascade)) {
+                cascade.destroy()
+            } else if (cascade.chart === this) {
+                cascade.chart = null
+            }
+        }
         if (deps && this.#ownedDependencies.has(deps)) deps.destroy();
         if (tasks && this.#ownedTasks.has(tasks)) tasks.destroy()
     }
@@ -1176,12 +1211,12 @@ class Container extends SchedulerContainer {
         try {
             if (store.rollupParents) {
                 let pending = new Map([[record, updates]]);
-                cascaded = cascade ? me.runDependencyCascade(record, cycles, pending) : store.planParentRollups(pending, [record]);
+                cascaded = cascade ? me.cascade.runDependencyCascade(record, cycles, pending) : store.planParentRollups(pending, [record]);
                 store.updateRows([{key: store.getKey(record), values: updates},
                     ...cascaded.map(item => ({key: store.getKey(item.record), values: item.changes}))])
             } else {
                 record.set(updates);
-                if (cascade) cascaded = me.runDependencyCascade(record, cycles)
+                if (cascade) cascaded = me.cascade.runDependencyCascade(record, cycles)
             }
         } finally {
             me._movingTask = false
@@ -1233,13 +1268,6 @@ class Container extends SchedulerContainer {
     openTaskEditor(taskIdOrRecord, barId=null) {
         return this.openEventEditor(taskIdOrRecord, barId)
     }
-
-    /**
-     * @summary Plans task span updates across a working-calendar switch.
-     * @param {...*} args The arguments of {@link Neo.gantt.Cascade.planWorkingTimeSchedule} after its chart
-     * @returns {Object[]} Changed task entries
-     */
-    planWorkingTimeSchedule(...args) { return Cascade.planWorkingTimeSchedule(this, ...args) }
 
     /**
      * @summary Publishes a service's committed receipt without repeating its writes. A receipt committed within
@@ -1371,7 +1399,7 @@ class Container extends SchedulerContainer {
         }
 
         let entries = effectiveNext !== effectivePrev
-            ? me.planWorkingTimeSchedule(effectiveNext, effectivePrev, cycles)
+            ? me.cascade.planWorkingTimeSchedule(effectiveNext, effectivePrev, cycles)
             : [];
 
         if (!entries.length) {
@@ -1455,13 +1483,6 @@ class Container extends SchedulerContainer {
     resolveTaskRecord(taskIdOrRecord) {
         return this.resolveEventRecord(taskIdOrRecord)
     }
-
-    /**
-     * @summary Cascades dependency changes and reports cycles.
-     * @param {...*} args The arguments of {@link Neo.gantt.Cascade.runDependencyCascade} after its chart
-     * @returns {Object[]} Changed successors with dependency, dates, changes and previous values
-     */
-    runDependencyCascade(...args) { return Cascade.runDependencyCascade(this, ...args) }
 
     /**
      * @summary Arms or clears the first keyboard link endpoint.

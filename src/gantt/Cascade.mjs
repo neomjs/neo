@@ -4,9 +4,13 @@ const MS_PER_MINUTE = 60_000, MS_PER_HOUR = 3_600_000, MS_PER_DAY = 86_400_000;
 
 /**
  * @summary Dependency arithmetic and downstream propagation for a Gantt chart.
- * @description The cascade reads the chart’s task store, dependency store and time axis. It indexes the
- * current dependency population once, retaining no graph between calls. Unreachable predecessors still
- * constrain reachable tasks; cycles are reported and broken in discovery order.
+ *
+ * The cascade reads its owning {@link #chart}'s task store, dependency store, and time axis. It indexes the
+ * current dependency population once per pass, retaining no graph between calls. Unreachable predecessors still
+ * constrain reachable tasks; cycles are reported and broken deterministically in discovery order through
+ * {@link #walkTopologicalOrder}. Subclasses customize per-link constraint arithmetic by overriding
+ * {@link #computeRequiredStartMs} or per-node scheduling via {@link #planWorkingTimeTask} and {@link #cascadeTask}.
+ *
  * @class Neo.gantt.Cascade
  * @extends Neo.core.Base
  */
@@ -16,56 +20,210 @@ class Cascade extends Base {
          * @member {String} className='Neo.gantt.Cascade'
          * @protected
          */
-        className: 'Neo.gantt.Cascade'
+        className: 'Neo.gantt.Cascade',
+        /**
+         * Chart owning the task store, dependency store, and time axis.
+         * @member {Neo.gantt.Container|null} chart=null
+         */
+        chart: null
     }
 
     /**
      * @summary Adds a lag using calendar days or elapsed time.
-     * @param {Neo.gantt.Container} chart              Chart supplying the time axis.
-     * @param {Number}              anchorMs           Anchor instant in milliseconds.
-     * @param {Number}              [lag=0]            Signed lag.
-     * @param {String}              [lagUnit='minute'] Lag unit.
+     * @param {Number} anchorMs           Anchor instant in milliseconds.
+     * @param {Number} [lag=0]            Signed lag.
+     * @param {String} [lagUnit='minute'] Lag unit.
      * @returns {Number} Resulting instant in milliseconds.
      */
-    static addLag(chart, anchorMs, lag=0, lagUnit='minute') {
+    addLag(anchorMs, lag=0, lagUnit='minute') {
         let numeric = Number(lag) || 0;
         if (numeric === 0) {
             return anchorMs
         }
 
-        let unit = String(lagUnit || 'minute').toLowerCase();
+        let axis = this.chart?.timeAxis,
+            unit = String(lagUnit || 'minute').toLowerCase();
 
         if (unit === 'day' || unit === 'days') {
             let next = new Date(anchorMs);
-            if (chart.timeAxis) return chart.timeAxis.addTick(next, 'day', numeric).getTime();
+            if (axis) return axis.addTick(next, 'day', numeric).getTime();
             next.setDate(next.getDate() + numeric);
             return next.getTime()
         }
 
-        return anchorMs + chart.convertLagToMs(numeric, unit)
+        return anchorMs + this.convertLagToMs(numeric, unit)
     }
 
     /**
-     * @summary Computes the successor start required by one dependency.
-     * @param {Neo.gantt.Container} chart                      Chart supplying the calendar and lag arithmetic.
-     * @param {Object}              options                    Constraint and successor duration.
-     * @param {Number}              [options.durationMs=0]     Successor duration in milliseconds.
-     * @param {Number}              [options.lag=0]            Signed lag in `lagUnit`.
-     * @param {Number}              [options.lagMs]            Precomputed lag in milliseconds for working time.
-     * @param {String}              [options.lagUnit='minute'] Lag unit.
-     * @param {Number}              options.predEndMs          Predecessor end instant.
-     * @param {Number}              options.predStartMs        Predecessor start instant.
-     * @param {String}              [options.type='FS']        Dependency type: FS, SS, FF, or SF.
-     * @param {Boolean}             [options.useWorking=false] Use the axis working calendar.
+     * @summary Evaluates one reachable downstream task or derived parent rollup during an edit cascade.
+     * @param {String}                       succId               Settled task store key.
+     * @param {Object}                       options              Cascade pass state.
+     * @param {Neo.timeline.TimeAxis|null}   options.axis         Active time axis, if configured.
+     * @param {Set|null}                     options.changedDates Keys whose dates changed in a staged rollup pass, or `null`.
+     * @param {Set}                          options.cycleSet     Receives cycle dependency identifiers.
+     * @param {Map}                          options.incoming     Incoming dependency edges keyed by successor id.
+     * @param {Set}                          options.processed    Task keys settled so far in this walk.
+     * @param {Set}                          options.reachable    Task keys reachable from the edited root task.
+     * @param {Map|null}                     options.staged       Staged record patches when batching store rollups, or `null`.
+     * @returns {Object|null} Changed successor receipt, or `null` when dates are unchanged.
+     * @protected
+     */
+    cascadeTask(succId, {axis, changedDates, cycleSet, incoming, processed, reachable, staged}) {
+        let me    = this,
+            chart = me.chart,
+            succ  = chart.resolveTaskRecord(succId);
+
+        if (changedDates && chart.store.isDerivedParent(succ)) {
+            let receipt = chart.store.planParentRollup(succ, staged);
+            if (receipt) {
+                staged.set(succ, receipt.changes);
+                if (receipt.changes.startDate || receipt.changes.endDate) changedDates.add(succId);
+                return {
+                    ...receipt,
+                    endDate  : receipt.changes.endDate   ?? succ.endDate,
+                    startDate: receipt.changes.startDate ?? succ.startDate
+                }
+            }
+            return null
+        }
+
+        if (!succ || (changedDates && !incoming.get(succId)?.some(edge => changedDates.has(String(edge.fromId))))) {
+            return null
+        }
+
+        let useWorking   = Boolean(chart.useWorkingTime && axis?.hasWorkingCalendar()),
+            succStart    = new Date(succ[chart.startDateField]).getTime(),
+            succEnd      = new Date(succ[chart.endDateField]).getTime(),
+            isMilestone  = Boolean(succ.milestone) || succEnd === succStart,
+            rawWorkDurMs = useWorking && !isMilestone ? Math.max(0, axis.diffWorkingMs(succStart, succEnd)) : 0,
+            durationMs   = isMilestone
+                ? 0
+                : useWorking
+                    ? (rawWorkDurMs > 0 ? rawWorkDurMs : Math.max(0, succEnd - succStart))
+                    : Math.max(0, succEnd - succStart),
+            inEdges      = incoming.get(succId) || [];
+
+        if (!Number.isFinite(succStart) || !Number.isFinite(succEnd)) {
+            return null
+        }
+
+        let maxReqStart   = -Infinity,
+            governingEdge = null,
+            governingPred = '';
+
+        for (let edge of inEdges) {
+            let predId = String(edge.fromId ?? '');
+            if (!predId) {
+                continue
+            }
+
+            if (reachable.has(predId) && !processed.has(predId)) {
+                cycleSet.add(String(edge.id ?? `${predId}->${succId}`));
+                continue
+            }
+
+            let pred = chart.resolveTaskRecord(predId);
+            if (!pred) {
+                continue
+            }
+
+            let planned   = staged?.get(pred),
+                predStart = new Date(planned?.[chart.startDateField] ?? pred[chart.startDateField]).getTime(),
+                predEnd   = new Date(planned?.[chart.endDateField]   ?? pred[chart.endDateField]).getTime();
+
+            if (!Number.isFinite(predStart) || !Number.isFinite(predEnd)) {
+                continue
+            }
+
+            let reqStart = me.computeRequiredStartMs({
+                durationMs,
+                edge,
+                predEndMs  : predEnd,
+                predStartMs: predStart,
+                useWorking
+            });
+
+            if (reqStart > maxReqStart) {
+                maxReqStart   = reqStart;
+                governingEdge = edge;
+                governingPred = predId
+            }
+        }
+
+        if (!Number.isFinite(maxReqStart) || !governingEdge) {
+            return null
+        }
+
+        // Axis bounds limit the viewport, not the successor's dependency constraints.
+        let nextStart = maxReqStart,
+            nextEnd   = useWorking
+                ? (durationMs === 0 ? nextStart : axis.addWorkingMs(nextStart, durationMs).getTime())
+                : (nextStart + durationMs);
+
+        if (nextStart === succStart && nextEnd === succEnd) {
+            return null
+        }
+
+        let startField    = chart.startDateField || 'startDate',
+            endField      = chart.endDateField   || 'endDate',
+            nextStartDate = new Date(nextStart),
+            nextEndDate   = new Date(nextEnd),
+            succChanges   = {},
+            succPrevious  = {};
+
+        if (nextEnd !== succEnd) {
+            succChanges[endField] = nextEndDate
+        }
+        if (nextStart !== succStart) {
+            succChanges[startField] = nextStartDate
+        }
+
+        for (let key of Object.keys(succChanges)) {
+            let val = succ[key];
+            succPrevious[key] = val instanceof Date ? new Date(val.getTime()) : val
+        }
+
+        if (staged) {
+            staged.set(succ, succChanges)
+        } else {
+            succ.set(succChanges)
+        }
+        changedDates?.add(succId);
+
+        return {
+            changes     : succChanges,
+            dependencyId: String(governingEdge.id ?? `${governingPred}->${succId}`),
+            endDate     : nextEndDate,
+            previous    : succPrevious,
+            record      : succ,
+            startDate   : nextStartDate
+        }
+    }
+
+    /**
+     * @summary Computes the successor start required by one dependency link.
+     * @param {Object}      options                    Constraint and successor duration.
+     * @param {Number}      [options.durationMs=0]     Successor duration in milliseconds.
+     * @param {Object|null} [options.edge=null]        Dependency record or descriptor being evaluated.
+     * @param {Number}      [options.lag]              Signed lag override; defaults to `edge.lag` or `0`.
+     * @param {Number}      [options.lagMs]            Precomputed lag in milliseconds for working time.
+     * @param {String}      [options.lagUnit]          Lag unit override; defaults to `edge.lagUnit` or `'minute'`.
+     * @param {Number}      options.predEndMs          Predecessor end instant.
+     * @param {Number}      options.predStartMs        Predecessor start instant.
+     * @param {String}      [options.type]             Dependency type override (`FS`, `SS`, `FF`, or `SF`); defaults to `edge.type` or `'FS'`.
+     * @param {Boolean}     [options.useWorking=false] Use the axis working calendar.
      * @returns {Number} Required start in milliseconds.
      */
-    static computeRequiredStartMs(chart, {durationMs=0, lag=0, lagMs, lagUnit='minute', predEndMs, predStartMs, type='FS', useWorking=false}) {
-        let axis     = chart.timeAxis,
-            normType = String(type || 'FS').toUpperCase(),
-            anchorMs = (normType === 'SS' || normType === 'SF') ? predStartMs : predEndMs;
+    computeRequiredStartMs({durationMs=0, edge=null, lag, lagMs, lagUnit, predEndMs, predStartMs, type, useWorking=false}) {
+        let me           = this,
+            axis         = me.chart?.timeAxis,
+            normType     = String(type || edge?.type || 'FS').toUpperCase(),
+            resolvedLag  = Number(lag ?? edge?.lag) || 0,
+            resolvedUnit = lagUnit || edge?.lagUnit || 'minute',
+            anchorMs     = (normType === 'SS' || normType === 'SF') ? predStartMs : predEndMs;
 
         if (useWorking && axis) {
-            let resolvedLagMs = Number.isFinite(lagMs) ? lagMs : chart.convertLagToMs(lag, lagUnit),
+            let resolvedLagMs = Number.isFinite(lagMs) ? lagMs : me.convertLagToMs(resolvedLag, resolvedUnit),
                 shifted       = axis.addWorkingMs(anchorMs, resolvedLagMs);
 
             if (normType === 'FF' || normType === 'SF') {
@@ -77,7 +235,7 @@ class Cascade extends Base {
             return axis.snapToWorkingTime(shifted, 1).getTime()
         }
 
-        let shiftedMs = chart.addLag(anchorMs, lag, lagUnit);
+        let shiftedMs = me.addLag(anchorMs, resolvedLag, resolvedUnit);
 
         return (normType === 'FF' || normType === 'SF')
             ? (shiftedMs - durationMs)
@@ -90,7 +248,7 @@ class Cascade extends Base {
      * @param {String} [lagUnit='minute'] Lag unit.
      * @returns {Number} Lag in milliseconds.
      */
-    static convertLagToMs(lag=0, lagUnit='minute') {
+    convertLagToMs(lag=0, lagUnit='minute') {
         let numeric = Number(lag) || 0;
         if (numeric === 0) {
             return 0
@@ -110,14 +268,15 @@ class Cascade extends Base {
 
     /**
      * @summary Plans updated task spans across the dependency graph when {@link Neo.gantt.Container#useWorkingTime} flips.
-     * @param {Neo.gantt.Container} chart          Chart owning the task store, dependency store, and time axis.
-     * @param {Boolean}             useWorking     Target working-calendar evaluation flag.
-     * @param {Boolean}             wasWorking     Prior working-calendar evaluation flag.
-     * @param {String[]}            [cyclesOut=[]] Receives detected cycle dependency IDs.
+     * @param {Boolean}  useWorking     Target working-calendar evaluation flag.
+     * @param {Boolean}  wasWorking     Prior working-calendar evaluation flag.
+     * @param {String[]} [cyclesOut=[]] Receives detected cycle dependency IDs.
      * @returns {Object[]} Changed task entries with `record`, `changes`, `previous`, `startMs`, `endMs`, and `dependencyId`.
      */
-    static planWorkingTimeSchedule(chart, useWorking, wasWorking, cyclesOut=[]) {
-        let axis    = chart?.timeAxis,
+    planWorkingTimeSchedule(useWorking, wasWorking, cyclesOut=[]) {
+        let me      = this,
+            chart   = me.chart,
+            axis    = chart?.timeAxis,
             entries = [];
 
         if (!chart?.store || !axis || useWorking === wasWorking) {
@@ -202,156 +361,34 @@ class Cascade extends Base {
             }
         }
 
-        let topoQueue   = taskOrder.filter(id => inDegree.get(id) === 0),
-            processed   = new Set(),
-            nextSpans   = new Map(),
-            pending     = rollups ? new Map() : null,
-            queueCursor = 0,
-            cycleCursor = 0;
+        let nextSpans = new Map(),
+            pending   = rollups ? new Map() : null;
 
-        while (processed.size < taskOrder.length) {
-            if (queueCursor >= topoQueue.length) {
-                let cycleBreakId = null;
+        me.walkTopologicalOrder({
+            inDegree,
+            order  : taskOrder,
+            outgoing,
+            onVisit: (id, processed) => {
+                let entry = me.planWorkingTimeTask(id, {
+                    axis,
+                    cycleSet,
+                    endField,
+                    incoming,
+                    nextSpans,
+                    pending,
+                    prevById,
+                    processed,
+                    rollups,
+                    startField,
+                    useWorking,
+                    wasWorking
+                });
 
-                while (cycleCursor < taskOrder.length) {
-                    let candidateId = taskOrder[cycleCursor++];
-                    if (!processed.has(candidateId) && inDegree.get(candidateId) > 0) {
-                        cycleBreakId = candidateId;
-                        break
-                    }
-                }
-
-                if (!cycleBreakId) {
-                    break
-                }
-
-                inDegree.set(cycleBreakId, 0);
-                topoQueue.push(cycleBreakId)
-            }
-
-            let id = topoQueue[queueCursor++];
-            if (processed.has(id)) {
-                continue
-            }
-
-            processed.add(id);
-
-            let {durationMs, isMilestone, prevEndMs, prevStartMs, record} = prevById.get(id),
-                derived                                                   = rollups && chart.store.isDerivedParent(record),
-                phase                                                     = derived ? chart.store.planParentRollup(record, pending) : null,
-                inEdges                                                   = incoming.get(id) || [],
-                ownStartMs                                                = useWorking ? axis.snapToWorkingTime(prevStartMs, 1).getTime() : prevStartMs,
-                prevReqStart                                              = -Infinity,
-                nextReqStart                                              = -Infinity,
-                governingEdge                                             = null,
-                governingPred                                             = '';
-
-            for (let edge of inEdges) {
-                let predId = String(edge.fromId ?? '');
-                if (!processed.has(predId)) {
-                    cycleSet.add(String(edge.id ?? `${predId}->${id}`));
-                    continue
-                }
-
-                let predPrev = prevById.get(predId),
-                    predNext = nextSpans.get(predId),
-                    type     = String(edge.type || 'FS').toUpperCase(),
-                    lag      = Number(edge.lag) || 0,
-                    lagUnit  = edge.lagUnit || 'minute',
-                    lagMs    = chart.convertLagToMs(lag, lagUnit),
-                    prevReq  = chart.computeRequiredStartMs({
-                        durationMs,
-                        lag,
-                        lagMs,
-                        lagUnit,
-                        predEndMs  : predPrev.prevEndMs,
-                        predStartMs: predPrev.prevStartMs,
-                        type,
-                        useWorking : wasWorking
-                    }),
-                    nextReq  = chart.computeRequiredStartMs({
-                        durationMs,
-                        lag,
-                        lagMs,
-                        lagUnit,
-                        predEndMs  : predNext.endMs,
-                        predStartMs: predNext.startMs,
-                        type,
-                        useWorking
-                    });
-
-                if (prevReq > prevReqStart) {
-                    prevReqStart = prevReq
-                }
-                if (nextReq > nextReqStart) {
-                    nextReqStart  = nextReq;
-                    governingEdge = edge;
-                    governingPred = predId
+                if (entry) {
+                    entries.push(entry)
                 }
             }
-
-            // Preserve hand-placed positive float (`prevStartMs > prevReqStart`) unless overtaken by a predecessor;
-            // predecessor-bound tasks (`prevStartMs <= prevReqStart`) move with their governing link in both directions.
-            let startMs, endMs;
-            if (derived) {
-                startMs = toMs(phase?.changes[startField] ?? record[startField]);
-                endMs   = toMs(phase?.changes[endField] ?? record[endField])
-            } else {
-                startMs = !Number.isFinite(nextReqStart)
-                    ? ownStartMs
-                    : (Number.isFinite(prevReqStart) && prevStartMs > prevReqStart)
-                        ? Math.max(nextReqStart, ownStartMs)
-                        : nextReqStart;
-                endMs = isMilestone || durationMs === 0
-                    ? startMs
-                    : useWorking
-                        ? axis.addWorkingMs(startMs, durationMs).getTime()
-                        : (startMs + durationMs)
-            }
-
-            nextSpans.set(id, {endMs, startMs});
-
-            if (phase || startMs !== prevStartMs || endMs !== prevEndMs) {
-                let changes       = phase?.changes || {},
-                    previous      = phase?.previous || {},
-                    nextStartDate = new Date(startMs),
-                    nextEndDate   = new Date(endMs);
-
-                if (startMs !== prevStartMs) {
-                    let val = record[startField];
-                    changes[startField]  = nextStartDate;
-                    previous[startField] = val instanceof Date ? new Date(val.getTime()) : val
-                }
-                if (endMs !== prevEndMs) {
-                    let val = record[endField];
-                    changes[endField]  = nextEndDate;
-                    previous[endField] = val instanceof Date ? new Date(val.getTime()) : val
-                }
-
-                pending?.set(record, changes);
-                entries.push({
-                    changes,
-                    dependencyId: governingEdge ? String(governingEdge.id ?? `${governingPred}->${id}`) : null,
-                    endDate     : nextEndDate,
-                    endMs,
-                    previous,
-                    record,
-                    startDate   : nextStartDate,
-                    startMs
-                })
-            }
-
-            for (let edge of outgoing.get(id) || []) {
-                let succId = String(edge.toId ?? '');
-                if (!processed.has(succId) && inDegree.has(succId)) {
-                    let nextDeg = inDegree.get(succId) - 1;
-                    inDegree.set(succId, nextDeg);
-                    if (nextDeg === 0) {
-                        topoQueue.push(succId)
-                    }
-                }
-            }
-        }
+        });
 
         if (Array.isArray(cyclesOut)) {
             cyclesOut.push(...cycleSet)
@@ -361,16 +398,139 @@ class Cascade extends Base {
     }
 
     /**
+     * @summary Plans one task or derived parent rollup during a working-calendar switch.
+     * @param {String}                id                 Settled task store key.
+     * @param {Object}                options            Planning pass state.
+     * @param {Neo.timeline.TimeAxis} options.axis       Active time axis.
+     * @param {Set}                   options.cycleSet   Receives cycle dependency identifiers.
+     * @param {String}                options.endField   Configured end-date field name.
+     * @param {Map}                   options.incoming   Incoming dependency edges keyed by successor id.
+     * @param {Map}                   options.nextSpans  Planned `{startMs, endMs}` spans keyed by settled task id.
+     * @param {Map|null}              options.pending    Staged record patches when batching store rollups, or `null`.
+     * @param {Map}                   options.prevById   Prior task snapshots keyed by task id.
+     * @param {Set}                   options.processed  Task keys settled so far in this walk.
+     * @param {Boolean}               options.rollups    Whether store-owned parent rollups are active.
+     * @param {String}                options.startField Configured start-date field name.
+     * @param {Boolean}               options.useWorking Target working-calendar evaluation flag.
+     * @param {Boolean}               options.wasWorking Prior working-calendar evaluation flag.
+     * @returns {Object|null} Planned task change entry, or `null` when dates are unchanged.
+     * @protected
+     */
+    planWorkingTimeTask(id, {axis, cycleSet, endField, incoming, nextSpans, pending, prevById, processed, rollups, startField, useWorking, wasWorking}) {
+        let me                                                        = this,
+            chart                                                     = me.chart,
+            toMs                                                      = val => val instanceof Date ? val.getTime() : new Date(val).getTime(),
+            {durationMs, isMilestone, prevEndMs, prevStartMs, record} = prevById.get(id),
+            derived                                                   = rollups && chart.store.isDerivedParent(record),
+            phase                                                     = derived ? chart.store.planParentRollup(record, pending) : null,
+            inEdges                                                   = incoming.get(id) || [],
+            ownStartMs                                                = useWorking ? axis.snapToWorkingTime(prevStartMs, 1).getTime() : prevStartMs,
+            prevReqStart                                              = -Infinity,
+            nextReqStart                                              = -Infinity,
+            governingEdge                                             = null,
+            governingPred                                             = '';
+
+        for (let edge of inEdges) {
+            let predId = String(edge.fromId ?? '');
+            if (!processed.has(predId)) {
+                cycleSet.add(String(edge.id ?? `${predId}->${id}`));
+                continue
+            }
+
+            let predPrev = prevById.get(predId),
+                predNext = nextSpans.get(predId),
+                prevReq  = me.computeRequiredStartMs({
+                    durationMs,
+                    edge,
+                    predEndMs  : predPrev.prevEndMs,
+                    predStartMs: predPrev.prevStartMs,
+                    useWorking : wasWorking
+                }),
+                nextReq  = me.computeRequiredStartMs({
+                    durationMs,
+                    edge,
+                    predEndMs  : predNext.endMs,
+                    predStartMs: predNext.startMs,
+                    useWorking
+                });
+
+            if (prevReq > prevReqStart) {
+                prevReqStart = prevReq
+            }
+            if (nextReq > nextReqStart) {
+                nextReqStart  = nextReq;
+                governingEdge = edge;
+                governingPred = predId
+            }
+        }
+
+        // Preserve hand-placed positive float (`prevStartMs > prevReqStart`) unless overtaken by a predecessor;
+        // predecessor-bound tasks (`prevStartMs <= prevReqStart`) move with their governing link in both directions.
+        let startMs, endMs;
+        if (derived) {
+            startMs = toMs(phase?.changes[startField] ?? record[startField]);
+            endMs   = toMs(phase?.changes[endField]   ?? record[endField])
+        } else {
+            startMs = !Number.isFinite(nextReqStart)
+                ? ownStartMs
+                : (Number.isFinite(prevReqStart) && prevStartMs > prevReqStart)
+                    ? Math.max(nextReqStart, ownStartMs)
+                    : nextReqStart;
+            endMs = isMilestone || durationMs === 0
+                ? startMs
+                : useWorking
+                    ? axis.addWorkingMs(startMs, durationMs).getTime()
+                    : (startMs + durationMs)
+        }
+
+        nextSpans.set(id, {endMs, startMs});
+
+        if (!phase && startMs === prevStartMs && endMs === prevEndMs) {
+            return null
+        }
+
+        let changes       = phase?.changes  || {},
+            previous      = phase?.previous || {},
+            nextStartDate = new Date(startMs),
+            nextEndDate   = new Date(endMs);
+
+        if (startMs !== prevStartMs) {
+            let val = record[startField];
+            changes[startField]  = nextStartDate;
+            previous[startField] = val instanceof Date ? new Date(val.getTime()) : val
+        }
+        if (endMs !== prevEndMs) {
+            let val = record[endField];
+            changes[endField]  = nextEndDate;
+            previous[endField] = val instanceof Date ? new Date(val.getTime()) : val
+        }
+
+        pending?.set(record, changes);
+
+        return {
+            changes,
+            dependencyId: governingEdge ? String(governingEdge.id ?? `${governingPred}->${id}`) : null,
+            endDate     : nextEndDate,
+            endMs,
+            previous,
+            record,
+            startDate   : nextStartDate,
+            startMs
+        }
+    }
+
+    /**
      * @summary Applies reachable dependency constraints and reports cycle edges.
-     * @param {Neo.gantt.Container} chart          Chart owning the task and dependency stores.
-     * @param {Neo.data.Model}      rootRecord     Changed task.
-     * @param {String[]}            [cyclesOut=[]] Receives detected dependency IDs.
-     * @param {Map|null}            [pending=null] With store-owned phase dates, stage changes here for one store batch.
+     * @param {Neo.data.Model} rootRecord     Changed task.
+     * @param {String[]}       [cyclesOut=[]] Receives detected dependency IDs.
+     * @param {Map|null}       [pending=null] With store-owned phase dates, stage changes here for one store batch.
      * @returns {Object[]} Changed successors with dependency, dates, changes and previous values.
      */
-    static runDependencyCascade(chart, rootRecord, cyclesOut=[], pending=null) {
-        let depStore = chart.dependencyStore,
-            axis     = chart.timeAxis,
+    runDependencyCascade(rootRecord, cyclesOut=[], pending=null) {
+        let me       = this,
+            chart    = me.chart,
+            depStore = chart?.dependencyStore,
+            axis     = chart?.timeAxis,
             cascaded = [];
 
         if (!rootRecord || !depStore) {
@@ -445,22 +605,66 @@ class Cascade extends Base {
 
             for (let edge of outEdges) {
                 let succId = String(edge.toId ?? '');
-                if (succId !== rootId && inDegree.has(succId)) {
+                if (inDegree.has(succId)) {
                     inDegree.set(succId, inDegree.get(succId) + 1)
                 }
             }
         }
 
-        // 3. Seed Kahn's queue by releasing outgoing edges from rootId
-        let topoQueue       = [],
-            processed       = new Set([rootId]),
-            cycleOrder      = [...inDegree.keys()],
-            releaseOutgoing = fromId => {
-                let outEdges = outgoing.get(fromId) || [];
+        // 3. Walk reachable nodes in topological order; break any downstream cycle deterministically in BFS order
+        me.walkTopologicalOrder({
+            inDegree,
+            order  : [...inDegree.keys()],
+            outgoing,
+            settled: new Set([rootId]),
+            onVisit: (succId, processed) => {
+                let entry = me.cascadeTask(succId, {
+                    axis,
+                    changedDates,
+                    cycleSet,
+                    incoming,
+                    processed,
+                    reachable,
+                    staged
+                });
 
-                for (let edge of outEdges) {
+                if (entry) {
+                    cascaded.push(entry)
+                }
+            }
+        });
+
+        if (Array.isArray(cyclesOut)) {
+            cyclesOut.push(...cycleSet)
+        }
+        if (staged && !pending && staged.size) {
+            chart.store.updateRows(Array.from(staged, ([record, values]) => ({key: chart.store.getKey(record), values})))
+        }
+
+        return cascaded
+    }
+
+    /**
+     * @summary Visits nodes in Kahn topological order, seeding from settled nodes and breaking cycles in `order`.
+     * @param {Object}   options           Walk inputs.
+     * @param {Map}      options.inDegree  Mutable in-degree count per unsettled node.
+     * @param {Function} options.onVisit   Visitor invoked with `(nodeId, processed)` as each node settles.
+     * @param {String[]} options.order     Candidate node ids in deterministic cycle-break order.
+     * @param {Map}      options.outgoing  Outgoing dependency and rollup edges keyed by predecessor id.
+     * @param {Set}      [options.settled] Already-settled node ids whose outgoing edges seed the queue.
+     * @returns {Set} All processed node ids.
+     * @protected
+     */
+    walkTopologicalOrder({inDegree, onVisit, order, outgoing, settled=new Set()}) {
+        let processed   = new Set(settled),
+            topoQueue   = order.filter(id => !processed.has(id) && inDegree.get(id) === 0),
+            targetSize  = processed.size + order.reduce((count, id) => count + (processed.has(id) ? 0 : 1), 0),
+            queueCursor = 0,
+            cycleCursor = 0,
+            release     = fromId => {
+                for (let edge of outgoing.get(fromId) || []) {
                     let succId = String(edge.toId ?? '');
-                    if (succId !== rootId && !processed.has(succId) && inDegree.has(succId)) {
+                    if (!processed.has(succId) && inDegree.has(succId)) {
                         let nextDeg = inDegree.get(succId) - 1;
                         inDegree.set(succId, nextDeg);
                         if (nextDeg === 0) {
@@ -468,20 +672,20 @@ class Cascade extends Base {
                         }
                     }
                 }
-            },
-            queueCursor = 0,
-            cycleCursor = 0;
-        releaseOutgoing(rootId);
+            };
 
-        // 4. Process reachable nodes in topological order; break any downstream cycle deterministically in BFS order
-        while (processed.size < reachable.size) {
+        for (let settledId of settled) {
+            release(settledId)
+        }
+
+        while (processed.size < targetSize) {
             if (queueCursor >= topoQueue.length) {
                 let cycleBreakId = null;
 
-                while (cycleCursor < cycleOrder.length) {
-                    let nodeId = cycleOrder[cycleCursor++];
-                    if (!processed.has(nodeId) && inDegree.get(nodeId) > 0) {
-                        cycleBreakId = nodeId;
+                while (cycleCursor < order.length) {
+                    let candidateId = order[cycleCursor++];
+                    if (!processed.has(candidateId) && inDegree.get(candidateId) > 0) {
+                        cycleBreakId = candidateId;
                         break
                     }
                 }
@@ -494,146 +698,17 @@ class Cascade extends Base {
                 topoQueue.push(cycleBreakId)
             }
 
-            let succId = topoQueue[queueCursor++];
-            if (processed.has(succId)) {
+            let id = topoQueue[queueCursor++];
+            if (processed.has(id)) {
                 continue
             }
 
-            processed.add(succId);
-
-            let succ = chart.resolveTaskRecord(succId);
-            if (changedDates && chart.store.isDerivedParent(succ)) {
-                let receipt = chart.store.planParentRollup(succ, staged);
-                if (receipt) {
-                    staged.set(succ, receipt.changes);
-                    cascaded.push({...receipt, startDate: receipt.changes.startDate ?? succ.startDate,
-                        endDate: receipt.changes.endDate ?? succ.endDate});
-                    if (receipt.changes.startDate || receipt.changes.endDate) changedDates.add(succId)
-                }
-            } else if (succ && (!changedDates || incoming.get(succId)?.some(edge => changedDates.has(String(edge.fromId))))) {
-                let useWorking   = Boolean(chart.useWorkingTime && axis?.hasWorkingCalendar()),
-                    succStart    = new Date(succ[chart.startDateField]).getTime(),
-                    succEnd      = new Date(succ[chart.endDateField]).getTime(),
-                    isMilestone  = Boolean(succ.milestone) || succEnd === succStart,
-                    rawWorkDurMs = useWorking && !isMilestone ? Math.max(0, axis.diffWorkingMs(succStart, succEnd)) : 0,
-                    durationMs   = isMilestone
-                        ? 0
-                        : useWorking
-                            ? (rawWorkDurMs > 0 ? rawWorkDurMs : Math.max(0, succEnd - succStart))
-                            : Math.max(0, succEnd - succStart),
-                    inEdges      = incoming.get(succId) || [];
-
-                if (Number.isFinite(succStart) && Number.isFinite(succEnd)) {
-                    let maxReqStart   = -Infinity,
-                        maxReqEnd     = -Infinity,
-                        governingEdge = null,
-                        governingPred = '';
-
-                    for (let edge of inEdges) {
-                        let predId = String(edge.fromId ?? '');
-                        if (!predId) {
-                            continue
-                        }
-
-                        if (reachable.has(predId) && !processed.has(predId)) {
-                            cycleSet.add(String(edge.id ?? `${predId}->${succId}`));
-                            continue
-                        }
-
-                        let pred = chart.resolveTaskRecord(predId);
-                        if (!pred) {
-                            continue
-                        }
-
-                        let planned   = staged?.get(pred),
-                            predStart = new Date(planned?.[chart.startDateField] ?? pred[chart.startDateField]).getTime(),
-                            predEnd   = new Date(planned?.[chart.endDateField] ?? pred[chart.endDateField]).getTime();
-
-                        if (!Number.isFinite(predStart) || !Number.isFinite(predEnd)) {
-                            continue
-                        }
-
-                        let type     = String(edge.type || 'FS').toUpperCase(),
-                            lag      = Number(edge.lag) || 0,
-                            lagUnit  = edge.lagUnit || 'minute',
-                            lagMs    = chart.convertLagToMs(lag, lagUnit),
-                            reqStart = chart.computeRequiredStartMs({
-                                durationMs,
-                                lag,
-                                lagMs,
-                                lagUnit,
-                                predEndMs  : predEnd,
-                                predStartMs: predStart,
-                                type,
-                                useWorking
-                            }),
-                            reqEnd   = useWorking
-                                ? (durationMs === 0 ? reqStart : axis.addWorkingMs(reqStart, durationMs).getTime())
-                                : (reqStart + durationMs);
-
-                        if (reqStart > maxReqStart) {
-                            maxReqStart   = reqStart;
-                            maxReqEnd     = reqEnd;
-                            governingEdge = edge;
-                            governingPred = predId
-                        }
-                    }
-
-                    if (Number.isFinite(maxReqStart) && governingEdge) {
-                        // Axis bounds limit the viewport, not the successor's dependency constraints.
-                        let nextStart = maxReqStart,
-                            nextEnd   = maxReqEnd;
-
-                        if (nextStart !== succStart || nextEnd !== succEnd) {
-                            let startField    = chart.startDateField || 'startDate',
-                                endField      = chart.endDateField   || 'endDate',
-                                nextStartDate = new Date(nextStart),
-                                nextEndDate   = new Date(nextEnd),
-                                succChanges   = {};
-
-                            if (nextEnd !== succEnd) {
-                                succChanges[endField] = nextEndDate
-                            }
-                            if (nextStart !== succStart) {
-                                succChanges[startField] = nextStartDate
-                            }
-
-                            let succPrevious = {};
-                            for (let key of Object.keys(succChanges)) {
-                                let val = succ[key];
-                                succPrevious[key] = val instanceof Date ? new Date(val.getTime()) : val
-                            }
-
-                            if (staged) {
-                                staged.set(succ, succChanges)
-                            } else {
-                                succ.set(succChanges)
-                            }
-                            changedDates?.add(succId);
-
-                            cascaded.push({
-                                changes     : succChanges,
-                                dependencyId: String(governingEdge.id ?? `${governingPred}->${succId}`),
-                                endDate     : nextEndDate,
-                                previous    : succPrevious,
-                                record      : succ,
-                                startDate   : nextStartDate
-                            })
-                        }
-                    }
-                }
-            }
-
-            releaseOutgoing(succId)
-        }
-        if (Array.isArray(cyclesOut)) {
-            cyclesOut.push(...cycleSet)
-        }
-        if (staged && !pending && staged.size) {
-            chart.store.updateRows(Array.from(staged, ([record, values]) => ({key: chart.store.getKey(record), values})))
+            processed.add(id);
+            onVisit(id, processed);
+            release(id)
         }
 
-        return cascaded
+        return processed
     }
 }
 
