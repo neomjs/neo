@@ -1,0 +1,13 @@
+/* The title lines up with the row text and names the active filter */
+.neo-floating-action-example-title {
+    font-weight         : 600;
+    padding-inline-start: 11px;
+}
+
+/* Task rows a thumb can hit, divided so the list reads as items rather than running text */
+.neo-floating-action-example-tasks {
+    .neo-list-item {
+        border-bottom: 1px solid var(--neo-color-border-subtle, rgba(127, 127, 127, .2));
+        padding      : 12px 16px;
+    }
+}

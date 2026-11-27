@@ -1,0 +1,101 @@
+/* A Button fixed to the bottom edge of its window, inside the safe area. The compound selector and its nested
+   states outrank `.neo-button` and its state rules, so the result does not depend on which sheet loads first. */
+.neo-button.neo-floating-action-button {
+    background-color          : var(--neo-floating-action-button-background-color);
+    background-image          : none;
+    border                    : none;
+    border-radius             : var(--neo-floating-action-button-border-radius);
+    box-shadow                : var(--neo-floating-action-button-box-shadow);
+    gap                       : var(--neo-floating-action-button-gap);
+    height                    : var(--neo-floating-action-button-height);
+    inset-block-end           : max(var(--neo-floating-action-button-inset), env(safe-area-inset-bottom));
+    margin                    : 0;
+    min-width                 : var(--neo-floating-action-button-height);
+    padding                   : 0 var(--neo-floating-action-button-padding-inline);
+    position                  : fixed;
+    transition-delay          : 0s, 0s, 0s, 0s, 0s, 0s, 0s;
+    transition-duration       : var(--neo-floating-action-button-transition-duration);
+    transition-property       : background-color, box-shadow, gap, opacity, padding, transform, visibility;
+    transition-timing-function: var(--neo-floating-action-button-transition-timing-function);
+    z-index                   : 100;
+
+    &.neo-position-start {
+        inset-inline-start: max(var(--neo-floating-action-button-inset), env(safe-area-inset-left), env(safe-area-inset-right));
+    }
+
+    &.neo-position-center {
+        left     : 50%;
+        translate: -50% 0;
+    }
+
+    &.neo-position-end {
+        inset-inline-end: max(var(--neo-floating-action-button-inset), env(safe-area-inset-left), env(safe-area-inset-right));
+    }
+
+    &, &:active, &:hover {
+        .neo-button-glyph,
+        .neo-button-text {
+            color: var(--neo-floating-action-button-color);
+        }
+    }
+
+    &:active {
+        background-color: var(--neo-floating-action-button-background-color-active);
+        border          : none;
+    }
+
+    &:hover {
+        background-color: var(--neo-floating-action-button-background-color-hover);
+        border          : none;
+        box-shadow      : var(--neo-floating-action-button-box-shadow-hover);
+    }
+
+    .neo-button-glyph {
+        font-size: var(--neo-floating-action-button-glyph-font-size);
+        margin   : 0;
+    }
+
+    .neo-button-ripple-wrapper {
+        border-radius: var(--neo-floating-action-button-border-radius);
+    }
+
+    /* Clipped, never removed: the text stays the accessible name of an icon-only button */
+    .neo-button-text {
+        font-size                 : var(--neo-floating-action-button-font-size);
+        font-weight               : var(--neo-floating-action-button-font-weight);
+        max-width                 : var(--neo-floating-action-button-text-max-width);
+        overflow                  : hidden;
+        text-overflow             : ellipsis;
+        transition-duration       : var(--neo-floating-action-button-transition-duration);
+        transition-property       : max-width, opacity;
+        transition-timing-function: var(--neo-floating-action-button-transition-timing-function);
+    }
+
+    &.neo-collapsed {
+        gap    : 0;
+        padding: 0;
+
+        .neo-button-text {
+            max-width: 0;
+            opacity  : 0;
+        }
+    }
+
+    /* `visibility` flips at the end of the slide, so a hidden button takes neither focus nor taps */
+    &.neo-scroll-hidden {
+        opacity         : 0;
+        transform       : translateY(calc(100% + var(--neo-floating-action-button-inset) + env(safe-area-inset-bottom)));
+        transition-delay: 0s, 0s, 0s, 0s, 0s, 0s, var(--neo-floating-action-button-transition-duration);
+        visibility      : hidden;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &, .neo-button-text {
+            transition-duration: 0s;
+        }
+
+        &.neo-scroll-hidden {
+            transition-delay: 0s;
+        }
+    }
+}
