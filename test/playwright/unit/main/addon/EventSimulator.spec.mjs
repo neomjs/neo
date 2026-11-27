@@ -124,6 +124,142 @@ test.describe('Neo.main.addon.EventSimulator — simulated input', () => {
     })
 });
 
+test.describe('Neo.main.addon.EventSimulator — touch contacts', () => {
+    const dispatchNative = data => EventSimulator.constructor.prototype.dispatchNative.call(createHost({}), data),
+          lookups        = {getElementById: documentRef.getElementById, querySelector: documentRef.querySelector};
+
+    let node;
+
+    /**
+     * @summary The platform's rule in the unit realm: a `Touch` needs an identifier and an `EventTarget`.
+     */
+    class TouchStandIn {
+        constructor(init) {
+            if (typeof init?.identifier !== 'number' || !(init.target instanceof EventTarget)) {
+                throw new TypeError(`Failed to construct 'Touch'`)
+            }
+
+            Object.assign(this, {clientX: 0, clientY: 0, pageX: 0, pageY: 0, screenX: 0, screenY: 0}, init)
+        }
+    }
+
+    /**
+     * @summary The platform's rule in the unit realm: a contact list accepts `Touch` objects only.
+     */
+    class TouchEventStandIn extends Event {
+        constructor(type, init = {}) {
+            super(type, init);
+
+            ['changedTouches', 'targetTouches', 'touches'].forEach(name => {
+                const list = init[name] || [];
+
+                if (list.some(item => !(item instanceof TouchStandIn))) {
+                    throw new TypeError(`Failed to construct 'TouchEvent': Failed to read the '${name}' property from 'TouchEventInit': Failed to convert value to 'Touch'.`)
+                }
+
+                this[name] = list
+            })
+        }
+    }
+
+    test.beforeEach(() => {
+        node          = new EventTarget();
+        node.nodeType = 1;
+
+        globalThis.Touch      = TouchStandIn;
+        globalThis.TouchEvent = TouchEventStandIn
+    });
+
+    test.afterEach(() => {
+        delete globalThis.Touch;
+        delete globalThis.TouchEvent;
+
+        Object.assign(documentRef, lookups)
+    });
+
+    test('JSON contacts of every touch type arrive as Touch objects with their identifiers and coordinates', () => {
+        ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(type => {
+            const received = [],
+                  options  = {
+                      changedTouches: [{clientX: 30, clientY: 40, identifier: 27, screenX: 900, screenY: 700}],
+                      touches       : [{clientX: 10, clientY: 20, identifier: 13}]
+                  };
+
+            node.addEventListener(type, event => received.push(event), {once: true});
+
+            const {event, success} = dispatchNative({id: node, options, type});
+
+            expect(success, type).toBe(true);
+            expect(received, type).toEqual([event]);
+            expect(event.touches, type).toHaveLength(1);
+            expect(event.touches[0], type).toBeInstanceOf(TouchStandIn);
+            expect(event.touches[0], type).toMatchObject({clientX: 10, clientY: 20, identifier: 13});
+            expect(event.touches[0].target, 'a contact targets the dispatch node by default').toBe(node);
+            expect(event.changedTouches[0], 'explicit screen coordinates stay as given').toMatchObject({clientX: 30, clientY: 40, identifier: 27, screenX: 900, screenY: 700});
+            expect(event.targetTouches, 'an omitted list stays omitted').toEqual([]);
+            expect(options.touches[0], 'the caller keeps its plain contacts').toEqual({clientX: 10, clientY: 20, identifier: 13})
+        })
+    });
+
+    test('a contact may target another element by id, and an id that resolves to nothing fails the dispatch', () => {
+        const other    = new EventTarget(),
+              logError = console.error,
+              received = [];
+
+        other.nodeType = 1;
+
+        documentRef.getElementById = id => id === 'other-node' ? other : null;
+        documentRef.querySelector  = selector => selector.includes('other-node') ? other : null;
+
+        node.addEventListener('touchstart', event => received.push(event));
+
+        const named = dispatchNative({id: node, options: {touches: [{identifier: 1, target: 'other-node'}]}, type: 'touchstart'});
+
+        expect(named.success).toBe(true);
+        expect(named.event.touches[0].target).toBe(other);
+
+        console.error = () => {};
+
+        try {
+            expect(dispatchNative({id: node, options: {touches: [{identifier: 1, target: 'missing-node'}]}, type: 'touchstart'}))
+                .toEqual({event: null, success: false})
+        } finally {
+            console.error = logError
+        }
+
+        expect(received, 'the failed dispatch reaches no listener').toHaveLength(1)
+    });
+
+    test('a contact the platform rejects fails the dispatch, and a Touch object passes through as it is', () => {
+        const logError = console.error,
+              touch    = new TouchStandIn({identifier: 5, target: node});
+
+        console.error = () => {};
+
+        try {
+            expect(dispatchNative({id: node, options: {touches: [{clientX: 1}]}, type: 'touchmove'}).success).toBe(false)
+        } finally {
+            console.error = logError
+        }
+
+        const kept = dispatchNative({id: node, options: {touches: [touch]}, type: 'touchmove'});
+
+        expect(kept.success).toBe(true);
+        expect(kept.event.touches[0]).toBe(touch)
+    });
+
+    test('a realm without Touch keeps the generic event and leaves the lists alone', () => {
+        delete globalThis.Touch;
+        delete globalThis.TouchEvent;
+
+        const {event, success} = dispatchNative({id: node, options: {touches: [{identifier: 1}]}, type: 'touchstart'});
+
+        expect(success).toBe(true);
+        expect(event).toBeInstanceOf(Event);
+        expect(event.touches).toBeUndefined()
+    })
+});
+
 test.describe('Neo.main.addon.EventSimulator.driveDrag', () => {
     test('a second executor is refused before touching the live sensor', async () => {
         const outcome = await EventSimulator.constructor.prototype.driveDrag.call({driveActive: true}, {});
