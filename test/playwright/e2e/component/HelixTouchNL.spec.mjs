@@ -51,68 +51,13 @@ async function readHelixGeometry(app, appWorker, helixId) {
 }
 
 test.describe('Helix multi-touch partial lift and single-finger drag', () => {
-    test('two fingers down, lift one, move the remaining finger keeps rotationAngle and translateZ finite within one step delta', async ({page, neuralLink}) => {
+    test('lifting the tracked finger reanchors to the remaining contact', async ({page, neuralLink}) => {
         const {app, appWorker, box, helixId, initial} = await bootHelix(page, neuralLink),
               cdp                                     = await page.context().newCDPSession(page),
               x13                                     = Math.round(box.x + box.width * 0.35),
               y13                                     = Math.round(box.y + box.height * 0.5),
               x27                                     = Math.round(box.x + box.width * 0.55),
-              y27                                     = Math.round(box.y + box.height * 0.55),
-              dx                                      = 16,
-              dy                                      = -10;
-
-        // 1. Put down contact 13
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchStart',
-            touchPoints: [{id: 13, x: x13, y: y13, radiusX: 5, radiusY: 5, force: 1}]
-        });
-
-        // 2. Add contact 27 while 13 stays down
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchStart',
-            touchPoints: [
-                {id: 13, x: x13, y: y13, radiusX: 5, radiusY: 5, force: 1},
-                {id: 27, x: x27, y: y27, radiusX: 5, radiusY: 5, force: 1}
-            ]
-        });
-
-        // 3. Lift only contact 27
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchEnd',
-            touchPoints: [{id: 27, x: x27, y: y27, radiusX: 5, radiusY: 5, force: 0}]
-        });
-
-        // 4. Move remaining contact 13 by (dx, dy)
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchMove',
-            touchPoints: [{id: 13, x: x13 + dx, y: y13 + dy, radiusX: 5, radiusY: 5, force: 1}]
-        });
-
-        const maxExpectedRotationDelta   = Math.abs(dx) * 1.5 * initial.mouseWheelDeltaX,
-              maxExpectedTranslateZDelta = Math.abs(dy) * 3 * initial.mouseWheelDeltaY;
-
-        await expect.poll(async () => {
-            const {worker} = await readHelixGeometry(app, appWorker, helixId);
-            return worker.rotationAngle !== initial.rotationAngle || !worker.finite
-        }).toBe(true);
-
-        const afterFirstMove = await readHelixGeometry(app, appWorker, helixId);
-
-        expect(afterFirstMove.worker.finite).toBe(true);
-        expect(typeof afterFirstMove.nl.rotationAngle).toBe('number');
-        expect(typeof afterFirstMove.nl.translateZ).toBe('number');
-        expect(Math.abs(afterFirstMove.worker.rotationAngle - initial.rotationAngle)).toBeLessThanOrEqual(maxExpectedRotationDelta);
-        expect(Math.abs(afterFirstMove.worker.translateZ - initial.translateZ)).toBeLessThanOrEqual(maxExpectedTranslateZDelta);
-        expect(afterFirstMove.worker.rotationAngle).toBe(initial.rotationAngle + dx * 1.5 * initial.mouseWheelDeltaX);
-        expect(afterFirstMove.worker.translateZ).toBe(initial.translateZ + dy * 3 * initial.mouseWheelDeltaY);
-
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchEnd',
-            touchPoints: [{id: 13, x: x13 + dx, y: y13 + dy, radiusX: 5, radiusY: 5, force: 0}]
-        });
-
-        // Also verify lifting the tracked contact (13) while 27 stays down re-anchors to 27 without a cross-finger jump
-        const mid = (await readHelixGeometry(app, appWorker, helixId)).worker;
+              y27                                     = Math.round(box.y + box.height * 0.55);
 
         await cdp.send('Input.dispatchTouchEvent', {
             type       : 'touchStart',
@@ -139,11 +84,11 @@ test.describe('Helix multi-touch partial lift and single-finger drag', () => {
         });
 
         await expect.poll(async () => (await readHelixGeometry(app, appWorker, helixId)).worker.rotationAngle)
-            .toBe(mid.rotationAngle + (-12) * 1.5 * initial.mouseWheelDeltaX);
+            .toBe(initial.rotationAngle - 12 * 1.5 * initial.mouseWheelDeltaX);
 
         const afterTrackedLift = await readHelixGeometry(app, appWorker, helixId);
         expect(afterTrackedLift.worker.finite).toBe(true);
-        expect(afterTrackedLift.worker.translateZ).toBe(mid.translateZ + 6 * 3 * initial.mouseWheelDeltaY)
+        expect(afterTrackedLift.worker.translateZ).toBe(initial.translateZ + 6 * 3 * initial.mouseWheelDeltaY)
     });
 
     test('one-finger drag rotates and zooms the Helix as before', async ({page, neuralLink}) => {
@@ -177,40 +122,82 @@ test.describe('Helix multi-touch partial lift and single-finger drag', () => {
         expect(finalState.nl.translateZ).toBe(finalState.worker.translateZ)
     });
 
-    test('the partial-lift trace replays through simulateEvent, whose contacts arrive as JSON', async ({page, neuralLink}) => {
-        const {app, appWorker, box, helixId, initial} = await bootHelix(page, neuralLink),
-              [{properties: {windowId}}]              = await app.queryComponent({id: helixId}, ['windowId']),
-              dx                                      = 16,
-              dy                                      = -10,
-              contact                                 = (identifier, clientX, clientY) => ({clientX, clientY, identifier}),
-              touchEvent                              = (type, touches, changedTouches) => ({
-                  options : {changedTouches, touches},
-                  targetId: helixId,
-                  type,
-                  windowId: String(windowId)
-              }),
-              down13                                  = contact(13, Math.round(box.x + box.width * 0.35), Math.round(box.y + box.height * 0.5)),
-              down27                                  = contact(27, Math.round(box.x + box.width * 0.55), Math.round(box.y + box.height * 0.55)),
-              moved13                                 = contact(13, down13.clientX + dx, down13.clientY + dy);
+    for (const provider of ['Neural Link', 'Chromium']) {
+        test(`a staggered lift, cancellation and fresh contact via ${provider}`, async ({page, neuralLink}) => {
+            const {app, appWorker, box, helixId, initial} = await bootHelix(page, neuralLink),
+                  [{properties: {windowId}}]              = await app.queryComponent({id: helixId}, ['windowId']),
+                  contact                                 = (identifier, x, y) => ({identifier, clientX: Math.round(box.x + box.width * x), clientY: Math.round(box.y + box.height * y)}),
+                  move                                    = (point, dx, dy) => ({...point, clientX: point.clientX + dx, clientY: point.clientY + dy}),
+                  a                                       = contact(13, 0.35, 0.5),
+                  b                                       = contact(27, 0.55, 0.55),
+                  c                                       = contact(42, 0.42, 0.53),
+                  movedA                                  = move(a, 16, -10),
+                  movedC                                  = move(c, 28, 12),
+                  trace                                   = [
+                      ['touchstart', [a],       [a]],
+                      ['touchstart', [a, b],    [b]],
+                      ['touchend',   [a],       [b]],
+                      ['touchmove',  [movedA],  [movedA]],
+                      ['touchcancel', [],       [movedA]],
+                      ['touchstart', [c],       [c]],
+                      ['touchmove',  [movedC],  [movedC]],
+                      ['touchend',   [],        [movedC]]
+                  ],
+                  trusted = provider === 'Chromium',
+                  cdp     = trusted && await page.context().newCDPSession(page);
 
-        // 13 down, 27 down, lift 27, move 13: synthetic input, so it proves delivery and tracking, not browser arbitration
-        expect(await app.simulateEvent([
-            touchEvent('touchstart', [down13],         [down13]),
-            touchEvent('touchstart', [down13, down27], [down27]),
-            touchEvent('touchend',   [down13],         [down27]),
-            touchEvent('touchmove',  [moved13],        [moved13])
-        ])).toBe(true);
+            await page.locator('.neo-helix').evaluate(node => {
+                window.helixContacts = [];
+                const ids = list => Array.from(list, point => point.identifier);
+                for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) {
+                    node.addEventListener(type, e => window.helixContacts.push(
+                        [e.type, ids(e.touches), ids(e.changedTouches), e.isTrusted]
+                    ), {capture: true, passive: true})
+                }
+            });
 
-        await expect.poll(async () => (await readHelixGeometry(app, appWorker, helixId)).worker.rotationAngle)
-            .toBe(initial.rotationAngle + dx * 1.5 * initial.mouseWheelDeltaX);
+            async function dispatch(frames) {
+                if (trusted) {
+                    const types = {touchstart: 'touchStart', touchmove: 'touchMove', touchend: 'touchEnd', touchcancel: 'touchCancel'};
+                    for (const [type, active, changed] of frames) {
+                        // Chromium identifies a partial lift by the released contact. Cancellation clears all contacts.
+                        const points = type === 'touchend' ? changed : active;
+                        await cdp.send('Input.dispatchTouchEvent', {type: types[type], touchPoints: points.map(
+                            ({identifier: id, clientX: x, clientY: y}) => ({id, x, y})
+                        )})
+                    }
+                } else {
+                    expect(await app.simulateEvent(frames.map(([type, touches, changedTouches]) => ({
+                        targetId: helixId, windowId: String(windowId), type, options: {touches, targetTouches: touches, changedTouches}
+                    })))).toBe(true)
+                }
+            }
 
-        const afterMove = await readHelixGeometry(app, appWorker, helixId);
+            try {
+                await dispatch(trace.slice(0, 4));
+                const geometry = () => readHelixGeometry(app, appWorker, helixId);
+                await expect.poll(async () => (await geometry()).worker.rotationAngle)
+                    .toBe(initial.rotationAngle + 16 * 1.5 * initial.mouseWheelDeltaX);
+                const afterLift = await geometry();
+                expect(afterLift.worker.finite).toBe(true);
+                expect(afterLift.worker.translateZ).toBe(initial.translateZ - 10 * 3 * initial.mouseWheelDeltaY);
+                expect(afterLift.nl.rotationAngle).toBe(afterLift.worker.rotationAngle);
+                expect(afterLift.nl.translateZ).toBe(afterLift.worker.translateZ);
 
-        expect(afterMove.worker.finite).toBe(true);
-        expect(afterMove.worker.translateZ).toBe(initial.translateZ + dy * 3 * initial.mouseWheelDeltaY);
-        expect(afterMove.nl.rotationAngle).toBe(afterMove.worker.rotationAngle);
-        expect(afterMove.nl.translateZ).toBe(afterMove.worker.translateZ);
+                await dispatch(trace.slice(4));
+                await expect.poll(async () => (await geometry()).worker.rotationAngle)
+                    .toBe(afterLift.worker.rotationAngle + 28 * 1.5 * initial.mouseWheelDeltaX);
+                const final = await geometry();
+                expect(final.worker.translateZ).toBe(afterLift.worker.translateZ + 12 * 3 * initial.mouseWheelDeltaY);
+                expect(final.nl.rotationAngle).toBe(final.worker.rotationAngle);
+                expect(final.nl.translateZ).toBe(final.worker.translateZ);
 
-        expect(await app.simulateEvent(touchEvent('touchend', [], [moved13]))).toBe(true)
-    });
+                expect(await page.evaluate(() => window.helixContacts)).toEqual(trace.map(([type, active, changed]) => [
+                    type, active.map(point => point.identifier), changed.map(point => point.identifier), trusted
+                ]))
+            } finally {
+                if (cdp) await cdp.detach()
+            }
+        })
+    }
 });
