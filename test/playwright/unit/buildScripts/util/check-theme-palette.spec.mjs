@@ -324,6 +324,28 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         }
     });
 
+    test('a sheet whose brackets do not balance fails as [syntax]: a browser drops what follows', () => {
+        const syntax = [expect.stringMatching(
+            /^\[syntax\] resources\/css\/theme-neo\/Global\.css has a bracket that does not close the one opened last/
+        )];
+
+        // Ahead of the palette, each of these leaves a Chromium page without a single palette name.
+        for (const probe of ['(} .neo-theme-neo-light {)', '[} .neo-theme-neo-light {]', '(']) {
+            expect(plant(css => `.neo-theme-neo-dark { --probe: ${probe}; }\n${css}`).failures).toEqual(syntax)
+        }
+    });
+
+    test('a palette block under a selector of another shape is no palette, and every name in it fails', () => {
+        const
+            block                = '.neo-theme-neo-light, .neo-theme-neo-dark {',
+            {failures, palettes} = plant(css => css.replace(block, '.neo-theme-neo-light, .neo-theme-neo-dark, * {'));
+
+        // The block holds the 85 palette entries and the 43 colour roles; the scheme has a rule of its own.
+        expect(palettes).toEqual([]);
+        expect(failures).toHaveLength(128);
+        expect(failures.every(failure => failure.startsWith('[scope] resources/css/theme-neo/Global.css declares or registers --neo-'))).toBe(true)
+    });
+
     test('a theme without a palette declares no colour role but the scheme', () => {
         expect(inspect({
             'theme-neo/Global.css': source,

@@ -11,13 +11,13 @@
  * `--neo-color-*` name of a palette, to one reading: one value per theme class, declared on the class itself
  * (`.neo-theme-x`, `:root .neo-theme-x`, or the root that holds it), under no condition, read from measured
  * names only. It reads every sheet under `resources/css` for that, as syntax alone, and any other place that
- * declares or registers such a name fails. A scale role may be re-valued by a scope or a condition, as the
- * reduced-motion collapse does.
+ * declares or registers such a name fails, as does a sheet whose brackets do not balance. A scale role may be
+ * re-valued by a scope or a condition, as the reduced-motion collapse does.
  *
- * Two things are outside this check: a value set from JavaScript, and a sheet reached through `@import`. The
- * lightness numbers are each theme's own, so a palette is compared with itself and never with a table.
- * Contrast is measured on the resolved colours and never read off the grade distance: OKLCH lightness is not
- * luminance.
+ * Three things are outside this check: a value set from JavaScript, a sheet reached through `@import`, and a
+ * `color-scheme` that a rule sets against the one `src` wires from `--neo-color-scheme`. The lightness numbers
+ * are each theme's own, so a palette is compared with itself and never with a table. Contrast is measured on
+ * the resolved colours and never read off the grade distance: OKLCH lightness is not luminance.
  */
 import fs              from 'node:fs';
 import path            from 'node:path';
@@ -363,6 +363,32 @@ function readSheet(file) {
 }
 
 /**
+ * @summary Whether every bracket of a sheet read by `readSheet` closes the one opened last. Where one does
+ * not, a browser's blocks and this check's part ways: after `--probe: (} .a {);` it drops the rest of the sheet.
+ * @param {String} css
+ * @returns {Boolean}
+ */
+function isBalanced(css) {
+    const
+        closers = {'(': ')', '[': ']', '{': '}'},
+        open    = [];
+
+    for (let index = 0; index < css.length; index++) {
+        const char = css[index];
+
+        if (char === '\\') {
+            index++
+        } else if (closers[char]) {
+            open.push(closers[char])
+        } else if ((char === ')' || char === ']' || char === '}') && open.pop() !== char) {
+            return false
+        }
+    }
+
+    return open.length === 0
+}
+
+/**
  * The selectors that declare on a theme class itself: the class, `:root` before it, and the root that holds
  * it as a child. Any other selector reaches elements this check cannot name.
  * @type {RegExp}
@@ -647,7 +673,6 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         cssRoot  = path.join(root, 'resources/css'),
         declared = [],
         failures = new Set(),
-        loose    = [],
         palettes = [];
 
     if (!fs.existsSync(cssRoot)) {
@@ -680,14 +705,23 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
                 }
             });
 
-        // What the sheet spells beyond the declarations the reader placed inside the theme classes.
+        isBalanced(css) || failures.add(
+            `[syntax] ${relPath} has a bracket that does not close the one opened last; a browser reads the rest ` +
+            `of such a sheet in another way, and this check cannot follow it`
+        );
+
+        // What the sheet spells beyond the declarations the reader placed on a theme class. Such a name fails
+        // whether or not a palette was found: a palette block under a selector of another shape is found nowhere.
         for (const [, name] of css.matchAll(SPELLED)) {
             const left = placed.get(name) ?? 0;
 
             if (left) {
                 placed.set(name, left - 1)
             } else if (isMeasured(name)) {
-                loose.push({name, relPath})
+                failures.add(
+                    `[scope] ${relPath} declares or registers ${name} outside a rule that declares on a theme class itself; ` +
+                    `a palette or colour-role name has one value per theme class, and nothing here can tell what another rule reaches`
+                )
             }
         }
 
@@ -735,16 +769,7 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         checkPalette({declarations, failures, relPath, themeClass})
     }
 
-    const
-        names = checkNames({declared, failures}),
-        owned = new Set(declared.flatMap(entry => entry.names));
-
-    for (const {name, relPath} of loose) {
-        owned.has(name) && failures.add(
-            `[scope] ${relPath} declares or registers ${name} outside a rule that declares on a theme class itself; ` +
-            `a palette or colour-role name has one value per theme class, and nothing here can tell what another rule reaches`
-        )
-    }
+    const names = checkNames({declared, failures});
 
     return {failures: [...failures], names, palettes}
 }
@@ -752,8 +777,8 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
 /**
  * @summary Collects every palette failure under `root`: a palette entry or a colour role that is no colour
  * this check reads, a grade that two slots read at different lightness, a slot that does not descend, a pair
- * under its contrast floor or one it cannot measure, and a measured name with two values, under a condition
- * or outside a theme class.
+ * under its contrast floor or one it cannot measure, a measured name with two values, under a condition or
+ * outside a theme class, and a sheet whose brackets do not balance.
  * @param {Object} [options={}]
  * @param {String} [options.root=repoRoot]
  * @returns {String[]}
