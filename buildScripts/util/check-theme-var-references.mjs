@@ -8,14 +8,16 @@
  * instead of its error color, and nothing reports it.
  *
  * Each theme resolves against its own files plus `resources/css/src`, because a page loads one theme.
- * A reference with a fallback is the author's explicit choice and is skipped. Definitions count
- * wherever they appear: the guard catches names that nothing defines, not scoping mistakes.
+ * A reference with a fallback is the author's explicit choice and is skipped. General definitions
+ * count wherever they appear. A role used without a fallback in src/ must also have an unconditional
+ * definition for each theme class in one of that class's mapped Global.css files.
  * The runtime list and the stylesheet reading are shared with `theme-census` through `themeCss.mjs`.
  */
-import fs                                                           from 'node:fs';
-import path                                                         from 'node:path';
-import {fileURLToPath}                                              from 'node:url';
-import isEntryModule                                                from './isEntryModule.mjs';
+import fs                      from 'node:fs';
+import path                    from 'node:path';
+import {fileURLToPath}         from 'node:url';
+import {readThemeDeclarations} from './check-theme-palette.mjs';
+import isEntryModule           from './isEntryModule.mjs';
 import {
     RUNTIME_PROPERTIES,
     cssFiles,
@@ -23,6 +25,7 @@ import {
     resolveThemeClassMap,
     resolveThemeFolders
 }                                                                   from './themeCss.mjs';
+import {kindOf}                                                     from './themeNameShapes.mjs';
 
 const
     repoRoot   = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'),
@@ -57,6 +60,23 @@ function definitionsIn(files) {
  */
 function readsIn(files) {
     return new Set(files.flatMap(file => [...readCss(file).matchAll(/var\(\s*(--[\w-]+)/g)].map(match => match[1])))
+}
+
+/**
+ * @summary Finds roles that structural sheets require each theme to supply.
+ * @param {String[]} files
+ * @returns {Set<String>}
+ */
+function requiredRolesIn(files) {
+    const roles = new Set();
+
+    for (const file of files) {
+        for (const [, name] of readCss(file).matchAll(/(?<![\w-])var\(\s*(--[\w-]+)\s*\)/gi)) {
+            if (kindOf(name) === 'role') roles.add(name);
+        }
+    }
+
+    return roles
 }
 
 /**
@@ -100,6 +120,7 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
         srcFiles  = cssFiles(srcDir),
         baseFiles = fs.existsSync(baseDir) ? cssFiles(baseDir) : [],
         shared    = definitionsIn([...srcFiles, ...baseFiles]),
+        roles     = requiredRolesIn(srcFiles),
         // a runtime row stays alive while any stylesheet reads it, structural and base files included
         read      = readsIn([...srcFiles, ...baseFiles]),
         failures  = [];
@@ -110,6 +131,20 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
             files   = folders.flatMap(folder => cssFiles(path.join(root, folder))),
             defined = definitionsIn(files),
             missing = new Map();
+
+        if (roles.size) {
+            const globals = folders.map(folder => path.join(root, folder, 'Global.css'))
+                .filter(file => fs.existsSync(file))
+                .map(file => readThemeDeclarations(readCss(file)));
+
+            for (const themeClass of classes) {
+                for (const role of roles) {
+                    if (!globals.some(declarations => declarations.get(themeClass)?.has(role))) {
+                        failures.push(`[undefined-role] ${themeClass} lacks an unconditional Global.css definition for ${role}, read without a fallback in src/`);
+                    }
+                }
+            }
+        }
 
         readsIn(files).forEach(name => read.add(name));
 

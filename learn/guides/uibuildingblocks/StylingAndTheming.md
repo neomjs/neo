@@ -372,14 +372,14 @@ Start from an existing theme with the theme generator. It gives you the base's v
     node node_modules/neo.mjs/buildScripts/create/theme.mjs --name theme-my-awesome-theme --base theme-neo-light --noquestions
     ```
 
-    Inside the Engine checkout, use `npm run create-theme` instead; omitting the flags opens the name and base-theme prompts. The generator creates `resources/css/theme-my-awesome-theme`, keeps the base's folder structure, and changes its exact theme selector to `.neo-theme-my-awesome-theme`. Selector weight is preserved, including the neo skins' `:where()` roots. Values every theme shares, such as the motion vocabulary, come from the Engine's `src/Global.css` for any `neo-theme-*` root, so the snapshot does not copy them.
+    Inside the Engine checkout, use `npm run create-theme` instead. Omitting the flags opens the name and base-theme prompts. The generator creates `resources/css/theme-my-awesome-theme`, keeps the base's folder structure, and changes its exact theme selector to `.neo-theme-my-awesome-theme`. Selector weight is preserved, including the Neo skins' `:where()` roots. The snapshot includes the base's seven motion roles in `Global.css`.
 
     When the selected base has component-package or workspace overrides, the generated snapshot includes those effective files in the same precedence as the theme build. Existing destinations are refused. [Build-script usage](https://github.com/neomjs/neo/blob/dev/buildScripts/README.md#npm-run-create-theme) documents the command options and workspace invocation.
 
 2.  **Customize Your Theme's Variables:**
     Now you can go through the `.css` files in your new `theme-my-awesome-theme` folder and adjust the CSS variable values to match your design requirements.
 
-    The generated value sheets are yours to edit. Later changes to the base theme are not copied automatically; shared values such as the motion vocabulary still come from `src/Global.css`.
+    The generated value sheets are yours to edit. Later changes to the base theme are not copied automatically. Keep the seven normal-motion role declarations in your theme's `Global.css`. The Engine's `src/Global.css` sets the duration roles to zero when reduced motion is enabled.
 
 3.  **Configure Your Application:**
     In your `neo-config.json`, add your new theme class (the `.neo-theme-*` selector declared in its `Global.css`) to the `themes` array. The first theme in the array becomes the default theme for the application.

@@ -169,6 +169,27 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
         ]);
     });
 
+    test('requires each theme class to define fallback-free structural roles unconditionally in a mapped Global.css', () => {
+        const root = makeTree({
+            'src/Base.css'         : '.neo-x {transition-duration: VAR(--neo-duration-fast); transition-timing-function: var(--neo-ease-out, ease)}',
+            'src/Global.css'       : ':where(.neo-theme-a, .neo-theme-b) {@media (prefers-reduced-motion: reduce) {--neo-duration-fast: 0ms}}',
+            'theme-dual/Global.css': [
+                ':where(.neo-theme-a) {--neo-duration-fast: 120ms}',
+                ':where(.neo-theme-b) {@media (width > 100px) {--neo-duration-fast: 120ms}}'
+            ].join('\n'),
+            'theme-dual/Button.css': ':where(.neo-theme-b) {--neo-duration-fast: 120ms}'
+        });
+
+        expect(collect({root, runtimeProperties: {}})).toEqual([
+            '[undefined-role] neo-theme-b lacks an unconditional Global.css definition for --neo-duration-fast, read without a fallback in src/'
+        ]);
+
+        fs.appendFileSync(path.join(root, 'theme-dual/Global.css'),
+            '\n@layer neo.roles {:where(.neo-theme-b) {--neo-duration-fast: 120ms}}');
+
+        expect(collect({root, runtimeProperties: {}})).toEqual([]);
+    });
+
     test('FAILS CLOSED: a root without src/ or theme directories is a failure, never a vacuous green', () => {
         const failures = collect({root: path.join(tmpRoot, 'does-not-exist')});
 
