@@ -4,6 +4,16 @@
     --neo-color-scheme: dark;
 }
 
+:where(.neo-theme-cyberpunk) {
+    --neo-duration-fast   : 120ms;
+    --neo-duration-base   : 200ms;
+    --neo-duration-panel  : 280ms;
+    --neo-duration-stage  : 400ms;
+    --neo-duration-stagger: 24ms;
+    --neo-ease-out        : cubic-bezier(0.22, 1, 0.36, 1);
+    --neo-ease-in         : cubic-bezier(0.55, 0, 0.55, 0.2);
+}
+
 :root .neo-theme-cyberpunk {
     --neo-global-background-color: #0d1117;
     --neo-global-color           : #c9d1d9;

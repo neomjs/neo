@@ -22,7 +22,7 @@ The other repositories ride these lines: [neomjs/neo-agent-skills](https://githu
 
 ## Next: Engine 14.1
 
-The [14.1 milestone](https://github.com/neomjs/neo/milestone/15) connects a working example, the lessons that teach it, and the controls developers can reuse in their own apps. Two foundations join it: a design system that every theme is written against, and touch input as engine events. The cut is planned for Sunday 29 or Monday 30 November and takes what has passed its gate by then; the rest of an open track leads the next release. Peers can pick an open milestone issue after checking its assignee and active PRs. Existing epic stewards keep their scopes.
+The [14.1 milestone](https://github.com/neomjs/neo/milestone/15) connects a working example, the lessons that teach it, and the controls developers can reuse in their own apps. Two foundations join it: a design system that every theme is written against, and touch input as engine events. 14.1 ships its full scope, every track below included, and the operator sets the cut date. Peers can pick an open milestone issue after checking its assignee and active PRs. Existing epic stewards keep their scopes.
 
 ### Learn through a working application
 
@@ -48,7 +48,15 @@ The [groundwork](https://github.com/neomjs/neo/issues/22280) needs no decision a
 
 A phone user swipes a row, holds a handle, pinches a canvas. The [touch discussion](https://github.com/orgs/neomjs/discussions/22259), maintained by Emmy, decides which gestures become engine events, where they are recognized, and how Neural Link and a Playwright test replay them. Correctness work needs no decision and is landing: [a tap that loses its click](https://github.com/neomjs/neo/issues/22264) and [touch listeners that outlive a cancelled contact](https://github.com/neomjs/neo/issues/22271). On a physical iPhone, compare today’s touch handling with component-declared `touch-action` and a passive body listener. Before changing the default, verify that a grid drag scrolls once, Helix manipulation keeps its page still, and native page scrolling and pinch-zoom still work. Gesture events and Neural Link/Playwright replay can be developed on existing styles.
 
-**Capstone, shipped on green foundations only.** A Material light and dark theme and the first adaptive mobile components, a sheet that swipes and a floating action button, ship in this cut only if the design system and the gesture events are merged with time to spare, and lead the next one otherwise. Experiments with adaptive components can start now against existing Engine primitives.
+### Themes and mobile, in this cut
+
+Built alongside the foundations, not after them:
+- **Themes:** Material light and dark, Workstation light and dark, and the Fleet Manager theme.
+- **Gesture events:** the events [the touch discussion](https://github.com/orgs/neomjs/discussions/22259) decides.
+- **Mobile components:** more of them, starting with a sheet that swipes and a floating action button.
+- **Mobile examples:** new ones that run these on a phone.
+
+Components start on today's Engine primitives and move to gesture events as those land.
 
 The [read-only preview investigation](https://github.com/neomjs/neo/issues/22240) is closed; its outcome continues as [smaller Highlight.js bundles](https://github.com/neomjs/neo/issues/22249). Editable examples continue to use Monaco and LivePreview.
 
@@ -58,4 +66,4 @@ The [read-only preview investigation](https://github.com/neomjs/neo/issues/22240
 
 Ada holds the [live defect gate](https://github.com/neomjs/neo/issues?q=is%3Aissue%20is%3Aopen%20label%3Abug). Each fix retains its owner and a regression witness. The operator decides outstanding deferrals at the cut. In particular, the [yielded-update issue](https://github.com/neomjs/neo/issues/20747) and [drag-terminal issue](https://github.com/neomjs/neo/issues/20871) carry scheduling and ordering decisions into the [scheduling discussion](https://github.com/neomjs/neo/discussions/22199). [ADR 0043](learn/agentos/decisions/0043-vdom-diff-placement.md) governs diff placement: App-worker diff is the default and the enhanced VDom worker remains supported as an opt-in.
 
-**Beyond this cut.** The wider web desktop, first-run installation-speed, platform-example and contributor-standing epics retain their own delivery schedules. Product palettes for Workstation and Fleet and a theme workbench follow the theme migration. Calendar on the shared time axis, server-backed planning data, the second docs app, the remaining Grid Multi-Body work, and further workbench features remain deferred. Brain and Fleet Manager follow their own release lines.
+**Beyond this cut.** The wider web desktop, first-run installation-speed, platform-example and contributor-standing epics retain their own delivery schedules. A theme workbench follows the theme migration. Calendar on the shared time axis, server-backed planning data, the second docs app, the remaining Grid Multi-Body work, and further workbench features remain deferred. Brain and Fleet Manager follow their own release lines.
