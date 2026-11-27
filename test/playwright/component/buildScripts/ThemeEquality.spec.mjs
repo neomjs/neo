@@ -61,9 +61,10 @@ test.describe('theme-equality headless Chromium integration', () => {
         );
 
         const result = await runThemeEquality({
-            base    : buildOne.root,
-            head    : REPO_ROOT,
-            repoRoot: REPO_ROOT
+            base      : buildOne.root,
+            baseSource: 'workspace',
+            head      : REPO_ROOT,
+            repoRoot  : REPO_ROOT
         });
 
         expect(result.ok).toBe(true);
@@ -88,17 +89,21 @@ test.describe('theme-equality headless Chromium integration', () => {
         fs.writeFileSync(targetFile, mutated);
 
         const viaCheckoutRoots = await runThemeEquality({
-            base    : base.root,
-            head    : head.root,
-            themes  : ['neo-theme-neo-light'],
-            repoRoot: REPO_ROOT
+            base      : base.root,
+            baseSource: 'workspace',
+            head      : head.root,
+            headSource: 'workspace',
+            themes    : ['neo-theme-neo-light'],
+            repoRoot  : REPO_ROOT
         });
 
         const viaCssRoots = await runThemeEquality({
-            base    : base.cssDir,
-            head    : head.cssDir,
-            themes  : ['neo-theme-neo-light'],
-            repoRoot: REPO_ROOT
+            base      : base.cssDir,
+            baseSource: 'workspace',
+            head      : head.cssDir,
+            headSource: 'workspace',
+            themes    : ['neo-theme-neo-light'],
+            repoRoot  : REPO_ROOT
         });
 
         expect(viaCheckoutRoots.ok).toBe(false);
@@ -181,10 +186,12 @@ test.describe('theme-equality headless Chromium integration', () => {
         fs.appendFileSync(path.join(head.cssDir, 'theme-dark/tooltip/Base.css'), themeTooltipRule);
 
         const result = await runThemeEquality({
-            base    : base.root,
-            head    : head.root,
-            themes  : ['neo-theme-neo-light', 'neo-theme-dark'],
-            repoRoot: REPO_ROOT
+            base      : base.root,
+            baseSource: 'workspace',
+            head      : head.root,
+            headSource: 'workspace',
+            themes    : ['neo-theme-neo-light', 'neo-theme-dark'],
+            repoRoot  : REPO_ROOT
         });
 
         expect(result.ok).toBe(false);
@@ -276,10 +283,12 @@ test.describe('theme-equality headless Chromium integration', () => {
         fs.writeFileSync(chipFile, chipNext);
 
         const result = await runThemeEquality({
-            base    : base.root,
-            head    : head.root,
-            themes  : ['neo-theme-neo-light'],
-            repoRoot: REPO_ROOT
+            base      : base.root,
+            baseSource: 'workspace',
+            head      : head.root,
+            headSource: 'workspace',
+            themes    : ['neo-theme-neo-light'],
+            repoRoot  : REPO_ROOT
         });
 
         expect(result.ok).toBe(false);
@@ -326,6 +335,90 @@ test.describe('theme-equality headless Chromium integration', () => {
         expect(proc.signal).toBeNull();
         expect(proc.status).toBe(1);
         expect(proc.stderr).toMatch(/Executable doesn't exist|browserType\.launch/i)
+    });
+
+    test('pairs standard dist/development/css folder inputs with their enclosing checkout JS across Cube runtime property renames and requires explicit source for portable snapshots', async () => {
+        test.setTimeout(120000);
+
+        const checkoutRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-theme-eq-cube-checkout-')),
+              checkoutCss  = path.join(checkoutRoot, 'dist/development/css'),
+              portableCss  = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-theme-eq-cube-portable-'));
+
+        tempDirs.push(checkoutRoot, portableCss);
+
+        fs.cpSync(path.join(REPO_ROOT, 'src'), path.join(checkoutRoot, 'src'), {recursive: true});
+        fs.mkdirSync(path.dirname(checkoutCss), {recursive: true});
+        fs.cpSync(DIST_CSS, checkoutCss, {recursive: true});
+        fs.mkdirSync(path.join(checkoutRoot, 'resources'), {recursive: true});
+        fs.copyFileSync(path.join(REPO_ROOT, 'resources/theme-map.json'), path.join(checkoutRoot, 'resources/theme-map.json'));
+
+        // Simulate pre-rename Cube JS writer (`side-x/y/z`) paired with pre-rename Cube CSS (`side-x/y/z`)
+        const cubeJsPath  = path.join(checkoutRoot, 'src/layout/Cube.mjs'),
+              cubeCssPath = path.join(checkoutCss, 'src/layout/Cube.css'),
+              legacySide  = token => '--' + 'side-' + token;
+
+        fs.writeFileSync(
+            cubeJsPath,
+            fs.readFileSync(cubeJsPath, 'utf8')
+                .replaceAll('--neo-layout-cube-side-x', legacySide('x'))
+                .replaceAll('--neo-layout-cube-side-y', legacySide('y'))
+                .replaceAll('--neo-layout-cube-side-z', legacySide('z'))
+        );
+        fs.writeFileSync(
+            cubeCssPath,
+            fs.readFileSync(cubeCssPath, 'utf8')
+                .replaceAll('--neo-layout-cube-side-x', legacySide('x'))
+                .replaceAll('--neo-layout-cube-side-y', legacySide('y'))
+                .replaceAll('--neo-layout-cube-side-z', legacySide('z'))
+        );
+
+        fs.cpSync(checkoutCss, portableCss, {recursive: true});
+        fs.copyFileSync(path.join(REPO_ROOT, 'resources/theme-map.json'), path.join(portableCss, 'theme-map.json'));
+
+        // 1. Portable CSS snapshot without an explicit source choice fails closed
+        await expect(runThemeEquality({
+            base    : portableCss,
+            head    : REPO_ROOT,
+            themes  : ['neo-theme-neo-light'],
+            repoRoot: REPO_ROOT
+        })).rejects.toThrow(/Portable CSS snapshot.*--base-source/);
+
+        // 2. Direct `<checkout>/dist/development/css` folder input infers `<checkout>` JS (`Cube.mjs`) -> 0 differences
+        const fromDirectBuildCss = await runThemeEquality({
+            base    : checkoutCss,
+            head    : REPO_ROOT,
+            themes  : ['neo-theme-neo-light'],
+            repoRoot: REPO_ROOT
+        });
+
+        expect(fromDirectBuildCss.baseSource).toEqual({mode: 'inferred-checkout', root: checkoutRoot});
+        expect(fromDirectBuildCss.ok).toBe(true);
+        expect(fromDirectBuildCss.diffs).toEqual([]);
+
+        // 3. Portable CSS snapshot explicitly paired with `workspace` (head JS) exposes the Cube runtime-property mismatch
+        const mismatchedPortable = await runThemeEquality({
+            base      : portableCss,
+            baseSource: 'workspace',
+            head      : REPO_ROOT,
+            themes    : ['neo-theme-neo-light'],
+            repoRoot  : REPO_ROOT
+        });
+
+        expect(mismatchedPortable.ok).toBe(false);
+        expect(mismatchedPortable.diffs.some(d => d.component.includes('cube'))).toBe(true);
+
+        // 4. Portable CSS snapshot explicitly paired with `checkoutRoot` matches cleanly
+        const matchedPortable = await runThemeEquality({
+            base      : portableCss,
+            baseSource: checkoutRoot,
+            head      : REPO_ROOT,
+            themes    : ['neo-theme-neo-light'],
+            repoRoot  : REPO_ROOT
+        });
+
+        expect(matchedPortable.baseSource).toEqual({mode: 'explicit', root: checkoutRoot});
+        expect(matchedPortable.ok).toBe(true);
+        expect(matchedPortable.diffs).toEqual([])
     });
 
     test('preserves Neo Dark pressed ghost glyph semantic binding when text and icon contrast tokens diverge', async ({page}) => {

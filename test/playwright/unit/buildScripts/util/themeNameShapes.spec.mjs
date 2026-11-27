@@ -82,6 +82,11 @@ test.describe('themeNameShapes — canonical kindOf() classification and closed 
         expect(kindOf(neoProp('line-color'))).toBeNull();
         expect(kindOf(neoProp('focus-color'))).toBeNull();
         expect(kindOf(neoProp('letter-width'))).toBeNull();
-        expect(kindOf(neoProp('spacing'))).toBeNull()
+        expect(kindOf(neoProp('spacing'))).toBeNull();
+        expect(kindOf(neoProp('demo--atom'))).toBeNull();
+        expect(kindOf(neoProp('demo-'))).toBeNull();
+        expect(kindOf(neoProp('-demo'))).toBeNull();
+        expect(kindOf(neoProp('sem--bad'))).toBeNull();
+        expect(kindOf(neoProp('sem-bad-'))).toBeNull()
     })
 });
