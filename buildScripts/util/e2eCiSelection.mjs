@@ -220,7 +220,7 @@ export const QUARANTINES = [];
  * near five minutes: recount once {@link ENGINE_DURATIONS} totals more than 300 s per shard.
  * @member {{engine: Number}} FULL_SHARDS
  */
-export const FULL_SHARDS = {engine: 18};
+export const FULL_SHARDS = {engine: 20};
 
 /**
  * Measured seconds per engine-tier spec file, which {@link balancedShard} balances the tier's shards by.
