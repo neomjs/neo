@@ -19,8 +19,7 @@ const hookPath     = fileURLToPath(new URL('../../../../.claude/hooks/contentSki
       notesPayload = '.agents/skills/release-notes/references/release-notes-workflow.md',
       blogPayload  = '.agents/skills/blog-post/references/blog-authoring-guide.md',
       notesFile    = '/work/neo/.github/RELEASE_NOTES/v14.1.0.md',
-      blogFile     = '/work/neo/learn/blog/a-new-post.md',
-      dir          = mkdtempSync(path.join(os.tmpdir(), 'content-skill-guard-'));
+      blogFile     = '/work/neo/learn/blog/a-new-post.md';
 
 /** @summary A main-thread (or sidechain) `Read` tool call as Claude Code writes it to the transcript. */
 const read = (file, isSidechain = false) => JSON.stringify({
@@ -30,7 +29,7 @@ const read = (file, isSidechain = false) => JSON.stringify({
 const compact = () => JSON.stringify({type: 'system', subtype: 'compact_boundary', content: 'Conversation compacted'}),
       chatter = () => JSON.stringify({type: 'user', message: {content: 'Grüße 🌿 — a line with multi-byte characters, long enough to cross chunks'}});
 
-let fixtureCount = 0;
+let dir, fixtureCount = 0;
 
 /** @summary Writes `lines` as a transcript and returns its path. */
 function transcript(...lines) {
@@ -39,6 +38,8 @@ function transcript(...lines) {
     return file
 }
 
+// Per hook run, not per module: with fullyParallel a worker can run afterAll and later take another test of this file
+test.beforeAll(() => {dir = mkdtempSync(path.join(os.tmpdir(), 'content-skill-guard-'))});
 test.afterAll(() => rmSync(dir, {recursive: true, force: true}));
 
 test.describe('contentSkillGuardHook — Claude PreToolUse Write/Edit guard', () => {
