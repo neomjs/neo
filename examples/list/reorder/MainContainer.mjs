@@ -42,7 +42,8 @@ class MainContainer extends Viewport {
                 flex  : 1,
                 vdom  : {cn: [
                     {tag: 'h1', text: 'Reorder by drag'},
-                    {tag: 'p',  text: 'Drag a step or a portrait. Each number is its place in the store.'}
+                    {tag: 'p',  text: 'Drag a step or a portrait. Each number is its place in the store.'},
+                    {tag: 'p',  text: 'On the keyboard, Tab to the checklist, pick a step with the arrow keys and move it with Ctrl+Shift+Up or Ctrl+Shift+Down (Cmd+Shift on macOS).'}
                 ]}
             }, {
                 module: ThemeSwitcher,
@@ -63,6 +64,11 @@ class MainContainer extends Viewport {
                     module   : StepList,
                     reference: 'steps',
                     store    : StepStore
+                }, {
+                    module   : Component,
+                    cls      : ['neo-reorder-status'],
+                    reference: 'stepStatus',
+                    vdom     : {role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true'}
                 }]
             }, {
                 module: Container,

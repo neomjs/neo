@@ -19,7 +19,11 @@
 
         p {
             color : var(--sem-color-text-neutral-subdued);
-            margin: 0 0 1.5em;
+            margin: 0 0 .4em;
+
+            &:last-child {
+                margin-bottom: 1.5em;
+            }
         }
     }
 
@@ -28,6 +32,17 @@
         display              : grid;
         gap                  : 32px;
         grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
+    }
+
+    /* Read by screen readers, kept off screen */
+    .neo-reorder-status {
+        clip       : rect(0 0 0 0);
+        clip-path  : inset(50%);
+        height     : 1px;
+        overflow   : hidden;
+        position   : absolute;
+        white-space: nowrap;
+        width      : 1px;
     }
 
     .neo-reorder-panel h2 {

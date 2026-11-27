@@ -94,13 +94,54 @@ function listEngineCssFiles(folderDir) {
 
     walk(folderDir);
 
-    results.sort((a, b) => {
-        if (a === 'Global.css') return -1;
-        if (b === 'Global.css') return 1;
-        return a.localeCompare(b)
-    });
+    return results.sort(byGlobalFirst)
+}
 
-    return results
+/**
+ * @summary Lists the `.css` paths `theme-map.json` assigns to one built folder: the sheets the runtime requests.
+ * Each leaf of the map's `Neo` class tree names the folders holding that class's sheet (`Neo.button.Base` →
+ * `button/Base.css`); `Neo.examples` is skipped as the walk skips `examples/`, and app namespaces live outside
+ * `Neo`. A built file no leaf names, such as the leftover of a deleted source, is never listed.
+ * @param {Object} classTree The map's `Neo` section.
+ * @param {String} cssRoot Built CSS root, against which every listed sheet must exist.
+ * @param {String} folder Built folder name (e.g. `'src'`, `'theme-neo-light'`).
+ * @returns {String[]} Sorted relative paths inside the folder.
+ */
+function listMappedCssFiles(classTree, cssRoot, folder) {
+    const results = [];
+
+    (function walk(node, segments) {
+        for (const [key, value] of Object.entries(node)) {
+            if (Array.isArray(value)) {
+                value.includes(folder) && results.push(`${[...segments, key].join('/')}.css`)
+            } else if (value && typeof value === 'object' && !(segments.length === 0 && key === 'examples')) {
+                walk(value, [...segments, key])
+            }
+        }
+    })(classTree, []);
+
+    const missing = results.filter(relFile => !fs.existsSync(path.join(cssRoot, folder, relFile)));
+
+    if (missing.length > 0) {
+        throw new Error(
+            `theme-map.json lists ${missing.length} sheet(s) the build did not write in "${path.join(cssRoot, folder)}" ` +
+            `(first: ${missing[0]}). Run "npm run build-themes -- -n -e dev -t all" first.`
+        )
+    }
+
+    return results.sort(byGlobalFirst)
+}
+
+/**
+ * @summary Orders sheet paths as they mount: `Global.css` first, then alphabetically.
+ * @param {String} a
+ * @param {String} b
+ * @returns {Number}
+ */
+function byGlobalFirst(a, b) {
+    if (a === 'Global.css') return -1;
+    if (b === 'Global.css') return 1;
+    return a.localeCompare(b)
 }
 
 /**
@@ -151,7 +192,10 @@ export function resolveBuiltTree(inputPath, env = 'development') {
 
 /**
  * @summary Resolves and validates the ordered list of built CSS URLs (`/__equality_css/...`) to mount for one theme.
- * Fails closed when structural CSS (`src/Global.css`) is missing or when a requested theme resolves zero theme sheets.
+ * With the map's `Neo` class tree, each folder contributes only the sheets the map names, the set
+ * `Neo.main.addon.Stylesheet` requests, so a built file whose source is gone never counts; without it, every built
+ * file does. Fails closed when structural CSS (`src/Global.css`) or a mapped sheet is missing, or when a requested
+ * theme resolves zero theme sheets.
  * @param {Object} tree Resolved tree from `resolveBuiltTree`.
  * @param {String} themeClass Theme class name (e.g. `'neo-theme-neo-light'`).
  * @returns {String[]} Ordered URL paths under `/__equality_css/`.
@@ -161,7 +205,11 @@ export function collectThemeStylesheetUrls(tree, themeClass) {
         throw new Error('Theme class name must be a non-empty string.')
     }
 
-    const srcFiles = listEngineCssFiles(path.join(tree.cssRoot, 'src'));
+    const classTree = tree.themeMap?.Neo && typeof tree.themeMap.Neo === 'object' ? tree.themeMap.Neo : null,
+          listFiles = folder => classTree
+              ? listMappedCssFiles(classTree, tree.cssRoot, folder)
+              : listEngineCssFiles(path.join(tree.cssRoot, folder)),
+          srcFiles  = listFiles('src');
 
     if (!srcFiles.includes('Global.css')) {
         throw new Error(`Missing built structural "src/Global.css" in "${tree.cssRoot}".`)
@@ -185,7 +233,7 @@ export function collectThemeStylesheetUrls(tree, themeClass) {
     let   themeSheetCount = 0;
 
     if (fs.existsSync(path.join(tree.cssRoot, 'theme-base'))) {
-        const baseFiles = listEngineCssFiles(path.join(tree.cssRoot, 'theme-base'));
+        const baseFiles = listFiles('theme-base');
 
         for (const relFile of baseFiles) {
             urls.push(`/__equality_css/theme-base/${relFile}`)
@@ -205,7 +253,7 @@ export function collectThemeStylesheetUrls(tree, themeClass) {
             continue
         }
 
-        const files = listEngineCssFiles(folderPath);
+        const files = listFiles(folder);
         themeSheetCount += files.length;
 
         for (const relFile of files) {
