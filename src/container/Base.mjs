@@ -195,7 +195,8 @@ class Container extends Component {
     }
 
     /**
-     * @summary Cascades unmounts immediately and mounts only items whose vnode exists, or when test-mode VDOM updates are disabled.
+     * @summary Cascades unmounts immediately; to keep `mounted` aligned with live DOM/vnode truth, cascades `mounted: true`
+     * only to items whose vnode exists (or when test-mode VDOM updates are disabled), leaving unrendered items to the `syncVnodeTree` of the render that draws them.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
