@@ -102,6 +102,83 @@ test.describe('Neo.form.field.CheckBox', () => {
         await expect.poll(() => domChecked(page, componentId), {message: 'and a config change reaches the DOM property'}).toBe(false)
     });
 
+    for (const [type, ntype] of [['CheckBox', 'checkboxfield'], ['Radio', 'radiofield'], ['Switch', 'switchfield']]) {
+        test(`${type} projects disabled onto its input and restores user interaction on re-enable`, async ({page}) => {
+            componentId = await createCheckBox(page, {
+                importPath: `../form/field/${type}.mjs`,
+                ntype,
+                checked   : false,
+                disabled  : true,
+                value     : 'selected'
+            });
+
+            const field = page.locator(`#${componentId}`),
+                  input = field.locator('input');
+
+            await expect(field).toHaveClass(/neo-disabled/);
+            await expect(input).toBeDisabled();
+            await expect(input).toHaveAttribute('disabled');
+
+            await field.evaluate(el => {
+                const before = document.createElement('button'),
+                      after  = document.createElement('button');
+                before.textContent = 'Before field';
+                after.textContent  = 'After field';
+                el.before(before);
+                el.after(after)
+            });
+
+            const before = page.getByRole('button', {name: 'Before field'}),
+                  after  = page.getByRole('button', {name: 'After field'});
+
+            await before.focus();
+            await page.keyboard.press('Tab');
+            await expect(after).toBeFocused();
+            await input.evaluate(el => el.focus());
+            await expect(input).not.toBeFocused();
+            await page.keyboard.press('Space');
+
+            const box = await clickTarget(page, componentId).boundingBox();
+            await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+            await expect(input).not.toBeChecked();
+            expect(await configChecked(page, componentId)).toBe(false);
+
+            await page.evaluate(id => Neo.worker.App.setConfigs({id, checked: true}), componentId);
+            await expect(input).toBeChecked();
+            await expect(input).toBeDisabled();
+
+            const appWorker = page.workers().find(worker => worker.url().includes('/worker/App'));
+            expect(await appWorker.evaluate(id => Neo.getComponent(id).getSubmitValue(), componentId)).toBe('selected');
+
+            await page.evaluate(id => Neo.worker.App.setConfigs({id, checked: false, disabled: false}), componentId);
+            await expect(input).toBeEnabled();
+            await expect(input).not.toHaveAttribute('disabled');
+            await expect(field).not.toHaveClass(/neo-disabled/);
+            await expect(input).not.toBeChecked();
+            await before.focus();
+            await page.keyboard.press('Tab');
+            await expect(input).toBeFocused();
+            await page.keyboard.press('Space');
+            await expect(input).toBeChecked();
+            await expect.poll(() => configChecked(page, componentId)).toBe(true);
+
+            await page.evaluate(id => Neo.worker.App.setConfigs({id, disabled: true}), componentId);
+            await expect(input).toBeDisabled();
+            await expect(input).not.toBeFocused();
+            await page.keyboard.press('Space');
+            await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+            await expect(input).toBeChecked();
+            expect(await configChecked(page, componentId)).toBe(true);
+
+            await page.evaluate(id => Neo.worker.App.setConfigs({id, checked: false, disabled: false}), componentId);
+            await expect(input).toBeEnabled();
+            await expect(input).not.toBeChecked();
+            await clickTarget(page, componentId).click();
+            await expect(input).toBeChecked();
+            await expect.poll(() => configChecked(page, componentId)).toBe(true)
+        });
+    }
+
     test('a burst of clicks leaves the DOM on the user\'s last state, with the config agreeing', async ({page}) => {
         componentId = await createCheckBox(page, {checked: false});
 
