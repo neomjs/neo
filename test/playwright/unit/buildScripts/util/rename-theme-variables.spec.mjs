@@ -281,6 +281,56 @@ test.describe('rename-theme-variables — canonical map validation, fail-closed 
             {cwd: repoRoot, encoding: 'utf8'}
         );
         expect(flagAsOperandProc.status).toBe(1);
-        expect(flagAsOperandProc.stderr).toMatch(/Option "--root" requires a path operand/)
+        expect(flagAsOperandProc.stderr).toMatch(/Option "--root" requires a path operand/);
+
+        // 4. Installed `node_modules` invocation without `--root` fails closed instead of scanning the already-migrated package
+        const installedPkgRoot = path.join(tmpRoot, 'consumer-ws/node_modules/neo.mjs');
+        fs.mkdirSync(installedPkgRoot, {recursive: true});
+
+        expect(() => parseCliArgs([], {defaultRootDir: installedPkgRoot})).toThrow(/inside node_modules requires an explicit --root/);
+        expect(() => runThemeVariableRename({check: true, defaultRootDir: installedPkgRoot})).toThrow(/inside node_modules requires an explicit --root/);
+        expect(parseCliArgs(['--root', commentedKeyRoot], {defaultRootDir: installedPkgRoot}).root).toBe(commentedKeyRoot);
+
+        // 5. ES6 shorthand `{key, theme, value}` is reported in `dynamicTemplates`, while class method signatures are ignored
+        const shorthandRoot = fs.mkdtempSync(path.join(tmpRoot, 'shorthand-key-'));
+        fs.mkdirSync(path.join(shorthandRoot, 'src'), {recursive: true});
+        fs.writeFileSync(
+            path.join(shorthandRoot, 'src/Shorthand.mjs'),
+            [
+                "const key = 'fixture-old-text-color';",
+                "Neo.setCssVariable({key, theme: 'neo-theme-neo-dark', value: 'rgb(40, 50, 60)'});",
+                "class Helper { setCssVariable({key, theme}) { return {key, theme} } }"
+            ].join('\n') + '\n'
+        );
+
+        const shorthandSummary = runThemeVariableRename({check: true, mapPath: dashlessMap, root: shorthandRoot});
+        expect(shorthandSummary.dynamicTemplates).toEqual(['src/Shorthand.mjs:2: setCssVariable key key']);
+
+        // 6. `--check --json` drains >64 KB stdout completely on non-zero exit (1,000 residuals > 130 KB piped JSON)
+        const
+            largeJsonRoot = fs.mkdtempSync(path.join(tmpRoot, 'large-json-')),
+            largeJsonMap  = path.join(largeJsonRoot, 'map.json'),
+            oldLargeToken = '--' + 'fixture-old-large-residual-color',
+            residualCss   = Array.from({length: 1000}, (_, idx) => `.item-${idx} { color: var(${oldLargeToken}); }`).join('\n') + '\n';
+
+        fs.mkdirSync(path.join(largeJsonRoot, 'resources/css/src'), {recursive: true});
+        fs.writeFileSync(path.join(largeJsonRoot, 'resources/css/src/LargeResidual.css'), residualCss);
+        fs.writeFileSync(largeJsonMap, JSON.stringify({
+            rules  : {r: 'rule'},
+            entries: {[oldLargeToken]: {to: '--neo-fixture-large-residual-color', rule: 'r'}}
+        }));
+
+        const largeJsonProc = spawnSync(
+            process.execPath,
+            [cliPath, '--root', largeJsonRoot, '--map', largeJsonMap, '--check', '--json'],
+            {cwd: repoRoot, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024}
+        );
+
+        expect(largeJsonProc.status).toBe(1);
+        expect(Buffer.byteLength(largeJsonProc.stdout, 'utf8')).toBeGreaterThan(100_000);
+
+        const parsedLarge = JSON.parse(largeJsonProc.stdout);
+        expect(parsedLarge.remainingOldCount).toBe(1000);
+        expect(parsedLarge.remainingMatches).toHaveLength(1000)
     })
 });

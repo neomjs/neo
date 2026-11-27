@@ -4,14 +4,17 @@
  * @summary Applies the canonical custom-property rename map (`theme-variable-renames.json`)
  * across stylesheets, `.html` fixtures, `.mjs` modules/specs, `.github/CODING_GUIDELINES.md`,
  * and `learn`/`apps`/`docs`/`examples` Markdown docs, reports dynamic `--...${...}` templates and
- * dashless `setCssVariable` calls, and verifies zero old names remain.
+ * dynamic/indirect or dashless `setCssVariable` calls, and verifies zero old names remain.
+ * Indirect keys held in outer JS variables (`const key = '...'; Neo.setCssVariable({key, ...})`)
+ * are surfaced in `dynamicTemplates` for manual inspection rather than rewritten via JS data-flow analysis.
  *
- * Designed to run idempotently and fail closed on both `neomjs/neo` and sibling repositories:
+ * Designed to run idempotently and fail closed on `neomjs/neo`, sibling repositories, and installed workspaces:
  *
  *     node ./buildScripts/util/rename-theme-variables.mjs
  *     node ./buildScripts/util/rename-theme-variables.mjs --verify-targets-free
  *     node ./buildScripts/util/rename-theme-variables.mjs --root ../neo-agent-institution
- *     node ./buildScripts/util/rename-theme-variables.mjs --check
+ *     node ./node_modules/neo.mjs/buildScripts/util/rename-theme-variables.mjs --root .
+ *     node ./buildScripts/util/rename-theme-variables.mjs --check --root .
  */
 import fs                from 'node:fs';
 import path              from 'node:path';
@@ -82,18 +85,47 @@ function assertExistingFile(filePath) {
 }
 
 /**
+ * @summary Resolves the target workspace directory, failing closed when invoked from inside `node_modules`
+ * without an explicit `--root` / `root` path (preventing silent `0`-match runs against the already-migrated package).
+ * @param {String} [explicitRoot]
+ * @param {String} [defaultRootDir=defaultRoot]
+ * @returns {String} Resolved absolute directory path.
+ */
+function resolveTargetRoot(explicitRoot, defaultRootDir = defaultRoot) {
+    if (explicitRoot !== undefined) {
+        return assertExistingDirectory(explicitRoot)
+    }
+
+    if (typeof defaultRootDir !== 'string' || !defaultRootDir.trim()) {
+        throw new Error('A non-empty --root directory path is required.')
+    }
+
+    const resolvedDefault = path.resolve(defaultRootDir);
+
+    if (resolvedDefault.split(path.sep).includes('node_modules')) {
+        throw new Error(
+            'Running rename-theme-variables from inside node_modules requires an explicit --root <workspace-dir> (for example: --root .).'
+        )
+    }
+
+    return assertExistingDirectory(resolvedDefault)
+}
+
+/**
  * @summary Parses CLI arguments and fails closed on missing operands, flag-shaped operands (`--root --check`),
- * or unknown flags.
+ * unknown flags, or implicit `node_modules` package roots without `--root`.
  * @param {String[]} args `process.argv.slice(2)`
+ * @param {Object} [options={}]
+ * @param {String} [options.defaultRootDir=defaultRoot]
  * @returns {{check: Boolean, dryRun: Boolean, jsonMode: Boolean, mapPath: String, root: String, verifyTargetsFree: Boolean}}
  */
-export function parseCliArgs(args) {
+export function parseCliArgs(args, {defaultRootDir = defaultRoot} = {}) {
     let check             = false,
         dryRun            = false,
         jsonMode          = false,
         verifyTargetsFree = false,
         mapPath           = defaultMapPath,
-        root              = defaultRoot;
+        explicitRoot;
 
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
@@ -113,8 +145,8 @@ export function parseCliArgs(args) {
                 throw new Error(`Option "${arg}" requires a path operand (received "${value ?? ''}").`)
             }
 
-            if (arg === '--root') root    = path.resolve(value);
-            if (arg === '--map')  mapPath = path.resolve(value);
+            if (arg === '--root') explicitRoot = value;
+            if (arg === '--map')  mapPath      = path.resolve(value);
             i++;
             continue
         }
@@ -122,7 +154,7 @@ export function parseCliArgs(args) {
         throw new Error(`Unknown CLI argument "${arg}". Usage: rename-theme-variables.mjs [--root <dir>] [--map <file>] [--dry-run] [--check] [--verify-targets-free] [--json]`)
     }
 
-    assertExistingDirectory(root);
+    const root = resolveTargetRoot(explicitRoot, defaultRootDir);
     assertExistingFile(mapPath);
 
     return {check, dryRun, jsonMode, mapPath, root, verifyTargetsFree}
@@ -372,7 +404,8 @@ export function scanSetCssVariableCalls(source) {
         }
 
         // Walk the balanced `{ ... }` config object passed to `setCssVariable(`
-        let cursor       = openBrace + 1,
+        const callCalls = [];
+        let   cursor    = openBrace + 1,
             braceDepth   = 1,
             parenDepth   = 0,
             bracketDepth = 0,
@@ -428,9 +461,9 @@ export function scanSetCssVariableCalls(source) {
                                 inner = source.slice(litStart + 1, end - 1);
 
                             if (first === '`' && hasInterpolation) {
-                                calls.push({kind: 'template', line: valLine, raw})
+                                callCalls.push({kind: 'template', line: valLine, raw})
                             } else if (!inner.includes('\\')) {
-                                calls.push({
+                                callCalls.push({
                                     contentEnd  : end - 1,
                                     contentStart: litStart + 1,
                                     key         : inner,
@@ -439,7 +472,7 @@ export function scanSetCssVariableCalls(source) {
                                     raw
                                 })
                             } else {
-                                calls.push({kind: 'expression', line: valLine, raw})
+                                callCalls.push({kind: 'expression', line: valLine, raw})
                             }
 
                             cursor     = afterLit;
@@ -491,12 +524,24 @@ export function scanSetCssVariableCalls(source) {
                     const rawExpr = source.slice(valStart, exprCursor).trim();
 
                     if (rawExpr) {
-                        calls.push({kind: 'expression', line: valLine, raw: rawExpr})
+                        callCalls.push({kind: 'expression', line: valLine, raw: rawExpr})
                     }
 
                     cursor     = exprCursor;
                     expectProp = false;
                     continue
+                }
+
+                // ES6 shorthand `{key, ...}` or `{..., key}` passes an outer identifier `key`
+                if (/^key(?![A-Za-z0-9_$])/.test(source.slice(cursor))) {
+                    const afterKey = skipWsAndComments(source, cursor + 3);
+
+                    if (source[afterKey] === ',' || source[afterKey] === '}' || source[afterKey] === '=') {
+                        callCalls.push({kind: 'expression', line: lineOf(cursor), raw: 'key'});
+                        cursor     = cursor + 3;
+                        expectProp = false;
+                        continue
+                    }
                 }
             }
 
@@ -531,6 +576,19 @@ export function scanSetCssVariableCalls(source) {
             }
 
             cursor++
+        }
+
+        // Ignore function/method parameter destructuring declarations (`setCssVariable({key, theme}) { ... }`)
+        let prevIdx = match.index - 1;
+        while (prevIdx >= 0 && /\s/.test(source[prevIdx])) prevIdx--;
+
+        const
+            afterBrace      = skipWsAndComments(source, cursor),
+            afterCloseParen = source[afterBrace] === ')' ? skipWsAndComments(source, afterBrace + 1) : -1,
+            isMethodDecl    = source[prevIdx] !== '.' && afterCloseParen !== -1 && source[afterCloseParen] === '{';
+
+        if (!isMethodDecl) {
+            calls.push(...callCalls)
         }
 
         i = cursor
@@ -754,24 +812,26 @@ export function rewriteContent(content, entries, isMjs = false) {
 
 /**
  * @summary Runs the theme-variable rename (or check/dry-run) over `root`.
- * Fails closed when `root` or `mapPath` does not exist.
+ * Fails closed when `root` or `mapPath` does not exist, or when `root` is omitted while running inside `node_modules`.
  * @param {Object} [options={}]
  * @param {Boolean} [options.check=false] Verify zero old names remain without modifying files.
+ * @param {String} [options.defaultRootDir=defaultRoot]
  * @param {Boolean} [options.dryRun=false] Report what would change without writing files.
  * @param {String} [options.mapPath=defaultMapPath]
- * @param {String} [options.root=defaultRoot]
+ * @param {String} [options.root]
  * @param {Boolean} [options.verifyTargetsFree=false] Refuse to run if any target already exists in `root`.
  * @returns {{dashlessCalls: String[], dynamicTemplates: String[], modifiedFiles: String[], remainingMatches: Array<{file: String, line: Number, token: String}>, remainingOldCount: Number, replacements: Number}}
  */
 export function runThemeVariableRename({
     check             = false,
+    defaultRootDir    = defaultRoot,
     dryRun            = false,
     mapPath           = defaultMapPath,
-    root              = defaultRoot,
+    root,
     verifyTargetsFree = false
 } = {}) {
     const
-        resolvedRoot     = assertExistingDirectory(root),
+        resolvedRoot     = resolveTargetRoot(root, defaultRootDir),
         resolvedMapPath  = assertExistingFile(mapPath),
         {entries}        = loadRenameMap(resolvedMapPath, verifyTargetsFree ? {root: resolvedRoot} : {}),
         files            = collectTargetFiles(resolvedRoot, resolvedMapPath),
@@ -868,10 +928,10 @@ if (isEntryModule(import.meta.url)) {
         }
 
         if (check && summary.remainingOldCount > 0) {
-            process.exit(1)
+            process.exitCode = 1
         }
     } catch (err) {
         console.error(err?.message || String(err));
-        process.exit(1)
+        process.exitCode = 1
     }
 }

@@ -300,10 +300,10 @@ if (isEntryModule(import.meta.url)) {
     if (failures.length) {
         console.error('✗ theme property prefix FAILED:\n');
         failures.forEach(failure => console.error('    ' + failure));
-        process.exit(1)
+        process.exitCode = 1
+    } else {
+        console.log(
+            '✓ theme property prefix — every engine custom property carries --neo- and every --neo-* name matches a valid shape.'
+        )
     }
-
-    console.log(
-        '✓ theme property prefix — every engine custom property carries --neo- and every --neo-* name matches a valid shape.'
-    )
 }
