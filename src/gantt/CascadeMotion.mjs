@@ -30,10 +30,12 @@ class CascadeMotion extends Base {
      * @returns {Function}
      */
     static cubicBezier(x1, y1, x2, y2) {
-        const curve = (t, p1, p2) => 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3;
+        let curve = (t, p1, p2) => 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3;
 
         return x => {
-            let low = 0, high = 1, t = x;
+            let low  = 0,
+                high = 1,
+                t    = x;
             // x1 and x2 lie in [0, 1], so the curve's x rises with t: bisection finds the t for x
             for (let i = 0; i < 24; i++) {
                 t = (low + high) / 2;
@@ -101,7 +103,7 @@ class CascadeMotion extends Base {
      * @summary Lands every moving task at its final dates in one update and stops the clock.
      */
     end() {
-        const me = this;
+        let me = this;
 
         me.chart.drawnSpans.clear();
         me.#moves.size && me.#paint();
@@ -113,7 +115,7 @@ class CascadeMotion extends Base {
      * other records under the same keys.
      */
     stop() {
-        const me = this;
+        let me = this;
 
         me.#run++;
         clearTimeout(me.#timer);
@@ -128,7 +130,8 @@ class CascadeMotion extends Base {
      * @private
      */
     #paint() {
-        const {chart} = this, {body} = chart;
+        let {chart} = this,
+            {body}  = chart;
 
         chart.dependencyLayer?.project();
 
@@ -145,13 +148,13 @@ class CascadeMotion extends Base {
      * @returns {Promise<void>}
      */
     async readTokens() {
-        const me = this, {chart} = me, read = ++me.#read;
-
-        let tokens = {duration: 0};
+        let me      = this,
+            {chart} = me,
+            read    = ++me.#read,
+            tokens  = {duration: 0};
 
         try {
-            const
-                styles = await Neo.main.DomAccess.getComputedStyle({
+            let styles = await Neo.main.DomAccess.getComputedStyle({
                     id: chart.id, style: ['--motion-panel', '--ease-out-soft'], windowId: chart.windowId
                 }),
                 tier   = String(styles?.['--motion-panel'] ?? '').trim(),
@@ -176,8 +179,7 @@ class CascadeMotion extends Base {
      * @param {Object[]} changed `{record, previous}` per changed task: `previous` holds the fields the edit changed
      */
     start(changed) {
-        const
-            me      = this,
+        let me      = this,
             {chart} = me,
             spans   = chart.drawnSpans,
             start   = chart.startDateField,
@@ -188,12 +190,12 @@ class CascadeMotion extends Base {
 
         me.end();
 
-        for (const {record, previous} of duration > 0 ? changed : []) {
-            const key = record && chart.store.getKey(record), spanKey = String(key);
+        for (let {record, previous} of duration > 0 ? changed : []) {
+            let key     = record && chart.store.getKey(record),
+                spanKey = String(key);
 
             if (record && !me.#moves.has(spanKey)) {
-                const
-                    from = [toMs(previous?.[start] ?? record[start]), toMs(previous?.[end] ?? record[end])],
+                let from = [toMs(previous?.[start] ?? record[start]), toMs(previous?.[end] ?? record[end])],
                     to   = [toMs(record[start]), toMs(record[end])];
 
                 if (from.concat(to).every(Number.isFinite) && (from[0] !== to[0] || from[1] !== to[1])) {
@@ -204,7 +206,8 @@ class CascadeMotion extends Base {
         }
 
         if (me.#moves.size) {
-            const run = me.#run, startTime = performance.now();
+            let run       = me.#run,
+                startTime = performance.now();
 
             me.#paint();
             me.#timer = setTimeout(() => me.#step(run, startTime, duration, ease), STEP_MS)
@@ -222,7 +225,8 @@ class CascadeMotion extends Base {
      * @private
      */
     #step(run, startTime, duration, ease) {
-        const me = this, elapsed = (performance.now() - startTime) / duration;
+        let me      = this,
+            elapsed = (performance.now() - startTime) / duration;
 
         if (run !== me.#run) return;
 
@@ -231,9 +235,9 @@ class CascadeMotion extends Base {
             return
         }
 
-        const progress = ease(elapsed);
+        let progress = ease(elapsed);
 
-        for (const [key, {from, to}] of me.#moves) {
+        for (let [key, {from, to}] of me.#moves) {
             me.chart.drawnSpans.set(key, [from[0] + (to[0] - from[0]) * progress, from[1] + (to[1] - from[1]) * progress])
         }
 

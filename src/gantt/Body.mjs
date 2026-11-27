@@ -26,7 +26,7 @@ class Body extends GridBody {
      */
     createViewData(silent=false, force=false) {
         super.createViewData(silent, force);
-        const chart = this.gridContainer;
+        let chart = this.gridContainer;
         if (this === chart?.body) {
             chart.dependencyLayer?.syncScrollPage(this);
             chart.checkKeyboardLinkSource()
@@ -52,8 +52,7 @@ class Body extends GridBody {
             return
         }
 
-        const
-            layer  = this.gridContainer.ensureDependencyLayer(),
+        let layer  = this.gridContainer.ensureDependencyLayer(),
             rootCn = this.getVdomRoot()?.cn;
 
         if (layer && Array.isArray(rootCn) && !rootCn.some(node => node?.componentId === layer.id)) {

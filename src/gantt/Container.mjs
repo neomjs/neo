@@ -254,7 +254,7 @@ class Container extends SchedulerContainer {
      */
     beforeSetStore(value, oldValue) {
         if (!value) return null;
-        const store = ClassSystemUtil.beforeSetInstance(value, TaskStore);
+        let store = ClassSystemUtil.beforeSetInstance(value, TaskStore);
         if (store !== value) this.#ownedTasks.add(store);
         return super.beforeSetStore(store, oldValue)
     }
@@ -267,7 +267,7 @@ class Container extends SchedulerContainer {
      */
     beforeSetDependencyStore(value) {
         if (!value) return null;
-        const store = ClassSystemUtil.beforeSetInstance(value, DependencyStore);
+        let store = ClassSystemUtil.beforeSetInstance(value, DependencyStore);
         if (store !== value) this.#ownedDependencies.add(store);
         return store
     }
@@ -290,26 +290,26 @@ class Container extends SchedulerContainer {
         this.#storeCleanups = [];
         if (value) {
             // A batch's events only note that the schedule went stale; its final rowsChange invalidates and projects once
-            let   stale  = false;
-            const settle = (invalidate, data) => {
-                if (this._movingTask) return;
-                stale ||= invalidate;
-                if (value.isUpdatingRows) return;
-                if (stale) { stale = false; this.#analysis?.invalidateSchedule(data) }
-                if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
-            };
-            // A load, filter, sort or mutation lands a running cascade move, unless that move made it
-            const land         = () => this._movingTask || this.#cascadeMotion?.end();
-            const changed      = data => { land(); settle(true, data) };
-            const recordChange = data => {
-                const fields = data?.fields;
-                settle(!Array.isArray(fields) || !fields.length || fields.some(field => {
-                    const name = typeof field === 'string' ? field : field?.name;
-                    return !name || [this.startDateField, this.endDateField, 'milestone', 'parentId', 'isLeaf', 'id', value.keyProperty].includes(name)
-                }))
-            };
-            // A sort moves rows, never dates: it lands a running move, and the links follow without a schedule pass
-            const listeners = {load: land, mutate: changed, recordChange, rowsChange: recordChange, filter: changed, sort: data => { land(); settle(false, data) }};
+            let stale  = false,
+                settle = (invalidate, data) => {
+                    if (this._movingTask) return;
+                    stale ||= invalidate;
+                    if (value.isUpdatingRows) return;
+                    if (stale) { stale = false; this.#analysis?.invalidateSchedule(data) }
+                    if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
+                },
+                // A load, filter, sort or mutation lands a running cascade move, unless that move made it
+                land         = () => this._movingTask || this.#cascadeMotion?.end(),
+                changed      = data => { land(); settle(true, data) },
+                recordChange = data => {
+                    let fields = data?.fields;
+                    settle(!Array.isArray(fields) || !fields.length || fields.some(field => {
+                        let name = typeof field === 'string' ? field : field?.name;
+                        return !name || [this.startDateField, this.endDateField, 'milestone', 'parentId', 'isLeaf', 'id', value.keyProperty].includes(name)
+                    }))
+                },
+                // A sort moves rows, never dates: it lands a running move, and the links follow without a schedule pass
+                listeners = {load: land, mutate: changed, recordChange, rowsChange: recordChange, filter: changed, sort: data => { land(); settle(false, data) }};
             value.on(listeners);
             this.#storeCleanups.push(() => value.un(listeners))
         }
@@ -330,12 +330,12 @@ class Container extends SchedulerContainer {
         this.#dependencyCleanups.forEach(fn => fn());
         this.#dependencyCleanups = [];
         if (value) {
-            const changed = () => {
-                if (this._movingTask || value.isUpdatingRows) return;
-                this.#analysis?.invalidateSchedule();
-                if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
-            };
-            const listeners = {mutate: changed, recordChange: changed, rowsChange: changed, filter: changed};
+            let changed = () => {
+                    if (this._movingTask || value.isUpdatingRows) return;
+                    this.#analysis?.invalidateSchedule();
+                    if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
+                },
+                listeners = {mutate: changed, recordChange: changed, rowsChange: changed, filter: changed};
             value.on(listeners);
             this.#dependencyCleanups.push(() => value.un(listeners))
         }
@@ -536,11 +536,12 @@ class Container extends SchedulerContainer {
      * @private
      */
     #publishServiceResult(record, result, meta, animate=false) {
-        const convert = (row, fields={}) => Object.fromEntries(Object.entries(fields).map(([key, value]) =>
-            [key, row?.[key] instanceof Date && value != null ? new Date(value) : value]));
-        const updates = convert(record, result.updates), previous = convert(record, result.previous),
-            cascaded  = (result.cascaded || []).map(item => {
-                const row = this.resolveTaskRecord(item.taskId);
+        let convert = (row, fields={}) => Object.fromEntries(Object.entries(fields).map(([key, value]) =>
+                [key, row?.[key] instanceof Date && value != null ? new Date(value) : value])),
+            updates  = convert(record, result.updates),
+            previous = convert(record, result.previous),
+            cascaded = (result.cascaded || []).map(item => {
+                let row = this.resolveTaskRecord(item.taskId);
                 return {record: row, changes: convert(row, item.changes), previous: convert(row, item.previous)}
             });
         if (animate) this.#moveCascade(record, previous, cascaded, meta);
@@ -563,10 +564,10 @@ class Container extends SchedulerContainer {
      * @summary Subscribes to axis and viewport changes used by the overlay. A scroll lands a running cascade move.
      */
     bindTimelineSubscriptions() {
-        const {body} = this;
+        let {body} = this;
         this.#cleanups.forEach(fn => fn());
         this.#cleanups = [];
-        if (this.timeAxis) for (const key of ['start', 'end', 'pxPerMinute', 'size', 'tickUnit', 'tickStep', 'nonWorkingDays', 'nonWorkingDates', 'timeZone']) {
+        if (this.timeAxis) for (let key of ['start', 'end', 'pxPerMinute', 'size', 'tickUnit', 'tickStep', 'nonWorkingDays', 'nonWorkingDates', 'timeZone']) {
             this.#cleanups.push(this.observeConfig(this.timeAxis, key, () => {
                 if (['nonWorkingDays', 'nonWorkingDates', 'timeZone'].includes(key)) this.#analysis?.invalidateSchedule();
                 this.syncDependencyLayer()
@@ -579,9 +580,9 @@ class Container extends SchedulerContainer {
         if (body) {
             // A column moving before or after the timeline moves the axis: the rebuild's second event carries the
             // geometry, and a live column resize moves it in place
-            const syncAxisLeft = () => {if (this.dependencyLayer) this.dependencyLayer.axisLeft = this.timelineColumn?.axisLeft || 0},
-                listeners      = {cellPositionsChange: syncAxisLeft, isScrollingChange: ({value}) => value && this.#cascadeMotion?.end()},
-                onPositions    = ({addedItems}) => {if (addedItems?.length) syncAxisLeft()};
+            let syncAxisLeft = () => {if (this.dependencyLayer) this.dependencyLayer.axisLeft = this.timelineColumn?.axisLeft || 0},
+                listeners    = {cellPositionsChange: syncAxisLeft, isScrollingChange: ({value}) => value && this.#cascadeMotion?.end()},
+                onPositions  = ({addedItems}) => {if (addedItems?.length) syncAxisLeft()};
             body.on(listeners);
             body.columnPositions.on('mutate', onPositions);
             this.#cleanups.push(() => body.isDestroyed || (body.un(listeners), body.columnPositions.un('mutate', onPositions)))
@@ -593,12 +594,12 @@ class Container extends SchedulerContainer {
      * @returns {Object[]} The projected arrow descriptors
      */
     syncDependencyLayer() {
-        const layer = this.ensureDependencyLayer();
+        let layer = this.ensureDependencyLayer();
         if (!layer) return [];
-        const highlights = this.#analysis?.getHighlights() || {};
-        let dependencyIds;
+        let highlights = this.#analysis?.getHighlights() || {},
+            dependencyIds;
         if (this.#analysis) {
-            const taskIds = highlights.taskIds || [];
+            let taskIds = highlights.taskIds || [];
             dependencyIds = highlights.dependencyIds || [];
             if (this.timelineColumn && !Neo.isEqual(this.timelineColumn.highlightedRecordIds, taskIds)) {
                 this.timelineColumn.highlightedRecordIds = [...taskIds]
@@ -643,9 +644,10 @@ class Container extends SchedulerContainer {
      * @returns {Object} The committed edge, a refusal, or the service's result
      */
     linkTasks(input={}) {
-        const from = this.resolveTaskRecord(input?.fromId), to = this.resolveTaskRecord(input?.toId);
+        let from = this.resolveTaskRecord(input?.fromId),
+            to   = this.resolveTaskRecord(input?.toId);
         if (!to || !this.dependencyStore || !this.canLinkTasks(from, to)) return {status: 'refused', reason: 'invalid-endpoints'};
-        const edge = {...input, fromId: this.store.getKey(from), toId: this.store.getKey(to)};
+        let edge = {...input, fromId: this.store.getKey(from), toId: this.store.getKey(to)};
         if (this.schedule?.linkTasks) {
             return this.#usesService(this.schedule) ? this.schedule.linkTasks(edge) :
                 {status: 'refused', message: 'The service does not match the current stores.'}
@@ -661,7 +663,7 @@ class Container extends SchedulerContainer {
      * @returns {Object|Boolean} Applied changes or a service receipt; false when the gesture did not commit.
      */
     commitTimelineEdit(record, changes, meta={}) {
-        const result = this.moveTask(record, {...changes, fields: {...changes, ...changes.fields}}, meta);
+        let result = this.moveTask(record, {...changes, fields: {...changes, ...changes.fields}}, meta);
         if (meta.source !== 'editor' && result?.status && result.status !== 'committed') {
             this.fire('scheduleResult', {record, result});
             return false
@@ -677,7 +679,7 @@ class Container extends SchedulerContainer {
      * @returns {Object|null} The applied updates, or null when the edit did not commit
      */
     moveEvent(record, changes={}, meta={}) {
-        const result = this.moveTask(record, changes, meta);
+        let result = this.moveTask(record, changes, meta);
         if (result?.status && result.status !== 'committed') {
             this.fire('scheduleResult', {record, result});
             return null
@@ -699,7 +701,8 @@ class Container extends SchedulerContainer {
         this.#cleanups.forEach(fn => fn());
         this.#storeCleanups.forEach(fn => fn());
         this.#dependencyCleanups.forEach(fn => fn());
-        const deps = this.dependencyStore, tasks = this.store;
+        let deps  = this.dependencyStore,
+            tasks = this.store;
         this.dependencyLayer?.destroy();
         this.dependencyLayer = null;
         super.destroy(...args);
@@ -749,24 +752,23 @@ class Container extends SchedulerContainer {
      * @returns {Object|null} Published task-change summary, service receipt, or `null` when no dates changed.
      */
     rescheduleWorkingTime(useWorking=Boolean(this.useWorkingTime), wasWorking=!useWorking) {
-        const
-            me            = this,
+        let me            = this,
             hasCalendar   = Boolean(me.timeAxis?.hasWorkingCalendar()),
             effectiveNext = Boolean(useWorking && hasCalendar),
             effectivePrev = Boolean(wasWorking && hasCalendar),
-            service       = me.schedule;
+            service       = me.schedule,
+            cycles        = [],
+            meta          = {action: 'workingTime', source: 'workingTime'};
 
         if (service && !me.#usesService(service)) {
-            const result = {status: 'refused', message: 'The service does not match the current stores.'};
+            let result = {status: 'refused', message: 'The service does not match the current stores.'};
             me.fire('scheduleResult', {record: null, result});
             return result
         }
 
-        const
-            cycles  = [],
-            entries = effectiveNext !== effectivePrev
-                ? me.planWorkingTimeSchedule(effectiveNext, effectivePrev, cycles)
-                : [];
+        let entries = effectiveNext !== effectivePrev
+            ? me.planWorkingTimeSchedule(effectiveNext, effectivePrev, cycles)
+            : [];
 
         if (!entries.length) {
             me.#analysis?.invalidateSchedule();
@@ -775,14 +777,12 @@ class Container extends SchedulerContainer {
             return null
         }
 
-        const meta = {action: 'workingTime', source: 'workingTime'};
-
         if (service?.moveTask) {
-            const nativeEntries     = [];
-            let   lastServiceResult = null;
+            let nativeEntries     = [],
+                lastServiceResult = null;
 
-            for (const entry of entries) {
-                const key = me.store.getKey(entry.record);
+            for (let entry of entries) {
+                let key = me.store.getKey(entry.record);
                 if (!service.handlesTask || service.handlesTask(key)) {
                     me._movingTask = true;
                     let result;
@@ -790,7 +790,7 @@ class Container extends SchedulerContainer {
                     finally { me._movingTask = false }
 
                     if (result?.status === 'committed') {
-                        const native = me.#publishServiceResult(entry.record, result, meta, true);
+                        let native = me.#publishServiceResult(entry.record, result, meta, true);
                         lastServiceResult = {...native, status: 'committed', notificationErrors: result.notificationErrors}
                     } else {
                         if (result?.status && result.status !== 'committed') {
@@ -814,7 +814,7 @@ class Container extends SchedulerContainer {
             if (me.store.rollupParents && !service) {
                 me.store.updateRows(entries.map(({record, changes}) => ({key: me.store.getKey(record), values: changes})))
             } else {
-                for (const entry of entries) {
+                for (let entry of entries) {
                     entry.record.set(entry.changes)
                 }
             }
@@ -822,8 +822,7 @@ class Container extends SchedulerContainer {
             me._movingTask = false
         }
 
-        const
-            [first, ...rest] = entries,
+        let [first, ...rest] = entries,
             cascaded         = rest.map(({changes, dependencyId, endDate, previous, record, startDate}) => ({
                 changes,
                 dependencyId,
@@ -891,7 +890,7 @@ class Container extends SchedulerContainer {
      * @returns {Neo.gantt.DependencyLayer}
      */
     ensureDependencyLayer() {
-        const me = this;
+        let me = this;
 
         if (!me.dependencyLayer || me.dependencyLayer.isDestroyed) {
             me.dependencyLayer = Neo.create({
@@ -913,7 +912,7 @@ class Container extends SchedulerContainer {
             me.dependencyLayer.drawnSpans = me.drawnSpans
         }
 
-        const rootCn = me.body?.getVdomRoot?.()?.cn;
+        let rootCn = me.body?.getVdomRoot?.()?.cn;
 
         if (Array.isArray(rootCn) && !rootCn.some(node => node?.componentId === me.dependencyLayer.id)) {
             rootCn.push(me.dependencyLayer.createVdomReference())
@@ -939,34 +938,30 @@ class Container extends SchedulerContainer {
      * @returns {Neo.data.Model[]}
      */
     collectAllTasks() {
-        const
-            store   = this.store,
+        let store   = this.store,
             records = [];
 
         if (!store) {
             return records
         }
 
-        const
-            keyProp = store.keyProperty || 'id',
-            seen    = new Set();
-
-        const roots = store.getChildren('root');
+        let keyProp = store.keyProperty || 'id',
+            seen    = new Set(),
+            roots   = store.getChildren('root');
 
         if (roots.length > 0) {
-            const rawNodes = [];
+            let rawNodes = [];
 
-            for (const root of roots) {
+            for (let root of roots) {
                 store.collectAllDescendants(root, rawNodes)
             }
 
-            for (const node of rawNodes) {
-                const
-                    record = store.hydrateRecord(node),
+            for (let node of rawNodes) {
+                let record = store.hydrateRecord(node),
                     id     = record?.[keyProp];
 
                 if (record && id !== undefined && id !== null) {
-                    const key = String(id);
+                    let key = String(id);
                     if (!seen.has(key)) {
                         seen.add(key);
                         records.push(record)
@@ -976,15 +971,14 @@ class Container extends SchedulerContainer {
         }
 
         if (records.length === 0) {
-            const count = store.getCount();
+            let count = store.getCount();
 
             for (let i = 0; i < count; i++) {
-                const
-                    record = store.getAt(i),
+                let record = store.getAt(i),
                     id     = record?.[keyProp];
 
                 if (record && id !== undefined && id !== null) {
-                    const key = String(id);
+                    let key = String(id);
                     if (!seen.has(key)) {
                         seen.add(key);
                         records.push(record)
@@ -1003,7 +997,7 @@ class Container extends SchedulerContainer {
      * @returns {Boolean}
      */
     canLinkTasks(from, to=null) {
-        const allowed = this.dependencyCreation;
+        let allowed = this.dependencyCreation;
         return Boolean(allowed && from && from !== to && !this.store?.isDerivedParent?.(to) &&
             (allowed === true || typeof allowed === 'function' && allowed(from, to)))
     }
@@ -1026,11 +1020,12 @@ class Container extends SchedulerContainer {
      * @private
      */
     #setKeyboardLinkSource(record, barId=null) {
-        const previous = this.#keyboardLinkSource;
+        let previous = this.#keyboardLinkSource,
+            row      = record && this.body?.items.find(item => item.record === record),
+            title    = record && (record[this.titleField] || this.store.getKey(record));
+
         if (!previous && !record) return;
-        const row = record && this.body?.items.find(item => item.record === record);
         this.#keyboardLinkSource = record ? {record, barId, row} : null;
-        const title = record && (record[this.titleField] || this.store.getKey(record));
         this.#keyboardLinkStatus.text = record
             ? `Link from ${title}. Focus the destination and press L, or press Escape to cancel.` : '';
         if (previous && previous.row?.record === previous.record && previous.row !== row) previous.row.createVdom(false, false);
@@ -1044,7 +1039,7 @@ class Container extends SchedulerContainer {
      * @returns {Boolean}
      */
     isKeyboardLinkSource(record, barId) {
-        const source = this.#keyboardLinkSource;
+        let source = this.#keyboardLinkSource;
         return Boolean(source && source.record === record && source.barId === barId)
     }
 
@@ -1052,7 +1047,7 @@ class Container extends SchedulerContainer {
      * @summary Discards a keyboard endpoint whose row was recycled.
      */
     checkKeyboardLinkSource() {
-        const source = this.#keyboardLinkSource;
+        let source = this.#keyboardLinkSource;
         if (source && (!this.resolveTaskRecord(source.record) || source.row?.record !== source.record ||
             this.timelineColumn?.getBarNodeId(source.row.vdom, this.store.getKey(source.record)) !== source.barId)) {
             this.#setKeyboardLinkSource(null)
@@ -1075,8 +1070,9 @@ class Container extends SchedulerContainer {
         if (!this.dependencyCreation || data.altKey || data.ctrlKey || data.metaKey || data.key?.toLowerCase() !== 'l') {
             return super.onBarKeyDown(data)
         }
-        const {barNode} = this.extractBarTarget(data.path || data.targetPath || []),
-              target    = this.resolveTaskRecord(barNode?.data?.eventId), source = this.#keyboardLinkSource;
+        let {barNode} = this.extractBarTarget(data.path || data.targetPath || []),
+            target    = this.resolveTaskRecord(barNode?.data?.eventId),
+            source    = this.#keyboardLinkSource;
         if (source) {
             this.#setKeyboardLinkSource(null);
             if (target) return this.linkTasks({fromId: source.record, toId: target})
@@ -1103,7 +1099,7 @@ class Container extends SchedulerContainer {
      * @protected
      */
     getBarDragContext(zone, path, record) {
-        const terminal = zone.getLinkTerminal(path);
+        let terminal = zone.getLinkTerminal(path);
         if (terminal ? !this.dependencyCreation : !this.barDraggable || this.store?.isDerivedParent?.(record)) return null;
         this.#setKeyboardLinkSource(null);
         return {terminal: terminal || null}
@@ -1125,7 +1121,7 @@ class Container extends SchedulerContainer {
      */
     zoomTo(presetOrConfig) {
         this.#cascadeMotion?.end();
-        const axis = super.zoomTo(presetOrConfig);
+        let axis = super.zoomTo(presetOrConfig);
         this.syncDependencyLayer();
         return axis
     }
@@ -1142,17 +1138,14 @@ class Container extends SchedulerContainer {
         ({eventIdOrRecord: taskIdOrRecord, changes, meta} =
             this.normalizeMoveEventArgs(taskIdOrRecord, changes, meta, arguments.length, 'taskId'));
 
-        const
-            me     = this,
+        let me     = this,
             record = me.resolveTaskRecord(taskIdOrRecord);
 
         if (!record || !changes || typeof changes !== 'object' || Array.isArray(changes)) {
             return null
         }
 
-
-        const
-            axis       = me.timeAxis,
+        let axis       = me.timeAxis,
             startField = me.startDateField   || 'startDate',
             endField   = me.endDateField     || 'endDate',
             pctField   = me.percentDoneField || 'percentDone',
@@ -1179,17 +1172,15 @@ class Container extends SchedulerContainer {
                     return (axis || TimeAxis).parseDayKey(val.trim()).getTime()
                 }
                 return new Date(val).getTime()
-            };
-
-        let startMs = hasStartInput ? toMs(rawStartInput) : prevStartMs,
+            },
+            startMs = hasStartInput ? toMs(rawStartInput) : prevStartMs,
             endMs   = hasEndInput   ? toMs(rawEndInput)   : prevEndMs;
 
         if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
             return null
         }
 
-        const
-            isMilestone = Boolean(record.milestone),
+        let isMilestone = Boolean(record.milestone),
             minMs       = isMilestone ? 0 : Math.max(1, me.minimumDuration || axis?.snapMinutes || 15) * MS_PER_MINUTE,
             useWorking  = Boolean(me.useWorkingTime && axis?.hasWorkingCalendar());
 
@@ -1206,8 +1197,7 @@ class Container extends SchedulerContainer {
             }
 
             if (useWorking) {
-                const
-                    isEndResize   = meta.resizeEdge === 'end'   || (!hasStartInput && hasEndInput),
+                let isEndResize   = meta.resizeEdge === 'end'   || (!hasStartInput && hasEndInput),
                     isStartResize = meta.resizeEdge === 'start' || (hasStartInput && !hasEndInput && meta.source === 'resize');
 
                 if (isEndResize) {
@@ -1225,28 +1215,25 @@ class Container extends SchedulerContainer {
                         startMs = axis.addWorkingMs(endMs, -minMs).getTime()
                     }
                 } else {
-                    const
-                        prevWallMs      = Math.max(0, prevEndMs - prevStartMs),
+                    let prevWallMs      = Math.max(0, prevEndMs - prevStartMs),
                         prevWorkMs      = Math.max(0, axis.diffWorkingMs(prevStartMs, prevEndMs)),
                         preservedWorkMs = prevWorkMs > 0 ? prevWorkMs : prevWallMs,
-                        inputWallMs     = hasEndInput ? Math.max(0, endMs - startMs) : preservedWorkMs;
-
-                    let requestedWorkMs = preservedWorkMs;
+                        inputWallMs     = hasEndInput ? Math.max(0, endMs - startMs) : preservedWorkMs,
+                        requestedWorkMs = preservedWorkMs;
 
                     if (hasEndInput && Math.abs(inputWallMs - prevWallMs) > 1) {
-                        const rawInputWorkMs = Math.max(0, axis.diffWorkingMs(startMs, endMs));
+                        let rawInputWorkMs = Math.max(0, axis.diffWorkingMs(startMs, endMs));
                         requestedWorkMs = rawInputWorkMs > 0 ? rawInputWorkMs : inputWallMs
                     }
 
-                    const workingDurationMs = isMilestone ? 0 : Math.max(minMs, requestedWorkMs);
+                    let workingDurationMs = isMilestone ? 0 : Math.max(minMs, requestedWorkMs);
 
                     startMs = axis.snapToWorkingTime(startMs, 1).getTime();
                     endMs   = axis.addWorkingMs(startMs, workingDurationMs).getTime()
                 }
 
                 if (axis && meta.clamp !== false) {
-                    const
-                        axisStartMs = axis.start.getTime(),
+                    let axisStartMs = axis.start.getTime(),
                         axisEndMs   = axis.end.getTime(),
                         workDurMs   = isMilestone ? 0 : Math.max(minMs, axis.diffWorkingMs(startMs, endMs));
 
@@ -1262,8 +1249,7 @@ class Container extends SchedulerContainer {
                     }
                 }
             } else if (axis && meta.clamp !== false) {
-                const
-                    axisStartMs = axis.start.getTime(),
+                let axisStartMs = axis.start.getTime(),
                     axisEndMs   = axis.end.getTime(),
                     durationMs  = Math.max(0, endMs - startMs);
 
@@ -1284,8 +1270,7 @@ class Container extends SchedulerContainer {
             }
         }
 
-        const
-            updates       = {},
+        let updates       = {},
             forbiddenKeys = new Set([
                 'id', keyProp, 'endDate', 'eventId', 'fields', 'key', 'meta', 'percentDone', 'record', 'startDate', 'taskId', 'title',
                 startField, endField, pctField, titleField
@@ -1299,7 +1284,7 @@ class Container extends SchedulerContainer {
             updates[endField] = new Date(endMs)
         }
 
-        const rawPctInput = changes.percentDone !== undefined
+        let rawPctInput = changes.percentDone !== undefined
             ? changes.percentDone
             : changes[pctField] !== undefined
                 ? changes[pctField]
@@ -1308,13 +1293,13 @@ class Container extends SchedulerContainer {
                     : rawFields[pctField];
 
         if (rawPctInput !== undefined && rawPctInput !== null) {
-            const clampedPct = Math.min(100, Math.max(0, Number(rawPctInput) || 0));
+            let clampedPct = Math.min(100, Math.max(0, Number(rawPctInput) || 0));
             if (clampedPct !== prevPct) {
                 updates[pctField] = clampedPct
             }
         }
 
-        const rawTitleInput = changes.title !== undefined
+        let rawTitleInput = changes.title !== undefined
             ? changes.title
             : changes[titleField] !== undefined
                 ? changes[titleField]
@@ -1326,7 +1311,7 @@ class Container extends SchedulerContainer {
             updates[titleField] = rawTitleInput
         }
 
-        for (const [fieldKey, fieldVal] of Object.entries(rawFields)) {
+        for (let [fieldKey, fieldVal] of Object.entries(rawFields)) {
             if (forbiddenKeys.has(fieldKey) || fieldVal === undefined) {
                 continue
             }
@@ -1344,8 +1329,7 @@ class Container extends SchedulerContainer {
         }
 
         if ((updates[startField] || updates[endField]) && record.duration !== undefined) {
-            const
-                unit         = String(record.durationUnit || 'hour').toLowerCase(),
+            let unit         = String(record.durationUnit || 'hour').toLowerCase(),
                 unitMs       = unit.startsWith('day') ? MS_PER_DAY : unit.startsWith('min') ? MS_PER_MINUTE : MS_PER_HOUR,
                 spanMs       = useWorking ? Math.max(0, axis.diffWorkingMs(startMs, endMs)) : (endMs - startMs),
                 nextDuration = Math.round((spanMs / unitMs) * 100) / 100;
@@ -1355,24 +1339,24 @@ class Container extends SchedulerContainer {
             }
         }
 
-        const service = me.schedule;
+        let service = me.schedule;
         if (service && !me.#usesService(service)) {
             return {status: 'refused', message: 'The service does not match the current stores.'}
         }
         if (service?.moveTask && (!service.handlesTask || service.handlesTask(me.store.getKey(record)))) {
-            const proposal = {...updates};
+            let proposal = {...updates};
             delete proposal.duration;
             me._movingTask = true;
             let result;
             try { result = service.moveTask(me.store.getKey(record), proposal) }
             finally { me._movingTask = false }
             if (result?.status === 'committed') {
-                const native = me.#publishServiceResult(record, result, meta, true);
+                let native = me.#publishServiceResult(record, result, meta, true);
                 return {...native, status: 'committed', notificationErrors: result.notificationErrors}
             }
             if (result?.status === 'pending' && result.pending?.id != null && service.onDecisionSettled) {
                 me.#pendingCleanup?.();
-                const taskId = me.store.getKey(record);
+                let taskId = me.store.getKey(record);
                 me.#pendingCleanup = service.onDecisionSettled(result.pending.id, settled => {
                     me.#pendingCleanup = null;
                     if (settled?.status === 'committed' && (!settled.action || settled.action === 'moveTask') &&
@@ -1385,21 +1369,20 @@ class Container extends SchedulerContainer {
             return result
         }
 
-        const previous = {};
-        for (const key of Object.keys(updates)) {
-            const val = record[key];
+        let previous = {};
+        for (let key of Object.keys(updates)) {
+            let val = record[key];
             previous[key] = val instanceof Date ? new Date(val.getTime()) : val
         }
 
         let cascaded = [],
-            cycles   = [];
-
-        const store   = me.store,
-              cascade = me.cascadeDependencies && meta.cascade !== false && me.dependencyStore && (updates[startField] || updates[endField]);
+            cycles   = [],
+            store    = me.store,
+            cascade  = me.cascadeDependencies && meta.cascade !== false && me.dependencyStore && (updates[startField] || updates[endField]);
         me._movingTask = true;
         try {
             if (store.rollupParents) {
-                const pending = new Map([[record, updates]]);
+                let pending = new Map([[record, updates]]);
                 cascaded = cascade ? me.runDependencyCascade(record, cycles, pending) : store.planParentRollups(pending, [record]);
                 store.updateRows([{key: store.getKey(record), values: updates},
                     ...cascaded.map(item => ({key: store.getKey(item.record), values: item.changes}))])
@@ -1438,7 +1421,7 @@ class Container extends SchedulerContainer {
      */
     #moveCascade(record, previous, cascaded, meta) {
         if (this.animateCascade) {
-            const dropped = meta.source === 'drag' || meta.source === 'resize';
+            let dropped = meta.source === 'drag' || meta.source === 'resize';
             this.#motion().start(dropped ? cascaded : [{record, previous}, ...cascaded])
         }
     }
@@ -1466,12 +1449,11 @@ class Container extends SchedulerContainer {
      * @private
      */
     #publishTaskChange(record, updates, previous, cascaded, cycles, meta, startMs, endMs) {
-        const
-            action       = meta.action || (meta.resizeEdge ? 'resize' : 'move'),
+        let action       = meta.action || (meta.resizeEdge ? 'resize' : 'move'),
             changesById  = {[this.store.getKey(record)]: updates},
             previousById = {[this.store.getKey(record)]: previous};
 
-        for (const item of cascaded) {
+        for (let item of cascaded) {
             changesById[this.store.getKey(item.record)]  = item.changes;
             previousById[this.store.getKey(item.record)] = item.previous
         }

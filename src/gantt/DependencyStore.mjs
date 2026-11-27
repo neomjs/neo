@@ -61,10 +61,6 @@ class DependencyStore extends Store {
          */
         ntype: 'gantt-dependency-store',
         /**
-         * @member {String} keyProperty='id'
-         */
-        keyProperty: 'id',
-        /**
          * @member {Neo.data.Model} model=DependencyModel
          * @reactive
          */
@@ -84,27 +80,33 @@ class DependencyStore extends Store {
      * @returns {String|null} Refusal reason, or null when the gesture may offer this link.
      */
     static getFinishToStartRefusal(store, {fromId, toId, id, type='FS', lag=0}, tasks) {
+        let from       = String(fromId),
+            to         = String(toId),
+            successors = new Map(),
+            visited    = new Set(),
+            pending    = [to];
+
         if (store.isFiltered()) return 'filtered-dependencies';
         if (type !== 'FS' || lag !== 0) return 'unsupported-dependency';
-        const from = String(fromId), to = String(toId), successors = new Map();
         if (from === to) return 'self';
         for (let index = 0; index < store.getCount(); index++) {
-            const edge = store.getAt(index), source = String(edge.fromId), target = String(edge.toId);
+            let edge   = store.getAt(index),
+                source = String(edge.fromId),
+                target = String(edge.toId);
             if (source === from && target === to && edge.type === type) return 'duplicate';
             if (!successors.has(source)) successors.set(source, []);
             successors.get(source).push(target)
         }
-        const visited = new Set(), pending = [to];
         while (pending.length) {
-            const key = pending.pop();
+            let key = pending.pop();
             if (key === from) return 'cycle';
             if (visited.has(key)) continue;
             visited.add(key);
             if (tasks?.rollupParents) {
-                const parentId = tasks.get(key)?.parentId;
+                let parentId = tasks.get(key)?.parentId;
                 if (parentId != null && tasks.get(parentId)) pending.push(String(parentId))
             }
-            for (const next of successors.get(key) || []) pending.push(next)
+            for (let next of successors.get(key) || []) pending.push(next)
         }
         return id != null && store.get(id) ? 'duplicate-id' : null
     }
@@ -126,14 +128,14 @@ class DependencyStore extends Store {
      * @returns {Object} Committed edge or the reason for refusing the link.
      */
     addFinishToStart(input, tasks) {
-        const reason = this.getFinishToStartRefusal(input, tasks);
+        let reason = this.getFinishToStartRefusal(input, tasks);
         if (reason) return {status: 'refused', reason};
 
         let edgeId = input.id;
         if (edgeId == null) {
             do { edgeId = Neo.getId('gantt-link') } while (this.get(edgeId))
         }
-        const edge = {id: edgeId, fromId: String(input.fromId), toId: String(input.toId), type: 'FS'};
+        let edge = {id: edgeId, fromId: String(input.fromId), toId: String(input.toId), type: 'FS'};
         this.add(edge);
         return {status: 'committed', edge}
     }
@@ -183,7 +185,7 @@ class DependencyStore extends Store {
             return false
         }
 
-        for (const [cls, epoch] of this.#indexedRecordEpochs) {
+        for (let [cls, epoch] of this.#indexedRecordEpochs) {
             if (RecordFactory.getWriteEpoch(cls) !== epoch) {
                 return false
             }
@@ -201,13 +203,13 @@ class DependencyStore extends Store {
             return
         }
 
-        const
-            count         = this.getCount(),
+        let count         = this.getCount(),
             items         = this._items,
             mutations     = this.getCountMutations(),
             predecessors  = new Map(),
             successors    = new Map(),
             recordClasses = new Set(),
+            recordEpochs  = new Map(),
             pushEdge      = (map, key, edge) => {
                 let bucket = map.get(key);
                 if (!bucket) {
@@ -218,7 +220,7 @@ class DependencyStore extends Store {
             };
 
         for (let i = 0; i < count; i++) {
-            const edge = this.getAt(i);
+            let edge = this.getAt(i);
             if (edge) {
                 if (RecordFactory.isRecord(edge)) {
                     recordClasses.add(edge.constructor)
@@ -228,8 +230,7 @@ class DependencyStore extends Store {
             }
         }
 
-        const recordEpochs = new Map();
-        for (const cls of recordClasses) {
+        for (let cls of recordClasses) {
             recordEpochs.set(cls, RecordFactory.getWriteEpoch(cls))
         }
 
@@ -254,7 +255,7 @@ class DependencyStore extends Store {
         }
 
         this.#ensureEndpointIndex();
-        const edges = (incoming ? this.#predecessors : this.#successors).get(String(taskId));
+        let edges = (incoming ? this.#predecessors : this.#successors).get(String(taskId));
         return edges ? edges.slice() : []
     }
 
@@ -273,7 +274,7 @@ class DependencyStore extends Store {
      * @returns {Object[]}
      */
     reverse() {
-        const items = super.reverse();
+        let items = super.reverse();
         this.#clearEndpointIndex();
         return items
     }
@@ -297,7 +298,7 @@ class DependencyStore extends Store {
      * @protected
      */
     writeRows(rows) {
-        const touchesEndpoints = rows.some(row => row?.values && (Object.hasOwn(row.values, 'fromId') || Object.hasOwn(row.values, 'toId')));
+        let touchesEndpoints = rows.some(row => row?.values && (Object.hasOwn(row.values, 'fromId') || Object.hasOwn(row.values, 'toId')));
         if (touchesEndpoints) {
             this.#clearEndpointIndex();
             if (this.allItems instanceof DependencyStore) {

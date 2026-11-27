@@ -29,10 +29,6 @@ class TaskStore extends TreeStore {
          */
         ntype: 'gantt-task-store',
         /**
-         * @member {String} keyProperty='id'
-         */
-        keyProperty: 'id',
-        /**
          * @member {Neo.data.Model} model=TaskModel
          * @reactive
          */
@@ -89,7 +85,7 @@ class TaskStore extends TreeStore {
         let view = this.#bookingStore;
 
         if (!view || view.isDestroyed) {
-            const config = Neo.clone(this.model.originalConfig || {}, true, true);
+            let config = Neo.clone(this.model.originalConfig || {}, true, true);
             delete config.id;
             delete config.storeId;
             delete config.ntype;
@@ -113,13 +109,15 @@ class TaskStore extends TreeStore {
      * @private
      */
     #getBookingRecords() {
-        const result = [], walk = children => {
-            for (const record of children) {
-                const key = this.getKey(record), children = this.getChildren(key);
-                if (children.length) walk(children);
-                else if (record.isLeaf !== false) result.push(record)
-            }
-        };
+        let result = [],
+            walk   = children => {
+                for (let record of children) {
+                    let key      = this.getKey(record),
+                        children = this.getChildren(key);
+                    if (children.length) walk(children);
+                    else if (record.isLeaf !== false) result.push(record)
+                }
+            };
         walk(this.getChildren());
         return result
     }
@@ -133,8 +131,8 @@ class TaskStore extends TreeStore {
      * @returns {Object} An object containing the addedItems & removedItems arrays
      */
     splice(index, removeCountOrToRemoveArray, toAddArray, silent=false) {
-        const version = this.#bookingMutationVersion,
-            result    = super.splice(index, removeCountOrToRemoveArray, toAddArray, silent);
+        let version = this.#bookingMutationVersion,
+            result  = super.splice(index, removeCountOrToRemoveArray, toAddArray, silent);
         if (version === this.#bookingMutationVersion) this.onBookingMutation(silent);
         return result
     }
@@ -146,11 +144,13 @@ class TaskStore extends TreeStore {
      * @param {Object[]} [event.removedItems=[]] The items that left them
      */
     onBookingSourceMutate({addedItems=[], removedItems=[]}) {
-        const view = this.#bookingStore;
+        let view = this.#bookingStore;
         if (!view || view.isDestroyed) return;
         this.#bookingMutationVersion++;
-        const differs = item => {
-            const key = this.getKey(item), current = view.getRow(key), canonical = this.get(key);
+        let differs = item => {
+            let key       = this.getKey(item),
+                current   = view.getRow(key),
+                canonical = this.get(key);
             return current ? current !== canonical : canonical?.isLeaf !== false && !!canonical
         };
         if (addedItems.some(differs) || removedItems.some(differs)) this.onBookingMutation()
@@ -161,13 +161,14 @@ class TaskStore extends TreeStore {
      * @param {Boolean} [silent=false] True reconciles the view without its `mutate` event
      */
     onBookingMutation(silent=false) {
-        const view = this.#bookingStore;
+        let view = this.#bookingStore;
         if (!view || view.isDestroyed) return;
 
-        const records = this.#getBookingRecords(), next = new Map(records.map(record => [this.getKey(record), record])),
-            current   = (view.allItems || view).items,
-            removed   = current.filter(record => next.get(this.getKey(record)) !== record),
-            added     = records.filter(record => view.getRow(this.getKey(record)) !== record);
+        let records = this.#getBookingRecords(),
+            next    = new Map(records.map(record => [this.getKey(record), record])),
+            current = (view.allItems || view).items,
+            removed = current.filter(record => next.get(this.getKey(record)) !== record),
+            added   = records.filter(record => view.getRow(this.getKey(record)) !== record);
 
         if (removed.length || added.length) view.splice(null, removed, added, silent)
     }
@@ -177,7 +178,7 @@ class TaskStore extends TreeStore {
      * @param {Object} event The store's `recordChange` event
      */
     onBookingRecordChange(event) {
-        const view = this.#bookingStore;
+        let view = this.#bookingStore;
         if (!view || view.isDestroyed) return;
         if (event.fields?.some(field => (typeof field === 'string' ? field : field.name) === 'isLeaf')) {
             this.onBookingMutation()
@@ -192,9 +193,9 @@ class TaskStore extends TreeStore {
      * @param {Object} event The store's `rowsChange` event
      */
     onBookingRowsChange(event) {
-        const view = this.#bookingStore;
+        let view = this.#bookingStore;
         if (!view || view.isDestroyed) return;
-        const keys = (event.keys || []).filter(key => view.getRow(key));
+        let keys = (event.keys || []).filter(key => view.getRow(key));
         if (keys.length) view.fire('rowsChange', {...event, keys, scope: view})
     }
 
@@ -206,10 +207,10 @@ class TaskStore extends TreeStore {
      * @param {String|Number} event.newKey Its key after the commit
      */
     onBookingUpdateKey({item, oldKey, newKey}) {
-        const view = this.#bookingStore;
+        let view = this.#bookingStore;
         if (!view || view.isDestroyed || (view.allItems || view).map.get(oldKey) !== item) return;
 
-        for (const collection of [view, view.allItems].filter(Boolean)) {
+        for (let collection of [view, view.allItems].filter(Boolean)) {
             if (collection.map.get(oldKey) === item) {
                 collection.map.delete(oldKey);
                 collection.map.set(newKey, item)
@@ -302,27 +303,27 @@ class TaskStore extends TreeStore {
      */
     #summary(record, cache, pending) {
         if (cache.has(record)) return cache.get(record);
-        const children = this.getChildren(this.getKey(record));
-        let result;
+        let children = this.getChildren(this.getKey(record)),
+            result;
         if (children.length) {
             result = {start: Infinity, end: -Infinity, weight: 0, completed: 0};
-            for (const child of children) {
-                const part = this.#summary(child, cache, pending);
+            for (let child of children) {
+                let part = this.#summary(child, cache, pending);
                 result.start = Math.min(result.start, part.start);
                 result.end = Math.max(result.end, part.end);
                 result.weight += part.weight;
                 result.completed += part.completed
             }
         } else {
-            const values     = pending.get(record) || {},
-                  startValue = Object.hasOwn(values, 'startDate') ? values.startDate : record.startDate,
-                  endValue   = Object.hasOwn(values, 'endDate') ? values.endDate : record.endDate,
-                  progress   = Object.hasOwn(values, 'percentDone') ? values.percentDone : record.percentDone,
-                  start      = startValue == null ? NaN : new Date(startValue).getTime(),
-                  end        = endValue == null ? NaN : new Date(endValue).getTime(),
-                  valid      = Number.isFinite(start) && Number.isFinite(end) && end >= start,
-                  weight     = valid ? end - start : 0,
-                  percent    = Number.isFinite(progress) ? progress : 0;
+            let values     = pending.get(record) || {},
+                startValue = Object.hasOwn(values, 'startDate') ? values.startDate : record.startDate,
+                endValue   = Object.hasOwn(values, 'endDate') ? values.endDate : record.endDate,
+                progress   = Object.hasOwn(values, 'percentDone') ? values.percentDone : record.percentDone,
+                start      = startValue == null ? NaN : new Date(startValue).getTime(),
+                end        = endValue == null ? NaN : new Date(endValue).getTime(),
+                valid      = Number.isFinite(start) && Number.isFinite(end) && end >= start,
+                weight     = valid ? end - start : 0,
+                percent    = Number.isFinite(progress) ? progress : 0;
             result = {start: valid ? start : Infinity, end: valid ? end : -Infinity, weight, completed: weight * percent}
         }
         cache.set(record, result);
@@ -338,14 +339,17 @@ class TaskStore extends TreeStore {
      */
     planParentRollup(record, pending=new Map(), cache=new Map()) {
         if (!this.isDerivedParent(record)) return null;
-        const total  = this.#summary(record, cache, pending), changes = {}, previous = {};
-        const values = {percentDone: total.weight ? total.completed / total.weight : 0};
+        let total    = this.#summary(record, cache, pending),
+            changes  = {},
+            previous = {},
+            values   = {percentDone: total.weight ? total.completed / total.weight : 0};
         if (Number.isFinite(total.start) && Number.isFinite(total.end)) {
             values.startDate = new Date(total.start);
             values.endDate = new Date(total.end)
         }
-        for (const [field, value] of Object.entries(values)) {
-            const old = record[field], same = value instanceof Date ? old instanceof Date && old.getTime() === value.getTime() : old === value;
+        for (let [field, value] of Object.entries(values)) {
+            let old  = record[field],
+                same = value instanceof Date ? old instanceof Date && old.getTime() === value.getTime() : old === value;
             if (!same) { previous[field] = old; changes[field] = value }
         }
         if (!Object.keys(changes).length) return null;
@@ -360,9 +364,11 @@ class TaskStore extends TreeStore {
      */
     planParentRollups(pending=new Map(), changed) {
         if (!this.rollupParents) return [];
-        const parents = [], cache = new Map(), affected = changed ? new Set() : null;
+        let parents  = [],
+            cache    = new Map(),
+            affected = changed ? new Set() : null;
         if (affected) {
-            for (const record of changed) {
+            for (let record of changed) {
                 let node = record;
                 while (node && !affected.has(node)) {
                     affected.add(node);
@@ -371,10 +377,10 @@ class TaskStore extends TreeStore {
             }
         }
         // A subtree enters the cache after its children, giving every receipt its dependency order.
-        for (const record of affected || this.getChildren()) this.#summary(record, cache, pending);
-        for (const record of cache.keys()) {
+        for (let record of affected || this.getChildren()) this.#summary(record, cache, pending);
+        for (let record of cache.keys()) {
             if (affected && !affected.has(record)) continue;
-            const receipt = this.planParentRollup(record, pending, cache);
+            let receipt = this.planParentRollup(record, pending, cache);
             if (receipt) parents.push(receipt)
         }
         return parents
@@ -387,21 +393,21 @@ class TaskStore extends TreeStore {
      * @protected
      */
     writeRows(rows) {
-        const scheduled = this.rollupParents && !this.#rollingUp &&
+        let scheduled = this.rollupParents && !this.#rollingUp &&
             rows.filter(({values}) => derivedFields.some(field => Object.hasOwn(values, field)));
         if (scheduled?.length) {
             // getChildren hydrates Turbo rows. Bind staged inputs to those same identities before planning.
-            for (const row of rows) row.item = this.get(row.key) || row.item;
-            const pending  = new Map(rows.map(({item, values}) => [item, values])),
-                  existing = new Map(rows.map(row => [row.item, row]));
-            for (const {item, values} of scheduled) {
+            for (let row of rows) row.item = this.get(row.key) || row.item;
+            let pending  = new Map(rows.map(({item, values}) => [item, values])),
+                existing = new Map(rows.map(row => [row.item, row])),
+                changed  = scheduled.map(({item}) => item);
+            for (let {item, values} of scheduled) {
                 if (this.isDerivedParent(item)) {
-                    for (const field of derivedFields) delete values[field]
+                    for (let field of derivedFields) delete values[field]
                 }
             }
-            const changed = scheduled.map(({item}) => item);
-            for (const {record, changes} of this.planParentRollups(pending, changed)) {
-                const row = existing.get(record);
+            for (let {record, changes} of this.planParentRollups(pending, changed)) {
+                let row = existing.get(record);
                 if (row) Object.assign(row.values, changes);
                 else rows.push({item: record, key: this.getKey(record), values: changes})
             }
@@ -416,7 +422,7 @@ class TaskStore extends TreeStore {
      */
     rollupParentTasks(changed) {
         if (!this.rollupParents || this.#rollingUp || this.isUpdatingRows) return [];
-        const parents = this.planParentRollups(new Map(), changed ? [changed] : undefined);
+        let parents = this.planParentRollups(new Map(), changed ? [changed] : undefined);
         this.#rollingUp = true;
         try {
             if (parents.length) this.updateRows(parents.map(({record, changes}) => ({key: this.getKey(record), values: changes})))
@@ -433,8 +439,7 @@ class TaskStore extends TreeStore {
      */
     getRangeRecords(start, end, resourceId=null) {
         if (resourceId != null) return this.getBookingStore().getRangeRecords(start, end, resourceId);
-        const
-            me      = this,
+        let me      = this,
             startMs = start instanceof Date ? start.getTime() : new Date(start).getTime(),
             endMs   = end   instanceof Date ? end.getTime()   : new Date(end).getTime(),
             result  = [],
@@ -445,13 +450,12 @@ class TaskStore extends TreeStore {
         }
 
         for (let i = 0; i < count; i++) {
-            const record = me.getAt(i);
+            let record = me.getAt(i);
             if (!record) {
                 continue
             }
 
-            const
-                recStart = record.startDate instanceof Date ? record.startDate.getTime() : new Date(record.startDate).getTime(),
+            let recStart = record.startDate instanceof Date ? record.startDate.getTime() : new Date(record.startDate).getTime(),
                 recEnd   = record.endDate   instanceof Date ? record.endDate.getTime()   : new Date(record.endDate).getTime();
 
             if (Events.intersectsRange(recStart, recEnd, startMs, endMs)) {

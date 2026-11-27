@@ -51,9 +51,9 @@ class DependencyLayer extends Component {
      */
     static projectedTaskId(store, row, index, plainIds) {
         if (RecordFactory.isRecord(row)) return row.id;
-        const model = store.modelOf(row);
+        let model = store.modelOf(row);
         if (!plainIds.has(model)) {
-            const idField = model.getField('id');
+            let idField = model.getField('id');
             plainIds.set(model, idField && Object.keys(idField).length === 1 && idField.name === 'id')
         }
         // Calculated or converted ids can depend on the record itself. Use its ordinary getter.
@@ -146,16 +146,8 @@ class DependencyLayer extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            tag  : 'div',
-            cls  : ['neo-gantt-dependency-layer'],
-            style: {
-                left         : '0px',
-                pointerEvents: 'none',
-                position     : 'absolute',
-                top          : '0px'
-            }
-        }
+        _vdom:
+        {style: {left: '0px', pointerEvents: 'none', position: 'absolute', top: '0px'}}
     }
 
     /**
@@ -281,7 +273,7 @@ class DependencyLayer extends Component {
         if (!value) {
             return null
         }
-        const store = ClassSystemUtil.beforeSetInstance(value, DependencyStore);
+        let store = ClassSystemUtil.beforeSetInstance(value, DependencyStore);
         if (store !== value) this.#ownedInputs.add(store);
         return store
     }
@@ -296,7 +288,7 @@ class DependencyLayer extends Component {
         if (!value) {
             return null
         }
-        const store = ClassSystemUtil.beforeSetInstance(value, TaskStore);
+        let store = ClassSystemUtil.beforeSetInstance(value, TaskStore);
         if (store !== value) this.#ownedInputs.add(store);
         return store
     }
@@ -311,7 +303,7 @@ class DependencyLayer extends Component {
         if (!value) {
             return null
         }
-        const axis = ClassSystemUtil.beforeSetInstance(value, TimeAxis);
+        let axis = ClassSystemUtil.beforeSetInstance(value, TimeAxis);
         if (axis !== value) this.#ownedInputs.add(axis);
         return axis
     }
@@ -354,9 +346,9 @@ class DependencyLayer extends Component {
      * @param {...*} args Passed on to the component
      */
     destroy(...args) {
-        const inputs = [this.dependencyStore, this.taskStore, this.timeAxis];
+        let inputs = [this.dependencyStore, this.taskStore, this.timeAxis];
         super.destroy(...args);
-        for (const input of new Set(inputs)) {
+        for (let input of new Set(inputs)) {
             if (input && this.#ownedInputs.has(input) && !input.isDestroyed) input.destroy()
         }
     }
@@ -376,30 +368,28 @@ class DependencyLayer extends Component {
      * @returns {String}
      */
     buildPathD(x1, y1, x2, y2, type='FS', fromMilestone=false) {
-        const
-            normType = String(type || 'FS').toUpperCase(),
+        let normType = String(type || 'FS').toUpperCase(),
             r1       = Math.round(x1 * 100) / 100,
             ry1      = Math.round(y1 * 100) / 100,
             r2       = Math.round(x2 * 100) / 100,
             ry2      = Math.round(y2 * 100) / 100;
 
         if (normType === 'SS') {
-            const turnX = Math.min(r1, r2) - ARROW_STUB_PX;
+            let turnX = Math.min(r1, r2) - ARROW_STUB_PX;
             return `M ${r1} ${ry1} L ${turnX} ${ry1} L ${turnX} ${ry2} L ${r2} ${ry2}`
         }
 
         if (normType === 'FF') {
-            const turnX = Math.max(r1, r2) + ARROW_STUB_PX;
+            let turnX = Math.max(r1, r2) + ARROW_STUB_PX;
             return `M ${r1} ${ry1} L ${turnX} ${ry1} L ${turnX} ${ry2} L ${r2} ${ry2}`
         }
 
         if (!fromMilestone && r2 >= r1 + ARROW_STUB_PX * 2) {
-            const midX = Math.round(((r1 + r2) / 2) * 100) / 100;
+            let midX = Math.round(((r1 + r2) / 2) * 100) / 100;
             return `M ${r1} ${ry1} L ${midX} ${ry1} L ${midX} ${ry2} L ${r2} ${ry2}`
         }
 
-        const
-            half  = Math.max(1, this.rowHeight || 48) / 2,
+        let half  = Math.max(1, this.rowHeight || 48) / 2,
             outX  = r1 + ARROW_STUB_PX,
             inX   = r2 - ARROW_STUB_PX,
             turnY = Math.round((ry2 < ry1 ? ry1 - half : ry1 + half) * 100) / 100;
@@ -432,9 +422,9 @@ class DependencyLayer extends Component {
      * @param {Neo.grid.Body} body Center body whose fixed rows share this overlay.
      */
     syncScrollPage(body) {
-        const view   = body.gridContainer.view,
-              height = view?.paged ? view.scrollPages.physicalExtent : Infinity,
-              offset = body.pageOffset;
+        let view   = body.gridContainer.view,
+            height = view?.paged ? view.scrollPages.physicalExtent : Infinity,
+            offset = body.pageOffset;
 
         if (height !== this.#pageHeight || offset !== this.#pageOffset) {
             this.#pageHeight = height;
@@ -449,8 +439,7 @@ class DependencyLayer extends Component {
      * @returns {Object[]} The projected `<path>` VDOM descriptors
      */
     project() {
-        const
-            me        = this,
+        let me        = this,
             axis      = me.timeAxis,
             taskStore = me.taskStore,
             depStore  = me.dependencyStore,
@@ -461,7 +450,7 @@ class DependencyLayer extends Component {
         }
 
         if (!axis || !taskStore || !depStore) {
-            const hadHtml = Boolean(vdom.html);
+            let hadHtml = Boolean(vdom.html);
 
             me.#routes             = [];
             me.arrows              = [];
@@ -480,8 +469,7 @@ class DependencyLayer extends Component {
             return []
         }
 
-        const
-            taskCount  = taskStore.getCount(),
+        let taskCount  = taskStore.getCount(),
             depCount   = depStore.getCount(),
             rowHeight  = Math.max(1, me.rowHeight || 48),
             totalWidth = Math.max(1, axis.totalSize || 1),
@@ -497,9 +485,10 @@ class DependencyLayer extends Component {
         me.#projectedMaxPx     = maxPx;
 
         if (depCount) {
-            const rows = taskStore.items, plainIds = new Map();
+            let rows     = taskStore.items,
+                plainIds = new Map();
             for (let i = 0; i < rows.length; i++) {
-                const row = rows[i];
+                let row = rows[i];
                 if (row) {
                     indexById.set(String(me.constructor.projectedTaskId(taskStore, row, i, plainIds)), i)
                 }
@@ -507,13 +496,12 @@ class DependencyLayer extends Component {
         }
 
         for (let i = 0; i < depCount; i++) {
-            const edge = depStore.getAt(i);
+            let edge = depStore.getAt(i);
             if (!edge) {
                 continue
             }
 
-            const
-                fromId    = String(edge.fromId ?? ''),
+            let fromId    = String(edge.fromId ?? ''),
                 toId      = String(edge.toId   ?? ''),
                 fromIndex = indexById.get(fromId),
                 toIndex   = indexById.get(toId);
@@ -522,8 +510,7 @@ class DependencyLayer extends Component {
                 continue
             }
 
-            const
-                fromTask  = taskStore.getAt(fromIndex),
+            let fromTask  = taskStore.getAt(fromIndex),
                 toTask    = taskStore.getAt(toIndex),
                 fromStart = fromTask?.[me.startDateField],
                 fromEnd   = fromTask?.[me.endDateField],
@@ -534,8 +521,7 @@ class DependencyLayer extends Component {
                 continue
             }
 
-            const
-                type          = String(edge.type || 'FS').toUpperCase(),
+            let type          = String(edge.type || 'FS').toUpperCase(),
                 fromSpan      = me.drawnSpans?.get(fromId),
                 toSpan        = me.drawnSpans?.get(toId),
                 half          = me.constructor.milestoneHalfSize(rowHeight),
@@ -573,7 +559,8 @@ class DependencyLayer extends Component {
      * @protected
      */
     renderRoutes() {
-        const me              = this, {vdom} = me,
+        let me                = this,
+            {vdom}            = me,
             rowHeight         = Math.max(1, me.rowHeight || 48),
             totalHeight       = Math.min(me.#pageHeight, Math.max(rowHeight, me.taskStore.getCount() * rowHeight)),
             totalWidth        = Math.max(1, me.timeAxis.totalSize || 1),
@@ -581,8 +568,8 @@ class DependencyLayer extends Component {
             highlightMarkerId = `${me.id}__arrowhead-highlighted`,
             esc               = val => StringUtil.escapeHtml(String(val)),
             paths             = me.#routes.map(({fromMilestone, key, fromId, toId, type, x1, y1, x2, y2}) => {
-                const highlighted = me.#highlightedDependencySet.has(key),
-                      cls         = ['neo-gantt-dependency-arrow', `neo-type-${type.toLowerCase()}`];
+                let highlighted = me.#highlightedDependencySet.has(key),
+                    cls         = ['neo-gantt-dependency-arrow', `neo-type-${type.toLowerCase()}`];
 
                 if (highlighted) cls.push('neo-gantt-dependency-arrow-highlighted');
 
@@ -594,9 +581,7 @@ class DependencyLayer extends Component {
                     'marker-end': `url(#${highlighted ? highlightMarkerId : markerId})`,
                     data        : {dependencyId: key, fromId, toId, type, ...(highlighted ? {highlighted: 'true'} : {})}
                 }
-            });
-
-        const
+            }),
             escMarkerId          = esc(markerId),
             escHighlightMarkerId = esc(highlightMarkerId),
             escCompId            = esc(me.id),

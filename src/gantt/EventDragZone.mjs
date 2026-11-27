@@ -113,7 +113,7 @@ class GanttEventDragZone extends EventDragZone {
         this.linkSource = terminal && this.owner.canLinkTasks(this.eventRecord) &&
             this.owner.resolveTaskRecord(terminal.data.linkFrom) === this.eventRecord ? this.eventRecord : null;
         if (terminal && !this.linkSource) return;
-        const useProxy = this.useProxy;
+        let useProxy = this.useProxy;
         if (this.linkSource) {
             this.useProxy = false;
             this.syncAdmissionStore();
@@ -122,18 +122,18 @@ class GanttEventDragZone extends EventDragZone {
                 this.refreshLinkFeedback()
             })
         } else if (useProxy) {
-            const row    = this.owner.body.items.find(item => item.record === this.eventRecord);
-            const source = row && VDom.find(row.vdom, this.dragElement.id)?.vdom;
+            let row    = this.owner.body.items.find(item => item.record === this.eventRecord),
+                source = row && VDom.find(row.vdom, this.dragElement.id)?.vdom;
             if (!source) throw new Error('Gantt task preview requires the rendered bar');
             this.dragProxyConfig = {...this.dragProxyConfig, cls:['neo-gantt', 'neo-gantt-task-proxy'],
                 vdom:this.buildTaskPreview(source)}
         }
         if (this.linkSource && terminal.rect) {
             this.owner.addCls('neo-gantt-link-drawing');
-            const rect = terminal.rect;
+            let rect = terminal.rect;
             this.linkOrigin = {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2};
             this.preview = Neo.create(Component, {
-                appName      : this.appName, windowId: this.windowId, parentId: 'document.body',
+                appName      : this.appName, windowId: this.windowId,
                 autoInitVnode: true, autoMount: true, cls: ['neo-gantt-link-preview'], vdom: {'aria-hidden':'true'}
             })
         }
@@ -156,7 +156,7 @@ class GanttEventDragZone extends EventDragZone {
      * @returns {Object} Non-interactive preview VDOM.
      */
     buildTaskPreview(source) {
-        const preview = VDom.clone(source);
+        let preview = VDom.clone(source);
         preview.style = {...preview.style, left:'0px', top:'0px', width:'100%', height:'100%', position:'relative'};
         preview.data = {...preview.data};
         delete preview.data.eventId;
@@ -174,14 +174,14 @@ class GanttEventDragZone extends EventDragZone {
      * @returns {Neo.data.Model|null} The target task, if present.
      */
     dropTask(data) {
-        const path = data.targetPath || [],
-              root = path.find(node => node?.cls?.includes('neo-gantt'));
+        let path = data.targetPath || [],
+            root = path.find(node => node?.cls?.includes('neo-gantt'));
         if (root?.id !== this.owner.id) return null;
 
-        const bar = this.owner.extractBarTarget(path).barNode;
+        let bar = this.owner.extractBarTarget(path).barNode;
         if (bar) return this.owner.resolveTaskRecord(bar.data?.eventId);
-        const node = path.find(item => item?.cls?.includes('neo-grid-row'));
-        const row  = node?.id ? Neo.getComponent(node.id) : null;
+        let node = path.find(item => item?.cls?.includes('neo-grid-row')),
+            row  = node?.id ? Neo.getComponent(node.id) : null;
         return row?.parent?.gridContainer === this.owner ? this.owner.resolveTaskRecord(row.record) : null
     }
 
@@ -202,10 +202,13 @@ class GanttEventDragZone extends EventDragZone {
      * @returns {void}
      */
     refreshLinkFeedback() {
-        const target = this.#candidateTarget, origin = this.linkOrigin, data = this.#lastLinkData;
+        let target = this.#candidateTarget,
+            origin = this.linkOrigin,
+            data   = this.#lastLinkData;
         if (origin && this.preview && data) {
-            const dx       = data.clientX - origin.x, dy = data.clientY - origin.y;
-            const eligible = this.isEligibleLinkTarget(target);
+            let dx       = data.clientX - origin.x,
+                dy       = data.clientY - origin.y,
+                eligible = this.isEligibleLinkTarget(target);
             this.setLinkTarget(eligible ? target : null);
             if (this.owner.cls.includes('neo-gantt-link-over') !== eligible) {
                 this.owner[eligible ? 'addCls' : 'removeCls']('neo-gantt-link-over')
@@ -223,13 +226,13 @@ class GanttEventDragZone extends EventDragZone {
      * @returns {void}
      */
     syncAdmissionStore() {
-        const store = this.owner.dependencyStore;
+        let store = this.owner.dependencyStore;
         if (store === this.#admissionStore) return;
         if (this.#admissionStore && !this.#admissionStore.isDestroyed) this.#admissionStore.un(this.#admissionListeners);
         this.#admissionStore = store;
         this.#admissionValid = false;
         if (store) {
-            const changed = () => {
+            let changed = () => {
                 this.#admissionValid = false;
                 this.refreshLinkFeedback()
             };
@@ -250,10 +253,10 @@ class GanttEventDragZone extends EventDragZone {
         if (!target || this.owner.resolveTaskRecord(this.linkSource) !== this.linkSource ||
             this.owner.resolveTaskRecord(target) !== target ||
             !this.owner.canLinkTasks(this.linkSource, target) || !this.#admissionStore) return false;
-        const tasks             = this.owner.store,
-              hierarchyRevision = tasks?.rollupParents ? tasks.getCountMutations() : null;
+        let tasks             = this.owner.store,
+            hierarchyRevision = tasks?.rollupParents ? tasks.getCountMutations() : null;
         if (!this.#admissionValid || this.#cachedTarget !== target || hierarchyRevision !== this.#hierarchyRevision) {
-            const input = {fromId:this.owner.store.getKey(this.linkSource), toId:this.owner.store.getKey(target)};
+            let input = {fromId:this.owner.store.getKey(this.linkSource), toId:this.owner.store.getKey(target)};
             this.#cachedRefusal = typeof this.#admissionStore.getFinishToStartRefusal === 'function'
                 ? this.#admissionStore.getFinishToStartRefusal(input, tasks)
                 : DependencyStore.getFinishToStartRefusal(this.#admissionStore, input, tasks);
@@ -271,10 +274,9 @@ class GanttEventDragZone extends EventDragZone {
      * @returns {Object} Proxy position and size.
      */
     getDragProxyStyle(next, data) {
-        const style = super.getDragProxyStyle(next, data);
+        let style = super.getDragProxyStyle(next, data);
         if (this.eventRecord?.milestone && this.eventRecord.isLeaf !== false) {
-            const
-                half = DependencyLayer.milestoneHalfSize(this.owner?.rowHeight),
+            let half = DependencyLayer.milestoneHalfSize(this.owner?.rowHeight),
                 size = half * 2;
 
             return {
@@ -320,7 +322,7 @@ class GanttEventDragZone extends EventDragZone {
      * @returns {void}
      */
     dragEnd(data = {}) {
-        const source = this.linkSource;
+        let source = this.linkSource;
         if (!source) {
             try {
                 return super.dragEnd(data)
@@ -328,7 +330,7 @@ class GanttEventDragZone extends EventDragZone {
                 this.setTaskPreviewRecord(null)
             }
         }
-        const target = !data.cancelled && this.dropTask(data);
+        let target = !data.cancelled && this.dropTask(data);
         // The timeline writer must never see a link gesture as an event move.
         this.clearLinkPreview();
         this.pendingDrop = null;

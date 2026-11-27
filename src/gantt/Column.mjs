@@ -22,13 +22,12 @@ class Column extends TimelineColumn {
      * @returns {Object} Bar VDOM with the Gantt affordances.
      */
     buildBarVdom(descriptor, context) {
-        const record = descriptor.bar;
-        const grid   = context.gridContainer;
-        const node   = super.buildBarVdom(descriptor, context, !grid?.store?.isDerivedParent?.(record));
+        let record = descriptor.bar,
+            grid   = context.gridContainer,
+            node   = super.buildBarVdom(descriptor, context, !grid?.store?.isDerivedParent?.(record));
         if (record.isLeaf === false) node.cls.push('neo-gantt-bar-summary');
         if (record.isLeaf !== false && record.milestone) {
-            const
-                half = DependencyLayer.milestoneHalfSize(grid?.rowHeight),
+            let half = DependencyLayer.milestoneHalfSize(grid?.rowHeight),
                 size = half * 2;
 
             node.cls.push('neo-gantt-bar-milestone');
@@ -92,7 +91,9 @@ class Column extends TimelineColumn {
      * @protected
      */
     getDrawnSpan(item, startMs, endMs) {
-        const chart = this.parent, spans = chart?.drawnSpans;
+        let chart = this.parent,
+            spans = chart?.drawnSpans;
+
         return spans?.size && spans.get(String(chart.store.getKey(item))) || super.getDrawnSpan(item, startMs, endMs)
     }
 }
