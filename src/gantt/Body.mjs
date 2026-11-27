@@ -20,6 +20,24 @@ class Body extends GridBody {
     }
 
     /**
+     * @summary Mounts the chart's {@link Neo.gantt.DependencyLayer} after the center body's pooled rows.
+     */
+    createRowPool() {
+        super.createRowPool();
+
+        if (this !== this.gridContainer?.body) {
+            return
+        }
+
+        let layer  = this.gridContainer.ensureDependencyLayer(),
+            rootCn = this.getVdomRoot()?.cn;
+
+        if (layer && Array.isArray(rootCn) && !rootCn.some(node => node?.componentId === layer.id)) {
+            rootCn.push(layer.createVdomReference())
+        }
+    }
+
+    /**
      * @summary Keeps the overlay on the center body's scroll page and retires a recycled link source.
      * @param {Boolean} [silent=false] True to suppress the final VDOM update, passed on to the grid body
      * @param {Boolean} [force=false]  True to update rows whose record did not change, passed on to the grid body
@@ -40,24 +58,6 @@ class Body extends GridBody {
     onFocusLeave(data) {
         super.onFocusLeave(data);
         if (this === this.gridContainer?.body) this.gridContainer.cancelKeyboardLink()
-    }
-
-    /**
-     * @summary Mounts the chart's {@link Neo.gantt.DependencyLayer} after the center body's pooled rows.
-     */
-    createRowPool() {
-        super.createRowPool();
-
-        if (this !== this.gridContainer?.body) {
-            return
-        }
-
-        let layer  = this.gridContainer.ensureDependencyLayer(),
-            rootCn = this.getVdomRoot()?.cn;
-
-        if (layer && Array.isArray(rootCn) && !rootCn.some(node => node?.componentId === layer.id)) {
-            rootCn.push(layer.createVdomReference())
-        }
     }
 }
 

@@ -17,39 +17,17 @@ class GanttEventDragZone extends EventDragZone {
          */
         className: 'Neo.gantt.EventDragZone',
         /**
-         * True shows a floating preview of the dragged task's bar. A link gesture switches it off while it runs.
-         * @member {Boolean} useProxy=true
-         */
-        useProxy: true,
-        /**
          * False lets the app worker position the preview, at its snapped timeline bounds.
          * @member {Boolean} moveInMainThread=false
          */
-        moveInMainThread: false
+        moveInMainThread: false,
+        /**
+         * True shows a floating preview of the dragged task's bar. A link gesture switches it off while it runs.
+         * @member {Boolean} useProxy=true
+         */
+        useProxy: true
     }
 
-    /**
-     * The currently eligible link destination.
-     * @member {Neo.data.Model|null} linkTarget=null
-     */
-    linkTarget = null
-    /**
-     * The task whose committed bar is behind a floating preview.
-     * @member {Neo.data.Model|null} taskPreviewRecord=null
-     */
-    taskPreviewRecord = null
-    /**
-     * The task under the pointer during a link gesture, before its admission is checked.
-     * @member {Neo.data.Model|null} #candidateTarget=null
-     * @private
-     */
-    #candidateTarget = null
-    /**
-     * The dependency store whose changes invalidate the cached admission.
-     * @member {Neo.data.Store|null} #admissionStore=null
-     * @private
-     */
-    #admissionStore = null
     /**
      * The listeners registered on the admission store, null without one.
      * @member {Object|null} #admissionListeners=null
@@ -57,17 +35,11 @@ class GanttEventDragZone extends EventDragZone {
      */
     #admissionListeners = null
     /**
-     * The target the cached refusal was computed for.
-     * @member {Neo.data.Model|null} #cachedTarget=null
+     * The dependency store whose changes invalidate the cached admission.
+     * @member {Neo.data.Store|null} #admissionStore=null
      * @private
      */
-    #cachedTarget = null
-    /**
-     * The refusal reason for the cached target, null when the link may be offered.
-     * @member {String|null} #cachedRefusal=null
-     * @private
-     */
-    #cachedRefusal = null
+    #admissionStore = null
     /**
      * False once the dependency graph changed after the refusal was cached.
      * @member {Boolean} #admissionValid=false
@@ -75,11 +47,40 @@ class GanttEventDragZone extends EventDragZone {
      */
     #admissionValid = false
     /**
+     * The refusal reason for the cached target, null when the link may be offered.
+     * @member {String|null} #cachedRefusal=null
+     * @private
+     */
+    #cachedRefusal = null
+    /**
+     * The target the cached refusal was computed for.
+     * @member {Neo.data.Model|null} #cachedTarget=null
+     * @private
+     */
+    #cachedTarget = null
+    /**
+     * The task under the pointer during a link gesture, before its admission is checked.
+     * @member {Neo.data.Model|null} #candidateTarget=null
+     * @private
+     */
+    #candidateTarget = null
+    /**
      * The task store's mutation count the cached refusal was computed at when phases roll up, else null.
      * @member {Number|null} #hierarchyRevision=null
      * @private
      */
     #hierarchyRevision = null
+    /**
+     * The pointer data of the latest link move, kept to refresh the feedback when admission changes.
+     * @member {Object|null} #lastLinkData=null
+     * @private
+     */
+    #lastLinkData = null
+    /**
+     * The currently eligible link destination.
+     * @member {Neo.data.Model|null} linkTarget=null
+     */
+    linkTarget = null
     /**
      * Ends the observation of the owner's `dependencyStore` config that a link gesture starts.
      * @member {Function|null} #ownerAdmissionCleanup=null
@@ -87,20 +88,101 @@ class GanttEventDragZone extends EventDragZone {
      */
     #ownerAdmissionCleanup = null
     /**
-     * The pointer data of the latest link move, kept to refresh the feedback when admission changes.
-     * @member {Object|null} #lastLinkData=null
-     * @private
+     * The task whose committed bar is behind a floating preview.
+     * @member {Neo.data.Model|null} taskPreviewRecord=null
      */
-    #lastLinkData = null
+    taskPreviewRecord = null
 
     /**
-     * @summary Finds a finish endpoint in the pointer path. A configured drag zone may provide its own terminal.
-     * @param {Object[]} [path=[]] The pointer path, as vdom nodes
-     * @returns {Object|undefined}
-     * @protected
+     * @summary Clones the rendered bar's appearance and content without duplicating its interaction nodes.
+     * @param {Object} source Rendered task bar VDOM.
+     * @returns {Object} Non-interactive preview VDOM.
      */
-    getLinkTerminal(path=[]) {
-        return path.find(node => node?.cls?.includes('neo-gantt-link-terminal'))
+    buildTaskPreview(source) {
+        let preview = VDom.clone(source);
+        preview.style = {...preview.style, left:'0px', top:'0px', width:'100%', height:'100%', position:'relative'};
+        preview.data = {...preview.data};
+        delete preview.data.eventId;
+        delete preview.role;
+        delete preview.tabIndex;
+        delete preview['aria-label'];
+        preview.cn = preview.cn.filter(node => !node.cls?.includes('neo-timeline-bar-handle') &&
+            !node.cls?.includes('neo-gantt-link-terminal'));
+        return preview
+    }
+
+    /**
+     * @summary Removes only this gesture's floating line on drop, cancel, failure, or teardown.
+     */
+    clearLinkPreview() {
+        this.#ownerAdmissionCleanup?.();
+        this.#ownerAdmissionCleanup = null;
+        if (this.#admissionStore && !this.#admissionStore.isDestroyed) this.#admissionStore.un(this.#admissionListeners);
+        this.#admissionStore = this.#admissionListeners = this.#candidateTarget = this.#cachedTarget = null;
+        this.#lastLinkData = null;
+        this.#admissionValid = false;
+        this.setLinkTarget(null);
+        if (this.linkOrigin && !this.owner.isDestroyed) {
+            this.owner.removeCls('neo-gantt-link-over');
+            this.owner.removeCls('neo-gantt-link-drawing')
+        }
+        this.preview?.destroy(true);
+        this.preview = this.linkSource = this.linkOrigin = null
+    }
+
+    /**
+     * @summary Removes transient link feedback before destroying the gesture zone.
+     * @param {...*} args Base destruction arguments.
+     * @returns {void}
+     */
+    destroy(...args) {
+        this.clearLinkPreview();
+        if (this.initialSnapshot || this.dragProxy) {
+            if (this.owner?.cls) {
+                super.dragEnd({cancelled:true})
+            } else if (this.dragProxy) {
+                this.destroyDragProxy();
+                this.dragProxy = null
+            }
+        }
+        this.setTaskPreviewRecord(null);
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Clears gesture feedback and commits an eligible link, or finishes a task move or resize.
+     * @param {Object} [data={}] Final pointer data and cancellation flag.
+     * @returns {void}
+     */
+    dragEnd(data = {}) {
+        let source = this.linkSource;
+        if (!source) {
+            try {
+                return super.dragEnd(data)
+            } finally {
+                this.setTaskPreviewRecord(null)
+            }
+        }
+        let target = !data.cancelled && this.dropTask(data);
+        // The timeline writer must never see a link gesture as an event move.
+        this.clearLinkPreview();
+        this.pendingDrop = null;
+        super.dragEnd(data);
+        if (target && this.owner.resolveTaskRecord(source) && this.owner.resolveTaskRecord(target)) {
+            this.owner.linkTasks({fromId: this.owner.store.getKey(source), toId: this.owner.store.getKey(target)})
+        }
+    }
+
+    /**
+     * @summary Moves the snapped task preview or the link line and highlights its eligible target.
+     * @param {Object} [data={}] Current pointer and target path.
+     * @returns {void}
+     */
+    dragMove(data = {}) {
+        if (!this.linkSource) return super.dragMove(data);
+        this.#candidateTarget = this.dropTask(data);
+        this.#lastLinkData = data;
+        this.refreshLinkFeedback()
     }
 
     /**
@@ -151,24 +233,6 @@ class GanttEventDragZone extends EventDragZone {
     }
 
     /**
-     * @summary Clones the rendered bar's appearance and content without duplicating its interaction nodes.
-     * @param {Object} source Rendered task bar VDOM.
-     * @returns {Object} Non-interactive preview VDOM.
-     */
-    buildTaskPreview(source) {
-        let preview = VDom.clone(source);
-        preview.style = {...preview.style, left:'0px', top:'0px', width:'100%', height:'100%', position:'relative'};
-        preview.data = {...preview.data};
-        delete preview.data.eventId;
-        delete preview.role;
-        delete preview.tabIndex;
-        delete preview['aria-label'];
-        preview.cn = preview.cn.filter(node => !node.cls?.includes('neo-timeline-bar-handle') &&
-            !node.cls?.includes('neo-gantt-link-terminal'));
-        return preview
-    }
-
-    /**
      * @summary Resolves a bar or pooled row only inside this Gantt's own grid.
      * @param {Object} data Pointer target path.
      * @returns {Neo.data.Model|null} The target task, if present.
@@ -183,88 +247,6 @@ class GanttEventDragZone extends EventDragZone {
         let node = path.find(item => item?.cls?.includes('neo-grid-row')),
             row  = node?.id ? Neo.getComponent(node.id) : null;
         return row?.parent?.gridContainer === this.owner ? this.owner.resolveTaskRecord(row.record) : null
-    }
-
-    /**
-     * @summary Moves the snapped task preview or the link line and highlights its eligible target.
-     * @param {Object} [data={}] Current pointer and target path.
-     * @returns {void}
-     */
-    dragMove(data = {}) {
-        if (!this.linkSource) return super.dragMove(data);
-        this.#candidateTarget = this.dropTask(data);
-        this.#lastLinkData = data;
-        this.refreshLinkFeedback()
-    }
-
-    /**
-     * @summary Reconciles the target ring, chart state and line style against current link admission.
-     * @returns {void}
-     */
-    refreshLinkFeedback() {
-        let target = this.#candidateTarget,
-            origin = this.linkOrigin,
-            data   = this.#lastLinkData;
-        if (origin && this.preview && data) {
-            let dx       = data.clientX - origin.x,
-                dy       = data.clientY - origin.y,
-                eligible = this.isEligibleLinkTarget(target);
-            this.setLinkTarget(eligible ? target : null);
-            if (this.owner.cls.includes('neo-gantt-link-over') !== eligible) {
-                this.owner[eligible ? 'addCls' : 'removeCls']('neo-gantt-link-over')
-            }
-            this.preview.style = {
-                left          : origin.x + 'px', top: origin.y + 'px', width: Math.hypot(dx, dy) + 'px',
-                borderTopStyle: eligible ? 'solid' : 'dashed',
-                transform     : 'rotate(' + Math.atan2(dy, dx) + 'rad)'
-            }
-        }
-    }
-
-    /**
-     * @summary Observes the current dependency store and invalidates cached admission on graph changes.
-     * @returns {void}
-     */
-    syncAdmissionStore() {
-        let store = this.owner.dependencyStore;
-        if (store === this.#admissionStore) return;
-        if (this.#admissionStore && !this.#admissionStore.isDestroyed) this.#admissionStore.un(this.#admissionListeners);
-        this.#admissionStore = store;
-        this.#admissionValid = false;
-        if (store) {
-            let changed = () => {
-                this.#admissionValid = false;
-                this.refreshLinkFeedback()
-            };
-            this.#admissionListeners = {mutate:changed, recordChange:changed, filter:changed};
-            store.on(this.#admissionListeners)
-        } else {
-            this.#admissionListeners = null
-        }
-    }
-
-    /**
-     * @summary Checks the configured policy and caches structural admission for the current target.
-     * @param {Neo.data.Model|null} target Candidate destination.
-     * @returns {Boolean} Whether the link can be offered by the native graph.
-     */
-    isEligibleLinkTarget(target) {
-        this.syncAdmissionStore();
-        if (!target || this.owner.resolveTaskRecord(this.linkSource) !== this.linkSource ||
-            this.owner.resolveTaskRecord(target) !== target ||
-            !this.owner.canLinkTasks(this.linkSource, target) || !this.#admissionStore) return false;
-        let tasks             = this.owner.store,
-            hierarchyRevision = tasks?.rollupParents ? tasks.getCountMutations() : null;
-        if (!this.#admissionValid || this.#cachedTarget !== target || hierarchyRevision !== this.#hierarchyRevision) {
-            let input = {fromId:this.owner.store.getKey(this.linkSource), toId:this.owner.store.getKey(target)};
-            this.#cachedRefusal = typeof this.#admissionStore.getFinishToStartRefusal === 'function'
-                ? this.#admissionStore.getFinishToStartRefusal(input, tasks)
-                : DependencyStore.getFinishToStartRefusal(this.#admissionStore, input, tasks);
-            this.#hierarchyRevision = hierarchyRevision;
-            this.#cachedTarget = target;
-            this.#admissionValid = true
-        }
-        return !this.#cachedRefusal
     }
 
     /**
@@ -293,6 +275,64 @@ class GanttEventDragZone extends EventDragZone {
     }
 
     /**
+     * @summary Finds a finish endpoint in the pointer path. A configured drag zone may provide its own terminal.
+     * @param {Object[]} [path=[]] The pointer path, as vdom nodes
+     * @returns {Object|undefined}
+     * @protected
+     */
+    getLinkTerminal(path=[]) {
+        return path.find(node => node?.cls?.includes('neo-gantt-link-terminal'))
+    }
+
+    /**
+     * @summary Checks the configured policy and caches structural admission for the current target.
+     * @param {Neo.data.Model|null} target Candidate destination.
+     * @returns {Boolean} Whether the link can be offered by the native graph.
+     */
+    isEligibleLinkTarget(target) {
+        this.syncAdmissionStore();
+        if (!target || this.owner.resolveTaskRecord(this.linkSource) !== this.linkSource ||
+            this.owner.resolveTaskRecord(target) !== target ||
+            !this.owner.canLinkTasks(this.linkSource, target) || !this.#admissionStore) return false;
+        let tasks             = this.owner.store,
+            hierarchyRevision = tasks?.rollupParents ? tasks.getCountMutations() : null;
+        if (!this.#admissionValid || this.#cachedTarget !== target || hierarchyRevision !== this.#hierarchyRevision) {
+            let input = {fromId:this.owner.store.getKey(this.linkSource), toId:this.owner.store.getKey(target)};
+            this.#cachedRefusal = typeof this.#admissionStore.getFinishToStartRefusal === 'function'
+                ? this.#admissionStore.getFinishToStartRefusal(input, tasks)
+                : DependencyStore.getFinishToStartRefusal(this.#admissionStore, input, tasks);
+            this.#hierarchyRevision = hierarchyRevision;
+            this.#cachedTarget = target;
+            this.#admissionValid = true
+        }
+        return !this.#cachedRefusal
+    }
+
+    /**
+     * @summary Reconciles the target ring, chart state and line style against current link admission.
+     * @returns {void}
+     */
+    refreshLinkFeedback() {
+        let target = this.#candidateTarget,
+            origin = this.linkOrigin,
+            data   = this.#lastLinkData;
+        if (origin && this.preview && data) {
+            let dx       = data.clientX - origin.x,
+                dy       = data.clientY - origin.y,
+                eligible = this.isEligibleLinkTarget(target);
+            this.setLinkTarget(eligible ? target : null);
+            if (this.owner.cls.includes('neo-gantt-link-over') !== eligible) {
+                this.owner[eligible ? 'addCls' : 'removeCls']('neo-gantt-link-over')
+            }
+            this.preview.style = {
+                left          : origin.x + 'px', top: origin.y + 'px', width: Math.hypot(dx, dy) + 'px',
+                borderTopStyle: eligible ? 'solid' : 'dashed',
+                transform     : 'rotate(' + Math.atan2(dy, dx) + 'rad)'
+            }
+        }
+    }
+
+    /**
      * @summary Publishes a changed link target through the ordinary row projection.
      * @param {Neo.data.Model|null} target Eligible destination or null.
      * @returns {void}
@@ -317,65 +357,25 @@ class GanttEventDragZone extends EventDragZone {
     }
 
     /**
-     * @summary Clears gesture feedback and commits an eligible link, or finishes a task move or resize.
-     * @param {Object} [data={}] Final pointer data and cancellation flag.
+     * @summary Observes the current dependency store and invalidates cached admission on graph changes.
      * @returns {void}
      */
-    dragEnd(data = {}) {
-        let source = this.linkSource;
-        if (!source) {
-            try {
-                return super.dragEnd(data)
-            } finally {
-                this.setTaskPreviewRecord(null)
-            }
-        }
-        let target = !data.cancelled && this.dropTask(data);
-        // The timeline writer must never see a link gesture as an event move.
-        this.clearLinkPreview();
-        this.pendingDrop = null;
-        super.dragEnd(data);
-        if (target && this.owner.resolveTaskRecord(source) && this.owner.resolveTaskRecord(target)) {
-            this.owner.linkTasks({fromId: this.owner.store.getKey(source), toId: this.owner.store.getKey(target)})
-        }
-    }
-
-    /**
-     * @summary Removes only this gesture's floating line on drop, cancel, failure, or teardown.
-     */
-    clearLinkPreview() {
-        this.#ownerAdmissionCleanup?.();
-        this.#ownerAdmissionCleanup = null;
+    syncAdmissionStore() {
+        let store = this.owner.dependencyStore;
+        if (store === this.#admissionStore) return;
         if (this.#admissionStore && !this.#admissionStore.isDestroyed) this.#admissionStore.un(this.#admissionListeners);
-        this.#admissionStore = this.#admissionListeners = this.#candidateTarget = this.#cachedTarget = null;
-        this.#lastLinkData = null;
+        this.#admissionStore = store;
         this.#admissionValid = false;
-        this.setLinkTarget(null);
-        if (this.linkOrigin && !this.owner.isDestroyed) {
-            this.owner.removeCls('neo-gantt-link-over');
-            this.owner.removeCls('neo-gantt-link-drawing')
+        if (store) {
+            let changed = () => {
+                this.#admissionValid = false;
+                this.refreshLinkFeedback()
+            };
+            this.#admissionListeners = {mutate:changed, recordChange:changed, filter:changed};
+            store.on(this.#admissionListeners)
+        } else {
+            this.#admissionListeners = null
         }
-        this.preview?.destroy(true);
-        this.preview = this.linkSource = this.linkOrigin = null
-    }
-
-    /**
-     * @summary Removes transient link feedback before destroying the gesture zone.
-     * @param {...*} args Base destruction arguments.
-     * @returns {void}
-     */
-    destroy(...args) {
-        this.clearLinkPreview();
-        if (this.initialSnapshot || this.dragProxy) {
-            if (this.owner?.cls) {
-                super.dragEnd({cancelled:true})
-            } else if (this.dragProxy) {
-                this.destroyDragProxy();
-                this.dragProxy = null
-            }
-        }
-        this.setTaskPreviewRecord(null);
-        super.destroy(...args)
     }
 }
 

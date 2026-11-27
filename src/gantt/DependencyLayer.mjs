@@ -24,42 +24,6 @@ const ARROW_STUB_PX = 12;
  * @see Neo.gantt.DependencyStore
  */
 class DependencyLayer extends Component {
-    /**
-     * Instances created from this layer's own configuration.
-     * @member {WeakSet} #ownedInputs
-     * @private
-     */
-    #ownedInputs = new WeakSet()
-
-    /**
-     * @summary Computes the integer half-diagonal in pixels of a Gantt milestone diamond for a given row height.
-     * @param {Number} [rowHeight=48] The row height in pixels
-     * @returns {Number}
-     */
-    static milestoneHalfSize(rowHeight=48) {
-        return Math.max(7, Math.round((rowHeight || 48) * 0.28))
-    }
-
-    /**
-     * @summary Gets the same endpoint id as a native Record without materializing a plain-id task.
-     * Other fields on a raw row may already have been derived by its Store.
-     * @param {Neo.gantt.TaskStore} store    The task store that holds the row
-     * @param {Object}              row      A record, or a raw row of the store
-     * @param {Number}              index    Visible row index
-     * @param {Map}                 plainIds Per-projection cache by row model
-     * @returns {*} Native projected task id
-     */
-    static projectedTaskId(store, row, index, plainIds) {
-        if (RecordFactory.isRecord(row)) return row.id;
-        let model = store.modelOf(row);
-        if (!plainIds.has(model)) {
-            let idField = model.getField('id');
-            plainIds.set(model, idField && Object.keys(idField).length === 1 && idField.name === 'id')
-        }
-        // Calculated or converted ids can depend on the record itself. Use its ordinary getter.
-        return plainIds.get(model) ? RecordFactory.restoreOwnValues({...row}).id : store.getAt(index).id
-    }
-
     static config = {
         /**
          * @member {String} className='Neo.gantt.DependencyLayer'
@@ -72,11 +36,6 @@ class DependencyLayer extends Component {
          */
         ntype: 'gantt-dependency-layer',
         /**
-         * @member {String[]} baseCls=['neo-gantt-dependency-layer']
-         * @protected
-         */
-        baseCls: ['neo-gantt-dependency-layer'],
-        /**
          * Center-content x in pixels where the time axis starts: the width of the columns before the timeline in
          * its scrolling region. The layer is drawn from there, and `scrollLeft` minus this is the axis scroll.
          * @member {Number} axisLeft_=0
@@ -84,17 +43,16 @@ class DependencyLayer extends Component {
          */
         axisLeft_: 0,
         /**
+         * @member {String[]} baseCls=['neo-gantt-dependency-layer']
+         * @protected
+         */
+        baseCls: ['neo-gantt-dependency-layer'],
+        /**
          * Horizontal overscan buffer in pixels on each side of the visible viewport.
          * @member {Number} bufferPx_=400
          * @reactive
          */
         bufferPx_: 400,
-        /**
-         * Array of dependency edge keys highlighted as highlighted arrows (`.neo-gantt-dependency-arrow-highlighted`, `data-highlighted="true"`).
-         * @member {Array<String|Number>} highlightedDependencyIds_=[]
-         * @reactive
-         */
-        highlightedDependencyIds_: [],
         /**
          * Store of {@link Neo.gantt.DependencyModel} edges (`fromId` → `toId`).
          * @member {Neo.gantt.DependencyStore|Object|null} dependencyStore_=null
@@ -107,6 +65,12 @@ class DependencyLayer extends Component {
          * @reactive
          */
         endDateField_: 'endDate',
+        /**
+         * Array of dependency edge keys highlighted as highlighted arrows (`.neo-gantt-dependency-arrow-highlighted`, `data-highlighted="true"`).
+         * @member {Array<String|Number>} highlightedDependencyIds_=[]
+         * @reactive
+         */
+        highlightedDependencyIds_: [],
         /**
          * Row height in pixels matching the owning `Neo.gantt.Container`.
          * @member {Number} rowHeight_=48
@@ -155,35 +119,30 @@ class DependencyLayer extends Component {
      * @member {Object[]} arrows=[]
      */
     arrows = []
-
     /**
      * In-flight spans by task id that links attach to instead of their tasks' dates. The owning chart shares its
      * {@link Neo.gantt.Container#drawnSpans}, so a link follows a moving bar.
      * @member {Map<String, Number[]>|null} drawnSpans=null
      */
     drawnSpans = null
-
-    /**
-     * Normalized string set of `highlightedDependencyIds` for $O(1)$ lookup during SVG arrow projection.
-     * @member {Set<String>} #highlightedDependencySet
-     * @private
-     */
-    #highlightedDependencySet = new Set()
-
     /**
      * True once `#projectedMinPx` and `#projectedMaxPx` hold a valid projected window.
      * @member {Boolean} #hasProjectedWindow=false
      * @private
      */
     #hasProjectedWindow = false
-
     /**
-     * Fixed-row route inputs admitted by the last data or horizontal-window change.
-     * @member {Object[]} #routes=[]
+     * Normalized string set of `highlightedDependencyIds` for $O(1)$ lookup during SVG arrow projection.
+     * @member {Set<String>} #highlightedDependencySet
      * @private
      */
-    #routes = []
-
+    #highlightedDependencySet = new Set()
+    /**
+     * Instances created from this layer's own configuration.
+     * @member {WeakSet} #ownedInputs
+     * @private
+     */
+    #ownedInputs = new WeakSet()
     /**
      * The height in pixels of the grid's physical scroll page, supplied by the center body. Standalone layers
      * use logical coordinates and keep Infinity.
@@ -191,27 +150,30 @@ class DependencyLayer extends Component {
      * @private
      */
     #pageHeight = Infinity
-
     /**
      * The offset in pixels of the grid's current physical page, supplied by the center body.
      * @member {Number} #pageOffset=0
      * @private
      */
     #pageOffset = 0
-
     /**
      * Right boundary in pixels of the last projected buffered window.
      * @member {Number} #projectedMaxPx=0
      * @private
      */
     #projectedMaxPx = 0
-
     /**
      * Left boundary in pixels of the last projected buffered window.
      * @member {Number} #projectedMinPx=0
      * @private
      */
     #projectedMinPx = 0
+    /**
+     * Fixed-row route inputs admitted by the last data or horizontal-window change.
+     * @member {Object[]} #routes=[]
+     * @private
+     */
+    #routes = []
 
     /**
      * @summary Constructs the layer and projects its first arrows.
@@ -233,6 +195,14 @@ class DependencyLayer extends Component {
             this.project()
         }
     }
+
+    /**
+     * @summary Releases an owned input when its replacement is installed.
+     * @param {Neo.gantt.DependencyStore|null} value
+     * @param {Neo.gantt.DependencyStore|null} oldValue
+     * @protected
+     */
+    afterSetDependencyStore(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
 
     /**
      * @summary Updates `#highlightedDependencySet` and re-projects arrows when `highlightedDependencyIds` changes.
@@ -262,6 +232,22 @@ class DependencyLayer extends Component {
             this.project()
         }
     }
+
+    /**
+     * @summary Releases an owned input when its replacement is installed.
+     * @param {Neo.gantt.TaskStore|null} value
+     * @param {Neo.gantt.TaskStore|null} oldValue
+     * @protected
+     */
+    afterSetTaskStore(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
+
+    /**
+     * @summary Releases an owned input when its replacement is installed.
+     * @param {Neo.timeline.TimeAxis|null} value
+     * @param {Neo.timeline.TimeAxis|null} oldValue
+     * @protected
+     */
+    afterSetTimeAxis(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
 
     /**
      * @summary Coerces `dependencyStore` config objects into a {@link Neo.gantt.DependencyStore} instance.
@@ -309,51 +295,6 @@ class DependencyLayer extends Component {
     }
 
     /**
-     * @summary Releases an owned input when its replacement is installed.
-     * @param {Neo.gantt.DependencyStore|null} value
-     * @param {Neo.gantt.DependencyStore|null} oldValue
-     * @protected
-     */
-    afterSetDependencyStore(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
-
-    /**
-     * @summary Releases an owned input when its replacement is installed.
-     * @param {Neo.gantt.TaskStore|null} value
-     * @param {Neo.gantt.TaskStore|null} oldValue
-     * @protected
-     */
-    afterSetTaskStore(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
-
-    /**
-     * @summary Releases an owned input when its replacement is installed.
-     * @param {Neo.timeline.TimeAxis|null} value
-     * @param {Neo.timeline.TimeAxis|null} oldValue
-     * @protected
-     */
-    afterSetTimeAxis(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
-
-    /**
-     * @summary Retires a replaced input created by this layer.
-     * @param {*} value    The input being installed
-     * @param {*} oldValue The input it replaces
-     */
-    releaseOwnedInput(value, oldValue) {
-        if (oldValue && oldValue !== value && this.#ownedInputs.has(oldValue)) oldValue.destroy()
-    }
-
-    /**
-     * @summary Releases only inputs constructed by this layer.
-     * @param {...*} args Passed on to the component
-     */
-    destroy(...args) {
-        let inputs = [this.dependencyStore, this.taskStore, this.timeAxis];
-        super.destroy(...args);
-        for (let input of new Set(inputs)) {
-            if (input && this.#ownedInputs.has(input) && !input.isDestroyed) input.destroy()
-        }
-    }
-
-    /**
      * @summary Computes an orthogonal SVG path string (`M ... L ...`) connecting `(x1, y1)` to `(x2, y2)` for dependency `type`.
      * @description A finish-to-start link whose target starts less than two stubs to the right — or whose source is a
      * milestone whose label sits immediately to the right of its diamond — turns at the row boundary next to its source,
@@ -398,6 +339,27 @@ class DependencyLayer extends Component {
     }
 
     /**
+     * @summary Releases only inputs constructed by this layer.
+     * @param {...*} args Passed on to the component
+     */
+    destroy(...args) {
+        let inputs = [this.dependencyStore, this.taskStore, this.timeAxis];
+        super.destroy(...args);
+        for (let input of new Set(inputs)) {
+            if (input && this.#ownedInputs.has(input) && !input.isDestroyed) input.destroy()
+        }
+    }
+
+    /**
+     * @summary Computes the integer half-diagonal in pixels of a Gantt milestone diamond for a given row height.
+     * @param {Number} [rowHeight=48] The row height in pixels
+     * @returns {Number}
+     */
+    static milestoneHalfSize(rowHeight=48) {
+        return Math.max(7, Math.round((rowHeight || 48) * 0.28))
+    }
+
+    /**
      * @summary Returns `true` when `[scrollLeft, scrollLeft + viewportWidth]` steps outside the last projected
      * `[#projectedMinPx, #projectedMaxPx]` buffer window.
      * @description Delegates to {@link Neo.timeline.TimeAxis.needsReprojection}.
@@ -415,22 +377,6 @@ class DependencyLayer extends Component {
             timeAxis          : this.timeAxis,
             viewportWidth     : viewportWidth || 1200
         })
-    }
-
-    /**
-     * @summary Repositions the existing horizontal routes when the grid selects a different physical page.
-     * @param {Neo.grid.Body} body Center body whose fixed rows share this overlay.
-     */
-    syncScrollPage(body) {
-        let view   = body.gridContainer.view,
-            height = view?.paged ? view.scrollPages.physicalExtent : Infinity,
-            offset = body.pageOffset;
-
-        if (height !== this.#pageHeight || offset !== this.#pageOffset) {
-            this.#pageHeight = height;
-            this.#pageOffset = offset;
-            if (this.#hasProjectedWindow) this.renderRoutes()
-        }
     }
 
     /**
@@ -554,6 +500,35 @@ class DependencyLayer extends Component {
     }
 
     /**
+     * @summary Gets the same endpoint id as a native Record without materializing a plain-id task.
+     * Other fields on a raw row may already have been derived by its Store.
+     * @param {Neo.gantt.TaskStore} store    The task store that holds the row
+     * @param {Object}              row      A record, or a raw row of the store
+     * @param {Number}              index    Visible row index
+     * @param {Map}                 plainIds Per-projection cache by row model
+     * @returns {*} Native projected task id
+     */
+    static projectedTaskId(store, row, index, plainIds) {
+        if (RecordFactory.isRecord(row)) return row.id;
+        let model = store.modelOf(row);
+        if (!plainIds.has(model)) {
+            let idField = model.getField('id');
+            plainIds.set(model, idField && Object.keys(idField).length === 1 && idField.name === 'id')
+        }
+        // Calculated or converted ids can depend on the record itself. Use its ordinary getter.
+        return plainIds.get(model) ? RecordFactory.restoreOwnValues({...row}).id : store.getAt(index).id
+    }
+
+    /**
+     * @summary Retires a replaced input created by this layer.
+     * @param {*} value    The input being installed
+     * @param {*} oldValue The input it replaces
+     */
+    releaseOwnedInput(value, oldValue) {
+        if (oldValue && oldValue !== value && this.#ownedInputs.has(oldValue)) oldValue.destroy()
+    }
+
+    /**
      * @summary Paints the buffered routes in the same physical page as the rows without walking either Store.
      * @returns {Object[]} Projected path descriptors.
      * @protected
@@ -622,6 +597,22 @@ class DependencyLayer extends Component {
         }
 
         return paths
+    }
+
+    /**
+     * @summary Repositions the existing horizontal routes when the grid selects a different physical page.
+     * @param {Neo.grid.Body} body Center body whose fixed rows share this overlay.
+     */
+    syncScrollPage(body) {
+        let view   = body.gridContainer.view,
+            height = view?.paged ? view.scrollPages.physicalExtent : Infinity,
+            offset = body.pageOffset;
+
+        if (height !== this.#pageHeight || offset !== this.#pageOffset) {
+            this.#pageHeight = height;
+            this.#pageOffset = offset;
+            if (this.#hasProjectedWindow) this.renderRoutes()
+        }
     }
 }
 

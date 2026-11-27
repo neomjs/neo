@@ -12,6 +12,24 @@ import Store           from '../data/Store.mjs';
  * @see Neo.gantt.DependencyLayer
  */
 class DependencyStore extends Store {
+    static config = {
+        /**
+         * @member {String} className='Neo.gantt.DependencyStore'
+         * @protected
+         */
+        className: 'Neo.gantt.DependencyStore',
+        /**
+         * @member {String} ntype='gantt-dependency-store'
+         * @protected
+         */
+        ntype: 'gantt-dependency-store',
+        /**
+         * @member {Neo.data.Model} model=DependencyModel
+         * @reactive
+         */
+        model: DependencyModel
+    }
+
     /**
      * The store's count when the endpoint index was built, -1 without an index.
      * @member {Number} #indexedCount=-1
@@ -49,22 +67,101 @@ class DependencyStore extends Store {
      */
     #successors = null
 
-    static config = {
-        /**
-         * @member {String} className='Neo.gantt.DependencyStore'
-         * @protected
-         */
-        className: 'Neo.gantt.DependencyStore',
-        /**
-         * @member {String} ntype='gantt-dependency-store'
-         * @protected
-         */
-        ntype: 'gantt-dependency-store',
-        /**
-         * @member {Neo.data.Model} model=DependencyModel
-         * @reactive
-         */
-        model: DependencyModel
+    /**
+     * @summary Creates a zero-lag finish-to-start edge if it adds a new, acyclic relation.
+     * @param {Object}              input   Endpoints already resolved against the chart's task store.
+     * @param {Neo.gantt.TaskStore} [tasks] The chart's task store, whose phases count in a rollup plan
+     * @returns {Object} Committed edge or the reason for refusing the link.
+     */
+    addFinishToStart(input, tasks) {
+        let reason = this.getFinishToStartRefusal(input, tasks);
+        if (reason) return {status: 'refused', reason};
+
+        let edgeId = input.id;
+        if (edgeId == null) {
+            do { edgeId = Neo.getId('gantt-link') } while (this.get(edgeId))
+        }
+        let edge = {id: edgeId, fromId: String(input.fromId), toId: String(input.toId), type: 'FS'};
+        this.add(edge);
+        return {status: 'committed', edge}
+    }
+
+    /**
+     * @summary Drops cached predecessor and successor endpoint buckets.
+     * @private
+     */
+    #clearEndpointIndex() {
+        this.#indexedCount        = -1;
+        this.#indexedItems        = null;
+        this.#indexedMutations    = -1;
+        this.#indexedRecordEpochs = null;
+        this.#predecessors        = null;
+        this.#successors          = null
+    }
+
+    /**
+     * @summary Clears cached endpoints alongside a silent collection clear.
+     * @param {Boolean} [reset=true] True to also clear `allItems`.
+     */
+    clearSilent(reset=true) {
+        super.clearSilent(reset);
+        this.#clearEndpointIndex()
+    }
+
+    /**
+     * @summary Releases cached endpoint buckets before destroying the store.
+     */
+    destroy() {
+        this.#clearEndpointIndex();
+        super.destroy()
+    }
+
+    /**
+     * @summary Rebuilds predecessor and successor buckets once when membership, order, or endpoints changed.
+     * @private
+     */
+    #ensureEndpointIndex() {
+        if (this.#hasValidEndpointIndex()) {
+            return
+        }
+
+        let count         = this.getCount(),
+            items         = this._items,
+            mutations     = this.getCountMutations(),
+            predecessors  = new Map(),
+            successors    = new Map(),
+            recordClasses = new Set(),
+            recordEpochs  = new Map(),
+            pushEdge      = (map, key, edge) => {
+                let bucket = map.get(key);
+                if (!bucket) {
+                    bucket = [];
+                    map.set(key, bucket)
+                }
+                bucket.push(edge)
+            };
+
+        for (let i = 0; i < count; i++) {
+            let edge = this.getAt(i);
+            if (edge) {
+                if (RecordFactory.isRecord(edge)) {
+                    recordClasses.add(edge.constructor)
+                }
+                pushEdge(successors,   String(edge.fromId), edge);
+                pushEdge(predecessors, String(edge.toId),   edge)
+            }
+        }
+
+        for (let cls of recordClasses) {
+            recordEpochs.set(cls, RecordFactory.getWriteEpoch(cls))
+        }
+
+        this.#indexedCount        = count;
+        this.#indexedItems        = items;
+        this.#indexedMutations    = mutations;
+        this.#indexedRecordEpochs = recordEpochs;
+        this.#predecessors        = predecessors;
+        this.#successors          = successors
     }
 
     /**
@@ -122,52 +219,21 @@ class DependencyStore extends Store {
     }
 
     /**
-     * @summary Creates a zero-lag finish-to-start edge if it adds a new, acyclic relation.
-     * @param {Object}              input   Endpoints already resolved against the chart's task store.
-     * @param {Neo.gantt.TaskStore} [tasks] The chart's task store, whose phases count in a rollup plan
-     * @returns {Object} Committed edge or the reason for refusing the link.
+     * @summary Returns all dependency records whose `toId` matches `taskId`.
+     * @param {String|Number} taskId The task's key
+     * @returns {Neo.gantt.DependencyModel[]}
      */
-    addFinishToStart(input, tasks) {
-        let reason = this.getFinishToStartRefusal(input, tasks);
-        if (reason) return {status: 'refused', reason};
-
-        let edgeId = input.id;
-        if (edgeId == null) {
-            do { edgeId = Neo.getId('gantt-link') } while (this.get(edgeId))
-        }
-        let edge = {id: edgeId, fromId: String(input.fromId), toId: String(input.toId), type: 'FS'};
-        this.add(edge);
-        return {status: 'committed', edge}
+    getPredecessors(taskId) {
+        return this.#lookupEdges(taskId, true)
     }
 
     /**
-     * @summary Drops cached predecessor and successor endpoint buckets.
-     * @private
+     * @summary Returns all dependency records whose `fromId` matches `taskId`.
+     * @param {String|Number} taskId The task's key
+     * @returns {Neo.gantt.DependencyModel[]}
      */
-    #clearEndpointIndex() {
-        this.#indexedCount        = -1;
-        this.#indexedItems        = null;
-        this.#indexedMutations    = -1;
-        this.#indexedRecordEpochs = null;
-        this.#predecessors        = null;
-        this.#successors          = null
-    }
-
-    /**
-     * @summary Clears cached endpoints alongside a silent collection clear.
-     * @param {Boolean} [reset=true] True to also clear `allItems`.
-     */
-    clearSilent(reset=true) {
-        super.clearSilent(reset);
-        this.#clearEndpointIndex()
-    }
-
-    /**
-     * @summary Releases cached endpoint buckets before destroying the store.
-     */
-    destroy() {
-        this.#clearEndpointIndex();
-        super.destroy()
+    getSuccessors(taskId) {
+        return this.#lookupEdges(taskId, false)
     }
 
     /**
@@ -192,54 +258,6 @@ class DependencyStore extends Store {
         }
 
         return true
-    }
-
-    /**
-     * @summary Rebuilds predecessor and successor buckets once when membership, order, or endpoints changed.
-     * @private
-     */
-    #ensureEndpointIndex() {
-        if (this.#hasValidEndpointIndex()) {
-            return
-        }
-
-        let count         = this.getCount(),
-            items         = this._items,
-            mutations     = this.getCountMutations(),
-            predecessors  = new Map(),
-            successors    = new Map(),
-            recordClasses = new Set(),
-            recordEpochs  = new Map(),
-            pushEdge      = (map, key, edge) => {
-                let bucket = map.get(key);
-                if (!bucket) {
-                    bucket = [];
-                    map.set(key, bucket)
-                }
-                bucket.push(edge)
-            };
-
-        for (let i = 0; i < count; i++) {
-            let edge = this.getAt(i);
-            if (edge) {
-                if (RecordFactory.isRecord(edge)) {
-                    recordClasses.add(edge.constructor)
-                }
-                pushEdge(successors,   String(edge.fromId), edge);
-                pushEdge(predecessors, String(edge.toId),   edge)
-            }
-        }
-
-        for (let cls of recordClasses) {
-            recordEpochs.set(cls, RecordFactory.getWriteEpoch(cls))
-        }
-
-        this.#indexedCount        = count;
-        this.#indexedItems        = items;
-        this.#indexedMutations    = mutations;
-        this.#indexedRecordEpochs = recordEpochs;
-        this.#predecessors        = predecessors;
-        this.#successors          = successors
     }
 
     /**
@@ -315,24 +333,6 @@ class DependencyStore extends Store {
                 }
             }
         }
-    }
-
-    /**
-     * @summary Returns all dependency records whose `toId` matches `taskId`.
-     * @param {String|Number} taskId The task's key
-     * @returns {Neo.gantt.DependencyModel[]}
-     */
-    getPredecessors(taskId) {
-        return this.#lookupEdges(taskId, true)
-    }
-
-    /**
-     * @summary Returns all dependency records whose `fromId` matches `taskId`.
-     * @param {String|Number} taskId The task's key
-     * @returns {Neo.gantt.DependencyModel[]}
-     */
-    getSuccessors(taskId) {
-        return this.#lookupEdges(taskId, false)
     }
 }
 

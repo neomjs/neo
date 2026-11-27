@@ -21,30 +21,6 @@ const STEP_MS = 16;
  * @extends Neo.core.Base
  */
 class CascadeMotion extends Base {
-    /**
-     * @summary Returns CSS `cubic-bezier(x1, y1, x2, y2)` as a function from elapsed fraction to progress.
-     * @param {Number} x1 The first control point's x, in [0, 1]
-     * @param {Number} y1 The first control point's y
-     * @param {Number} x2 The second control point's x, in [0, 1]
-     * @param {Number} y2 The second control point's y
-     * @returns {Function}
-     */
-    static cubicBezier(x1, y1, x2, y2) {
-        let curve = (t, p1, p2) => 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3;
-
-        return x => {
-            let low  = 0,
-                high = 1,
-                t    = x;
-            // x1 and x2 lie in [0, 1], so the curve's x rises with t: bisection finds the t for x
-            for (let i = 0; i < 24; i++) {
-                t = (low + high) / 2;
-                curve(t, x1, x2) < x ? low = t : high = t
-            }
-            return curve(t, y1, y2)
-        }
-    }
-
     static config = {
         /**
          * @member {String} className='Neo.gantt.CascadeMotion'
@@ -90,6 +66,30 @@ class CascadeMotion extends Base {
     #tokens = null
 
     /**
+     * @summary Returns CSS `cubic-bezier(x1, y1, x2, y2)` as a function from elapsed fraction to progress.
+     * @param {Number} x1 The first control point's x, in [0, 1]
+     * @param {Number} y1 The first control point's y
+     * @param {Number} x2 The second control point's x, in [0, 1]
+     * @param {Number} y2 The second control point's y
+     * @returns {Function}
+     */
+    static cubicBezier(x1, y1, x2, y2) {
+        let curve = (t, p1, p2) => 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3;
+
+        return x => {
+            let low  = 0,
+                high = 1,
+                t    = x;
+            // x1 and x2 lie in [0, 1], so the curve's x rises with t: bisection finds the t for x
+            for (let i = 0; i < 24; i++) {
+                t = (low + high) / 2;
+                curve(t, x1, x2) < x ? low = t : high = t
+            }
+            return curve(t, y1, y2)
+        }
+    }
+
+    /**
      * @summary Stops the clock without painting.
      * @param {...*} args Passed on to the base class
      */
@@ -108,20 +108,6 @@ class CascadeMotion extends Base {
         me.chart.drawnSpans.clear();
         me.#moves.size && me.#paint();
         me.stop()
-    }
-
-    /**
-     * @summary Stops the clock and forgets the moving tasks without painting them, for a chart about to draw
-     * other records under the same keys.
-     */
-    stop() {
-        let me = this;
-
-        me.#run++;
-        clearTimeout(me.#timer);
-        me.#timer = null;
-        me.#moves.clear();
-        me.chart.drawnSpans.clear()
     }
 
     /**
@@ -243,6 +229,20 @@ class CascadeMotion extends Base {
 
         me.#paint();
         me.#timer = setTimeout(() => me.#step(run, startTime, duration, ease), STEP_MS)
+    }
+
+    /**
+     * @summary Stops the clock and forgets the moving tasks without painting them, for a chart about to draw
+     * other records under the same keys.
+     */
+    stop() {
+        let me = this;
+
+        me.#run++;
+        clearTimeout(me.#timer);
+        me.#timer = null;
+        me.#moves.clear();
+        me.chart.drawnSpans.clear()
     }
 }
 
