@@ -48,6 +48,20 @@ test.describe('Neo.main.DomAccess: a vendor stylesheet loads into the vendor lay
         expect({disabled: result.disabled, id: result.id}).toEqual({disabled: true, id: 'probe-sheet'})
     });
 
+    test('a relative url() still resolves against the vendor sheet, as a font face needs', async ({page}) => {
+        await page.route('**/component/main/__vendor-url.css', route => route.fulfill({
+            body: '#ls-target {background-image: url("img/probe.png")}', contentType: 'text/css'
+        }));
+
+        const image = await page.evaluate(async () => {
+            await Neo.main.DomAccess.loadStylesheet('/test/playwright/component/main/__vendor-url.css');
+            return getComputedStyle(document.getElementById('ls-target')).backgroundImage
+        });
+
+        // Against the document it would read /component/apps/empty-viewport/img/probe.png
+        expect(image).toMatch(/\/test\/playwright\/component\/main\/img\/probe\.png"\)$/)
+    });
+
     test('the positive control: the same sheet by <link> alone is unlayered and beats the engine layer', async ({page}) => {
         await page.evaluate(href => new Promise(resolve => {
             document.head.append(Object.assign(document.createElement('link'), {href, rel: 'stylesheet', onload: resolve}))

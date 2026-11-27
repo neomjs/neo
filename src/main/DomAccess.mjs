@@ -988,9 +988,14 @@ class DomAccess extends Base {
                         const rules = [...link.sheet.cssRules]; // throws for a cross-origin sheet
 
                         if (!rules.some(rule => rule instanceof CSSImportRule)) {
-                            const sheet = new CSSStyleSheet({baseURL: link.href});
+                            const sheet = new CSSStyleSheet(),
+                                  // An adopted sheet resolves a relative url() against the document: a font 404s
+                                  text  = rules.map(rule => rule.cssText).join('\n').replace(
+                                      /url\("(?![a-z][a-z\d+.-]*:|\/|#)([^"]*)"\)/gi,
+                                      (match, url) => `url("${new URL(url, link.href)}")`
+                                  );
 
-                            sheet.replaceSync(`@layer neo.vendor {${rules.map(rule => rule.cssText).join('\n')}}`);
+                            sheet.replaceSync(`@layer neo.vendor {${text}}`);
                             document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
                             link.disabled = true
                         }
