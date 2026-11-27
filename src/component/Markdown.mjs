@@ -98,10 +98,11 @@ class Markdown extends Component {
     activeComponents = []
 
     /**
-     * @member {Boolean} #mountPassPending=false
+     * Mount requests since the running mount pass started, 0 while no pass runs
+     * @member {Number} #mountRequests=0
      * @private
      */
-    #mountPassPending = false
+    #mountRequests = 0
 
     /**
      * @member {Number} #renderId=0
@@ -229,7 +230,7 @@ class Markdown extends Component {
 
     /**
      * @summary Creates a child and adopts it only while its render still owns the content.
-     * The child renders nothing yet: its placeholder lives in this component's HTML, so `#mountComponents()` renders
+     * The child renders nothing yet: its placeholder lives in this component's HTML, so `mountComponents()` renders
      * and inserts it in one step once that HTML is in the document. A vnode built earlier would mark the child's own
      * children mounted while nothing of them is in the DOM.
      * @param {Number} renderId
@@ -243,41 +244,10 @@ class Markdown extends Component {
 
         if (this.#isCurrentRender(renderId)) {
             this.activeComponents.push(component);
-            this.mounted && this.#mountComponents()
+            this.mounted && this.mountComponents()
         } else {
             component.destroy()
         }
-    }
-
-    /**
-     * @summary Inserts the unmounted embedded components once this component's own HTML, which holds their
-     * placeholders, is in the document. A fresh update is flushed first: an update requested while this component was
-     * out of the document can settle at the remount before the HTML it carries is sent. One pass waits at a time and
-     * mounts every component active when it lands, so no child receives two inserts.
-     * @returns {Promise<void>}
-     * @private
-     */
-    async #mountComponents() {
-        const me = this;
-
-        if (me.#mountPassPending) return;
-
-        me.#mountPassPending = true;
-
-        try {
-            await me.promiseUpdate()
-        } catch (error) {
-            if (error === Neo.isDestroyed) return;
-            throw error
-        } finally {
-            me.#mountPassPending = false
-        }
-
-        if (!me.mounted) return;
-
-        me.activeComponents.forEach(component => {
-            component.mounted || component.isVnodeInitializing || component.initVnode(true)
-        })
     }
 
     /**
@@ -512,6 +482,43 @@ class Markdown extends Component {
         }
 
         return rows.join('\n')
+    }
+
+    /**
+     * @summary Inserts the unmounted embedded components once this component's own HTML, which holds their
+     * placeholders, is in the document. The pass flushes this component's update first: an update requested while it
+     * was out of the document can settle at the remount before its HTML is sent. A request arriving during the wait,
+     * such as a newer render's child, makes the pass flush again, because the flight it waited on can predate that
+     * render's HTML. One pass runs at a time and mounts every component active when it lands, so no child receives
+     * two inserts.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async mountComponents() {
+        let me = this;
+
+        // A running pass flushes again for this request before it mounts
+        if (me.#mountRequests++ > 0) return;
+
+        try {
+            let requests;
+
+            do {
+                requests = me.#mountRequests;
+                await me.promiseUpdate()
+            } while (requests !== me.#mountRequests)
+        } catch (error) {
+            if (error === Neo.isDestroyed) return;
+            throw error
+        } finally {
+            me.#mountRequests = 0
+        }
+
+        if (!me.mounted) return;
+
+        me.activeComponents.forEach(component => {
+            component.mounted || component.isVnodeInitializing || component.initVnode(true)
+        })
     }
 
     /**
@@ -809,7 +816,7 @@ class Markdown extends Component {
      */
     updateComponentState(mounted) {
         if (mounted) {
-            this.#mountComponents()
+            this.mountComponents()
         } else {
             this.activeComponents.forEach(component => {
                 component.mounted = false

@@ -55,8 +55,10 @@ Neo.setupClass(DeferredMarkdown);
  * it returns.
  */
 test.describe('Neo.component.Markdown embedded mounts (#22338)', () => {
-    const childId       = 'markdown-embedded-widget',
-          article       = ['# Embedded', '', '```json neo-component', JSON.stringify({id: childId, html: 'widget'}), '```'].join('\n'),
+    const articleWith   = id => ['# Embedded', '', '```json neo-component', JSON.stringify({id, html: 'widget'}), '```'].join('\n'),
+          childId       = 'markdown-embedded-widget',
+          article       = articleWith(childId),
+          secondChildId = 'markdown-embedded-widget-2',
           placeholderIn = payload => [...JSON.stringify(payload).matchAll(/(?:id=\\"|"id":")(neo-learn-content-component-\d+)/g)].map(match => match[1]),
           flush         = () => new Promise(resolve => setImmediate(resolve));
 
@@ -87,10 +89,12 @@ test.describe('Neo.component.Markdown embedded mounts (#22338)', () => {
     const errorsNamingTheSkip = () => errors.filter(line => line.includes('Initial mount insertNode skipped'));
 
     // The child exists and no render of it is under way: a refused insert has settled, or none was sent
-    const childSettled = () => {
-        const child = Neo.getComponent(childId);
+    const childSettled = (id = childId) => {
+        const child = Neo.getComponent(id);
         return Boolean(child) && !child.isVnodeInitializing
     };
+
+    const insertsOf = id => inserts.filter(insert => insert.id === id);
 
     /**
      * Mounts the Markdown, renders the article and parks the render at its mount delay, with the HTML in the document
@@ -158,7 +162,7 @@ test.describe('Neo.component.Markdown embedded mounts (#22338)', () => {
         markdown?.mountDelays.forEach(resume => resume());
         await flush();
         markdown?.destroy();
-        Neo.getComponent(childId)?.destroy();
+        [childId, secondChildId].forEach(id => Neo.getComponent(id)?.destroy());
         console.error   = consoleError;
         Neo.applyDeltas = baseApply
     });
@@ -204,6 +208,43 @@ test.describe('Neo.component.Markdown embedded mounts (#22338)', () => {
 
         await expect.poll(() => Neo.getComponent(childId)?.mounted).toBe(true);
         expect(inserts.filter(({id}) => id === childId)).toEqual([{id: childId, parentId: placeholder, skipped: false}]);
+        expect(errorsNamingTheSkip()).toEqual([])
+    });
+
+    test('a render that replaces the content while a mount pass waits inserts its children only after its own HTML lands', async () => {
+        markdown = Neo.create(DeferredMarkdown, {appName, windowId: 1});
+        await markdown.initVnode(true);
+
+        markdown.earlySet = true;
+        holdHtml          = true;
+        markdown.value    = article;
+        await expect.poll(() => markdown.mountDelays.length).toBe(1);
+        markdown.mountDelays[0]();
+        await expect.poll(childSettled).toBe(true);
+
+        markdown.value = articleWith(secondChildId);
+        await expect.poll(() => markdown.mountDelays.length).toBe(2);
+
+        const [placeholder] = placeholderIn(markdown.html);
+
+        markdown.mountDelays[1]();
+        await expect.poll(() => childSettled(secondChildId)).toBe(true);
+
+        // Main applies the first render's HTML only
+        heldHtml.shift()();
+        await flush();
+        await flush();
+
+        expect(dom.has(placeholder), 'Main has not received the second HTML yet').toBe(false);
+        expect(insertsOf(secondChildId), 'no insert before the second HTML lands').toEqual([]);
+        expect(errorsNamingTheSkip()).toEqual([]);
+
+        holdHtml = false;
+        heldHtml.splice(0).forEach(release => release());
+
+        await expect.poll(() => Neo.getComponent(secondChildId)?.mounted).toBe(true);
+        expect(insertsOf(secondChildId)).toEqual([{id: secondChildId, parentId: placeholder, skipped: false}]);
+        expect(insertsOf(childId), 'the replaced child never inserts').toEqual([]);
         expect(errorsNamingTheSkip()).toEqual([])
     })
 });
