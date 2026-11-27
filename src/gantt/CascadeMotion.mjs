@@ -21,28 +21,6 @@ const STEP_MS = 16;
  * @extends Neo.core.Base
  */
 class CascadeMotion extends Base {
-    /**
-     * @summary Returns CSS `cubic-bezier(x1, y1, x2, y2)` as a function from elapsed fraction to progress.
-     * @param {Number} x1
-     * @param {Number} y1
-     * @param {Number} x2
-     * @param {Number} y2
-     * @returns {Function}
-     */
-    static cubicBezier(x1, y1, x2, y2) {
-        const curve = (t, p1, p2) => 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3;
-
-        return x => {
-            let low = 0, high = 1, t = x;
-            // x1 and x2 lie in [0, 1], so the curve's x rises with t: bisection finds the t for x
-            for (let i = 0; i < 24; i++) {
-                t = (low + high) / 2;
-                curve(t, x1, x2) < x ? low = t : high = t
-            }
-            return curve(t, y1, y2)
-        }
-    }
-
     static config = {
         /**
          * @member {String} className='Neo.gantt.CascadeMotion'
@@ -56,17 +34,65 @@ class CascadeMotion extends Base {
         chart: null
     }
 
-    /** The moving tasks by span key: their store key and the spans they move between, in ms. */
+    /**
+     * The moving tasks by span key: their store key and the spans they move between, in ms.
+     * @member {Map} #moves
+     * @private
+     */
     #moves = new Map()
-    /** Counts token reads, so only the latest one answers. */
+    /**
+     * Counts token reads, so only the latest one answers.
+     * @member {Number} #read=0
+     * @private
+     */
     #read = 0
-    /** Counts starts and ends, so a step of an earlier move leaves a later one alone. */
+    /**
+     * Counts starts and ends, so a step of an earlier move leaves a later one alone.
+     * @member {Number} #run=0
+     * @private
+     */
     #run = 0
+    /**
+     * The timeout that runs the next step, null while the clock stands.
+     * @member {Number|null} #timer=null
+     * @private
+     */
     #timer = null
-    /** The tokens the latest read found: `{duration, ease}`, null until one answers. */
+    /**
+     * The tokens the latest read found: `{duration, ease}`, null until one answers.
+     * @member {Object|null} #tokens=null
+     * @private
+     */
     #tokens = null
 
-    /** @summary Stops the clock without painting. @param {...*} args */
+    /**
+     * @summary Returns CSS `cubic-bezier(x1, y1, x2, y2)` as a function from elapsed fraction to progress.
+     * @param {Number} x1 The first control point's x, in [0, 1]
+     * @param {Number} y1 The first control point's y
+     * @param {Number} x2 The second control point's x, in [0, 1]
+     * @param {Number} y2 The second control point's y
+     * @returns {Function}
+     */
+    static cubicBezier(x1, y1, x2, y2) {
+        let curve = (t, p1, p2) => 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3;
+
+        return x => {
+            let low  = 0,
+                high = 1,
+                t    = x;
+            // x1 and x2 lie in [0, 1], so the curve's x rises with t: bisection finds the t for x
+            for (let i = 0; i < 24; i++) {
+                t = (low + high) / 2;
+                curve(t, x1, x2) < x ? low = t : high = t
+            }
+            return curve(t, y1, y2)
+        }
+    }
+
+    /**
+     * @summary Stops the clock without painting.
+     * @param {...*} args Passed on to the base class
+     */
     destroy(...args) {
         this.#run++;
         clearTimeout(this.#timer);
@@ -77,7 +103,7 @@ class CascadeMotion extends Base {
      * @summary Lands every moving task at its final dates in one update and stops the clock.
      */
     end() {
-        const me = this;
+        let me = this;
 
         me.chart.drawnSpans.clear();
         me.#moves.size && me.#paint();
@@ -85,25 +111,13 @@ class CascadeMotion extends Base {
     }
 
     /**
-     * @summary Stops the clock and forgets the moving tasks without painting them, for a chart about to draw
-     * other records under the same keys.
-     */
-    stop() {
-        const me = this;
-
-        me.#run++;
-        clearTimeout(me.#timer);
-        me.#timer = null;
-        me.#moves.clear();
-        me.chart.drawnSpans.clear()
-    }
-
-    /**
      * @summary Repaints the moving tasks' rows and re-projects the links: one body update carries both.
      * @description The layer's update merges into the body's, which renders every mounted row component.
+     * @private
      */
     #paint() {
-        const {chart} = this, {body} = chart;
+        let {chart} = this,
+            {body}  = chart;
 
         chart.dependencyLayer?.project();
 
@@ -120,13 +134,13 @@ class CascadeMotion extends Base {
      * @returns {Promise<void>}
      */
     async readTokens() {
-        const me = this, {chart} = me, read = ++me.#read;
-
-        let tokens = {duration: 0};
+        let me      = this,
+            {chart} = me,
+            read    = ++me.#read,
+            tokens  = {duration: 0};
 
         try {
-            const
-                styles = await Neo.main.DomAccess.getComputedStyle({
+            let styles = await Neo.main.DomAccess.getComputedStyle({
                     id: chart.id, style: ['--motion-panel', '--ease-out-soft'], windowId: chart.windowId
                 }),
                 tier   = String(styles?.['--motion-panel'] ?? '').trim(),
@@ -151,8 +165,7 @@ class CascadeMotion extends Base {
      * @param {Object[]} changed `{record, previous}` per changed task: `previous` holds the fields the edit changed
      */
     start(changed) {
-        const
-            me      = this,
+        let me      = this,
             {chart} = me,
             spans   = chart.drawnSpans,
             start   = chart.startDateField,
@@ -163,12 +176,12 @@ class CascadeMotion extends Base {
 
         me.end();
 
-        for (const {record, previous} of duration > 0 ? changed : []) {
-            const key = record && chart.store.getKey(record), spanKey = String(key);
+        for (let {record, previous} of duration > 0 ? changed : []) {
+            let key     = record && chart.store.getKey(record),
+                spanKey = String(key);
 
             if (record && !me.#moves.has(spanKey)) {
-                const
-                    from = [toMs(previous?.[start] ?? record[start]), toMs(previous?.[end] ?? record[end])],
+                let from = [toMs(previous?.[start] ?? record[start]), toMs(previous?.[end] ?? record[end])],
                     to   = [toMs(record[start]), toMs(record[end])];
 
                 if (from.concat(to).every(Number.isFinite) && (from[0] !== to[0] || from[1] !== to[1])) {
@@ -179,7 +192,8 @@ class CascadeMotion extends Base {
         }
 
         if (me.#moves.size) {
-            const run = me.#run, startTime = performance.now();
+            let run       = me.#run,
+                startTime = performance.now();
 
             me.#paint();
             me.#timer = setTimeout(() => me.#step(run, startTime, duration, ease), STEP_MS)
@@ -190,13 +204,15 @@ class CascadeMotion extends Base {
 
     /**
      * @summary Draws the moving tasks at the eased progress of the elapsed time, until the duration has passed.
-     * @param {Number} run
-     * @param {Number} startTime
-     * @param {Number} duration
-     * @param {Function} ease
+     * @param {Number}   run       The run this step belongs to; a later start or end retires it
+     * @param {Number}   startTime `performance.now()` when the move started
+     * @param {Number}   duration  The move's duration in ms
+     * @param {Function} ease      Maps the elapsed fraction to progress
+     * @private
      */
     #step(run, startTime, duration, ease) {
-        const me = this, elapsed = (performance.now() - startTime) / duration;
+        let me      = this,
+            elapsed = (performance.now() - startTime) / duration;
 
         if (run !== me.#run) return;
 
@@ -205,14 +221,28 @@ class CascadeMotion extends Base {
             return
         }
 
-        const progress = ease(elapsed);
+        let progress = ease(elapsed);
 
-        for (const [key, {from, to}] of me.#moves) {
+        for (let [key, {from, to}] of me.#moves) {
             me.chart.drawnSpans.set(key, [from[0] + (to[0] - from[0]) * progress, from[1] + (to[1] - from[1]) * progress])
         }
 
         me.#paint();
         me.#timer = setTimeout(() => me.#step(run, startTime, duration, ease), STEP_MS)
+    }
+
+    /**
+     * @summary Stops the clock and forgets the moving tasks without painting them, for a chart about to draw
+     * other records under the same keys.
+     */
+    stop() {
+        let me = this;
+
+        me.#run++;
+        clearTimeout(me.#timer);
+        me.#timer = null;
+        me.#moves.clear();
+        me.chart.drawnSpans.clear()
     }
 }
 
