@@ -118,11 +118,13 @@ class Base extends Component {
         /**
          * Change the browser hash value on click
          * @member {String|null} route_=null
+         * @reactive
          */
         route_: null,
         /**
          * True adds an expanding circle on click
          * @member {Boolean} useRippleEffect_=true
+         * @reactive
          */
         useRippleEffect_: true,
         /**
@@ -221,6 +223,10 @@ A config is considered **reactive** if its definition within the `static config`
 - The `@reactive` tag **MUST** be included in the JSDoc comment block for any config that is reactive.
 - This tag signals that the framework generates public `get()` and `set()` methods, along with `beforeGet`, `beforeSet`, and `afterSet` hooks.
 
+`npm run check-coding-guidelines` checks each locally declared `foo_` for a standalone `@reactive`
+tag line. A subclass may override it as `foo` and retain the tag. `npm run check-reactive-tags`
+checks inherited reactivity using the generated class documentation.
+
 **Correct Example:**
 ```javascript
 /**
@@ -263,11 +269,13 @@ static config = {
     /**
      * Change the browser hash value on click
      * @member {String|null} route_=null
+     * @reactive
      */
     route_: null,
     /**
      * True adds an expanding circle on click
      * @member {Boolean} useRippleEffect_=true
+     * @reactive
      */
     useRippleEffect_: true,
     /**
@@ -288,7 +296,7 @@ static config = {
   + className first
   + ntype second (if used)
   + All other configs are ordered alphabetically
-  + _vdom last
+  + `vdom` or `_vdom` last
   + configs use camel-case syntax
   + JSDoc comments are required
   + no empty lines between configs
@@ -452,6 +460,15 @@ adjustTotalHeight(data, silent=false) {
 }
 ```
 * (29) Above every class method is one empty line
+* (29a) Put replaceable behavior in public or `@protected` methods so subclasses, mixins, and
+  `Neo.overwrites` can specialize it. A `#private` field may hold internal state. Reserve private
+  methods for non-replaceable class-system invariants and document the invariant in the method's
+  JSDoc. The guard exempts `#preDestroyHook` in `src/core/Base.mjs` because it ensures destruction runs once.
+* (29b) The four classes that implement construction-time `mergeConfig()` are `Neo.core.Base`,
+  `Neo.component.Base`, `Neo.container.Base`, and `Neo.form.field.Text`. Leaf classes declare their
+  defaults in `static config`. An inherited descriptor supplies its merge strategy. Use `[isDescriptor]` to
+  declare one and `[mergeFrom]` to apply a named child config. In `construct(config)`, delegate
+  the merge to the normal initialization path through `super.construct(config)`.
 * (30) Each class method has JSDoc comments.
   + **No empty line** allowed between the method description and the first `@param` tag.
   + `@returns` is used instead of `@return` for consistency.

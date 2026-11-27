@@ -66,6 +66,7 @@ jobs:
         [
           {"name": "guard CI parity",           "run": "node ./buildScripts/util/check-guard-ci-parity.mjs"},
           {"name": "class module scope",        "run": "node ./buildScripts/util/check-class-module-scope.mjs"},
+          {"name": "coding guidelines",         "run": "node ./buildScripts/util/check-coding-guidelines.mjs"},
           {"name": "content root derivations",  "run": "node ./buildScripts/util/check-content-root-derivations.mjs"},
           {"name": "engine brain boundary",     "run": "node ./buildScripts/util/check-engine-brain-boundary.mjs"},
           {"name": "fixed sleeps",              "run": "node ./buildScripts/util/check-fixed-sleeps.mjs"},

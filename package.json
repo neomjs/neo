@@ -31,6 +31,7 @@
         "capture-examples"                     : "node ./buildScripts/docs/captureExamples.mjs",
         "check-theme-surfaces"                 : "node ./buildScripts/util/check-theme-surfaces.mjs",
         "check-class-module-scope"             : "node ./buildScripts/util/check-class-module-scope.mjs",
+        "check-coding-guidelines"              : "node ./buildScripts/util/check-coding-guidelines.mjs",
         "check-engine-brain-boundary"          : "node ./buildScripts/util/check-engine-brain-boundary.mjs",
         "check-examples-body-only"             : "node ./buildScripts/util/check-examples-body-only.mjs",
         "check-file-sizes"                     : "node ./buildScripts/util/check-file-sizes.mjs",
@@ -180,6 +181,9 @@
         ],
         "{apps,examples,src}/**/*.mjs": [
             "node ./buildScripts/util/check-class-module-scope.mjs"
+        ],
+        "{{apps,docs/app,examples,src}/**/*.mjs,buildScripts/util/{check-coding-guidelines.mjs,check-coding-guidelines-baseline.json,codingGuidelinesJsdoc.mjs}}": [
+            "node ./buildScripts/util/check-coding-guidelines.mjs --staged"
         ],
         "resources/css/**/*.css": [
             "node ./buildScripts/util/check-theme-coverage.mjs",
