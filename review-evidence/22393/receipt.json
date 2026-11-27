@@ -1,0 +1,265 @@
+{
+  "base": "c91d3f482a510f97d5fa48a1bc120941b9326efc",
+  "head": "ac9720c6ee7d38bd65b8449188d0aaea379c6cc0",
+  "comparison": {
+    "themes": [
+      "neo-theme-neo-light",
+      "neo-theme-neo-dark",
+      "neo-theme-light",
+      "neo-theme-dark",
+      "neo-theme-cyberpunk"
+    ],
+    "scopes": [
+      "inherited",
+      "scoped"
+    ],
+    "total": 192000,
+    "matched": 180,
+    "unexpected": 0,
+    "unmet": 0
+  },
+  "modal": [
+    {
+      "variant": "base",
+      "scheme": "light",
+      "scrim": "rgba(100, 100, 100, 0.5)",
+      "paint": {
+        "border": "rgb(221, 221, 221)",
+        "shadow": "rgba(0, 0, 0, 0.4) 0px 5px 10px 0px",
+        "title": "rgb(67, 93, 177)"
+      },
+      "rest": "rgb(67, 93, 177)",
+      "hover": "rgb(0, 0, 0)",
+      "maximized": [
+        13,
+        8,
+        1254,
+        784
+      ]
+    },
+    {
+      "variant": "base",
+      "scheme": "dark",
+      "scrim": "rgba(100, 100, 100, 0.5)",
+      "paint": {
+        "border": "rgb(29, 46, 98)",
+        "shadow": "rgba(17, 20, 28, 0.85) 0px 5px 10px 0px",
+        "title": "rgb(84, 114, 228)"
+      },
+      "rest": "rgb(84, 114, 228)",
+      "hover": "rgb(255, 255, 255)",
+      "maximized": [
+        13,
+        8,
+        1254,
+        784
+      ]
+    },
+    {
+      "variant": "head",
+      "scheme": "light",
+      "scrim": "rgba(0, 0, 0, 0.32)",
+      "paint": {
+        "border": "oklch(0.875 0.012 270)",
+        "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 1px, rgba(0, 0, 0, 0.16) 0px 12px 32px 0px",
+        "title": "oklch(0.168 0.008 270)"
+      },
+      "rest": "oklch(0.39 0.034 270)",
+      "hover": "oklch(0.168 0.008 270)",
+      "maximized": [
+        13,
+        8,
+        1254,
+        784
+      ]
+    },
+    {
+      "variant": "head",
+      "scheme": "dark",
+      "scrim": "rgba(0, 0, 0, 0.5)",
+      "paint": {
+        "border": "oklch(0.39 0.034 270)",
+        "shadow": "rgba(255, 255, 255, 0.1) 0px 0px 0px 1px, rgba(0, 0, 0, 0.5) 0px 12px 32px 0px",
+        "title": "oklch(0.96 0.004 270)"
+      },
+      "rest": "oklch(0.7 0.031 270)",
+      "hover": "oklch(0.96 0.004 270)",
+      "maximized": [
+        13,
+        8,
+        1254,
+        784
+      ]
+    }
+  ],
+  "footer": [
+    {
+      "variant": "base",
+      "theme": "neo-theme-neo-light",
+      "scope": "inherited",
+      "height": 22.65625,
+      "width": 64.125,
+      "marginLeft": "4px",
+      "radius": "5px",
+      "currentColorParts": [
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        },
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        }
+      ]
+    },
+    {
+      "variant": "base",
+      "theme": "neo-theme-neo-light",
+      "scope": "scoped",
+      "height": 22.65625,
+      "width": 64.125,
+      "marginLeft": "4px",
+      "radius": "5px",
+      "currentColorParts": [
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        },
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        }
+      ]
+    },
+    {
+      "variant": "base",
+      "theme": "neo-theme-neo-dark",
+      "scope": "inherited",
+      "height": 22.65625,
+      "width": 64.125,
+      "marginLeft": "4px",
+      "radius": "5px",
+      "currentColorParts": [
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        },
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        }
+      ]
+    },
+    {
+      "variant": "base",
+      "theme": "neo-theme-neo-dark",
+      "scope": "scoped",
+      "height": 22.65625,
+      "width": 64.125,
+      "marginLeft": "4px",
+      "radius": "5px",
+      "currentColorParts": [
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        },
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        }
+      ]
+    },
+    {
+      "variant": "head",
+      "theme": "neo-theme-neo-light",
+      "scope": "inherited",
+      "height": 24,
+      "width": 64.125,
+      "marginLeft": "4px",
+      "radius": "8px",
+      "currentColorParts": [
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        },
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        }
+      ]
+    },
+    {
+      "variant": "head",
+      "theme": "neo-theme-neo-light",
+      "scope": "scoped",
+      "height": 24,
+      "width": 64.125,
+      "marginLeft": "4px",
+      "radius": "8px",
+      "currentColorParts": [
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        },
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        }
+      ]
+    },
+    {
+      "variant": "head",
+      "theme": "neo-theme-neo-dark",
+      "scope": "inherited",
+      "height": 24,
+      "width": 64.125,
+      "marginLeft": "4px",
+      "radius": "8px",
+      "currentColorParts": [
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        },
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        }
+      ]
+    },
+    {
+      "variant": "head",
+      "theme": "neo-theme-neo-dark",
+      "scope": "scoped",
+      "height": 24,
+      "width": 64.125,
+      "marginLeft": "4px",
+      "radius": "8px",
+      "currentColorParts": [
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        },
+        {
+          "borderWidth": "0px",
+          "outlineStyle": "none",
+          "decoration": "none"
+        }
+      ]
+    }
+  ]
+}
