@@ -239,6 +239,71 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
             }));
 
             expect(failures.filter(f => f.startsWith('[completeness]'))).toEqual([])
+        });
+
+        test('resolves Workstation skin files through root + themeMapPath without hardcoded theme-neo-* folder names', () => {
+            const cssRoot = path.join(tmpRoot, 'mapped/resources/css'),
+                  mapPath = path.join(tmpRoot, 'mapped/resources/theme-map.json'),
+                  write   = (rel, body) => {
+                      const target = path.join(cssRoot, rel);
+                      fs.mkdirSync(path.dirname(target), {recursive: true});
+                      fs.writeFileSync(target, body, 'utf8')
+                  };
+
+            write('neo-dark-folder/apps/workstation/Viewport.css', clean.dark);
+            write('neo-light-folder/apps/workstation/Viewport.css', clean.light);
+            write('src/apps/workstation/Viewport.css', clean.views['Viewport.css']);
+            fs.writeFileSync(mapPath, JSON.stringify({
+                themes: {
+                    'neo-theme-neo-dark' : ['neo-dark-folder'],
+                    'neo-theme-neo-light': ['neo-light-folder']
+                }
+            }), 'utf8');
+
+            expect(collectThemeSurfaceFailures({
+                modeInvariant: new Set(),
+                root         : cssRoot,
+                themeMapPath : mapPath
+            })).toEqual([])
+        });
+
+        test('aggregates tokens across multiple mapped folders per class and catches parity drift in a later mapped skin', () => {
+            const cssRoot = path.join(tmpRoot, 'split/resources/css'),
+                  mapPath = path.join(tmpRoot, 'split/resources/theme-map.json'),
+                  write   = (rel, body) => {
+                      const target = path.join(cssRoot, rel);
+                      fs.mkdirSync(path.dirname(target), {recursive: true});
+                      fs.writeFileSync(target, body, 'utf8')
+                  };
+
+            write('neo-common/apps/workstation/Viewport.css', ':root {\n    --workstation-bg: #101014;\n    --workstation-ink: #f5f5f7;\n}\n');
+            write('neo-dark-overlay/apps/workstation/Viewport.css', ':root {\n    --workstation-bg: #0b0e13;\n}\n');
+            write('neo-light-overlay/apps/workstation/Viewport.css', ':root {\n    --workstation-bg: #ffffff;\n    --workstation-ink: #101014;\n}\n');
+            write('src/apps/workstation/Viewport.css', clean.views['Viewport.css']);
+            fs.writeFileSync(mapPath, JSON.stringify({
+                themes: {
+                    'neo-theme-neo-dark' : ['neo-common', 'neo-dark-overlay'],
+                    'neo-theme-neo-light': ['neo-common', 'neo-light-overlay']
+                }
+            }), 'utf8');
+
+            expect(collectThemeSurfaceFailures({
+                modeInvariant: new Set(),
+                root         : cssRoot,
+                themeMapPath : mapPath
+            })).toEqual([]);
+
+            // A later mapped skin overrides --workstation-bg to match dark and adds a dark-only token
+            write('neo-dark-overlay/apps/workstation/Viewport.css', ':root {\n    --workstation-bg: #ffffff;\n    --workstation-dark-extra: #222222;\n}\n');
+
+            const failures = collectThemeSurfaceFailures({
+                modeInvariant: new Set(),
+                root         : cssRoot,
+                themeMapPath : mapPath
+            });
+
+            expect(failures).toContain('[parity] --workstation-bg is byte-identical dark↔light (#ffffff)');
+            expect(failures).toContain('[parity] --workstation-dark-extra present in dark skin, missing in light skin')
         })
     })
 });
