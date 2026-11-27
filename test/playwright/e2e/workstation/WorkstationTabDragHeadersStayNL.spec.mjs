@@ -95,6 +95,15 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
             intervals: [50, 100, 200]
         }).toBeGreaterThanOrEqual(3);
 
+        const actionItems  = await app.callMethod(chrome.headerId, 'getActionItems', []),
+              actionStates = await Promise.all(actionItems.map(item =>
+                  app.getComponent(item.id, ['hidden', 'id', 'pressed', 'showOnFocus']))),
+              focusedActionIds = actionStates.filter(action =>
+                  action.showOnFocus === true && action.pressed !== true && !action.hidden
+              ).map(action => action.id);
+
+        expect(focusedActionIds.length, 'heavy-tabs has available focus-gated header actions').toBeGreaterThan(0);
+
         const stage = await page.evaluate(headerId => {
             const toolbar = document.getElementById(headerId),
                   strip   = toolbar.getBoundingClientRect(),
@@ -236,28 +245,27 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
             timeout: 10000
         }).toBe(true);
 
+        const drainFields    = ['measuring', 'projectQueued', 'sortDragDrainScheduled', 'sortDragProjectionQueued'];
+        const overflowFields = [
+            'appliedHiddenIds', 'controlWidth', 'measuredControlWidth', 'naturalWidths', 'projectAsAction', ...drainFields
+        ];
+        let settledProjection;
+
+        // The App RPC and Main frame use different clocks and arrive independently. Retain the request
+        // interval and the browser's epoch timestamp so a hosted failure can be compared to the passing poll.
         // Explicit post-drop settle boundary: wait until SortZone clears inline positioning,
         // focus restoration reveals the contextual header actions in the DOM, Overflow's post-drag and
         // action-geometry projections complete (!sortDragProjectionQueued && !sortDragDrainScheduled &&
         // !measuring && !projectQueued), and the rendered button set is identical across two consecutive
         // animation frames matching Overflow.computeOverflow for the focused extent.
         await expect.poll(async () => {
+            const readStartedAt                                                     = Date.now();
             const [headerState, overflowState, tabButtons, tabContainer, domSettle] = await Promise.all([
                 app.getComponent(chrome.headerId, ['containsFocus', 'contextualActionsVisible']),
-                app.getComponent(overflowPlugin.id, [
-                    'appliedHiddenIds',
-                    'controlWidth',
-                    'measuredControlWidth',
-                    'measuring',
-                    'naturalWidths',
-                    'projectAsAction',
-                    'projectQueued',
-                    'sortDragDrainScheduled',
-                    'sortDragProjectionQueued'
-                ]),
+                app.getComponent(overflowPlugin.id, overflowFields),
                 app.callMethod(chrome.headerId, 'getTabButtons', []),
                 app.callMethod(overflowPlugin.id, 'getTabContainer', []),
-                page.evaluate(async headerId => {
+                page.evaluate(async ({headerId, expectedActionIds}) => {
                     const readFrame = () => {
                         const toolbar = document.getElementById(headerId);
 
@@ -274,7 +282,10 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
                         const actionEls = [...toolbar.querySelectorAll('.neo-toolbar-action:not(.neo-tab-overflow-control)')]
                             .filter(el => el.offsetWidth > 0);
 
-                        if (actionEls.length === 0) {
+                        // The close action is always visible. The focused extent is meaningful only
+                        // once Main has rendered the actions that the worker exposes on focus.
+                        const actionIds = actionEls.map(el => el.id);
+                        if (!expectedActionIds.every(id => actionIds.includes(id))) {
                             return null
                         }
 
@@ -296,7 +307,13 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
                                   .filter(el => el.getClientRects().length > 0 && el.getBoundingClientRect().width > 0)
                                   .map(el => el.id);
 
-                        return {focusedExtent, visibleIds}
+                         return {
+                             actionIds,
+                             activeElementId: document.activeElement?.id,
+                             focusedExtent,
+                             sampledAt      : performance.timeOrigin + performance.now(),
+                             visibleIds
+                         }
                     };
 
                     const frame1 = await new Promise(resolve => requestAnimationFrame(() => resolve(readFrame()))),
@@ -306,8 +323,8 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
                         return null
                     }
 
-                    return frame2
-                }, chrome.headerId)
+                     return {frame1, frame2}
+                }, {headerId: chrome.headerId, expectedActionIds: focusedActionIds})
             ]);
 
             if (!domSettle) return false;
@@ -328,7 +345,7 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
                   partition     = Overflow.computeOverflow({
                       activeItemId : activeButton?.id,
                       controlWidth,
-                      extent       : domSettle.focusedExtent,
+                       extent       : domSettle.frame2.focusedExtent,
                       focusedItemId: focusedButton?.id,
                       items        : buttonStates.map(btn => ({
                           headerWidth: overflowState.naturalWidths?.[btn.id],
@@ -337,16 +354,34 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
                   }),
                   hiddenIds     = overflowState?.appliedHiddenIds || [];
 
-            return domSettle.visibleIds.join(',') === partition.visible.join(',')
-                && hiddenIds.join(',') === partition.hidden.join(',')
+            const matches = domSettle.frame2.visibleIds.join(',') === partition.visible.join(',')
+                && hiddenIds.join(',') === partition.hidden.join(',');
+
+            if (matches) {
+                settledProjection = {
+                    readStartedAt,
+                    readCompletedAt: Date.now(),
+                    dom            : domSettle,
+                    app            : {
+                        activeId : activeButton?.id,
+                        focusedId: focusedButton?.id,
+                        controlWidth,
+                        overflow : overflowState,
+                        partition
+                    }
+                }
+            }
+
+            return matches
         }, {
             message  : 'Overflow post-drag drain and focused-extent header partition must settle across worker and two consecutive DOM frames',
             timeout  : 10000,
             intervals: [20, 50, 100]
         }).toBe(true);
 
+        const finalReadStartedAt = Date.now();
         const [
-            {canary, focusedExtent, postDropButtons, samples},
+            {actionIds, activeElementId, canary, focusedExtent, postDropButtons, sampledAt, samples},
             overflowState,
             tabButtons,
             tabContainer
@@ -395,20 +430,16 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
                           });
 
                 return {
+                    actionIds      : actionEls.map(el => el.id),
+                    activeElementId: document.activeElement?.id,
                     canary         : window.__canary,
                     focusedExtent,
                     postDropButtons: buttons,
+                    sampledAt      : performance.timeOrigin + performance.now(),
                     samples        : window.__tabDragSamples
                 }
             }, chrome.headerId),
-            app.getComponent(overflowPlugin.id, [
-                'appliedHiddenIds',
-                'control',
-                'controlWidth',
-                'measuredControlWidth',
-                'naturalWidths',
-                'projectAsAction'
-            ]),
+            app.getComponent(overflowPlugin.id, ['control', ...overflowFields]),
             app.callMethod(chrome.headerId, 'getTabButtons', []),
             app.callMethod(overflowPlugin.id, 'getTabContainer', [])
         ]);
@@ -436,8 +467,29 @@ test.describe('Workstation — in-window tab drag keeps strip headers inside the
                   }))
               });
 
-        const controlProps = overflowState.control?.id
-                  ? await app.getComponent(overflowState.control.id, ['hidden', 'menu', 'menuList'])
+        const {control, ...finalOverflow} = overflowState;
+        await test.info().attach('post-drop-overflow-samples', {
+            contentType: 'application/json',
+            body       : JSON.stringify({
+                focusedActionIds,
+                settled: settledProjection,
+                final  : {
+                    readStartedAt  : finalReadStartedAt,
+                    readCompletedAt: Date.now(),
+                    dom            : {actionIds, activeElementId, focusedExtent, sampledAt, visibleIds: postDropButtons.map(button => button.id)},
+                    app            : {
+                        activeId : activeButton?.id,
+                        focusedId: focusedButton?.id,
+                        controlWidth,
+                        overflow : finalOverflow,
+                        partition: computedPartition
+                    }
+                }
+            })
+        });
+
+        const controlProps = control?.id
+                  ? await app.getComponent(control.id, ['hidden', 'menu', 'menuList'])
                   : null,
               menuListProps = controlProps?.menuList?.id
                   ? await app.getComponent(controlProps.menuList.id, ['items'])
