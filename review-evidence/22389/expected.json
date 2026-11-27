@@ -1,0 +1,690 @@
+[
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "oklch(0.28 0.095 267)",
+        "head": "oklch(0.39 0.14 267)",
+        "reason": "background-selected in dark steps from accent-900 to accent-800 (1.49:1 on accent-subtle, Epic #22295 rule 15 / #22389 design read point 1)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "oklch(0.28 0.095 267)",
+        "head": "oklch(0.39 0.14 267)",
+        "reason": "background-selected in dark steps from accent-900 to accent-800 (1.49:1 on accent-subtle, Epic #22295 rule 15 / #22389 design read point 1)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(102, 102, 102)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(221, 221, 221)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(102, 102, 102)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-light",
+        "property": "font-size",
+        "base": "13px",
+        "head": "14px",
+        "reason": "grid body font-size -> control-font-size-medium (0.875rem = 14px on 32px medium row)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(102, 102, 102)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(102, 102, 102)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(29, 46, 98)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-dark",
+        "property": "font-size",
+        "base": "13px",
+        "head": "14px",
+        "reason": "grid body font-size -> control-font-size-medium (0.875rem = 14px on 32px medium row)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "gantt",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(102, 102, 102)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(221, 221, 221)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(102, 102, 102)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "font-size",
+        "base": "13px",
+        "head": "14px",
+        "reason": "grid body font-size -> control-font-size-medium (0.875rem = 14px on 32px medium row)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(102, 102, 102)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(93, 131, 167)",
+        "head": "rgb(255, 255, 255)",
+        "reason": "grid header and footer bar fill -> background-surface-raised (Epic #22295 rule 18)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "resting grid header label and glyph -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgba(0, 0, 0, 0) rgb(221, 221, 221) rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)",
+        "head": "rgba(0, 0, 0, 0) oklch(0.875 0.012 270) rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(255, 255, 255)",
+        "head": "3px none oklch(0.39 0.034 270)",
+        "reason": "resting grid header label and glyph -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "font-size",
+        "base": "11px",
+        "head": "12px",
+        "reason": "grid header button font-size -> font-size-caption (0.75rem = 12px across both schemes)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "resting grid header label and glyph -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "padding",
+        "base": "0px 12px",
+        "head": "0px 10px",
+        "reason": "grid header button padding -> 0 10px (retires cross-component --neo-button-padding read; aligns with 10px cell inset)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(102, 102, 102)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "cell and even-row fill -> background-surface (no zebra in theme Neo, #22389 design read point 2)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(102, 102, 102) rgb(221, 221, 221) rgb(221, 221, 221) rgb(102, 102, 102)",
+        "head": "oklch(0.168 0.008 270) oklch(0.875 0.012 270) oklch(0.875 0.012 270) oklch(0.168 0.008 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(221, 221, 221) rgb(255, 255, 255) rgb(255, 255, 255)",
+        "head": "oklch(0.875 0.012 270) oklch(0.168 0.008 270) oklch(0.168 0.008 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(255, 255, 255)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(206, 232, 252)",
+        "head": "oklch(0.875 0.061 267)",
+        "reason": "selected cell/row fill -> background-selected (accent-200 light, accent-800 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(43, 43, 43)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(43, 43, 43) rgb(221, 221, 221) rgb(221, 221, 221) rgb(43, 43, 43)",
+        "head": "oklch(0.168 0.008 270) oklch(0.875 0.012 270) oklch(0.875 0.012 270) oklch(0.168 0.008 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(43, 43, 43)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(43, 43, 43)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(109, 147, 183)",
+        "head": "oklch(0.96 0.019 267)",
+        "reason": "opaque cell and header hover fill -> background-accent-subtle (pinned-column safe, #22389)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(233, 233, 236)",
+        "head": "oklch(0.96 0.019 267)",
+        "reason": "opaque cell and header hover fill -> background-accent-subtle (pinned-column safe, #22389)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(29, 46, 98)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "font-size",
+        "base": "13px",
+        "head": "14px",
+        "reason": "grid body font-size -> control-font-size-medium (0.875rem = 14px on 32px medium row)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "grid header and footer bar fill -> background-surface-raised (Epic #22295 rule 18)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "resting grid header label and glyph -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgba(0, 0, 0, 0) rgb(29, 46, 98) rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)",
+        "head": "rgba(0, 0, 0, 0) oklch(0.39 0.034 270) rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.7 0.031 270)",
+        "reason": "resting grid header label and glyph -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "font-size",
+        "base": "13px",
+        "head": "12px",
+        "reason": "grid header button font-size -> font-size-caption (0.75rem = 12px across both schemes)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "font-weight",
+        "base": "400",
+        "head": "600",
+        "reason": "grid header button font-weight -> font-weight-semibold (600 across both schemes)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "resting grid header label and glyph -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(13, 15, 18)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "cell and even-row fill -> background-surface (no zebra in theme Neo, #22389 design read point 2)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244) rgb(29, 46, 98) rgb(29, 46, 98) rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270) oklch(0.39 0.034 270) oklch(0.39 0.034 270) oklch(0.96 0.004 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(29, 46, 98) rgb(240, 241, 244) rgb(240, 241, 244)",
+        "head": "oklch(0.39 0.034 270) oklch(0.96 0.004 270) oklch(0.96 0.004 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(48, 67, 132)",
+        "head": "oklch(0.39 0.14 267)",
+        "reason": "selected cell/row fill -> background-selected (accent-200 light, accent-800 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(255, 255, 255) rgb(29, 46, 98) rgb(29, 46, 98) rgb(255, 255, 255)",
+        "head": "oklch(0.96 0.004 270) oklch(0.39 0.034 270) oklch(0.39 0.034 270) oklch(0.96 0.004 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(255, 255, 255)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(67, 93, 177)",
+        "head": "oklch(0.28 0.095 267)",
+        "reason": "opaque cell and header hover fill -> background-accent-subtle (pinned-column safe, #22389)"
+    },
+    {
+        "component": "grid",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.28 0.095 267)",
+        "reason": "opaque cell and header hover fill -> background-accent-subtle (pinned-column safe, #22389)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(102, 102, 102)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(221, 221, 221)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(102, 102, 102)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-light",
+        "property": "font-size",
+        "base": "13px",
+        "head": "14px",
+        "reason": "grid body font-size -> control-font-size-medium (0.875rem = 14px on 32px medium row)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(102, 102, 102)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-light",
+        "property": "box-shadow",
+        "base": "rgb(221, 221, 221) 0px -1px 0px 0px inset",
+        "head": "oklch(0.875 0.012 270) 0px -1px 0px 0px inset",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-light",
+        "property": "font-size",
+        "base": "11px",
+        "head": "12px",
+        "reason": "grid header button font-size -> font-size-caption (0.75rem = 12px across both schemes)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(29, 46, 98)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "property": "font-size",
+        "base": "13px",
+        "head": "14px",
+        "reason": "grid body font-size -> control-font-size-medium (0.875rem = 14px on 32px medium row)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "grid body, header-hover, footer, and selected text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "property": "box-shadow",
+        "base": "rgb(29, 46, 98) 0px -1px 0px 0px inset",
+        "head": "oklch(0.39 0.034 270) 0px -1px 0px 0px inset",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "property": "font-size",
+        "base": "13px",
+        "head": "12px",
+        "reason": "grid header button font-size -> font-size-caption (0.75rem = 12px across both schemes)"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "property": "font-weight",
+        "base": "400",
+        "head": "600",
+        "reason": "grid header button font-weight -> font-weight-semibold (600 across both schemes)"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "oklch(0.28 0.095 267)",
+        "head": "oklch(0.39 0.14 267)",
+        "reason": "background-selected in dark steps from accent-900 to accent-800 (1.49:1 on accent-subtle, Epic #22295 rule 15 / #22389 design read point 1)"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "oklch(0.28 0.095 267)",
+        "head": "oklch(0.39 0.14 267)",
+        "reason": "background-selected in dark steps from accent-900 to accent-800 (1.49:1 on accent-subtle, Epic #22295 rule 15 / #22389 design read point 1)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "cell and even-row fill -> background-surface (no zebra in theme Neo, #22389 design read point 2)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0) rgb(221, 221, 221) rgb(221, 221, 221) rgb(0, 0, 0)",
+        "head": "rgb(0, 0, 0) oklch(0.875 0.012 270) oklch(0.875 0.012 270) rgb(0, 0, 0)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "property": "box-shadow",
+        "base": "rgb(221, 221, 221) 0px -1px 0px 0px inset",
+        "head": "oklch(0.875 0.012 270) 0px -1px 0px 0px inset",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(13, 15, 18)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "cell and even-row fill -> background-surface (no zebra in theme Neo, #22389 design read point 2)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244) rgb(29, 46, 98) rgb(29, 46, 98) rgb(240, 241, 244)",
+        "head": "rgb(240, 241, 244) oklch(0.39 0.034 270) oklch(0.39 0.034 270) rgb(240, 241, 244)",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "property": "box-shadow",
+        "base": "rgb(29, 46, 98) 0px -1px 0px 0px inset",
+        "head": "oklch(0.39 0.034 270) 0px -1px 0px 0px inset",
+        "reason": "grid container and header seam borders -> border-default (and inherited currentColor border sides -> text-default)"
+    }
+]
