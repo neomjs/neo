@@ -1,0 +1,2274 @@
+{
+  "page": "examples/form/checkout/index.html",
+  "source": "Normal composed Checkout; application page loaded only the repository build",
+  "injectedStylesheets": 0,
+  "materialImplementation": {
+    "resources/css/theme-material/form/field/Text.css": "203de19a6314a21b16c8088d25a88b3f7da39ac732e80629e53ab9096921acf7",
+    "resources/css/theme-base/form/field/Text.css": "d160c9d707b6d454f27686518ab64e4b54f09c8e0a8d2f5bfb4cd6f002b2428a",
+    "resources/css/src/form/field/Text.css": "a8ba1b7b9a73f576e6fbb0c77292b6d54f1fa6f3bd97741441ad3d00946184d8",
+    "resources/css/src/form/field/trigger/Base.css": "50c4bb1e8f337d1e4bd4d2abf640d2be49b5810f3764314cea62d02655afc7fc",
+    "dist/development/css/src/form/field/trigger/Base.css": "02277415b799cedfedd4ae2f3c8a59ccaee6f08f8b26a6f0aa90ec8af7ca5ea2",
+    "dist/development/css/theme-material/form/field/Text.css": "1313e19335fadbc229b1087529e0f6334b3e09b08cf62dfce4ae094281f6efda",
+    "dist/development/css/src/form/field/Text.css": "156af8f3f16b489b7132500bcff7daca52b9de4ead466c15e4789069ce19650e"
+  },
+  "modes": {
+    "light": {
+      "branchAlone": {
+        "label": "Full name",
+        "value": "",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+        "focused": false,
+        "indicator": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "rgb(0, 0, 0)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.496 0.012 305.2)",
+            "0px solid oklch(0.496 0.012 305.2)",
+            "1px solid oklch(0.496 0.012 305.2)",
+            "0px solid oklch(0.496 0.012 305.2)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "oklch(0.187 0.012 300.4)",
+          "height": 55,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.405 0.01 301.4)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-textfield-1",
+        "inputId": "neo-textfield-1__input"
+      },
+      "rest": {
+        "label": "Full name",
+        "value": "",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+        "focused": false,
+        "indicator": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "rgb(0, 0, 0)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.496 0.012 305.2)",
+            "0px solid oklch(0.496 0.012 305.2)",
+            "1px solid oklch(0.496 0.012 305.2)",
+            "0px solid oklch(0.496 0.012 305.2)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "oklch(0.187 0.012 300.4)",
+          "height": 55,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.405 0.01 301.4)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-textfield-1",
+        "inputId": "neo-textfield-1__input"
+      },
+      "restCountry": {
+        "label": "Country",
+        "value": "Germany",
+        "type": "wrapper",
+        "fieldClasses": "neo-countryfield neo-combobox neo-pickerfield neo-textfield label-top neo-has-content neo-not-editable",
+        "focused": false,
+        "indicator": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "rgb(0, 0, 0)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.496 0.012 305.2)",
+            "0px solid oklch(0.496 0.012 305.2)",
+            "1px solid oklch(0.496 0.012 305.2)",
+            "0px solid oklch(0.496 0.012 305.2)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.187 0.012 300.4)",
+          "height": 55,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.405 0.01 301.4)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-countryfield-1",
+        "inputId": "neo-countryfield-1__input"
+      },
+      "restControls": [
+        {
+          "label": "Full name",
+          "value": "",
+          "type": "wrapper",
+          "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.916 0.014 314.5)",
+            "color": "rgb(0, 0, 0)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)",
+              "1px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "oklch(0.916 0.014 314.5)",
+            "color": "oklch(0.187 0.012 300.4)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.405 0.01 301.4)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-textfield-1",
+          "inputId": "neo-textfield-1__input"
+        },
+        {
+          "label": "Country",
+          "value": "Germany",
+          "type": "wrapper",
+          "fieldClasses": "neo-countryfield neo-combobox neo-pickerfield neo-textfield label-top neo-has-content neo-not-editable",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.916 0.014 314.5)",
+            "color": "rgb(0, 0, 0)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)",
+              "1px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.187 0.012 300.4)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.405 0.01 301.4)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-countryfield-1",
+          "inputId": "neo-countryfield-1__input"
+        },
+        {
+          "label": "Postal code",
+          "value": "",
+          "type": "wrapper",
+          "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.916 0.014 314.5)",
+            "color": "rgb(0, 0, 0)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)",
+              "1px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "oklch(0.916 0.014 314.5)",
+            "color": "oklch(0.187 0.012 300.4)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.405 0.01 301.4)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-zipcodefield-1",
+          "inputId": "neo-zipcodefield-1__input"
+        },
+        {
+          "label": "Phone",
+          "value": "",
+          "type": "wrapper",
+          "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.916 0.014 314.5)",
+            "color": "rgb(0, 0, 0)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)",
+              "1px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "oklch(0.916 0.014 314.5)",
+            "color": "oklch(0.187 0.012 300.4)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.405 0.01 301.4)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-phonefield-1",
+          "inputId": "neo-phonefield-1__input"
+        },
+        {
+          "label": "Amount (EUR)",
+          "value": "",
+          "type": "wrapper",
+          "fieldClasses": "neo-numberfield neo-textfield label-top neo-has-content neo-is-dirty",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.916 0.014 314.5)",
+            "color": "rgb(0, 0, 0)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)",
+              "1px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "oklch(0.916 0.014 314.5)",
+            "color": "oklch(0.187 0.012 300.4)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.405 0.01 301.4)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-currencyfield-1",
+          "inputId": "neo-currencyfield-1__input"
+        },
+        {
+          "label": "IBAN",
+          "value": "",
+          "type": "wrapper",
+          "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.916 0.014 314.5)",
+            "color": "rgb(0, 0, 0)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)",
+              "1px solid oklch(0.496 0.012 305.2)",
+              "0px solid oklch(0.496 0.012 305.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "oklch(0.916 0.014 314.5)",
+            "color": "oklch(0.187 0.012 300.4)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)",
+              "0px none oklch(0.187 0.012 300.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.405 0.01 301.4)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)",
+              "0px none oklch(0.405 0.01 301.4)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-ibanfield-1",
+          "inputId": "neo-ibanfield-1__input"
+        }
+      ],
+      "validTypedName": {
+        "label": "Full name",
+        "value": "Ada Meyer",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-hovered neo-focus",
+        "focused": true,
+        "indicator": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "rgb(0, 0, 0)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)",
+            "2px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "oklch(0.187 0.012 300.4)",
+          "height": 54,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.405 0.01 301.4)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-textfield-1",
+        "inputId": "neo-textfield-1__input"
+      },
+      "focusedCountry": {
+        "label": "Country",
+        "value": "Germany",
+        "type": "wrapper",
+        "fieldClasses": "neo-countryfield neo-combobox neo-pickerfield neo-textfield label-top neo-has-content neo-not-editable neo-focus",
+        "focused": true,
+        "indicator": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "rgb(0, 0, 0)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)",
+            "2px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.187 0.012 300.4)",
+          "height": 54,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.405 0.01 301.4)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-countryfield-1",
+        "inputId": "neo-countryfield-1__input"
+      },
+      "invalidPostal": {
+        "label": "Postal code",
+        "value": "1010",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-invalid neo-is-touched",
+        "focused": false,
+        "indicator": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "rgb(0, 0, 0)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.496 0.176 28.7)",
+            "0px solid oklch(0.496 0.176 28.7)",
+            "1px solid oklch(0.496 0.176 28.7)",
+            "0px solid oklch(0.496 0.176 28.7)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "oklch(0.187 0.012 300.4)",
+          "height": 55,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.405 0.01 301.4)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "error": "Not a valid zip code",
+        "errorStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.496 0.176 28.7)",
+          "height": 13,
+          "fontFamily": "Times",
+          "fontSize": "11px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "id": "neo-zipcodefield-1",
+        "inputId": "neo-zipcodefield-1__input"
+      },
+      "focusedPhone": {
+        "label": "Phone",
+        "value": "",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-focus",
+        "focused": true,
+        "indicator": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "rgb(0, 0, 0)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)",
+            "2px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "oklch(0.187 0.012 300.4)",
+          "height": 54,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)",
+            "0px none oklch(0.187 0.012 300.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.405 0.01 301.4)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-phonefield-1",
+        "inputId": "neo-phonefield-1__input"
+      },
+      "inputFonts": [
+        {
+          "familyName": "Roboto",
+          "postScriptName": "Roboto-Regular",
+          "isCustomFont": true,
+          "glyphCount": 14
+        }
+      ],
+      "invalidHovered": {
+        "label": "Postal code",
+        "value": "1010",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-invalid neo-is-touched neo-hovered",
+        "focused": false,
+        "indicator": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "rgb(0, 0, 0)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.496 0.012 305.2)",
+            "0px solid oklch(0.496 0.012 305.2)",
+            "1px solid oklch(0.496 0.012 305.2)",
+            "0px solid oklch(0.496 0.012 305.2)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "oklch(0.187 0.012 300.4)",
+          "height": 55,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.405 0.01 301.4)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "error": "Not a valid zip code",
+        "errorStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.496 0.176 28.7)",
+          "height": 13,
+          "fontFamily": "Times",
+          "fontSize": "11px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "id": "neo-zipcodefield-1",
+        "inputId": "neo-zipcodefield-1__input"
+      },
+      "invalidFocused": {
+        "label": "Postal code",
+        "value": "1010",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-invalid neo-is-touched neo-focus",
+        "focused": true,
+        "indicator": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "rgb(0, 0, 0)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)",
+            "2px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "oklch(0.187 0.012 300.4)",
+          "height": 54,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.405 0.01 301.4)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "error": "Not a valid zip code",
+        "errorStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.496 0.176 28.7)",
+          "height": 13,
+          "fontFamily": "Times",
+          "fontSize": "11px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)",
+            "0px none oklch(0.496 0.176 28.7)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "id": "neo-zipcodefield-1",
+        "inputId": "neo-zipcodefield-1__input"
+      },
+      "focusedDirect": {
+        "label": "Full name",
+        "value": "Ada Meyer",
+        "type": "direct",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-is-touched neo-hovered neo-focus",
+        "focused": true,
+        "indicator": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "oklch(0.187 0.012 300.4)",
+          "height": 56,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)",
+            "2px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.916 0.014 314.5)",
+          "color": "oklch(0.187 0.012 300.4)",
+          "height": 56,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)",
+            "2px solid oklch(0.496 0.13 293.7)",
+            "0px solid oklch(0.496 0.13 293.7)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.405 0.01 301.4)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)",
+            "0px none oklch(0.405 0.01 301.4)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-textfield-1",
+        "inputId": "neo-textfield-1__input"
+      },
+      "directInputCondition": "Set Full name clearable=false via its real App Worker config after capturing stock checkout states",
+      "inline": {
+        "fill": "oklch(0.916 0.014 314.5)",
+        "height": 56,
+        "width": 374,
+        "segments": [
+          {
+            "cls": "neo-left-border",
+            "edges": [
+              "0px solid oklch(0.496 0.13 293.7)",
+              "0px none rgb(0, 0, 0)",
+              "2px solid oklch(0.496 0.13 293.7)",
+              "0px solid oklch(0.496 0.13 293.7)"
+            ],
+            "width": 11
+          },
+          {
+            "cls": "neo-center-border neo-float-above",
+            "edges": [
+              "0px solid rgba(0, 0, 0, 0)",
+              "0px none rgb(0, 0, 0)",
+              "2px solid oklch(0.496 0.13 293.7)",
+              "0px none rgb(0, 0, 0)"
+            ],
+            "width": 47
+          },
+          {
+            "cls": "neo-right-border",
+            "edges": [
+              "0px solid oklch(0.496 0.13 293.7)",
+              "0px solid oklch(0.496 0.13 293.7)",
+              "2px solid oklch(0.496 0.13 293.7)",
+              "0px none rgb(0, 0, 0)"
+            ],
+            "width": 316
+          }
+        ]
+      }
+    },
+    "dark": {
+      "branchAlone": {
+        "label": "Full name",
+        "value": "",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+        "focused": false,
+        "indicator": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "rgb(255, 255, 255)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.745 0.013 313.2)",
+            "0px solid oklch(0.745 0.013 313.2)",
+            "1px solid oklch(0.745 0.013 313.2)",
+            "0px solid oklch(0.745 0.013 313.2)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "oklch(0.916 0.014 314.5)",
+          "height": 55,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.012 313.3)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-textfield-1",
+        "inputId": "neo-textfield-1__input"
+      },
+      "rest": {
+        "label": "Full name",
+        "value": "",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+        "focused": false,
+        "indicator": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "rgb(255, 255, 255)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.745 0.013 313.2)",
+            "0px solid oklch(0.745 0.013 313.2)",
+            "1px solid oklch(0.745 0.013 313.2)",
+            "0px solid oklch(0.745 0.013 313.2)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "oklch(0.916 0.014 314.5)",
+          "height": 55,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.012 313.3)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-textfield-1",
+        "inputId": "neo-textfield-1__input"
+      },
+      "restCountry": {
+        "label": "Country",
+        "value": "Germany",
+        "type": "wrapper",
+        "fieldClasses": "neo-countryfield neo-combobox neo-pickerfield neo-textfield label-top neo-has-content neo-not-editable",
+        "focused": false,
+        "indicator": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "rgb(255, 255, 255)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.745 0.013 313.2)",
+            "0px solid oklch(0.745 0.013 313.2)",
+            "1px solid oklch(0.745 0.013 313.2)",
+            "0px solid oklch(0.745 0.013 313.2)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.916 0.014 314.5)",
+          "height": 55,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.012 313.3)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-countryfield-1",
+        "inputId": "neo-countryfield-1__input"
+      },
+      "restControls": [
+        {
+          "label": "Full name",
+          "value": "",
+          "type": "wrapper",
+          "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.33 0.012 298.9)",
+            "color": "rgb(255, 255, 255)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)",
+              "1px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "oklch(0.33 0.012 298.9)",
+            "color": "oklch(0.916 0.014 314.5)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.835 0.012 313.3)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-textfield-1",
+          "inputId": "neo-textfield-1__input"
+        },
+        {
+          "label": "Country",
+          "value": "Germany",
+          "type": "wrapper",
+          "fieldClasses": "neo-countryfield neo-combobox neo-pickerfield neo-textfield label-top neo-has-content neo-not-editable",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.33 0.012 298.9)",
+            "color": "rgb(255, 255, 255)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)",
+              "1px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.916 0.014 314.5)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.835 0.012 313.3)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-countryfield-1",
+          "inputId": "neo-countryfield-1__input"
+        },
+        {
+          "label": "Postal code",
+          "value": "",
+          "type": "wrapper",
+          "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.33 0.012 298.9)",
+            "color": "rgb(255, 255, 255)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)",
+              "1px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "oklch(0.33 0.012 298.9)",
+            "color": "oklch(0.916 0.014 314.5)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.835 0.012 313.3)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-zipcodefield-1",
+          "inputId": "neo-zipcodefield-1__input"
+        },
+        {
+          "label": "Phone",
+          "value": "",
+          "type": "wrapper",
+          "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.33 0.012 298.9)",
+            "color": "rgb(255, 255, 255)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)",
+              "1px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "oklch(0.33 0.012 298.9)",
+            "color": "oklch(0.916 0.014 314.5)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.835 0.012 313.3)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-phonefield-1",
+          "inputId": "neo-phonefield-1__input"
+        },
+        {
+          "label": "Amount (EUR)",
+          "value": "",
+          "type": "wrapper",
+          "fieldClasses": "neo-numberfield neo-textfield label-top neo-has-content neo-is-dirty",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.33 0.012 298.9)",
+            "color": "rgb(255, 255, 255)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)",
+              "1px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "oklch(0.33 0.012 298.9)",
+            "color": "oklch(0.916 0.014 314.5)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.835 0.012 313.3)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-currencyfield-1",
+          "inputId": "neo-currencyfield-1__input"
+        },
+        {
+          "label": "IBAN",
+          "value": "",
+          "type": "wrapper",
+          "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty",
+          "focused": false,
+          "indicator": {
+            "background": "oklch(0.33 0.012 298.9)",
+            "color": "rgb(255, 255, 255)",
+            "height": 56,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)",
+              "1px solid oklch(0.745 0.013 313.2)",
+              "0px solid oklch(0.745 0.013 313.2)"
+            ],
+            "radius": "4px 4px 0px 0px",
+            "shadow": "none"
+          },
+          "input": {
+            "background": "oklch(0.33 0.012 298.9)",
+            "color": "oklch(0.916 0.014 314.5)",
+            "height": 55,
+            "fontFamily": "Roboto, sans-serif",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "17.5px",
+            "padding": "0px 16px",
+            "border": [
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)",
+              "0px none oklch(0.916 0.014 314.5)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "labelStyle": {
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "oklch(0.835 0.012 313.3)",
+            "height": 18,
+            "fontFamily": "Times",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "normal",
+            "padding": "0px",
+            "border": [
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)",
+              "0px none oklch(0.835 0.012 313.3)"
+            ],
+            "radius": "0px",
+            "shadow": "none"
+          },
+          "errorStyle": null,
+          "id": "neo-ibanfield-1",
+          "inputId": "neo-ibanfield-1__input"
+        }
+      ],
+      "validTypedName": {
+        "label": "Full name",
+        "value": "Ada Meyer",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-hovered neo-focus",
+        "focused": true,
+        "indicator": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "rgb(255, 255, 255)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)",
+            "2px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "oklch(0.916 0.014 314.5)",
+          "height": 54,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.012 313.3)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-textfield-1",
+        "inputId": "neo-textfield-1__input"
+      },
+      "focusedCountry": {
+        "label": "Country",
+        "value": "Germany",
+        "type": "wrapper",
+        "fieldClasses": "neo-countryfield neo-combobox neo-pickerfield neo-textfield label-top neo-has-content neo-not-editable neo-focus",
+        "focused": true,
+        "indicator": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "rgb(255, 255, 255)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)",
+            "2px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.916 0.014 314.5)",
+          "height": 54,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.012 313.3)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-countryfield-1",
+        "inputId": "neo-countryfield-1__input"
+      },
+      "invalidPostal": {
+        "label": "Postal code",
+        "value": "1010",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-invalid neo-is-touched",
+        "focused": false,
+        "indicator": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "rgb(255, 255, 255)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.745 0.113 23)",
+            "0px solid oklch(0.745 0.113 23)",
+            "1px solid oklch(0.745 0.113 23)",
+            "0px solid oklch(0.745 0.113 23)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "oklch(0.916 0.014 314.5)",
+          "height": 55,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.745 0.113 23)",
+            "0px none oklch(0.745 0.113 23)",
+            "0px none oklch(0.745 0.113 23)",
+            "0px none oklch(0.745 0.113 23)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.012 313.3)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "error": "Not a valid zip code",
+        "errorStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.067 22)",
+          "height": 13,
+          "fontFamily": "Times",
+          "fontSize": "11px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.067 22)",
+            "0px none oklch(0.835 0.067 22)",
+            "0px none oklch(0.835 0.067 22)",
+            "0px none oklch(0.835 0.067 22)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "id": "neo-zipcodefield-1",
+        "inputId": "neo-zipcodefield-1__input"
+      },
+      "focusedPhone": {
+        "label": "Phone",
+        "value": "",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-focus",
+        "focused": true,
+        "indicator": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "rgb(255, 255, 255)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)",
+            "2px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "oklch(0.916 0.014 314.5)",
+          "height": 54,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)",
+            "0px none oklch(0.916 0.014 314.5)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.012 313.3)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-phonefield-1",
+        "inputId": "neo-phonefield-1__input"
+      },
+      "inputFonts": [
+        {
+          "familyName": "Roboto",
+          "postScriptName": "Roboto-Regular",
+          "isCustomFont": true,
+          "glyphCount": 14
+        }
+      ],
+      "invalidHovered": {
+        "label": "Postal code",
+        "value": "1010",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-invalid neo-is-touched neo-hovered",
+        "focused": false,
+        "indicator": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "rgb(255, 255, 255)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.745 0.013 313.2)",
+            "0px solid oklch(0.745 0.013 313.2)",
+            "1px solid oklch(0.745 0.013 313.2)",
+            "0px solid oklch(0.745 0.013 313.2)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "oklch(0.916 0.014 314.5)",
+          "height": 55,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.745 0.113 23)",
+            "0px none oklch(0.745 0.113 23)",
+            "0px none oklch(0.745 0.113 23)",
+            "0px none oklch(0.745 0.113 23)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.012 313.3)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "error": "Not a valid zip code",
+        "errorStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.067 22)",
+          "height": 13,
+          "fontFamily": "Times",
+          "fontSize": "11px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.067 22)",
+            "0px none oklch(0.835 0.067 22)",
+            "0px none oklch(0.835 0.067 22)",
+            "0px none oklch(0.835 0.067 22)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "id": "neo-zipcodefield-1",
+        "inputId": "neo-zipcodefield-1__input"
+      },
+      "invalidFocused": {
+        "label": "Postal code",
+        "value": "1010",
+        "type": "wrapper",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-invalid neo-is-touched neo-focus",
+        "focused": true,
+        "indicator": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "rgb(255, 255, 255)",
+          "height": 56,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)",
+            "2px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "oklch(0.916 0.014 314.5)",
+          "height": 54,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px none oklch(0.745 0.113 23)",
+            "0px none oklch(0.745 0.113 23)",
+            "0px none oklch(0.745 0.113 23)",
+            "0px none oklch(0.745 0.113 23)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.012 313.3)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "error": "Not a valid zip code",
+        "errorStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.067 22)",
+          "height": 13,
+          "fontFamily": "Times",
+          "fontSize": "11px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.067 22)",
+            "0px none oklch(0.835 0.067 22)",
+            "0px none oklch(0.835 0.067 22)",
+            "0px none oklch(0.835 0.067 22)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "id": "neo-zipcodefield-1",
+        "inputId": "neo-zipcodefield-1__input"
+      },
+      "focusedDirect": {
+        "label": "Full name",
+        "value": "Ada Meyer",
+        "type": "direct",
+        "fieldClasses": "neo-textfield label-top neo-has-content neo-is-dirty neo-is-touched neo-hovered neo-focus",
+        "focused": true,
+        "indicator": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "oklch(0.916 0.014 314.5)",
+          "height": 56,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)",
+            "2px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "input": {
+          "background": "oklch(0.33 0.012 298.9)",
+          "color": "oklch(0.916 0.014 314.5)",
+          "height": 56,
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "17.5px",
+          "padding": "0px 16px",
+          "border": [
+            "0px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)",
+            "2px solid oklch(0.835 0.095 298)",
+            "0px solid oklch(0.835 0.095 298)"
+          ],
+          "radius": "4px 4px 0px 0px",
+          "shadow": "none"
+        },
+        "labelStyle": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "oklch(0.835 0.012 313.3)",
+          "height": 18,
+          "fontFamily": "Times",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "border": [
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)",
+            "0px none oklch(0.835 0.012 313.3)"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "errorStyle": null,
+        "id": "neo-textfield-1",
+        "inputId": "neo-textfield-1__input"
+      },
+      "directInputCondition": "Set Full name clearable=false via its real App Worker config after capturing stock checkout states",
+      "inline": {
+        "fill": "oklch(0.33 0.012 298.9)",
+        "height": 56,
+        "width": 374,
+        "segments": [
+          {
+            "cls": "neo-left-border",
+            "edges": [
+              "0px solid oklch(0.835 0.095 298)",
+              "0px none rgb(255, 255, 255)",
+              "2px solid oklch(0.835 0.095 298)",
+              "0px solid oklch(0.835 0.095 298)"
+            ],
+            "width": 11
+          },
+          {
+            "cls": "neo-center-border neo-float-above",
+            "edges": [
+              "0px solid rgba(0, 0, 0, 0)",
+              "0px none rgb(255, 255, 255)",
+              "2px solid oklch(0.835 0.095 298)",
+              "0px none rgb(255, 255, 255)"
+            ],
+            "width": 47
+          },
+          {
+            "cls": "neo-right-border",
+            "edges": [
+              "0px solid oklch(0.835 0.095 298)",
+              "0px solid oklch(0.835 0.095 298)",
+              "2px solid oklch(0.835 0.095 298)",
+              "0px none rgb(255, 255, 255)"
+            ],
+            "width": 316
+          }
+        ]
+      }
+    }
+  },
+  "errors": [],
+  "browser": "158.0.8127.38"
+}

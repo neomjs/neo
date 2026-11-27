@@ -1,0 +1,2526 @@
+{
+  "browser": "158.0.8127.38",
+  "method": "Paused actual transitions at measured times after native keyboard focus and blur; color runs measured from control PNG bottom scanlines.",
+  "arms": [
+    {
+      "shade": "dark",
+      "motion": "no-preference",
+      "shape": "wrapper",
+      "phases": [
+        {
+          "direction": "focus",
+          "fraction": 0,
+          "extent": "0%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 50%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 50%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.15,
+          "extent": "35.9564%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 14.0436%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 85.9564%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 270,
+              "first": 52,
+              "last": 321,
+              "width": 366
+            },
+            {
+              "count": 270,
+              "first": 52,
+              "last": 321,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.4,
+          "extent": "45.8844%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 4.1156%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 95.8844%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 346,
+              "first": 14,
+              "last": 359,
+              "width": 366
+            },
+            {
+              "count": 346,
+              "first": 14,
+              "last": 359,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 1,
+          "extent": "50%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 0%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 100%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0,
+          "extent": "50%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 0%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 100%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.15,
+          "extent": "14.0436%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 35.9564%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 64.0436%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 106,
+              "first": 134,
+              "last": 239,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.4,
+          "extent": "4.11563%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 45.8844%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 54.1156%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 30,
+              "first": 172,
+              "last": 201,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 1,
+          "extent": "0%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 50%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 50%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "shade": "dark",
+      "motion": "no-preference",
+      "shape": "plain",
+      "phases": [
+        {
+          "direction": "focus",
+          "fraction": 0,
+          "extent": "0%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 50%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 50%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.15,
+          "extent": "35.9564%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 14.0436%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 85.9564%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 270,
+              "first": 52,
+              "last": 321,
+              "width": 366
+            },
+            {
+              "count": 270,
+              "first": 52,
+              "last": 321,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.4,
+          "extent": "45.8844%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 4.1156%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 95.8844%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 346,
+              "first": 14,
+              "last": 359,
+              "width": 366
+            },
+            {
+              "count": 346,
+              "first": 14,
+              "last": 359,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 1,
+          "extent": "50%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 0%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 100%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0,
+          "extent": "50%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 0%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 100%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.15,
+          "extent": "14.0436%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 35.9564%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 64.0436%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 106,
+              "first": 134,
+              "last": 239,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.4,
+          "extent": "4.11563%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 45.8844%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 54.1156%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 30,
+              "first": 172,
+              "last": 201,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 1,
+          "extent": "0%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.745 0.013 313.2) 50%, oklch(0.835 0.095 298) 0px, oklch(0.835 0.095 298) 50%, oklch(0.745 0.013 313.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "shade": "dark",
+      "motion": "no-preference",
+      "shape": "inline-wrapper",
+      "phases": [
+        {
+          "direction": "focus",
+          "fraction": 0,
+          "extent": "0%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(1, 0, 0, 1, 0, 0)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.05,
+          "extent": "22.385%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.996808, 0, 0, 0.996808, 0.042563, -0.112154)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 168,
+              "first": 103,
+              "last": 270,
+              "width": 366
+            },
+            {
+              "count": 168,
+              "first": 103,
+              "last": 270,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.1,
+          "extent": "31.0692%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.985021, 0, 0, 0.985021, 0.199723, -0.526271)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 232,
+              "first": 71,
+              "last": 302,
+              "width": 366
+            },
+            {
+              "count": 232,
+              "first": 71,
+              "last": 302,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.15,
+          "extent": "35.9564%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.959816, 0, 0, 0.959816, 0.535787, -1.4118)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 268,
+              "first": 53,
+              "last": 320,
+              "width": 366
+            },
+            {
+              "count": 268,
+              "first": 53,
+              "last": 320,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.2,
+          "extent": "39.216%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.916584, 0, 0, 0.916584, 1.11221, -2.93068)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 294,
+              "first": 40,
+              "last": 333,
+              "width": 366
+            },
+            {
+              "count": 294,
+              "first": 40,
+              "last": 333,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.25,
+          "extent": "41.5765%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.862824, 0, 0, 0.862824, 1.82901, -4.81943)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 310,
+              "first": 32,
+              "last": 341,
+              "width": 366
+            },
+            {
+              "count": 310,
+              "first": 32,
+              "last": 341,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.3,
+          "extent": "43.3684%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.815922, 0, 0, 0.815922, 2.45438, -6.46729)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 324,
+              "first": 25,
+              "last": 348,
+              "width": 366
+            },
+            {
+              "count": 324,
+              "first": 25,
+              "last": 348,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.35,
+          "extent": "44.7689%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.78101, 0, 0, 0.78101, 2.91987, -7.69386)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 334,
+              "first": 20,
+              "last": 353,
+              "width": 366
+            },
+            {
+              "count": 334,
+              "first": 20,
+              "last": 353,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.4,
+          "extent": "45.8844%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.75567, 0, 0, 0.75567, 3.25773, -8.58411)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 344,
+              "first": 15,
+              "last": 358,
+              "width": 366
+            },
+            {
+              "count": 344,
+              "first": 15,
+              "last": 358,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.45,
+          "extent": "46.7832%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.73721, 0, 0, 0.73721, 3.50387, -9.2327)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 350,
+              "first": 12,
+              "last": 361,
+              "width": 366
+            },
+            {
+              "count": 350,
+              "first": 12,
+              "last": 361,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.5,
+          "extent": "47.5124%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.723767, 0, 0, 0.723767, 3.6831, -9.70498)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 356,
+              "first": 9,
+              "last": 364,
+              "width": 366
+            },
+            {
+              "count": 356,
+              "first": 9,
+              "last": 364,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.55,
+          "extent": "48.1051%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.714114, 0, 0, 0.714114, 3.81181, -10.0441)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 360,
+              "first": 7,
+              "last": 366,
+              "width": 366
+            },
+            {
+              "count": 360,
+              "first": 7,
+              "last": 366,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.6,
+          "extent": "48.5861%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.70742, 0, 0, 0.70742, 3.90107, -10.2793)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 364,
+              "first": 5,
+              "last": 368,
+              "width": 366
+            },
+            {
+              "count": 364,
+              "first": 5,
+              "last": 368,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.65,
+          "extent": "48.9741%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.7031, 0, 0, 0.7031, 3.95867, -10.4311)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.7,
+          "extent": "49.2834%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.700732, 0, 0, 0.700732, 3.99024, -10.5143)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.75,
+          "extent": "49.5255%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.7, 0, 0, 0.7, 4, -10.54)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.8,
+          "extent": "49.7098%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.7, 0, 0, 0.7, 4, -10.54)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.85,
+          "extent": "49.8437%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.7, 0, 0, 0.7, 4, -10.54)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.9,
+          "extent": "49.9333%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.7, 0, 0, 0.7, 4, -10.54)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.95,
+          "extent": "49.984%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.7, 0, 0, 0.7, 4, -10.54)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 1,
+          "extent": "50%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.7, 0, 0, 0.7, 4, -10.54)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0,
+          "extent": "50%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.7, 0, 0, 0.7, 4, -10.54)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.05,
+          "extent": "27.615%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.703192, 0, 0, 0.703192, 3.95744, -10.4278)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 206,
+              "first": 84,
+              "last": 289,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.1,
+          "extent": "18.9308%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.714979, 0, 0, 0.714979, 3.80028, -10.0137)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 142,
+              "first": 116,
+              "last": 257,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.15,
+          "extent": "14.0436%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.740184, 0, 0, 0.740184, 3.46421, -9.1282)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 106,
+              "first": 134,
+              "last": 239,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.2,
+          "extent": "10.784%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.783416, 0, 0, 0.783416, 2.88779, -7.60932)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 80,
+              "first": 147,
+              "last": 226,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.25,
+          "extent": "8.42351%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.837176, 0, 0, 0.837176, 2.17099, -5.72057)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 64,
+              "first": 155,
+              "last": 218,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.3,
+          "extent": "6.63164%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.884078, 0, 0, 0.884078, 1.54562, -4.07271)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 50,
+              "first": 162,
+              "last": 211,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.35,
+          "extent": "5.23107%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.91899, 0, 0, 0.91899, 1.08013, -2.84614)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 40,
+              "first": 167,
+              "last": 206,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.4,
+          "extent": "4.11563%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.94433, 0, 0, 0.94433, 0.742272, -1.95589)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 30,
+              "first": 172,
+              "last": 201,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.45,
+          "extent": "3.21675%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.96279, 0, 0, 0.96279, 0.496128, -1.3073)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 24,
+              "first": 175,
+              "last": 198,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.5,
+          "extent": "2.48763%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.976233, 0, 0, 0.976233, 0.316897, -0.835023)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 18,
+              "first": 178,
+              "last": 195,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.55,
+          "extent": "1.89487%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.985886, 0, 0, 0.985886, 0.188193, -0.495889)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 14,
+              "first": 180,
+              "last": 193,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.6,
+          "extent": "1.41387%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.99258, 0, 0, 0.99258, 0.0989299, -0.26068)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 10,
+              "first": 182,
+              "last": 191,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.65,
+          "extent": "1.02595%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.9969, 0, 0, 0.9969, 0.0413325, -0.108911)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 8,
+              "first": 183,
+              "last": 190,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.7,
+          "extent": "0.716631%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.999268, 0, 0, 0.999268, 0.0097612, -0.0257208)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 6,
+              "first": 184,
+              "last": 189,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.75,
+          "extent": "0.474452%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 4,
+              "first": 185,
+              "last": 188,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.8,
+          "extent": "0.290196%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 2,
+              "first": 186,
+              "last": 187,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.85,
+          "extent": "0.156343%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 2,
+              "first": 186,
+              "last": 187,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.9,
+          "extent": "0.0666827%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.95,
+          "extent": "0.0160265%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 1,
+          "extent": "0%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "shade": "dark",
+      "motion": "no-preference",
+      "shape": "inline-plain",
+      "phases": [
+        {
+          "direction": "focus",
+          "fraction": 0,
+          "extent": "0%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(1, 0, 0, 1, 0, 0)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.15,
+          "extent": "35.9564%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.959816, 0, 0, 0.959816, 0.535787, -1.4118)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 268,
+              "first": 53,
+              "last": 320,
+              "width": 366
+            },
+            {
+              "count": 268,
+              "first": 53,
+              "last": 320,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.4,
+          "extent": "45.8844%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.75567, 0, 0, 0.75567, 3.25773, -8.58411)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 344,
+              "first": 15,
+              "last": 358,
+              "width": 366
+            },
+            {
+              "count": 344,
+              "first": 15,
+              "last": 358,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 1,
+          "extent": "50%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "matrix(0.7, 0, 0, 0.7, 4, -10.54)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0,
+          "extent": "50%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.7, 0, 0, 0.7, 4, -10.54)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.15,
+          "extent": "14.0436%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.740184, 0, 0, 0.740184, 3.46421, -9.1282)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 106,
+              "first": 134,
+              "last": 239,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.4,
+          "extent": "4.11563%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "matrix(0.94433, 0, 0, 0.94433, 0.742272, -1.95589)",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 30,
+              "first": 172,
+              "last": 201,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 1,
+          "extent": "0%",
+          "duration": "0.2s",
+          "image": "none",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0.15s, 0.15s",
+          "labelEvents": [
+            "transform",
+            "color",
+            "transform",
+            "color"
+          ],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "shade": "light",
+      "motion": "no-preference",
+      "shape": "wrapper",
+      "phases": [
+        {
+          "direction": "focus",
+          "fraction": 0,
+          "extent": "0%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.496 0.012 305.2) 50%, oklch(0.496 0.13 293.7) 0px, oklch(0.496 0.13 293.7) 50%, oklch(0.496 0.012 305.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.15,
+          "extent": "35.9564%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.496 0.012 305.2) 14.0436%, oklch(0.496 0.13 293.7) 0px, oklch(0.496 0.13 293.7) 85.9564%, oklch(0.496 0.012 305.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 270,
+              "first": 52,
+              "last": 321,
+              "width": 366
+            },
+            {
+              "count": 270,
+              "first": 52,
+              "last": 321,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 0.4,
+          "extent": "45.8844%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.496 0.012 305.2) 4.1156%, oklch(0.496 0.13 293.7) 0px, oklch(0.496 0.13 293.7) 95.8844%, oklch(0.496 0.012 305.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 346,
+              "first": 14,
+              "last": 359,
+              "width": 366
+            },
+            {
+              "count": 346,
+              "first": 14,
+              "last": 359,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "focus",
+          "fraction": 1,
+          "extent": "50%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.496 0.012 305.2) 0%, oklch(0.496 0.13 293.7) 0px, oklch(0.496 0.13 293.7) 100%, oklch(0.496 0.012 305.2) 0px)",
+          "events": [
+            "focus"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0,
+          "extent": "50%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.496 0.012 305.2) 0%, oklch(0.496 0.13 293.7) 0px, oklch(0.496 0.13 293.7) 100%, oklch(0.496 0.012 305.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.15,
+          "extent": "14.0436%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.496 0.012 305.2) 35.9564%, oklch(0.496 0.13 293.7) 0px, oklch(0.496 0.13 293.7) 64.0436%, oklch(0.496 0.012 305.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 106,
+              "first": 134,
+              "last": 239,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 0.4,
+          "extent": "4.11563%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.496 0.012 305.2) 45.8844%, oklch(0.496 0.13 293.7) 0px, oklch(0.496 0.13 293.7) 54.1156%, oklch(0.496 0.012 305.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 30,
+              "first": 172,
+              "last": 201,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 1,
+          "extent": "0%",
+          "duration": "0.2s",
+          "image": "linear-gradient(to right, oklch(0.496 0.012 305.2) 50%, oklch(0.496 0.13 293.7) 0px, oklch(0.496 0.13 293.7) 50%, oklch(0.496 0.012 305.2) 0px)",
+          "events": [
+            "focus",
+            "blur"
+          ],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "shade": "dark",
+      "motion": "reduce",
+      "shape": "inline-wrapper",
+      "phases": [
+        {
+          "direction": "focus",
+          "fraction": 1,
+          "extent": "50%",
+          "duration": "0s",
+          "image": "none",
+          "events": [],
+          "labelMatrix": "matrix(0.7, 0, 0, 0.7, 4, -10.54)",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            },
+            {
+              "count": 366,
+              "first": 4,
+              "last": 369,
+              "width": 366
+            }
+          ]
+        },
+        {
+          "direction": "blur",
+          "fraction": 1,
+          "extent": "0%",
+          "duration": "0s",
+          "image": "none",
+          "events": [],
+          "labelMatrix": "none",
+          "labelDuration": "0s",
+          "labelEvents": [],
+          "scanlines": [
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            },
+            {
+              "count": 0,
+              "width": 366
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

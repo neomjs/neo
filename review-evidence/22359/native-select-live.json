@@ -1,0 +1,253 @@
+{
+  "app": "examples/form/field/select",
+  "configOnlyOverride": true,
+  "injectedStylesheets": 0,
+  "modes": {
+    "light": {
+      "rest": {
+        "appearance": "base-select",
+        "dimensions": [
+          300,
+          56
+        ],
+        "background": "oklch(0.916 0.014 314.5)",
+        "color": "oklch(0.187 0.012 300.4)",
+        "font": "Roboto, sans-serif",
+        "padding": "0px 0px 0px 6px",
+        "radius": "4px 4px 0px 0px",
+        "edges": [
+          "0px solid oklch(0.496 0.012 305.2)",
+          "0px solid oklch(0.496 0.012 305.2)",
+          "1px solid oklch(0.496 0.012 305.2)",
+          "0px solid oklch(0.496 0.012 305.2)"
+        ],
+        "pickerBackground": "oklch(0.954 0.015 312.6)",
+        "pickerBorder": "1px solid oklch(0.835 0.012 313.3)",
+        "selectedValue": "string:0",
+        "selectedText": "🍓 Strawberry",
+        "options": [
+          "Select…",
+          "🍋 Lemon",
+          "🍓 Strawberry",
+          "🍎 Apple",
+          "🍇 Grapes"
+        ],
+        "open": false
+      },
+      "focus": {
+        "appearance": "base-select",
+        "dimensions": [
+          300,
+          56
+        ],
+        "background": "oklch(0.916 0.014 314.5)",
+        "color": "oklch(0.187 0.012 300.4)",
+        "font": "Roboto, sans-serif",
+        "padding": "0px 0px 0px 6px",
+        "radius": "4px 4px 0px 0px",
+        "edges": [
+          "0px solid oklch(0.496 0.13 293.7)",
+          "0px solid oklch(0.496 0.13 293.7)",
+          "2px solid oklch(0.496 0.13 293.7)",
+          "0px solid oklch(0.496 0.13 293.7)"
+        ],
+        "pickerBackground": "oklch(0.954 0.015 312.6)",
+        "pickerBorder": "1px solid oklch(0.835 0.012 313.3)",
+        "selectedValue": "string:0",
+        "selectedText": "🍓 Strawberry",
+        "options": [
+          "Select…",
+          "🍋 Lemon",
+          "🍓 Strawberry",
+          "🍎 Apple",
+          "🍇 Grapes"
+        ],
+        "open": false
+      },
+      "open": {
+        "appearance": "base-select",
+        "dimensions": [
+          300,
+          56
+        ],
+        "background": "oklch(0.916 0.014 314.5)",
+        "color": "oklch(0.187 0.012 300.4)",
+        "font": "Roboto, sans-serif",
+        "padding": "0px 0px 0px 6px",
+        "radius": "4px 4px 0px 0px",
+        "edges": [
+          "0px solid oklch(0.496 0.13 293.7)",
+          "0px solid oklch(0.496 0.13 293.7)",
+          "1px solid oklch(0.496 0.13 293.7)",
+          "0px solid oklch(0.496 0.13 293.7)"
+        ],
+        "pickerBackground": "oklch(0.954 0.015 312.6)",
+        "pickerBorder": "1px solid oklch(0.835 0.012 313.3)",
+        "selectedValue": "string:0",
+        "selectedText": "🍓 Strawberry",
+        "options": [
+          "Select…",
+          "🍋 Lemon",
+          "🍓 Strawberry",
+          "🍎 Apple",
+          "🍇 Grapes"
+        ],
+        "open": true
+      },
+      "chosen": {
+        "appearance": "base-select",
+        "dimensions": [
+          300,
+          56
+        ],
+        "background": "oklch(0.916 0.014 314.5)",
+        "color": "oklch(0.187 0.012 300.4)",
+        "font": "Roboto, sans-serif",
+        "padding": "0px 0px 0px 6px",
+        "radius": "4px 4px 0px 0px",
+        "edges": [
+          "0px solid oklch(0.496 0.13 293.7)",
+          "0px solid oklch(0.496 0.13 293.7)",
+          "2px solid oklch(0.496 0.13 293.7)",
+          "0px solid oklch(0.496 0.13 293.7)"
+        ],
+        "pickerBackground": "oklch(0.954 0.015 312.6)",
+        "pickerBorder": "1px solid oklch(0.835 0.012 313.3)",
+        "selectedValue": "string:",
+        "selectedText": "🍇 Grapes",
+        "options": [
+          "Select…",
+          "🍋 Lemon",
+          "🍓 Strawberry",
+          "🍎 Apple",
+          "🍇 Grapes"
+        ],
+        "open": false
+      }
+    },
+    "dark": {
+      "rest": {
+        "appearance": "base-select",
+        "dimensions": [
+          300,
+          56
+        ],
+        "background": "oklch(0.33 0.012 298.9)",
+        "color": "oklch(0.916 0.014 314.5)",
+        "font": "Roboto, sans-serif",
+        "padding": "0px 0px 0px 6px",
+        "radius": "4px 4px 0px 0px",
+        "edges": [
+          "0px solid oklch(0.745 0.013 313.2)",
+          "0px solid oklch(0.745 0.013 313.2)",
+          "1px solid oklch(0.745 0.013 313.2)",
+          "0px solid oklch(0.745 0.013 313.2)"
+        ],
+        "pickerBackground": "oklch(0.286 0.013 298.7)",
+        "pickerBorder": "1px solid oklch(0.405 0.01 301.4)",
+        "selectedValue": "string:0",
+        "selectedText": "🍓 Strawberry",
+        "options": [
+          "Select…",
+          "🍋 Lemon",
+          "🍓 Strawberry",
+          "🍎 Apple",
+          "🍇 Grapes"
+        ],
+        "open": false
+      },
+      "focus": {
+        "appearance": "base-select",
+        "dimensions": [
+          300,
+          56
+        ],
+        "background": "oklch(0.33 0.012 298.9)",
+        "color": "oklch(0.916 0.014 314.5)",
+        "font": "Roboto, sans-serif",
+        "padding": "0px 0px 0px 6px",
+        "radius": "4px 4px 0px 0px",
+        "edges": [
+          "0px solid oklch(0.835 0.095 298)",
+          "0px solid oklch(0.835 0.095 298)",
+          "2px solid oklch(0.835 0.095 298)",
+          "0px solid oklch(0.835 0.095 298)"
+        ],
+        "pickerBackground": "oklch(0.286 0.013 298.7)",
+        "pickerBorder": "1px solid oklch(0.405 0.01 301.4)",
+        "selectedValue": "string:0",
+        "selectedText": "🍓 Strawberry",
+        "options": [
+          "Select…",
+          "🍋 Lemon",
+          "🍓 Strawberry",
+          "🍎 Apple",
+          "🍇 Grapes"
+        ],
+        "open": false
+      },
+      "open": {
+        "appearance": "base-select",
+        "dimensions": [
+          300,
+          56
+        ],
+        "background": "oklch(0.33 0.012 298.9)",
+        "color": "oklch(0.916 0.014 314.5)",
+        "font": "Roboto, sans-serif",
+        "padding": "0px 0px 0px 6px",
+        "radius": "4px 4px 0px 0px",
+        "edges": [
+          "0px solid oklch(0.835 0.095 298)",
+          "0px solid oklch(0.835 0.095 298)",
+          "1px solid oklch(0.835 0.095 298)",
+          "0px solid oklch(0.835 0.095 298)"
+        ],
+        "pickerBackground": "oklch(0.286 0.013 298.7)",
+        "pickerBorder": "1px solid oklch(0.405 0.01 301.4)",
+        "selectedValue": "string:0",
+        "selectedText": "🍓 Strawberry",
+        "options": [
+          "Select…",
+          "🍋 Lemon",
+          "🍓 Strawberry",
+          "🍎 Apple",
+          "🍇 Grapes"
+        ],
+        "open": true
+      },
+      "chosen": {
+        "appearance": "base-select",
+        "dimensions": [
+          300,
+          56
+        ],
+        "background": "oklch(0.33 0.012 298.9)",
+        "color": "oklch(0.916 0.014 314.5)",
+        "font": "Roboto, sans-serif",
+        "padding": "0px 0px 0px 6px",
+        "radius": "4px 4px 0px 0px",
+        "edges": [
+          "0px solid oklch(0.835 0.095 298)",
+          "0px solid oklch(0.835 0.095 298)",
+          "2px solid oklch(0.835 0.095 298)",
+          "0px solid oklch(0.835 0.095 298)"
+        ],
+        "pickerBackground": "oklch(0.286 0.013 298.7)",
+        "pickerBorder": "1px solid oklch(0.405 0.01 301.4)",
+        "selectedValue": "string:",
+        "selectedText": "🍇 Grapes",
+        "options": [
+          "Select…",
+          "🍋 Lemon",
+          "🍓 Strawberry",
+          "🍎 Apple",
+          "🍇 Grapes"
+        ],
+        "open": false
+      }
+    }
+  },
+  "errors": [],
+  "browser": "158.0.8127.38"
+}
