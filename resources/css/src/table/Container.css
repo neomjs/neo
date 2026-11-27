@@ -93,7 +93,7 @@
         &::-webkit-scrollbar-track {
             -webkit-border-radius:5px;
             border-radius:5px;
-            background:rgba(0,0,0,0.1);
+            background:var(--table-container-scrollbar-track-background);
 
             &:vertical {
                 margin-top: var(--table-container-cell-height);
@@ -103,15 +103,15 @@
         &::-webkit-scrollbar-thumb {
             -webkit-border-radius:5px;
             border-radius:5px;
-            background:rgba(0,0,0,0.2);
+            background:var(--table-container-scrollbar-thumb-background);
         }
 
         &::-webkit-scrollbar-thumb:hover {
-            background:rgba(0,0,0,0.4);
+            background:var(--table-container-scrollbar-thumb-background-hover);
         }
 
         &::-webkit-scrollbar-thumb:window-inactive {
-            background:rgba(0,0,0,0.05);
+            background:var(--table-container-scrollbar-thumb-background-inactive);
         }
 
         &::-webkit-scrollbar-corner {

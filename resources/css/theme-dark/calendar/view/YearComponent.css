@@ -1,13 +1,15 @@
 :root .neo-theme-dark { /* .neo-calendar-yearcomponent */
-    --c-y-cell-border-color             : #3c3f41;
-    --c-y-cell-color                    : #bbb;
-    --c-y-events-high-background-color  : rgba(255, 0, 0, 0.3);
-    --c-y-events-low-background-color   : rgba(255, 255, 0, 0.3);
-    --c-y-events-medium-background-color: rgba(255, 165, 0, 0.3);
-    --c-y-month-color                   : #ccc;
-    --c-y-today-background-color        : firebrick;
-    --c-y-today-color                   : #fff;
-    --c-y-week-background-color         : #33343d;
-    --c-y-week-color                    : #ccc;
-    --c-y-year-color                    : #ccc;
+    --c-y-cell-border-color                  : #3c3f41;
+    --c-y-cell-color                         : #bbb;
+    --c-y-cell-content-background-color-focus: #1c60a0;
+    --c-y-cell-content-color-focus           : #fff;
+    --c-y-events-high-background-color       : rgba(255, 0, 0, 0.3);
+    --c-y-events-low-background-color        : rgba(255, 255, 0, 0.3);
+    --c-y-events-medium-background-color     : rgba(255, 165, 0, 0.3);
+    --c-y-month-color                        : #ccc;
+    --c-y-today-background-color             : firebrick;
+    --c-y-today-color                        : #fff;
+    --c-y-week-background-color              : #33343d;
+    --c-y-week-color                         : #ccc;
+    --c-y-year-color                         : #ccc;
 }

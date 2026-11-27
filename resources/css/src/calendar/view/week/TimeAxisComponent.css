@@ -14,7 +14,7 @@
 
     .neo-c-w-timeaxis-item {
         align-items    : center;
-        color          : #999;
+        color          : var(--c-w-timeaxis-item-color);
         display        : flex;
         font-size      : 0.625em;
         justify-content: center;

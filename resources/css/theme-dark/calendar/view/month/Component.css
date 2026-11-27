@@ -3,6 +3,7 @@
     --c-m-border-color            : #3c3f41;
     --c-m-day-name-color          : #ccc;
     --c-m-day-number-color        : #bbb;
+    --c-m-event-color-focus       : #fff;
     --c-m-month-name-color        : #fff;
     --c-m-scroll-box-shadow       : 0 0 1.56em 0.78em #fff, 0 0 3.9em 1.95em #1c60a0;
     --c-m-weekend-background-color: rgba(50, 50, 60, .35);

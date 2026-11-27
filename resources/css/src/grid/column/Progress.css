@@ -13,14 +13,14 @@
             @-moz-document url-prefix() {
                 background-color: var(--grid-cell-progress-track-color);
                 border-radius   : var(--grid-cell-progress-border-radius);
-                box-shadow      : 0 2px 5px rgba(0, 0, 0, 0.25) inset;
+                box-shadow      : var(--grid-cell-progress-box-shadow);
             }
 
             /* for webkit the progress-bar is the track */
             &::-webkit-progress-bar {
                 background-color: var(--grid-cell-progress-track-color);
                 border-radius   : var(--grid-cell-progress-border-radius);
-                box-shadow      : 0 2px 5px rgba(0, 0, 0, 0.25) inset;
+                box-shadow      : var(--grid-cell-progress-box-shadow);
                 width           : 100%;
             }
 

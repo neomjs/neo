@@ -1,19 +1,19 @@
 /* Both tints have the same alpha and the same luminance: a loss and a gain weigh the same on a dark and on a light row */
 @keyframes grid-animated-cell-negative {
-    50%  {background-color: rgb(218 54 51 / 60%);}
+    50%  {background-color: var(--grid-cell-animated-negative-background-color);}
 }
 
 @keyframes grid-animated-cell-positive {
-    50%  {background-color: rgb(35 134 54 / 60%);}
+    50%  {background-color: var(--grid-cell-animated-positive-background-color);}
 }
 
 /* The same keyframes under second names: a change inside a live mark switches to them, which restarts the animation */
 @keyframes grid-animated-cell-negative-alt {
-    50%  {background-color: rgb(218 54 51 / 60%);}
+    50%  {background-color: var(--grid-cell-animated-negative-background-color);}
 }
 
 @keyframes grid-animated-cell-positive-alt {
-    50%  {background-color: rgb(35 134 54 / 60%);}
+    50%  {background-color: var(--grid-cell-animated-positive-background-color);}
 }
 
 .neo-grid-container .neo-grid-row .neo-grid-cell.neo-animated-negative, .neo-grid-container .neo-grid-row.neo-even .neo-grid-cell.neo-animated-negative {

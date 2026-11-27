@@ -1,7 +1,9 @@
 :root .neo-theme-dark { /* .neo-calendar-weekcomponent */
+    --c-w-allday-event-color-focus          : #fff;
     --c-w-background-color                  : #2b2b2b;
     --c-w-border-color                      : #3c3f41;
-    --c-w-event-resizable-color             : #64B5F6;
+    --c-w-event-color-focus                 : #fff;
+    --c-w-event-resizable-color            : #64B5F6;
     --c-w-header-background-color           : #2b2b2b;
     --c-w-header-date-background-color-hover: #33343d;
     --c-w-header-date-color                 : #999;

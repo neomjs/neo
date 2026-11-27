@@ -1,7 +1,9 @@
 :where(.neo-theme-neo-light) { /* .neo-calendar-weekcomponent */
+    --c-w-allday-event-color-focus          : #fff;
     --c-w-background-color                  : #fff;
     --c-w-border-color                      : #ddd;
-    --c-w-event-resizable-color             : #1c60a0;
+    --c-w-event-color-focus                 : #fff;
+    --c-w-event-resizable-color            : #1c60a0;
     --c-w-header-background-color           : #fff;
     --c-w-header-date-background-color-hover: #eee;
     --c-w-header-date-color                 : #666;
