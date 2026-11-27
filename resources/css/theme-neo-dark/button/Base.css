@@ -80,8 +80,8 @@
     --neo-button-primary-glyph-color-pressed        : var(--neo-sem-color-text-neutral-contrast);
 
     --neo-button-primary-background-image           : none;
-    --neo-button-primary-badge-background-color     : var(--neo-button-badge-background-color);
-    --neo-button-primary-badge-color                : var(--neo-button-badge-color);
+    --neo-button-primary-badge-background-color     : var(--neo-sem-color-fg-neutral-contrast);
+    --neo-button-primary-badge-color                : var(--neo-sem-color-fg-neutral-inverted);
     --neo-button-primary-opacity-disabled           : inherit;
     --neo-button-primary-ripple-background-color    : #435DB1;
 
@@ -187,8 +187,8 @@
     --neo-button-tertiary-glyph-color-pressed       : var(--neo-sem-color-text-neutral-contrast);
 
     --neo-button-tertiary-background-image          : none;
-    --neo-button-tertiary-badge-background-color    : var(--neo-button-badge-background-color);
-    --neo-button-tertiary-badge-color               : var(--neo-button-badge-color);
+    --neo-button-tertiary-badge-background-color    : var(--neo-sem-color-fg-neutral-contrast);
+    --neo-button-tertiary-badge-color               : var(--neo-sem-color-fg-neutral-inverted);
     --neo-button-tertiary-opacity-disabled          : var(--neo-global-opacity-disabled);
     --neo-button-tertiary-ripple-background-color   : inherit;
 
