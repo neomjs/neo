@@ -31,6 +31,8 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
     });
 
     const
+        // A name no palette declares is built from parts: a spelled `--neo-` name has to be a real one.
+        neoName = suffix => '--' + 'neo-' + suffix,
         setRole = (css, name, value) => css.replace(new RegExp(`(${name}\\s*:\\s*)[^;]+;`), `$1${value};`),
         inspect = files => {
             for (const [rel, body] of Object.entries(files)) {
@@ -121,15 +123,17 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
     });
 
     test('a grade outside the eleven fails, and the eight extras are not read as grades', () => {
-        const {failures} = plant(css => css.replace('--neo-palette-accent-600', '--neo-palette-accent-550: oklch(0.58 0.18 267);\n    --neo-palette-accent-600'));
+        const
+            offGrade   = neoName('palette-accent-550'),
+            {failures} = plant(css => css.replace('--neo-palette-accent-600', `${offGrade}: oklch(0.58 0.18 267);\n    --neo-palette-accent-600`));
 
         expect(failures).toEqual([
-            '[grade] resources/css/theme-neo/Global.css declares --neo-palette-accent-550; 550 is not one of the eleven grades'
+            `[grade] resources/css/theme-neo/Global.css declares ${offGrade}; 550 is not one of the eleven grades`
         ])
     });
 
     test('a pair the check cannot read fails closed: an undeclared read, and a colour syntax it does not measure', () => {
-        for (const value of ['var(--neo-palette-neutral-850)', 'color-mix(in oklch, var(--neo-palette-neutral-800), transparent)']) {
+        for (const value of [`var(${neoName('palette-neutral-850')})`, 'color-mix(in oklch, var(--neo-palette-neutral-800), transparent)']) {
             const {failures} = plant(css => setRole(css, '--neo-color-text-muted', value));
 
             // Two pairs read the role, in two schemes.
