@@ -1,0 +1,7 @@
+/* Grid Tree cell component, every theme: level indent and Font Awesome 7 toggle glyphs. */
+[class*="neo-theme-"] {
+    --neo-tree-indent               : var(--neo-space-4);
+    --neo-tree-toggle-icon-collapsed: "\f054";
+    --neo-tree-toggle-icon-expanded : "\f078";
+    --neo-tree-toggle-icon-leaf     : "";
+}

@@ -1,7 +1,0 @@
-:where(.neo-theme-neo-light) { /* .neo-grid-cell */
-    --neo-grid-cell-progress-value-background-color : #5d83a7;
-    --neo-grid-cell-progress-border-radius: 2px;
-    --neo-grid-cell-progress-box-shadow   : 0 2px 5px rgba(0, 0, 0, 0.25) inset;
-    --neo-grid-cell-progress-height       : 10px;
-    --neo-grid-cell-progress-track-background-color  : #eee;
-}

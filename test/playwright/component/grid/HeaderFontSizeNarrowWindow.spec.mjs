@@ -13,12 +13,21 @@ const FIXTURE = 'test/playwright/component/apps/grid-focus/index.html';
 
 /**
  * @param {import('@playwright/test').Page} page
- * @returns {Promise<{fontSize: String, variable: String}>}
+ * @returns {Promise<{expectedPx: String, fontSize: String, variable: String}>}
  */
-const readHeaderText = page => page.locator('#grid-focus-short .neo-grid-header-button .neo-button-text').first().evaluate(node => ({
-    fontSize: getComputedStyle(node).fontSize,
-    variable: getComputedStyle(node.closest('.neo-grid-header-button')).getPropertyValue('--neo-grid-header-button-font-size').trim()
-}));
+const readHeaderText = page => page.locator('#grid-focus-short .neo-grid-header-button .neo-button-text').first().evaluate(node => {
+    const variable   = getComputedStyle(node.closest('.neo-grid-header-button')).getPropertyValue('--neo-grid-header-button-font-size').trim(),
+          probe      = document.body.appendChild(Object.assign(document.createElement('span'), {style: `font-size: ${variable}`})),
+          expectedPx = getComputedStyle(probe).fontSize;
+
+    probe.remove();
+
+    return {
+        expectedPx,
+        fontSize: getComputedStyle(node).fontSize,
+        variable
+    }
+});
 
 test.describe('grid header text size in a narrow window', () => {
     test('the header text keeps its own font-size below 600 px of window width', async ({page}) => {
@@ -28,8 +37,8 @@ test.describe('grid header text size in a narrow window', () => {
 
         const wide = await readHeaderText(page);
 
-        expect(wide.variable, 'the theme defines the header font-size variable').toMatch(/px$/);
-        expect(wide.fontSize, 'wide window: the header text uses its variable').toBe(wide.variable);
+        expect(wide.variable, 'the theme defines the header font-size variable').toMatch(/^\d+(?:\.\d+)?(?:px|rem)$/);
+        expect(wide.fontSize, 'wide window: the header text uses its variable').toBe(wide.expectedPx);
 
         await page.setViewportSize({height: 700, width: 500});
 

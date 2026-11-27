@@ -1,0 +1,4 @@
+/* Grid icon column, every theme. */
+[class*="neo-theme-"] {
+    --neo-grid-column-icon-font-size: var(--neo-font-size-body);
+}
