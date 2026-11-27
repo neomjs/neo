@@ -465,6 +465,7 @@
  "Neo.main.addon.EventSimulator": "Neo.main.addon.Base",
  "Neo.main.addon.FileDownload": "Neo.main.addon.Base",
  "Neo.main.addon.FileSystemAccess": "Neo.main.addon.Base",
+ "Neo.main.addon.Gesture": "Neo.main.addon.Base",
  "Neo.main.addon.GoogleMaps": "Neo.main.addon.Base",
  "Neo.main.addon.GridDragScroll": "Neo.main.addon.Base",
  "Neo.main.addon.GridHorizontalScrollSync": "Neo.main.addon.Base",
