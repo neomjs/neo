@@ -1,11 +1,11 @@
 .webdesktop-permission-list {
-    --list-container-list-color        : var(--webdesktop-ink);
-    --list-item-background-color      : transparent;
-    --list-item-background-color-active: var(--webdesktop-glass-active);
-    --list-item-background-color-hover : var(--webdesktop-glass-hover);
-    --list-item-focus-outline          : 2px solid var(--webdesktop-accent);
-    --list-item-focus-outline-offset   : -2px;
-    --list-item-padding                : 10px 20px;
+    --neo-list-container-list-color        : var(--webdesktop-ink);
+    --neo-list-item-background-color      : transparent;
+    --neo-list-item-background-color-active: var(--webdesktop-glass-active);
+    --neo-list-item-background-color-hover : var(--webdesktop-glass-hover);
+    --neo-list-item-outline-focus          : 2px solid var(--webdesktop-accent);
+    --neo-list-item-outline-offset-focus   : -2px;
+    --neo-list-item-padding                : 10px 20px;
 
     .neo-list-item {
         align-items: center;
@@ -28,7 +28,7 @@
         font-size       : 14px;
         height          : 30px;
         justify-content : center;
-        transition      : filter var(--motion-base) var(--ease-out-soft), opacity var(--motion-base) var(--ease-out-soft);
+        transition      : filter var(--neo-duration-base) var(--neo-ease-out), opacity var(--neo-duration-base) var(--neo-ease-out);
         width           : 30px;
     }
 
@@ -54,7 +54,7 @@
         flex            : none;
         height          : 22px;
         position        : relative;
-        transition      : background-color var(--motion-base) var(--ease-out-soft);
+        transition      : background-color var(--neo-duration-base) var(--neo-ease-out);
         width           : 38px;
 
         &::after {
@@ -66,7 +66,7 @@
             left            : 2px;
             position        : absolute;
             top             : 2px;
-            transition      : transform var(--motion-base) var(--ease-out-soft);
+            transition      : transform var(--neo-duration-base) var(--neo-ease-out);
             width           : 18px;
         }
     }

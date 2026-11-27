@@ -124,12 +124,18 @@ test.describe('buildScripts/util/theme-equality', () => {
             }
         }));
 
-        const fromRepoRoot = resolveBuiltTree(root, 'development'),
+        const fromStubRoot = resolveBuiltTree(root, 'development'),
               fromCssDir   = resolveBuiltTree(cssDir, 'development');
 
-        expect(fromRepoRoot.cssRoot).toBe(cssDir);
+        expect(fromStubRoot.cssRoot).toBe(cssDir);
+        expect(fromStubRoot.sourceRoot).toBeNull();
         expect(fromCssDir.cssRoot).toBe(cssDir);
+        expect(fromCssDir.sourceRoot).toBeNull();
         expect(fromCssDir.themeMap?.themes?.['neo-theme-neo-light']).toEqual(['theme-neo']);
+
+        fs.writeFileSync(path.join(jsSrc, 'DefaultConfig.mjs'), 'export default {};\n');
+        const fromRepoRoot = resolveBuiltTree(root, 'development');
+        expect(fromRepoRoot.sourceRoot).toBe(root);
 
         const urls = collectThemeStylesheetUrls(fromRepoRoot, 'neo-theme-neo-light');
 

@@ -10,7 +10,7 @@ const STEP_MS = 16;
  * chart's {@link Neo.gantt.Container#drawnSpans}, which only this class writes, so a link never leaves its bar.
  * The records hold their final dates throughout.
  *
- * The steps follow the chart's `--motion-panel` duration and `--ease-out-soft` easing, which {@link #readTokens}
+ * The steps follow the chart's `--neo-duration-panel` duration and `--neo-ease-out` easing, which {@link #readTokens}
  * reads from its node ahead of the moves. {@link #start} runs inside the chart's synchronous edit, after the
  * cascade's writes, and moves the tasks only on a positive tier: a `0ms` tier (reduced motion), or a read that
  * failed, found no tier or has not answered yet, leaves the edit's own repaint as the one update. When it moves
@@ -141,10 +141,10 @@ class CascadeMotion extends Base {
 
         try {
             let styles = await Neo.main.DomAccess.getComputedStyle({
-                    id: chart.id, style: ['--motion-panel', '--ease-out-soft'], windowId: chart.windowId
+                    id: chart.id, style: ['--neo-duration-panel', '--neo-ease-out'], windowId: chart.windowId
                 }),
-                tier   = String(styles?.['--motion-panel'] ?? '').trim(),
-                points = /cubic-bezier\(([^)]*)\)/.exec(styles?.['--ease-out-soft'] ?? '')?.[1].split(',').map(Number),
+                tier   = String(styles?.['--neo-duration-panel'] ?? '').trim(),
+                points = /cubic-bezier\(([^)]*)\)/.exec(styles?.['--neo-ease-out'] ?? '')?.[1].split(',').map(Number),
                 value  = parseFloat(tier);
 
             tokens = {

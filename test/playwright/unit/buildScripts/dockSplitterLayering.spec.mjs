@@ -180,7 +180,7 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
         // exact shape @neo-gpt found live at `Workspace.scss:50` while the guard passed.
         expect(offendersIn(`
             .neo-dashboard-dock-splitter {
-                --dock-splitter-background: red;
+                --neo-dock-splitter-background-color: red;
 
                 &:active::after {
                     background: var(--workstation-signal);
@@ -200,7 +200,7 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
             .neo-dashboard-dock-splitter {
                 outline: 1px solid red;
 
-                &:hover { --dock-splitter-ring: none }
+                &:hover { --neo-dock-splitter-ring: none }
             }`), 'a declaration preceding a nested block is not swallowed')
             .toEqual(['outline on .neo-dashboard-dock-splitter']);
     });
@@ -213,7 +213,7 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
 
         // Custom properties are the sanctioned channel, and the one documented structural
         // deviation stays legal — an allowlist that rejected it would just be a broken guard.
-        expect(offendersIn('.neo-dashboard-dock-splitter { --dock-splitter-radius: 0 }')).toEqual([]);
+        expect(offendersIn('.neo-dashboard-dock-splitter { --neo-dock-splitter-border-radius: 0 }')).toEqual([]);
         expect(offendersIn('.neo-dashboard-dock-splitter { display: none }')).toEqual([]);
     });
 
@@ -235,11 +235,11 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
         const engine = readFileSync(ENGINE_RULE, 'utf8');
 
         expect(engine, 'a visible band by default')
-            .toMatch(/--dock-splitter-background\s*:\s*color-mix[^;]*currentColor/);
+            .toMatch(/--neo-dock-splitter-background-color\s*:\s*color-mix[^;]*currentColor/);
         expect(engine, 'a real grab handle by default')
-            .toMatch(/--dock-splitter-handle-size\s*:\s*36px/);
+            .toMatch(/--neo-dock-splitter-handle-size\s*:\s*36px/);
         expect(engine, 'the handle is painted by default')
-            .toMatch(/--dock-splitter-handle-color\s*:\s*color-mix[^;]*currentColor/);
+            .toMatch(/--neo-dock-splitter-handle-color\s*:\s*color-mix[^;]*currentColor/);
     });
 
     test('identity slots ship EMPTY — the engine never fills them', () => {
@@ -247,8 +247,8 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
         // app's identity every consumer's default, which is this promotion's own defect inverted.
         const engine = readFileSync(ENGINE_RULE, 'utf8');
 
-        for (const slot of ['--dock-splitter-ring', '--dock-splitter-ring-hover',
-                            '--dock-splitter-ring-active', '--dock-splitter-handle-glow-hover']) {
+        for (const slot of ['--neo-dock-splitter-ring', '--neo-dock-splitter-ring-hover',
+                            '--neo-dock-splitter-ring-active', '--neo-dock-splitter-handle-glow-hover']) {
             expect(engine, `${slot} is an identity slot and must default to none`)
                 .toMatch(new RegExp(`${slot}\\s*:\\s*none`))
         }

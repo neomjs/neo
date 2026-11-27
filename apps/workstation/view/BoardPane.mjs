@@ -45,9 +45,9 @@ class BoardPane extends BoardContainer {
         columns: [
             {status: 'backlog',     title: 'Backlog',     color: 'var(--workstation-ink-faint)'},
             {status: 'ready',       title: 'Ready',       color: 'var(--neo-timeline-bar-border-color)'},
-            {status: 'in-progress', title: 'In progress', color: 'var(--neo-scheduler-bar-amber-border)'},
-            {status: 'review',      title: 'Review',      color: 'var(--neo-scheduler-bar-violet-border)'},
-            {status: 'done',        title: 'Done',        color: 'var(--neo-scheduler-bar-emerald-border)'}
+            {status: 'in-progress', title: 'In progress', color: 'var(--neo-scheduler-bar-amber-border-color)'},
+            {status: 'review',      title: 'Review',      color: 'var(--neo-scheduler-bar-violet-border-color)'},
+            {status: 'done',        title: 'Done',        color: 'var(--neo-scheduler-bar-emerald-border-color)'}
         ],
         /**
          * The team, keyed as a work item's `resourceId` names its person. Borrowed, never owned.

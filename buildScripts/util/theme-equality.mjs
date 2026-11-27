@@ -160,8 +160,12 @@ export function resolveBuiltTree(inputPath, env = 'development') {
     const resolved = path.resolve(inputPath),
           asDist   = path.join(resolved, 'dist', env, 'css'),
           cssRoot  = hasBuiltStructuralCss(asDist)   ? asDist
-                   : hasBuiltStructuralCss(resolved) ? resolved
-                   : null;
+                       : hasBuiltStructuralCss(resolved) ? resolved
+                       : null,
+          sourceRoot = fs.existsSync(path.join(resolved, 'src', 'Neo.mjs')) &&
+                       fs.existsSync(path.join(resolved, 'src', 'DefaultConfig.mjs'))
+                       ? resolved
+                       : null;
 
     if (!cssRoot) {
         throw new Error(
@@ -187,7 +191,7 @@ export function resolveBuiltTree(inputPath, env = 'development') {
         }
     }
 
-    return {cssRoot, inputPath: resolved, themeMap}
+    return {cssRoot, inputPath: resolved, sourceRoot, themeMap}
 }
 
 /**
@@ -515,16 +519,29 @@ function startEqualityServer(repoRoot, getActiveTree) {
 
                 filePath = target
             } else {
-                const relRepo = pathname.replace(/^\/+/, ''),
-                      target  = path.resolve(repoRoot, relRepo);
+                const relRepo  = pathname.replace(/^\/+/, ''),
+                      baseRoot = pathname.startsWith('/src/') && tree?.sourceRoot ? tree.sourceRoot : repoRoot,
+                      primary  = path.resolve(baseRoot, relRepo);
 
-                if (target !== repoRoot && !target.startsWith(repoRoot + path.sep)) {
+                if (primary !== baseRoot && !primary.startsWith(baseRoot + path.sep)) {
                     res.writeHead(403);
                     res.end('Forbidden');
                     return
                 }
 
-                filePath = target
+                if (fs.existsSync(primary) && fs.statSync(primary).isFile()) {
+                    filePath = primary
+                } else {
+                    const fallback = path.resolve(repoRoot, relRepo);
+
+                    if (fallback !== repoRoot && !fallback.startsWith(repoRoot + path.sep)) {
+                        res.writeHead(403);
+                        res.end('Forbidden');
+                        return
+                    }
+
+                    filePath = fallback
+                }
             }
 
             if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {

@@ -21,14 +21,14 @@
     }
 
     .launch-reset {
-        --button-background-color-hover          : var(--launch-hover);
-        --button-secondary-background-color-hover: var(--launch-hover);
-        --button-secondary-border-hover          : 1px solid var(--launch-border);
-        --button-secondary-text-color            : var(--launch-muted);
-        --button-secondary-text-color-active     : var(--launch-title);
-        --button-secondary-text-color-hover      : var(--launch-title);
-        --button-text-color                      : var(--launch-muted);
-        --button-text-color-hover                : var(--launch-title);
+        --neo-button-background-color-hover          : var(--launch-hover);
+        --neo-button-secondary-background-color-hover: var(--launch-hover);
+        --neo-button-secondary-border-hover          : 1px solid var(--launch-border);
+        --neo-button-secondary-color            : var(--launch-muted);
+        --neo-button-secondary-color-active     : var(--launch-title);
+        --neo-button-secondary-color-hover      : var(--launch-title);
+        --neo-button-color                      : var(--launch-muted);
+        --neo-button-color-hover                : var(--launch-title);
         background   : var(--launch-control);
         border       : 1px solid var(--launch-border);
         border-radius: 6px;

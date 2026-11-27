@@ -1,7 +1,7 @@
 .neo-reorder {
-    background-color: var(--sem-color-bg-neutral-default);
+    background-color: var(--neo-sem-color-bg-neutral-default);
     box-sizing      : border-box;
-    color           : var(--sem-color-text-neutral-default);
+    color           : var(--neo-sem-color-text-neutral-default);
     overflow-y      : auto;
     padding         : 24px;
 
@@ -18,7 +18,7 @@
         }
 
         p {
-            color : var(--sem-color-text-neutral-subdued);
+            color : var(--neo-sem-color-text-neutral-subdued);
             margin: 0 0 .4em;
 
             &:last-child {
@@ -72,10 +72,10 @@
     padding         : 0;
 
     .neo-list-item {
-        background-color: var(--sem-color-surface-neutral-default);
-        border          : 1px solid var(--sem-color-border-default);
+        background-color: var(--neo-sem-color-surface-neutral-default);
+        border          : 1px solid var(--neo-sem-color-border-default);
         border-radius   : 8px;
-        color           : var(--sem-color-text-neutral-default);
+        color           : var(--neo-sem-color-text-neutral-default);
         cursor          : grab;
         user-select     : none;
     }
@@ -83,9 +83,9 @@
     /* The page's text colour as the fill and its background as the digit keep the contrast in both themes */
     .neo-reorder-place {
         align-items     : center;
-        background-color: var(--sem-color-text-neutral-default);
+        background-color: var(--neo-sem-color-text-neutral-default);
         border-radius   : 50%;
-        color           : var(--sem-color-bg-neutral-default);
+        color           : var(--neo-sem-color-bg-neutral-default);
         display         : inline-flex;
         flex            : none;
         font-size       : .8em;

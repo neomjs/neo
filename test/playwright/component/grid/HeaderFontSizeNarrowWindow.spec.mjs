@@ -17,7 +17,7 @@ const FIXTURE = 'test/playwright/component/apps/grid-focus/index.html';
  */
 const readHeaderText = page => page.locator('#grid-focus-short .neo-grid-header-button .neo-button-text').first().evaluate(node => ({
     fontSize: getComputedStyle(node).fontSize,
-    variable: getComputedStyle(node.closest('.neo-grid-header-button')).getPropertyValue('--grid-header-button-font-size').trim()
+    variable: getComputedStyle(node.closest('.neo-grid-header-button')).getPropertyValue('--neo-grid-header-button-font-size').trim()
 }));
 
 test.describe('grid header text size in a narrow window', () => {

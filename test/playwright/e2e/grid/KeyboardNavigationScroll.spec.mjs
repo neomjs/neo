@@ -72,7 +72,7 @@ async function attachSelectionFailure(page, testInfo) {
                         scrollLeft     : root.querySelector('.neo-grid-horizontal-scrollbar')?.scrollLeft,
                         selectedCells  : cells.filter(selected).map(readCell),
                         bodies         : [...root.querySelectorAll('.neo-grid-body')].map(body => ({
-                            id: id(body), scrollLeft: body.style.getPropertyValue('--grid-scroll-left')
+                            id: id(body), scrollLeft: body.style.getPropertyValue('--neo-grid-scroll-left')
                         })),
                         rows: [...root.querySelectorAll('.neo-grid-row')]
                             .filter(row => row.dataset.recordId === recordId || [...row.querySelectorAll('.neo-grid-cell')].some(selected))

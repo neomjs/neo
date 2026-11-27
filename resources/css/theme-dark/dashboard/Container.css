@@ -1,20 +1,20 @@
 :where(.neo-theme-dark) {
-    --agent-dock-preview-accept      : #64b5f6;
-    --agent-dock-preview-accept-fill : rgba(100, 181, 246, 0.20);
-    --agent-dock-preview-reject      : #e6adad;
-    --agent-dock-preview-reject-fill : rgba(230, 173, 173, 0.16);
-    --agent-dock-preview-signal      : #64b5f6;
-    --agent-dock-preview-signal-fill : rgba(100, 181, 246, 0.18);
+    --neo-dock-preview-accept-color      : #64b5f6;
+    --neo-dock-preview-accept-background-color : rgba(100, 181, 246, 0.20);
+    --neo-dock-preview-reject-color      : #e6adad;
+    --neo-dock-preview-reject-background-color : rgba(230, 173, 173, 0.16);
+    --neo-dock-preview-signal-color      : #64b5f6;
+    --neo-dock-preview-signal-background-color : rgba(100, 181, 246, 0.18);
 
-    --agent-dock-preview-signal-ground: rgba(43, 43, 43, 0.92);
-    --dock-preview-ground             : rgba(60, 63, 65, 0.92);
-    --dock-preview-line               : #2b2b2b;
-    --dock-arrival-outline            : rgba(100, 181, 246, 0.55);
-    --agent-dock-proxy-border         : color-mix(in srgb, #64b5f6 38%, #2b2b2b);
-    --agent-dock-proxy-ground         : #3c3f41;
-    --agent-dock-proxy-shadow         : #2b2b2b;
-    --agent-dock-proxy-text           : #bbb;
+    --neo-dock-preview-signal-background: rgba(43, 43, 43, 0.92);
+    --neo-dock-preview-background             : rgba(60, 63, 65, 0.92);
+    --neo-dock-preview-border               : #2b2b2b;
+    --neo-dock-arrival-outline            : rgba(100, 181, 246, 0.55);
+    --neo-dock-proxy-border-color         : color-mix(in srgb, #64b5f6 38%, #2b2b2b);
+    --neo-dock-proxy-background         : #3c3f41;
+    --neo-dock-proxy-box-shadow         : #2b2b2b;
+    --neo-dock-proxy-color           : #bbb;
 
-    --dashboard-dock-drop-chip-box-shadow       : 0 2px 8px rgba(0, 0, 0, 0.35);
-    --dashboard-dock-drop-chip-signal-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+    --neo-dashboard-dock-drop-chip-box-shadow       : 0 2px 8px rgba(0, 0, 0, 0.35);
+    --neo-dashboard-dock-drop-chip-signal-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }

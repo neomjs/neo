@@ -1,11 +1,11 @@
 :where(.neo-theme-neo-light) { /* .neo-desktop-launcher: dark ink on a light wallpaper's glass */
-    --desktop-launcher-color                       : #0f172a;
-    --desktop-launcher-focus-color                 : #2563eb;
-    --desktop-launcher-header-color                : rgba(15, 23, 42, .66);
-    --desktop-launcher-icon-color                  : #fff;
-    --desktop-launcher-icon-highlight-color        : rgba(255, 255, 255, .35);
-    --desktop-launcher-item-background-color-active: rgba(15, 23, 42, .09);
-    --desktop-launcher-item-background-color-hover : rgba(15, 23, 42, .05);
-    --desktop-launcher-label-shadow                : none;
-    --desktop-launcher-proxy-item-box-shadow       : 0 18px 40px -12px rgba(0, 0, 0, .55);
+    --neo-desktop-launcher-color                       : #0f172a;
+    --neo-desktop-launcher-color-focus                 : #2563eb;
+    --neo-desktop-launcher-header-color                : rgba(15, 23, 42, .66);
+    --neo-desktop-launcher-icon-color                  : #fff;
+    --neo-desktop-launcher-icon-highlight-color        : rgba(255, 255, 255, .35);
+    --neo-desktop-launcher-item-background-color-active: rgba(15, 23, 42, .09);
+    --neo-desktop-launcher-item-background-color-hover : rgba(15, 23, 42, .05);
+    --neo-desktop-launcher-label-text-shadow                : none;
+    --neo-desktop-launcher-proxy-item-box-shadow       : 0 18px 40px -12px rgba(0, 0, 0, .55);
 }

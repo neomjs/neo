@@ -1,19 +1,19 @@
 :root .neo-theme-light { /* .neo-markdown-component */
-    --markdown-bg                   : #fff;
-    --markdown-blockquote-bg        : #f5f7fa;
-    --markdown-blockquote-border    : #1c60a0;
-    --markdown-code-bg              : #f5f5f5;
-    --markdown-code-border          : #ddd;
-    --markdown-details-icon-color   : #1c60a0;
-    --markdown-details-summary-color: #333;
-    --markdown-h1-color             : #1c60a0;
-    --markdown-hr-border            : #ddd;
-    --markdown-lab-shadow           : 0 4px 8px 0 rgba(0, 0, 0, 0.15);
-    --markdown-lab-shadow-hover     : 0 8px 16px 0 rgba(0, 0, 0, 0.22);
-    --markdown-link-color           : #1c60a0;
-    --markdown-list-marker-color    : #1c60a0;
-    --markdown-pre-border           : #ddd;
-    --markdown-table-border         : #ddd;
-    --markdown-table-header-bg      : #f2f2f2;
-    --markdown-text-color           : #333;
+    --neo-markdown-background-color                   : #fff;
+    --neo-markdown-blockquote-background-color        : #f5f7fa;
+    --neo-markdown-blockquote-border    : #1c60a0;
+    --neo-markdown-code-background-color              : #f5f5f5;
+    --neo-markdown-code-border          : #ddd;
+    --neo-markdown-details-icon-color   : #1c60a0;
+    --neo-markdown-details-summary-color: #333;
+    --neo-markdown-h1-color             : #1c60a0;
+    --neo-markdown-hr-border            : #ddd;
+    --neo-markdown-lab-box-shadow           : 0 4px 8px 0 rgba(0, 0, 0, 0.15);
+    --neo-markdown-lab-box-shadow-hover     : 0 8px 16px 0 rgba(0, 0, 0, 0.22);
+    --neo-markdown-link-color           : #1c60a0;
+    --neo-markdown-list-marker-color    : #1c60a0;
+    --neo-markdown-pre-border           : #ddd;
+    --neo-markdown-table-border         : #ddd;
+    --neo-markdown-table-header-background-color      : #f2f2f2;
+    --neo-markdown-color           : #333;
 }

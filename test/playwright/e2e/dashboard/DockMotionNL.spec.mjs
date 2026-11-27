@@ -58,7 +58,7 @@ const connect = async (page, neuralLink) => {
     // (tokens absent → every motion collapses to instant): see the token-delivery bug ticket.
     await expect.poll(async () => page.evaluate(() => {
         const scope = document.querySelector('.neo-dashboard') || document.body;
-        return getComputedStyle(scope).getPropertyValue('--dock-transition-duration').trim();
+        return getComputedStyle(scope).getPropertyValue('--neo-dock-transition-duration').trim();
     }), { message: 'the dock motion tokens must be resolvable on the surface (theme-file delivery)', timeout: 15000, intervals: [250] }).not.toBe('');
 
     return { app, holderId };
@@ -434,7 +434,7 @@ test.describe('Dock motion pipeline — reduced-motion collapses through the tok
             const scope = document.querySelector('.neo-dashboard');
 
             return {
-                duration: scope && getComputedStyle(scope).getPropertyValue('--dock-transition-duration').trim(),
+                duration: scope && getComputedStyle(scope).getPropertyValue('--neo-dock-transition-duration').trim(),
                 matches : matchMedia('(prefers-reduced-motion: reduce)').matches
             }
         });
@@ -537,7 +537,7 @@ test.describe('Dock motion pipeline — reduced-motion collapses through the tok
 
         const token = await page.evaluate(() => {
             const scope = document.querySelector('.neo-dashboard') || document.body;
-            return getComputedStyle(scope).getPropertyValue('--dock-transition-duration').trim()
+            return getComputedStyle(scope).getPropertyValue('--neo-dock-transition-duration').trim()
         });
         expect(token).toBe('0ms');
 

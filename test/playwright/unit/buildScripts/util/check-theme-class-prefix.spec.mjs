@@ -23,7 +23,7 @@ test.describe('check-theme-class-prefix — neo-theme- reserved for themes and n
         const root = fs.mkdtempSync(path.join(tmpRoot, 'prefix-case-'));
 
         const defaults = {
-            'resources/css/src/Base.css'        : '.neo-button { color: var(--button-text-color); }\n',
+            'resources/css/src/Base.css'        : '.neo-button { color: var(--neo-button-color); }\n',
             'resources/css/theme-neo/Global.css': '.neo-theme-neo-dark, .neo-theme-neo-light { --neo-color-scheme: dark; }\n'
         };
 

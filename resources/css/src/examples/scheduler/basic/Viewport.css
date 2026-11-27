@@ -10,11 +10,11 @@
     .studio-date { color: var(--studio-muted); font-size: 13px; }
     .studio-save-status { color: var(--studio-muted); font-size: 12px; &:empty { display: none; } }
     .studio-zoom {
-        --button-text-color: var(--studio-muted);
-        --button-text-color-hover: var(--studio-title);
-        --button-text-color-active: var(--studio-title);
-        --button-background-color-hover: var(--studio-hover-bg);
-        --button-border-hover: 1px solid var(--studio-border);
+        --neo-button-color: var(--studio-muted);
+        --neo-button-color-hover: var(--studio-title);
+        --neo-button-color-active: var(--studio-title);
+        --neo-button-background-color-hover: var(--studio-hover-bg);
+        --neo-button-border-hover: 1px solid var(--studio-border);
         background: var(--studio-control-bg);
         border: 1px solid var(--studio-border);
         border-radius: 0;
@@ -24,10 +24,10 @@
         padding: 0 12px;
 
         &.pressed {
-            --button-text-color: var(--studio-selected-text);
-            --button-text-color-hover: var(--studio-selected-text);
-            --button-text-color-active: var(--studio-selected-text);
-            --button-background-color-hover: var(--studio-selected-bg);
+            --neo-button-color: var(--studio-selected-text);
+            --neo-button-color-hover: var(--studio-selected-text);
+            --neo-button-color-active: var(--studio-selected-text);
+            --neo-button-background-color-hover: var(--studio-selected-bg);
             background: var(--studio-selected-bg);
         }
         &:focus-visible { outline: 2px solid var(--studio-focus); outline-offset: 2px; }

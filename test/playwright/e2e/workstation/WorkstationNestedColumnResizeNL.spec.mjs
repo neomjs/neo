@@ -265,7 +265,7 @@ test.describe('Workstation nested dock column follows its outer splitter (#17985
 
                 host.id = 'dock-transition-landing-control';
                 host.className = 'neo-dashboard';
-                host.style.cssText = 'display:flex;gap:20px;position:fixed;left:0;top:0;--dock-transition-duration:280ms;--dock-transition-easing:linear';
+                host.style.cssText = 'display:flex;gap:20px;position:fixed;left:0;top:0;--neo-dock-transition-duration:280ms;--neo-dock-transition-timing-function:linear';
                 source.style.cssText = 'width:300px;height:100px;overflow:hidden';
                 target.style.cssText = 'width:100px;height:100px;overflow:hidden';
                 pane.className = 'dock-transition-control-pane';
@@ -357,7 +357,7 @@ test.describe('Workstation nested dock column follows its outer splitter (#17985
         await page.evaluate(({workspaceId, duration}) => {
             const host    = document.getElementById(workspaceId),
                 tokenHost = host.matches('.neo-dashboard') ? host : host.querySelector('.neo-dashboard') || host,
-                property  = '--dock-transition-duration', previous = tokenHost.style.getPropertyValue(property),
+                property  = '--neo-dock-transition-duration', previous = tokenHost.style.getPropertyValue(property),
                 priority  = tokenHost.style.getPropertyPriority(property);
             window.__nestedResizeMotion = {
                 workspaceId,

@@ -167,7 +167,7 @@ class TimeAxisComponent extends Component {
                 i, itemStyle;
 
             Object.assign(vdom.style, {
-                backgroundImage    : `linear-gradient(var(--c-w-background-color) ${itemHeight - 1}px, var(--c-w-border-color) 1px)`,
+                backgroundImage    : `linear-gradient(var(--neo-calendar-week-background-color) ${itemHeight - 1}px, var(--neo-calendar-week-border-color) 1px)`,
                 backgroundPositionY: `${-itemHeight + 1}px`,
                 backgroundSize     : `0.4em ${itemHeight}px`,
                 height             : `${totalHeight - rowHeight + 1}px`,

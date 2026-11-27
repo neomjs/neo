@@ -1,8 +1,8 @@
 :where(.neo-theme-neo-dark) { /* .neo-checkboxfield */
-    --checkboxfield-color           : var(--gray-200);
-    --checkboxfield-color-checked   : var(--purple-300);
-    --checkboxfield-icon-font-family: var(--fa-style-family-classic);
-    --checkboxfield-icon-font-size  : 14px;
-    --checkboxfield-icon-margin     : 0;
-    --checkboxfield-label-top-margin: 0 0 3px;
+    --neo-checkboxfield-color           : var(--neo-gray-200);
+    --neo-checkboxfield-color-selected   : var(--neo-purple-300);
+    --neo-checkboxfield-icon-font-family: var(--fa-style-family-classic);
+    --neo-checkboxfield-icon-font-size  : 14px;
+    --neo-checkboxfield-icon-margin     : 0;
+    --neo-checkboxfield-label-top-margin: 0 0 3px;
 }

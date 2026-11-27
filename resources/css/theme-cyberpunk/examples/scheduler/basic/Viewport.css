@@ -1,11 +1,11 @@
 :where(.neo-theme-cyberpunk) {
-    --studio-header-bg    : var(--cyber-bg);
-    --studio-border       : var(--cyber-border);
-    --studio-title        : var(--cyber-cyan);
-    --studio-muted        : var(--cyber-text);
-    --studio-control-bg   : var(--cyber-bg-alt);
-    --studio-hover-bg     : color-mix(in srgb, var(--cyber-cyan) 14%, transparent);
-    --studio-selected-bg  : var(--cyber-cyan);
-    --studio-selected-text: var(--cyber-bg);
-    --studio-focus        : var(--cyber-gold);
+    --studio-header-bg    : var(--neo-cyber-background-color);
+    --studio-border       : var(--neo-cyber-border);
+    --studio-title        : var(--neo-cyber-cyan);
+    --studio-muted        : var(--neo-cyber-color);
+    --studio-control-bg   : var(--neo-cyber-alt-background-color);
+    --studio-hover-bg     : color-mix(in srgb, var(--neo-cyber-cyan) 14%, transparent);
+    --studio-selected-bg  : var(--neo-cyber-cyan);
+    --studio-selected-text: var(--neo-cyber-background-color);
+    --studio-focus        : var(--neo-cyber-gold);
 }

@@ -13,7 +13,7 @@
 
     .form-side-nav-number {
         align-items    : center;
-        border         : 1px solid var(--sem-color-border-default);
+        border         : 1px solid var(--neo-sem-color-border-default);
         border-radius  : 50%;
         display        : inline-flex;
         flex           : none;
@@ -24,11 +24,11 @@
     }
 
     .form-side-nav-state-invalid {
-        color: var(--status-badge-state-error-text-color, #e5484d);
+        color: var(--neo-status-badge-state-error-color, #e5484d);
     }
 
     .form-side-nav-state-valid {
-        color: var(--status-badge-state-success-text-color, #3fb950);
+        color: var(--neo-status-badge-state-success-color, #3fb950);
     }
 
     @media (max-height: 479px) {

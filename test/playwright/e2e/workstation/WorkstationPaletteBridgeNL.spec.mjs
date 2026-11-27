@@ -33,46 +33,46 @@ import {test, expect} from '../../fixtures.mjs';
  */
 const bridgedTokens = [
     // Direct palette mappings.
-    {token: '--grid-container-border-color',               consumer: '.neo-grid-cell',           expect: p => p.line},
-    {token: '--grid-container-cell-background-color',      consumer: '.neo-grid-cell',           expect: p => p.panel},
-    {token: '--grid-container-cell-background-color-even', consumer: '.neo-grid-cell',           expect: p => p.panel2},
-    {token: '--grid-container-color',                      consumer: '.neo-grid-cell',           expect: p => p.inkDim},
-    {token: '--grid-cell-progress-active-color',           consumer: '.neo-grid-cell',           expect: p => p.signal},
-    {token: '--grid-cell-progress-track-color',            consumer: '.neo-grid-cell',           expect: p => p.line},
-    {token: '--tab-button-glyph-color',                    consumer: '.neo-tab-header-button',   expect: p => p.inkDim},
-    {token: '--tab-button-text-color',                     consumer: '.neo-tab-header-button',   expect: p => p.inkDim},
-    {token: '--tab-indicator-background-color-active',     consumer: '.neo-tab-header-button',   expect: p => p.signal},
-    {token: '--tab-strip-background-color',                consumer: '.neo-tab-header-button',   expect: p => p.panel2},
-    {token: '--tab-header-action-glyph-color',             consumer: '.neo-toolbar-action',      expect: p => p.inkDim},
-    {token: '--tab-header-action-glyph-color-active',      consumer: '.neo-toolbar-action',      expect: p => p.signal},
-    {token: '--tab-header-action-glyph-color-hover',       consumer: '.neo-toolbar-action',      expect: p => p.signal},
+    {token: '--neo-grid-container-border-color',               consumer: '.neo-grid-cell',           expect: p => p.line},
+    {token: '--neo-grid-container-cell-background-color',      consumer: '.neo-grid-cell',           expect: p => p.panel},
+    {token: '--neo-grid-container-cell-background-color-even', consumer: '.neo-grid-cell',           expect: p => p.panel2},
+    {token: '--neo-grid-container-color',                      consumer: '.neo-grid-cell',           expect: p => p.inkDim},
+    {token: '--neo-grid-cell-progress-value-background-color',           consumer: '.neo-grid-cell',           expect: p => p.signal},
+    {token: '--neo-grid-cell-progress-track-background-color',            consumer: '.neo-grid-cell',           expect: p => p.line},
+    {token: '--neo-tab-button-glyph-color',                    consumer: '.neo-tab-header-button',   expect: p => p.inkDim},
+    {token: '--neo-tab-button-color',                     consumer: '.neo-tab-header-button',   expect: p => p.inkDim},
+    {token: '--neo-tab-indicator-background-color-active',     consumer: '.neo-tab-header-button',   expect: p => p.signal},
+    {token: '--neo-tab-strip-background-color',                consumer: '.neo-tab-header-button',   expect: p => p.panel2},
+    {token: '--neo-tab-header-action-glyph-color',             consumer: '.neo-toolbar-action',      expect: p => p.inkDim},
+    {token: '--neo-tab-header-action-glyph-color-active',      consumer: '.neo-toolbar-action',      expect: p => p.signal},
+    {token: '--neo-tab-header-action-glyph-color-hover',       consumer: '.neo-toolbar-action',      expect: p => p.signal},
 
     // Composed values. A `color-mix()` or a gradient is still a bridged declaration, and
     // omitting them is how a census silently shrinks to the tokens that were easy to assert.
-    {token: '--grid-cell-background-color-hover',          consumer: '.neo-grid-cell',           expect: p => `color-mix(in srgb, ${p.signal} 10%, ${p.panel})`},
-    {token: '--tab-button-background-color-active',        consumer: '.neo-tab-header-button',   expect: p => `color-mix(in srgb, ${p.signal} 12%, transparent)`},
-    {token: '--tab-button-background-color-hover',         consumer: '.neo-tab-header-button',   expect: p => `color-mix(in srgb, ${p.signal} 8%, transparent)`},
-    {token: '--tab-header-action-background-color-active', consumer: '.neo-toolbar-action',      expect: p => `color-mix(in srgb, ${p.signal} 12%, transparent)`},
-    {token: '--tab-header-action-background-color-hover',  consumer: '.neo-toolbar-action',      expect: p => `color-mix(in srgb, ${p.signal} 8%, transparent)`},
-    {token: '--tab-header-inline-background-image',        consumer: '.neo-tab-header-toolbar',  expect: p => `linear-gradient( 180deg, ${p.panel2}, ${p.panel} )`},
+    {token: '--neo-grid-cell-background-color-hover',          consumer: '.neo-grid-cell',           expect: p => `color-mix(in srgb, ${p.signal} 10%, ${p.panel})`},
+    {token: '--neo-tab-button-background-color-active',        consumer: '.neo-tab-header-button',   expect: p => `color-mix(in srgb, ${p.signal} 12%, transparent)`},
+    {token: '--neo-tab-button-background-color-hover',         consumer: '.neo-tab-header-button',   expect: p => `color-mix(in srgb, ${p.signal} 8%, transparent)`},
+    {token: '--neo-tab-header-action-background-color-active', consumer: '.neo-toolbar-action',      expect: p => `color-mix(in srgb, ${p.signal} 12%, transparent)`},
+    {token: '--neo-tab-header-action-background-color-hover',  consumer: '.neo-toolbar-action',      expect: p => `color-mix(in srgb, ${p.signal} 8%, transparent)`},
+    {token: '--neo-tab-header-inline-background-image',        consumer: '.neo-tab-header-toolbar',  expect: p => `linear-gradient( 180deg, ${p.panel2}, ${p.panel} )`},
 
     // Selection, for every selection model: signal washes above the hover's, ink text.
-    {token: '--grid-cellmodel-selected-cell-background-color',        consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 30%, ${p.panel})`},
-    {token: '--grid-cellmodel-selected-cell-color',                   consumer: '.neo-grid-cell', expect: p => p.ink},
-    {token: '--grid-cellmodel-selected-column-cell-background-color', consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 16%, ${p.panel})`},
-    {token: '--grid-cellmodel-selected-column-cell-color',            consumer: '.neo-grid-cell', expect: p => p.ink},
-    {token: '--grid-cellrowmodel-selected-cell-background-color',     consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 30%, ${p.panel})`},
-    {token: '--grid-cellrowmodel-selected-cell-color',                consumer: '.neo-grid-cell', expect: p => p.ink},
-    {token: '--grid-cellrowmodel-selected-row-cell-background-color', consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 16%, ${p.panel})`},
-    {token: '--grid-cellrowmodel-selected-row-cell-color',            consumer: '.neo-grid-cell', expect: p => p.ink},
-    {token: '--grid-rowmodel-selected-cell-background-color',         consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 22%, ${p.panel})`},
-    {token: '--grid-rowmodel-selected-cell-color',                    consumer: '.neo-grid-cell', expect: p => p.ink},
+    {token: '--neo-grid-cellmodel-cell-background-color-selected',        consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 30%, ${p.panel})`},
+    {token: '--neo-grid-cellmodel-cell-color-selected',                   consumer: '.neo-grid-cell', expect: p => p.ink},
+    {token: '--neo-grid-cellmodel-column-cell-background-color-selected', consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 16%, ${p.panel})`},
+    {token: '--neo-grid-cellmodel-column-cell-color-selected',            consumer: '.neo-grid-cell', expect: p => p.ink},
+    {token: '--neo-grid-cellrowmodel-cell-background-color-selected',     consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 30%, ${p.panel})`},
+    {token: '--neo-grid-cellrowmodel-cell-color-selected',                consumer: '.neo-grid-cell', expect: p => p.ink},
+    {token: '--neo-grid-cellrowmodel-row-cell-background-color-selected', consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 16%, ${p.panel})`},
+    {token: '--neo-grid-cellrowmodel-row-cell-color-selected',            consumer: '.neo-grid-cell', expect: p => p.ink},
+    {token: '--neo-grid-rowmodel-cell-background-color-selected',         consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 22%, ${p.panel})`},
+    {token: '--neo-grid-rowmodel-cell-color-selected',                    consumer: '.neo-grid-cell', expect: p => p.ink},
 
     // A literal, and the one declaration this spec CANNOT discriminate: the app and both neo themes
     // independently arrive at `transparent` here, so deleting the bridge does not move it. Carried in
     // the census with that stated rather than dropped, because an unlisted token reads as an
     // oversight while a listed non-discriminating one reads as a measurement.
-    {token: '--tab-button-background-color',               consumer: '.neo-tab-header-button',   expect: () => 'transparent', nonDiscriminating: true}
+    {token: '--neo-tab-button-background-color',               consumer: '.neo-tab-header-button',   expect: () => 'transparent', nonDiscriminating: true}
 ];
 
 /**
@@ -181,7 +181,7 @@ test.describe('Workstation — the palette bridge out-ranks the theme', () => {
                   squash   = value => value.replace(/\s+/g, ' ').trim().toLowerCase();
 
             return {
-                resolved: squash(getComputedStyle(toolbar).getPropertyValue('--tab-header-inline-background-image')),
+                resolved: squash(getComputedStyle(toolbar).getPropertyValue('--neo-tab-header-inline-background-image')),
                 expected: squash(`linear-gradient( 180deg, ${palette.getPropertyValue('--workstation-panel-2')}, ${palette.getPropertyValue('--workstation-panel')} )`)
             }
         });
@@ -267,8 +267,8 @@ test.describe('Workstation — the palette bridge out-ranks the theme', () => {
         // independently arrive at `transparent` for it, so no mutation of the bridge can move it —
         // measured here rather than asserted in prose. If a theme ever changes that value this arm
         // reds and the census gains a discriminating member, which is the outcome we want.
-        expect(expectedToHold, 'the census names its non-discriminating member').toEqual(['--tab-button-background-color']);
-        expect(movedTokens, 'and that member genuinely does not move').not.toContain('--tab-button-background-color')
+        expect(expectedToHold, 'the census names its non-discriminating member').toEqual(['--neo-tab-button-background-color']);
+        expect(movedTokens, 'and that member genuinely does not move').not.toContain('--neo-tab-button-background-color')
     });
 
     test('the pop-out vessel keeps the bridge it has no workspace to inherit it from', async ({page}) => {
@@ -321,9 +321,9 @@ test.describe('Workstation — the palette bridge out-ranks the theme', () => {
             probe.remove();
 
             return {
-                background: style.getPropertyValue('--grid-header-button-background-color').trim(),
+                background: style.getPropertyValue('--neo-grid-header-button-background-color').trim(),
                 panel2    : palette.getPropertyValue('--workstation-panel-2').trim(),
-                glyph     : style.getPropertyValue('--grid-header-button-glyph-color').trim(),
+                glyph     : style.getPropertyValue('--neo-grid-header-button-glyph-color').trim(),
                 inkDim    : palette.getPropertyValue('--workstation-ink-dim').trim(),
                 // Sort glyphs sit after the label under row-reverse, so `flex-end` is the physical
                 // start alignment. The theme's `start` was one of the values the bridge used to lose.

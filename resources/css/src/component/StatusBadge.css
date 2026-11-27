@@ -1,48 +1,48 @@
 .neo-status-badge {
     display: flex;
-    padding: var(--status-badge-padding);
-    align-items: var(--status-badge-align-items);
+    padding: var(--neo-status-badge-padding);
+    align-items: var(--neo-status-badge-align-items);
 
     &.neo-state-alert {
-        background-color: var(--status-badge-state-alert-background-color);
-        color: var(--status-badge-state-alert-text-color);
+        background-color: var(--neo-status-badge-state-alert-background-color);
+        color: var(--neo-status-badge-state-alert-color);
     }
 
     &.neo-state-error {
-        background-color: var(--status-badge-state-error-background-color);
-        color: var(--status-badge-state-error-text-color);
+        background-color: var(--neo-status-badge-state-error-background-color);
+        color: var(--neo-status-badge-state-error-color);
     }
 
     &.neo-state-info {
-        background-color: var(--status-badge-state-info-background-color);
-        color: var(--status-badge-state-info-text-color);
+        background-color: var(--neo-status-badge-state-info-background-color);
+        color: var(--neo-status-badge-state-info-color);
     }
 
     &.neo-state-neutral {
-        background-color: var(--status-badge-state-neutral-background-color);
-        color: var(--status-badge-state-neutral-text-color);
+        background-color: var(--neo-status-badge-state-neutral-background-color);
+        color: var(--neo-status-badge-state-neutral-color);
     }
 
     &.neo-state-success {
-        background-color: var(--status-badge-state-success-background-color);
-        color: var(--status-badge-state-success-text-color);
+        background-color: var(--neo-status-badge-state-success-background-color);
+        color: var(--neo-status-badge-state-success-color);
 
     }
 
     .neo-state-glyph {
-        font-size: var(--status-badge-font-size);
+        font-size: var(--neo-status-badge-font-size);
         pointer-events: none;
     }
 
     .neo-state-text {
         flex: 1 1 auto;
-        font-family: var(--status-badge-font-family);
-        font-size: var(--status-badge-font-size);
-        font-weight: var(--status-badge-font-weight);
-        line-height: var(--status-badge-line-height);
+        font-family: var(--neo-status-badge-font-family);
+        font-size: var(--neo-status-badge-font-size);
+        font-weight: var(--neo-status-badge-font-weight);
+        line-height: var(--neo-status-badge-line-height);
         pointer-events: none;
-        text-align:  var(--status-badge-align-items);
-        text-transform: var(--status-badge-transform);
+        text-align:  var(--neo-status-badge-align-items);
+        text-transform: var(--neo-status-badge-transform);
     }
 
 

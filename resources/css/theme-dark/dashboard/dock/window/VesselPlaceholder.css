@@ -1,7 +1,7 @@
 /* Values for the cross-window pane placeholder; the paint and the rationale live in
    `src/dashboard/dock/window/VesselPlaceholder.css`. An application projection always wins, by
-   layer (`neo.apps` after `neo.theme`). Ground is this theme's `--dock-preview-ground` made opaque. */
+   layer (`neo.apps` after `neo.theme`). Ground is this theme's `--neo-dock-preview-background` made opaque. */
 :where(.neo-theme-dark) {
-    --dock-vessel-placeholder-ground: #3c3f41;
-    --dock-vessel-placeholder-ink   : #e0e0e0;
+    --neo-dock-vessel-placeholder-background-color: #3c3f41;
+    --neo-dock-vessel-placeholder-color   : #e0e0e0;
 }

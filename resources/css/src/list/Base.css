@@ -1,13 +1,13 @@
 .neo-list-wrapper {
-    background-color: var(--list-container-background-color);
-    border          : var(--list-container-border);
+    background-color: var(--neo-list-container-background-color);
+    border          : var(--neo-list-container-border);
     overflow        : hidden;
     position        : relative;
 }
 
 .neo-list {
-    color-scheme        : var(--list-scrollbar-color-scheme, light);
-    color               : var(--list-container-list-color);
+    color-scheme        : var(--neo-list-scrollbar-color-scheme, light);
+    color               : var(--neo-list-container-list-color);
     list-style-type     : none;
     margin-block-start  : 0;
     margin-block-end    : 0;
@@ -18,7 +18,7 @@
 
     &.neo-use-checkicons {
         .neo-list-item:before {
-            color      : var(--list-item-glyph-color);
+            color      : var(--neo-list-item-glyph-color);
             content    : "\f0c8";
             display    : inline-block;
             font-family: var(--fa-style-family-classic);
@@ -42,8 +42,8 @@
     }
 
     .neo-list-item {
-        background-color: var(--list-item-background-color);
-        padding         : var(--list-item-padding);
+        background-color: var(--neo-list-item-background-color);
+        padding         : var(--neo-list-item-padding);
         white-space     : nowrap;
 
         &:focus {
@@ -54,28 +54,28 @@
             cursor: pointer;
 
             &:hover {
-                background-color: var(--list-item-background-color-hover);
-                color           : var(--list-container-list-color);
+                background-color: var(--neo-list-item-background-color-hover);
+                color           : var(--neo-list-container-list-color);
             }
             &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
+                background-color: var(--neo-list-item-background-color-active);
+                color           : var(--neo-list-container-list-color);
             }
         }
 
         &.neo-navigator-active-item {
-            outline       : var(--list-item-focus-outline);
-            outline-offset: var(--list-item-focus-outline-offset);
+            outline       : var(--neo-list-item-outline-focus);
+            outline-offset: var(--neo-list-item-outline-offset-focus);
         }
 
         &[aria-selected="true"] {
-            background-color: var(--list-item-background-color-selected);
-            color           : var(--list-item-color-selected);
+            background-color: var(--neo-list-item-background-color-selected);
+            color           : var(--neo-list-item-color-selected);
             cursor          : default;
         }
 
         .neo-highlight-search {
-            color: var(--list-item-highlight-search-color);
+            color: var(--neo-list-item-highlight-search-color);
         }
     }
 }

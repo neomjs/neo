@@ -30,7 +30,7 @@
 
     &.neo-invalid {
         .neo-textfield-input {
-            border-color: var(--textfield-border-color-invalid);
+            border-color: var(--neo-textfield-border-color-invalid);
         }
     }
 

@@ -29,16 +29,16 @@
 
     /* The table takes the board's palette, so both views read as one desk */
     .board-example-list {
-        --grid-container-border-color              : var(--neo-board-column-border-color);
-        --grid-container-cell-background-color     : var(--neo-board-column-background);
-        --grid-container-cell-background-color-even: var(--neo-board-background);
-        --grid-container-color                     : var(--neo-board-card-color);
-        --grid-header-button-background-color      : var(--neo-board-badge-background);
-        --grid-header-button-background-color-hover: var(--neo-board-column-border-color);
-        --grid-header-button-color                 : var(--neo-board-badge-color);
-        --grid-header-button-color-hover           : var(--neo-board-card-color);
-        --grid-header-button-glyph-color           : var(--neo-board-badge-color);
-        --grid-header-button-glyph-color-hover     : var(--neo-board-card-color);
+        --neo-grid-container-border-color              : var(--neo-board-column-border-color);
+        --neo-grid-container-cell-background-color     : var(--neo-board-column-background);
+        --neo-grid-container-cell-background-color-even: var(--neo-board-background);
+        --neo-grid-container-color                     : var(--neo-board-card-color);
+        --neo-grid-header-button-background-color      : var(--neo-board-badge-background);
+        --neo-grid-header-button-background-color-hover: var(--neo-board-column-border-color);
+        --neo-grid-header-button-color                 : var(--neo-board-badge-color);
+        --neo-grid-header-button-color-hover           : var(--neo-board-card-color);
+        --neo-grid-header-button-glyph-color           : var(--neo-board-badge-color);
+        --neo-grid-header-button-glyph-color-hover     : var(--neo-board-card-color);
 
         background: var(--neo-board-column-background);
         border-top: 1px solid var(--neo-board-column-border-color);

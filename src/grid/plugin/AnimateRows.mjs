@@ -129,7 +129,7 @@ class AnimateRows extends Base {
      * @protected
      */
     afterSetTransitionDuration(value, oldValue) {
-        this.owner.addStyle({'--neo-duration': value + 'ms'})
+        this.owner.addStyle({'--neo-grid-animate-rows-transition-duration': value + 'ms'})
     }
 
     /**
@@ -139,7 +139,7 @@ class AnimateRows extends Base {
      * @protected
      */
     afterSetTransitionEasing(value, oldValue) {
-        this.owner.addStyle({'--neo-easing': value})
+        this.owner.addStyle({'--neo-grid-animate-rows-transition-timing-function': value})
     }
 
     /**
@@ -181,8 +181,8 @@ class AnimateRows extends Base {
         });
 
         owner.addStyle({
-            '--neo-duration': null,
-            '--neo-easing'  : null
+            '--neo-grid-animate-rows-transition-duration'       : null,
+            '--neo-grid-animate-rows-transition-timing-function': null
         });
 
         super.destroy(...args)

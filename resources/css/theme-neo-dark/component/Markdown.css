@@ -1,19 +1,19 @@
 :where(.neo-theme-neo-dark) {
-    --markdown-bg                   : var(--sem-color-bg-neutral-default);
-    --markdown-blockquote-bg        : var(--purple-950);
-    --markdown-blockquote-border    : var(--sem-color-surface-primary-default);
-    --markdown-code-bg              : var(--sem-color-surface-primary-background);
-    --markdown-code-border          : var(--sem-color-border-subtle);
-    --markdown-details-summary-color: var(--sem-color-text-neutral-default);
-    --markdown-details-icon-color   : var(--sem-color-icon-primary-default);
-    --markdown-h1-color             : var(--sem-color-text-primary-default);
-    --markdown-hr-border            : var(--sem-color-border-subtle);
-    --markdown-lab-shadow           : 0 4px 8px 0 rgba(0, 0, 0, 0.5);
-    --markdown-lab-shadow-hover     : 0 8px 16px 0 rgba(0, 0, 0, 0.5);
-    --markdown-link-color           : var(--purple-200);
-    --markdown-list-marker-color    : var(--sem-color-text-primary-default);
-    --markdown-pre-border           : var(--sem-color-border-subtle);
-    --markdown-table-border         : var(--sem-color-border-subtle);
-    --markdown-table-header-bg      : var(--purple-900);
-    --markdown-text-color           : var(--white-off);
+    --neo-markdown-background-color                   : var(--neo-sem-color-bg-neutral-default);
+    --neo-markdown-blockquote-background-color        : var(--neo-purple-950);
+    --neo-markdown-blockquote-border    : var(--neo-sem-color-surface-primary-default);
+    --neo-markdown-code-background-color              : var(--neo-sem-color-surface-primary-background);
+    --neo-markdown-code-border          : var(--neo-sem-color-border-subtle);
+    --neo-markdown-details-summary-color: var(--neo-sem-color-text-neutral-default);
+    --neo-markdown-details-icon-color   : var(--neo-sem-color-icon-primary-default);
+    --neo-markdown-h1-color             : var(--neo-sem-color-text-primary-default);
+    --neo-markdown-hr-border            : var(--neo-sem-color-border-subtle);
+    --neo-markdown-lab-box-shadow           : 0 4px 8px 0 rgba(0, 0, 0, 0.5);
+    --neo-markdown-lab-box-shadow-hover     : 0 8px 16px 0 rgba(0, 0, 0, 0.5);
+    --neo-markdown-link-color           : var(--neo-purple-200);
+    --neo-markdown-list-marker-color    : var(--neo-sem-color-text-primary-default);
+    --neo-markdown-pre-border           : var(--neo-sem-color-border-subtle);
+    --neo-markdown-table-border         : var(--neo-sem-color-border-subtle);
+    --neo-markdown-table-header-background-color      : var(--neo-purple-900);
+    --neo-markdown-color           : var(--neo-white-off);
 }

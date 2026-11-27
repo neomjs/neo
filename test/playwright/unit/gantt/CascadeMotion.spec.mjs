@@ -78,7 +78,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     });
 
     test('on: the edit and its cascade start at their previous spans, the records at their final dates', async () => {
-        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+        tokens({'--neo-duration-panel': '20000ms', '--neo-ease-out': ease});
         await create({animateCascade: true});
 
         gantt.moveTask('a', moveA);
@@ -102,7 +102,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     };
 
     test('a 0ms tier, reduced motion\'s, leaves the commit as the one update', async () => {
-        tokens({'--motion-panel': '0ms', '--ease-out-soft': ease});
+        tokens({'--neo-duration-panel': '0ms', '--neo-ease-out': ease});
         await create({animateCascade: true});
 
         gantt.moveTask('a', moveA);
@@ -118,7 +118,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     };
 
     for (const [outcome, reply] of [
-        ['a 0ms tier', () => ({'--motion-panel': '0ms', '--ease-out-soft': ease})],
+        ['a 0ms tier', () => ({'--neo-duration-panel': '0ms', '--neo-ease-out': ease})],
         ['a failed read', () => {throw new Error('no main thread')}]
     ]) {
         test(`${outcome} that answers after the commit leaves the commit as the one update`, async () => {
@@ -133,7 +133,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
 
     // A chart that already read a positive tier: the preference reaches the worker as Neo.config.prefersReducedMotion
     test('reduced motion switched on after a positive tier was read leaves the next commit as the one update', async () => {
-        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+        tokens({'--neo-duration-panel': '20000ms', '--neo-ease-out': ease});
         await create({animateCascade: true});
 
         Neo.config.prefersReducedMotion = true;
@@ -142,7 +142,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     });
 
     test('reduced motion switched on during a move lands it at the next step', async () => {
-        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+        tokens({'--neo-duration-panel': '20000ms', '--neo-ease-out': ease});
         await create({animateCascade: true});
 
         gantt.moveTask('a', moveA);
@@ -155,11 +155,11 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     });
 
     for (const [outcome, reply] of [
-        ['a 0ms tier', () => ({'--motion-panel': '0ms', '--ease-out-soft': ease})],
+        ['a 0ms tier', () => ({'--neo-duration-panel': '0ms', '--neo-ease-out': ease})],
         ['a failed read', () => {throw new Error('no main thread')}]
     ]) {
         test(`${outcome} answering the read after a warm chart's commit lands the running move`, async () => {
-            tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+            tokens({'--neo-duration-panel': '20000ms', '--neo-ease-out': ease});
             await create({animateCascade: true});
             const release = holdReads(reply);
 
@@ -174,7 +174,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     }
 
     test('a positive tier that answers after the commit moves the next cascade, not this one', async () => {
-        const release = holdReads(() => ({'--motion-panel': '20000ms', '--ease-out-soft': ease}));
+        const release = holdReads(() => ({'--neo-duration-panel': '20000ms', '--neo-ease-out': ease}));
         await create({animateCascade: true});
 
         gantt.moveTask('a', moveA);
@@ -187,7 +187,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     });
 
     test('the steps follow the panel tier eased, keep each link on its bars, and end exactly at the final spans', async () => {
-        tokens({'--motion-panel': '600ms', '--ease-out-soft': ease});
+        tokens({'--neo-duration-panel': '600ms', '--neo-ease-out': ease});
         await create({animateCascade: true});
 
         const lefts = [];
@@ -213,7 +213,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     });
 
     test('a dragged task stays where its preview dropped it while its successor moves', async () => {
-        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+        tokens({'--neo-duration-panel': '20000ms', '--neo-ease-out': ease});
         await create({animateCascade: true});
 
         gantt.moveTask('a', moveA, {source: 'drag'});
@@ -233,7 +233,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     });
 
     test('another store drops a running move: its records draw at their own dates, at once and after a step', async () => {
-        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+        tokens({'--neo-duration-panel': '20000ms', '--neo-ease-out': ease});
         await create({animateCascade: true});
 
         gantt.moveTask('a', moveA);
@@ -266,7 +266,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     });
 
     test('the same store assigned again keeps a running move', async () => {
-        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+        tokens({'--neo-duration-panel': '20000ms', '--neo-ease-out': ease});
         await create({animateCascade: true});
 
         gantt.moveTask('a', moveA);
@@ -287,7 +287,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
         ['switching the config off',   () => gantt.animateCascade = false,               [120, 180]]
     ]) {
         test(`${trigger} lands a running move at its final spans`, async () => {
-            tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+            tokens({'--neo-duration-panel': '20000ms', '--neo-ease-out': ease});
             await create({animateCascade: true});
 
             gantt.moveTask('a', moveA);
@@ -300,7 +300,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     }
 
     test('the next move lands a running one before it starts', async () => {
-        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+        tokens({'--neo-duration-panel': '20000ms', '--neo-ease-out': ease});
         await create({animateCascade: true});
 
         gantt.moveTask('a', moveA);

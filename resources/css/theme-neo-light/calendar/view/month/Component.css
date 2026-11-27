@@ -1,11 +1,11 @@
 :where(.neo-theme-neo-light) { /* .neo-calendar-monthcomponent */
-    --c-m-background-color        : #fff;
-    --c-m-border-color            : #ddd;
-    --c-m-day-name-color          : #666;
-    --c-m-day-number-color        : #666;
-    --c-m-event-color-focus       : #fff;
-    --c-m-month-name-color        : #444;
-    --c-m-scroll-box-shadow       : 0 0 1.56em 0.78em #fff, 0 0 3.9em 1.95em #1c60a0;
-    --c-m-weekend-background-color: rgba(240, 240, 240, .35);
-    --c-m-year-color              : #1c60a0;
+    --neo-calendar-month-background-color        : #fff;
+    --neo-calendar-month-border-color            : #ddd;
+    --neo-calendar-month-day-name-color          : #666;
+    --neo-calendar-month-day-number-color        : #666;
+    --neo-calendar-month-event-color-focus       : #fff;
+    --neo-calendar-month-month-name-color        : #444;
+    --neo-calendar-month-scroll-box-shadow       : 0 0 1.56em 0.78em #fff, 0 0 3.9em 1.95em #1c60a0;
+    --neo-calendar-month-weekend-background-color: rgba(240, 240, 240, .35);
+    --neo-calendar-month-year-color              : #1c60a0;
 }

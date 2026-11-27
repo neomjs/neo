@@ -1,5 +1,5 @@
 :where(.neo-theme-neo-dark) { /* .neo-accordion */
-    --accordion-item-radius   : 5px;
-    --accordion-title-bg-color: var(--sem-color-surface-neutral-default);
-    --accordion-title-color   : var(--sem-color-text-neutral-default);
+    --neo-accordion-item-border-radius   : 5px;
+    --neo-accordion-title-background-color: var(--neo-sem-color-surface-neutral-default);
+    --neo-accordion-title-color   : var(--neo-sem-color-text-neutral-default);
 }

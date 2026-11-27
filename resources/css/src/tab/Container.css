@@ -14,9 +14,9 @@
        shadow is one whole-value token (not a colour inside a fixed shadow), so a theme that values
        nothing computes exactly `none` rather than a transparent shadow string. */
     &.neo-tab-container-inline > .neo-tab-header-toolbar {
-        background-color: var(--tab-header-inline-background-color, transparent);
-        background-image: var(--tab-header-inline-background-image, none);
-        box-shadow      : var(--tab-header-inline-box-shadow, none);
+        background-color: var(--neo-tab-header-inline-background-color, transparent);
+        background-image: var(--neo-tab-header-inline-background-image, none);
+        box-shadow      : var(--neo-tab-header-inline-box-shadow, none);
     }
 
     &.neo-bottom {
@@ -48,7 +48,7 @@
     }
 
     .neo-tab-body-container {
-        border  : var(--tab-container-content-border);
+        border  : var(--neo-tab-container-content-border);
         overflow: hidden;
     }
 }
@@ -79,13 +79,13 @@
    the same weight the theme files were already carrying. */
 :root .neo-tab-container-inline > .neo-tab-header-toolbar,
 :root .neo-tab-header-toolbar.neo-tab-container-inline {
-    --tab-button-border-radius   : var(--tab-inline-button-border-radius);
-    --tab-button-gap             : var(--tab-inline-button-gap);
-    --tab-button-height          : var(--tab-inline-button-height);
-    --tab-button-height-pressed  : var(--tab-inline-button-height-pressed);
-    --tab-button-padding         : var(--tab-inline-button-padding);
-    --tab-button-text-font-size  : var(--tab-inline-button-text-font-size);
-    --tab-button-text-font-weight: var(--tab-inline-button-text-font-weight);
+    --neo-tab-button-border-radius   : var(--neo-tab-inline-button-border-radius);
+    --neo-tab-button-gap             : var(--neo-tab-inline-button-gap);
+    --neo-tab-button-height          : var(--neo-tab-inline-button-height);
+    --neo-tab-button-height-pressed  : var(--neo-tab-inline-button-height-pressed);
+    --neo-tab-button-padding         : var(--neo-tab-inline-button-padding);
+    --neo-tab-button-text-font-size  : var(--neo-tab-inline-button-text-font-size);
+    --neo-tab-button-text-font-weight: var(--neo-tab-inline-button-text-font-weight);
 }
 
 /* Standalone names five tokens, not seven: type size and weight are inherited from the theme's
@@ -93,9 +93,9 @@
    partial declaration #18141 punishes. */
 :root .neo-tab-container-standalone > .neo-tab-header-toolbar,
 :root .neo-tab-header-toolbar.neo-tab-container-standalone {
-    --tab-button-border-radius : var(--tab-standalone-button-border-radius);
-    --tab-button-gap           : var(--tab-standalone-button-gap);
-    --tab-button-height        : var(--tab-standalone-button-height);
-    --tab-button-height-pressed: var(--tab-standalone-button-height-pressed);
-    --tab-button-padding       : var(--tab-standalone-button-padding);
+    --neo-tab-button-border-radius : var(--neo-tab-standalone-button-border-radius);
+    --neo-tab-button-gap           : var(--neo-tab-standalone-button-gap);
+    --neo-tab-button-height        : var(--neo-tab-standalone-button-height);
+    --neo-tab-button-height-pressed: var(--neo-tab-standalone-button-height-pressed);
+    --neo-tab-button-padding       : var(--neo-tab-standalone-button-padding);
 }

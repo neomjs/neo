@@ -1,4 +1,4 @@
 .neo-monaco-editor {
-    background-color: var(--monaco-editor-background-color);
+    background-color: var(--neo-monaco-editor-background-color);
     overflow        : hidden;
 }

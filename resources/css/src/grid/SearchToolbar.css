@@ -85,7 +85,7 @@
 
     .neo-list-item:not(.neo-menu-separator) {
         height    : auto;
-        min-height: var(--menu-list-item-height);
+        min-height: var(--neo-menu-list-item-height);
 
         .neo-content {
             min-width    : 0;

@@ -1,4 +1,4 @@
 :where(.neo-theme-neo-light) { /* .neo-calendar-settingscontainer */
-    --calendar-settings-header-background-color: #f2f2f2;
-    --calendar-settings-header-color           : inherit;
+    --neo-calendar-settings-header-background-color: #f2f2f2;
+    --neo-calendar-settings-header-color           : inherit;
 }

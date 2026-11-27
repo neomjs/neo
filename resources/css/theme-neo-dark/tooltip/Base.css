@@ -3,12 +3,12 @@
    class on itself, so both rules match the tooltip element and the contest is decided there, not by
    inheritance. */
 :where(.neo-theme-neo-dark) { /* .neo-tooltip */
-    --tooltip-bg            : var(--sem-color-surface-primary-default);
-    --tooltip-border        : none;
-    --tooltip-borderradius  : var(--sem-borderradius-medium);
-    --tooltip-boxshadow     : none;
-    --tooltip-color         : var(--sem-color-text-neutral-contrast);
-    --tooltip-fontsize      : 14px;
-    --tooltip-height        : var(--height-24);
-    --tooltip-padding       : 2px var(--sem-spacing-xsmall) 0;
+    --neo-tooltip-background-color            : var(--neo-sem-color-surface-primary-default);
+    --neo-tooltip-border        : none;
+    --neo-tooltip-border-radius  : var(--neo-sem-borderradius-medium);
+    --neo-tooltip-box-shadow     : none;
+    --neo-tooltip-color         : var(--neo-sem-color-text-neutral-contrast);
+    --neo-tooltip-font-size      : 14px;
+    --neo-tooltip-height        : var(--neo-height-24);
+    --neo-tooltip-padding       : 2px var(--neo-sem-spacing-xsmall) 0;
 }

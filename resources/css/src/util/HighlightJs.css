@@ -5,7 +5,7 @@ pre.hljs {
 
 /* This sheet owns the mono font for ALL code, highlighted or not, and it is the only author rule that
    does. The two selectors are split rather than grouped so a theme can restyle inline `code` without
-   reaching `.hljs`: `--global-code-font-family` is the seam, and `Menlo, monospace` stays here as its
+   reaching `.hljs`: `--neo-global-code-font-family` is the seam, and `Menlo, monospace` stays here as its
    default rather than moving into a theme or into Global.
 
    The split is load-bearing for a family that DECLINES the theme's mono font. Global's structural
@@ -14,7 +14,7 @@ pre.hljs {
    instead of deferring to it. Declining to a token default keeps the author cascade; declining to
    `revert` destroys it. Measured on #18232 after it shipped the destructive form. */
 code {
-    font-family: var(--global-code-font-family, Menlo, monospace);
+    font-family: var(--neo-global-code-font-family, Menlo, monospace);
 }
 
 /* Grouped-out on purpose: `.hljs` (0,1,0) outranks `code` (0,0,1), so highlighted code keeps this
@@ -24,8 +24,8 @@ code {
 }
 
 .hljs {
-    background: var(--highlight-background-color);
-    color     : var(--highlight-color);
+    background: var(--neo-highlight-background-color);
+    color     : var(--neo-highlight-color);
     display   : block;
     font-size : 12px;
     overflow-x: auto;
@@ -34,14 +34,14 @@ code {
 
 .hljs-comment,
 .hljs-quote {
-    color: var(--highlight-comment-color);
+    color: var(--neo-highlight-comment-color);
     font-style: italic;
 }
 
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-subst {
-    color: var(--highlight-keyword-color);
+    color: var(--neo-highlight-keyword-color);
 }
 
 .hljs-number,
@@ -49,21 +49,21 @@ code {
 .hljs-variable,
 .hljs-template-variable,
 .hljs-tag .hljs-attr {
-    color: var(--highlight-number-color);
+    color: var(--neo-highlight-number-color);
 }
 
 .hljs-string {
-    color: var(--highlight-string-color);
+    color: var(--neo-highlight-string-color);
 }
 
 .hljs-doctag {
-    color: var(--highlight-doctag-color);
+    color: var(--neo-highlight-doctag-color);
 }
 
 .hljs-title,
 .hljs-section,
 .hljs-selector-id {
-    color: var(--highlight-title-color);
+    color: var(--neo-highlight-title-color);
     font-weight: bold;
 }
 
@@ -74,43 +74,43 @@ code {
 .hljs-type,
 .hljs-title.class_,
 .hljs-title.class_.inherited__ {
-    color: var(--highlight-type-color);
+    color: var(--neo-highlight-type-color);
     font-weight: bold;
 }
 
 .hljs-tag,
 .hljs-name,
 .hljs-attribute {
-    color: var(--highlight-tag-color);
+    color: var(--neo-highlight-tag-color);
     font-weight: normal;
 }
 
 .hljs-regexp,
 .hljs-link {
-    color: var(--highlight-regexp-color);
+    color: var(--neo-highlight-regexp-color);
 }
 
 .hljs-symbol,
 .hljs-bullet {
-    color: var(--highlight-symbol-color);
+    color: var(--neo-highlight-symbol-color);
 }
 
 .hljs-built_in,
 .hljs-builtin-name {
-    color: var(--highlight-builtin-color);
+    color: var(--neo-highlight-builtin-color);
 }
 
 .hljs-meta {
-    color: var(--highlight-meta-color);
+    color: var(--neo-highlight-meta-color);
     font-weight: bold;
 }
 
 .hljs-deletion {
-    background: var(--highlight-deletion-background);
+    background: var(--neo-highlight-deletion-background);
 }
 
 .hljs-addition {
-    background: var(--highlight-addition-background);
+    background: var(--neo-highlight-addition-background);
 }
 
 .hljs-emphasis {
@@ -124,11 +124,11 @@ code {
 /* dark theme only */
 .hljs-code,
 .hljs-selector-class {
-    color: var(--highlight-code-color);
+    color: var(--neo-highlight-code-color);
 }
 
 .hljs-params {
-    color: var(--highlight-params-color);
+    color: var(--neo-highlight-params-color);
 }
 
 .hljs-subst,
@@ -137,5 +137,5 @@ code {
 .hljs-selector-pseudo,
 .hljs-template-tag,
 .hljs-template-variable {
-    color: var(--highlight-subst-color);
+    color: var(--neo-highlight-subst-color);
 }

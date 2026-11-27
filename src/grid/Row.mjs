@@ -744,13 +744,13 @@ class Row extends Component {
     }
 
     /**
-     * The transform that places this row at an offset in px. `--grid-row-pin-offset` is the scroll pinning
+     * The transform that places this row at an offset in px. `--neo-grid-row-pin-offset` is the scroll pinning
      * delta of the `GridRowScrollPinning` main-thread addon.
      * @param {Number} offset
      * @returns {String}
      */
     getRowTransform(offset) {
-        return `translate3d(0px, calc(${offset}px + var(--grid-row-pin-offset, 0px)), 0px)`
+        return `translate3d(0px, calc(${offset}px + var(--neo-grid-row-pin-offset, 0px)), 0px)`
     }
 
     /**

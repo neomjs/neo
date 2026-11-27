@@ -81,8 +81,8 @@ test.describe('theme-equality headless Chromium integration', () => {
         const targetFile = path.join(head.cssDir, 'theme-neo-light/button/Base.css'),
               original   = fs.readFileSync(targetFile, 'utf8'),
               mutated    = original
-                  .replace(/--button-primary-text-color\s*:\s*[^;]+;/, '--button-primary-text-color: rgb(251, 13, 199);')
-                  .replace(/--button-primary-glyph-color\s*:\s*[^;]+;/, '--button-primary-glyph-color: rgb(3, 244, 202);');
+                  .replace(/--neo-button-primary-color\s*:\s*[^;]+;/, '--neo-button-primary-color: rgb(251, 13, 199);')
+                  .replace(/--neo-button-primary-glyph-color\s*:\s*[^;]+;/, '--neo-button-primary-glyph-color: rgb(3, 244, 202);');
 
         expect(mutated).not.toBe(original);
         fs.writeFileSync(targetFile, mutated);
@@ -132,49 +132,49 @@ test.describe('theme-equality headless Chromium integration', () => {
         const switchFile = path.join(head.cssDir, 'theme-neo-light/form/field/Switch.css'),
               switchOrig = fs.readFileSync(switchFile, 'utf8'),
               switchNext = switchOrig
-                  .replace(/--switchfield-color-knob\s*:\s*[^;]+;/, '--switchfield-color-knob: rgb(251, 13, 199);')
-                  .replace(/--switchfield-color-off-hovered\s*:\s*[^;]+;/, '--switchfield-color-off-hovered: rgb(3, 244, 202);')
-                  .replace(/--switchfield-color-on-hovered\s*:\s*[^;]+;/, '--switchfield-color-on-hovered: rgb(244, 180, 12);');
+                  .replace(/--neo-switchfield-knob-background-color\s*:\s*[^;]+;/, '--neo-switchfield-knob-background-color: rgb(251, 13, 199);')
+                  .replace(/--neo-switchfield-off-background-color-hover\s*:\s*[^;]+;/, '--neo-switchfield-off-background-color-hover: rgb(3, 244, 202);')
+                  .replace(/--neo-switchfield-on-background-color-hover\s*:\s*[^;]+;/, '--neo-switchfield-on-background-color-hover: rgb(244, 180, 12);');
 
         expect(switchNext).not.toBe(switchOrig);
         fs.writeFileSync(switchFile, switchNext);
 
-        // 2. Dialog header button hover (`--dialog-header-button-background-color-hover` reading `--sem-color-surface-neutral-hover`)
+        // 2. Dialog header button hover (`--neo-dialog-header-button-background-color-hover` reading `--neo-sem-color-surface-neutral-hover`)
         const dialogFile = path.join(head.cssDir, 'theme-neo-light/dialog/Base.css'),
               dialogOrig = fs.readFileSync(dialogFile, 'utf8'),
               dialogNext = dialogOrig.replace(
-                  /--dialog-header-button-background-color-hover\s*:\s*[^;]+;/,
-                  '--dialog-header-button-background-color-hover: rgb(220, 40, 90);'
+                  /--neo-dialog-header-button-background-color-hover\s*:\s*[^;]+;/,
+                  '--neo-dialog-header-button-background-color-hover: rgb(220, 40, 90);'
               );
 
         expect(dialogNext).not.toBe(dialogOrig);
         fs.writeFileSync(dialogFile, dialogNext);
 
-        // 3. Chip close-button hover (`--chip-close-button-color-hover` on `.neo-chip-close-button:hover`)
+        // 3. Chip close-button hover (`--neo-chip-close-button-color-hover` on `.neo-chip-close-button:hover`)
         const chipFile = path.join(head.cssDir, 'theme-neo-light/component/Chip.css'),
               chipOrig = fs.readFileSync(chipFile, 'utf8'),
               chipNext = chipOrig.replace(
-                  /--chip-close-button-color-hover\s*:\s*[^;]+;/,
-                  '--chip-close-button-color-hover: rgb(251, 13, 199);'
+                  /--neo-chip-close-button-color-hover\s*:\s*[^;]+;/,
+                  '--neo-chip-close-button-color-hover: rgb(251, 13, 199);'
               );
 
         expect(chipNext).not.toBe(chipOrig);
         fs.writeFileSync(chipFile, chipNext);
 
-        // 4. Table row-ancestor hover (`--table-cell-background-color-hover` on `.neo-table-row:hover .neo-table-cell`)
+        // 4. Table row-ancestor hover (`--neo-table-cell-background-color-hover` on `.neo-table-row:hover .neo-table-cell`)
         const tableFile = path.join(head.cssDir, 'theme-neo-light/table/Body.css'),
               tableOrig = fs.readFileSync(tableFile, 'utf8'),
               tableNext = tableOrig.replace(
-                  /--table-cell-background-color-hover\s*:\s*[^;]+;/,
-                  '--table-cell-background-color-hover: rgb(19, 201, 144);'
+                  /--neo-table-cell-background-color-hover\s*:\s*[^;]+;/,
+                  '--neo-table-cell-background-color-hover: rgb(19, 201, 144);'
               );
 
         expect(tableNext).not.toBe(tableOrig);
         fs.writeFileSync(tableFile, tableNext);
 
         // 5. Classic `theme-dark` scoped-only custom-property winner flip on `.neo-tooltip`
-        const srcTooltipRule   = '\n.neo-tooltip { --tooltip-bg: rgb(18, 52, 86); }\n',
-              themeTooltipRule = '\n:root .neo-theme-dark { --tooltip-bg: rgb(210, 99, 44); }\n';
+        const srcTooltipRule   = '\n.neo-tooltip { --neo-tooltip-background-color: rgb(18, 52, 86); }\n',
+              themeTooltipRule = '\n:root .neo-theme-dark { --neo-tooltip-background-color: rgb(210, 99, 44); }\n';
 
         fs.appendFileSync(path.join(base.cssDir, 'src/tooltip/Base.css'), srcTooltipRule);
         fs.appendFileSync(path.join(head.cssDir, 'src/tooltip/Base.css'), srcTooltipRule);
@@ -259,7 +259,7 @@ test.describe('theme-equality headless Chromium integration', () => {
         }])
     });
 
-    test('fails closed when ONLY --chip-close-button-color-hover is mutated in Neo Light', async () => {
+    test('fails closed when ONLY --neo-chip-close-button-color-hover is mutated in Neo Light', async () => {
         test.setTimeout(120000);
 
         const base = makeTempCheckout(),
@@ -268,8 +268,8 @@ test.describe('theme-equality headless Chromium integration', () => {
         const chipFile = path.join(head.cssDir, 'theme-neo-light/component/Chip.css'),
               chipOrig = fs.readFileSync(chipFile, 'utf8'),
               chipNext = chipOrig.replace(
-                  /--chip-close-button-color-hover\s*:\s*[^;]+;/,
-                  '--chip-close-button-color-hover: rgb(251, 13, 199);'
+                  /--neo-chip-close-button-color-hover\s*:\s*[^;]+;/,
+                  '--neo-chip-close-button-color-hover: rgb(251, 13, 199);'
               );
 
         expect(chipNext).not.toBe(chipOrig);
@@ -336,8 +336,8 @@ test.describe('theme-equality headless Chromium integration', () => {
 
         await page.evaluate(() => {
             const root = document.getElementById('theme-switcher-test-viewport');
-            root.style.setProperty('--sem-color-text-neutral-contrast', 'rgb(230, 15, 25)');
-            root.style.setProperty('--sem-color-icon-neutral-contrast', 'rgb(10, 190, 25)');
+            root.style.setProperty('--neo-sem-color-text-neutral-contrast', 'rgb(230, 15, 25)');
+            root.style.setProperty('--neo-sem-color-icon-neutral-contrast', 'rgb(10, 190, 25)');
         });
 
         await button.hover();

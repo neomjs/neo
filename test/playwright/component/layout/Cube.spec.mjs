@@ -8,7 +8,7 @@ import {test, expect} from '../../fixtures.mjs';
  * implementation against itself and passes happily while the cube renders inside
  * out. So the central assertion here is a hit test. `elementFromPoint` at the
  * cube's centre returns whatever face is actually on top, and each of the six
- * faces is required to come back as itself. Reading `--rot-x` back would agree
+ * faces is required to come back as itself. Reading `--neo-layout-cube-rot-x` back would agree
  * with a cube whose faces are all stacked the same way.
  *
  * The fixture is `component/apps/layout-cube/`, whose three faces carry the face
@@ -97,7 +97,7 @@ async function turnTo(page, face) {
 /**
  * @summary Waits until the cube holds the rotation it was asked for.
  *
- * Two things need waiting for, in this order. The container's `--rot-x`/`--rot-y`
+ * Two things need waiting for, in this order. The container's `--neo-layout-cube-rot-x`/`--neo-layout-cube-rot-y`
  * update with the patch, but the patch arrives on the main thread after the
  * worker call resolves, so a helper that only counts stable transform frames can
  * report "settled" on the value it started from. Then the transform that MOVES
@@ -116,7 +116,7 @@ async function turnTo(page, face) {
 async function waitForCubeToSettle(page, [x, y]) {
     await expect.poll(() => page.evaluate(() => {
         const cs = getComputedStyle(document.querySelector('.neo-layout-cube'));
-        return [cs.getPropertyValue('--rot-x').trim(), cs.getPropertyValue('--rot-y').trim()];
+        return [cs.getPropertyValue('--neo-layout-cube-rot-x').trim(), cs.getPropertyValue('--neo-layout-cube-rot-y').trim()];
     }), {message: `the cube reaches its ${x}/${y} rotation`}).toEqual([x, y]);
 
     await page.evaluate(() => new Promise((resolve) => {
@@ -180,9 +180,9 @@ test.describe('Neo.layout.Cube', () => {
             const written = await page.evaluate(() => {
                 const cs = getComputedStyle(document.querySelector('.neo-layout-cube'));
                 return {
-                    x: cs.getPropertyValue('--rot-x').trim(),
-                    y: cs.getPropertyValue('--rot-y').trim(),
-                    z: cs.getPropertyValue('--rot-z').trim()
+                    x: cs.getPropertyValue('--neo-layout-cube-rot-x').trim(),
+                    y: cs.getPropertyValue('--neo-layout-cube-rot-y').trim(),
+                    z: cs.getPropertyValue('--neo-layout-cube-rot-z').trim()
                 };
             });
 
@@ -211,8 +211,8 @@ test.describe('Neo.layout.Cube', () => {
         const result = await page.evaluate(() => {
             const cs = getComputedStyle(document.querySelector('.neo-layout-cube'));
             return {
-                x: cs.getPropertyValue('--rot-x').trim(),
-                y: cs.getPropertyValue('--rot-y').trim()
+                x: cs.getPropertyValue('--neo-layout-cube-rot-x').trim(),
+                y: cs.getPropertyValue('--neo-layout-cube-rot-y').trim()
             };
         });
 
@@ -233,9 +233,9 @@ test.describe('Neo.layout.Cube', () => {
             const cs   = getComputedStyle(cube);
             return {
                 perspective: cs.perspective,
-                sideX      : cs.getPropertyValue('--side-x').trim(),
-                sideY      : cs.getPropertyValue('--side-y').trim(),
-                sideZ      : cs.getPropertyValue('--side-z').trim(),
+                sideX      : cs.getPropertyValue('--neo-layout-cube-side-x').trim(),
+                sideY      : cs.getPropertyValue('--neo-layout-cube-side-y').trim(),
+                sideZ      : cs.getPropertyValue('--neo-layout-cube-side-z').trim(),
                 cls        : typeof cube.className === 'string' ? cube.className : ''
             };
         });
@@ -266,16 +266,16 @@ test.describe('Neo.layout.Cube', () => {
         // transition is involved, which is why this is not the settle helper.
         await expect.poll(() => page.evaluate(() =>
             getComputedStyle(document.querySelector('.neo-layout-cube'))
-                .getPropertyValue('--side-x').trim()
+                .getPropertyValue('--neo-layout-cube-side-x').trim()
         ), {message: 'the resized cube reaches its new side length'}).toBe('500px');
 
         const after = await page.evaluate(() => {
             const cs = getComputedStyle(document.querySelector('.neo-layout-cube'));
             return {
                 perspective: cs.perspective,
-                sideX      : cs.getPropertyValue('--side-x').trim(),
-                sideY      : cs.getPropertyValue('--side-y').trim(),
-                sideZ      : cs.getPropertyValue('--side-z').trim()
+                sideX      : cs.getPropertyValue('--neo-layout-cube-side-x').trim(),
+                sideY      : cs.getPropertyValue('--neo-layout-cube-side-y').trim(),
+                sideZ      : cs.getPropertyValue('--neo-layout-cube-side-z').trim()
             };
         });
 

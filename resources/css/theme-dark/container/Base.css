@@ -1,4 +1,4 @@
 :root .neo-theme-dark { /* .neo-container */
-    --container-background-color: #2b2b2b;
-    --container-color           : #bbb;
+    --neo-container-background-color: #2b2b2b;
+    --neo-container-color           : #bbb;
 }

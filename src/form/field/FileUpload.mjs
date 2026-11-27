@@ -528,7 +528,7 @@ class FileUpload extends Field {
             progress = this.progress = loaded / total,
             { vdom } = this;
 
-        (vdom.style || (vdom.style = {}))['--upload-progress'] = `${progress}turn`;
+        (vdom.style || (vdom.style = {}))['--neo-fileuploadfield-upload-progress'] = `${progress}turn`;
 
         vdom.cn[1].cn[1].text = `${this.uploading}... (${Math.round(progress * 100)}%)`;
 

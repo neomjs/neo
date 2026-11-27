@@ -12,15 +12,15 @@
         background-color: transparent;
         background-image: none;
         border          : 0;
-        border-radius   : var(--tab-header-action-border-radius);
-        height          : var(--tab-header-action-size);
+        border-radius   : var(--neo-tab-header-action-border-radius);
+        height          : var(--neo-tab-header-action-size);
         margin          : 0;
-        min-width       : var(--tab-header-action-size);
+        min-width       : var(--neo-tab-header-action-size);
         padding         : 0;
-        width           : var(--tab-header-action-size);
+        width           : var(--neo-tab-header-action-size);
 
         .neo-button-glyph {
-            color    : var(--tab-header-action-glyph-color);
+            color    : var(--neo-tab-header-action-glyph-color);
             font-size: 12px;
             margin   : 0;
         }
@@ -34,27 +34,27 @@
            and disabled tab actions pixel-identically. One toolbar rule keeps inline and reveal
            actions in lockstep while preserving the theme-owned disabled-opacity token. */
         &.neo-disabled {
-            opacity: var(--neo-disabled-opacity);
+            opacity: var(--neo-global-opacity-disabled);
         }
 
         &:hover {
-            background-color: var(--tab-header-action-background-color-hover);
+            background-color: var(--neo-tab-header-action-background-color-hover);
 
             .neo-button-glyph {
-                color: var(--tab-header-action-glyph-color-hover);
+                color: var(--neo-tab-header-action-glyph-color-hover);
             }
         }
 
         &:active {
-            background-color: var(--tab-header-action-background-color-active);
+            background-color: var(--neo-tab-header-action-background-color-active);
 
             .neo-button-glyph {
-                color: var(--tab-header-action-glyph-color-active);
+                color: var(--neo-tab-header-action-glyph-color-active);
             }
         }
 
         &:focus-visible {
-            outline       : 2px solid var(--tab-header-action-glyph-color-hover);
+            outline       : 2px solid var(--neo-tab-header-action-glyph-color-hover);
             outline-offset: -2px;
         }
     }
@@ -62,73 +62,73 @@
     &.neo-dock-bottom {
         .neo-tab-header-button.neo-button {
             align-self      : start;
-            background-image: var(--tab-button-background-image-bottom);
+            background-image: var(--neo-tab-button-bottom-background-image);
 
             .neo-tab-button-indicator {
                 bottom: unset;
-                height: var(--tab-strip-height);
-                top   : calc(var(--tab-strip-height) * -1);
+                height: var(--neo-tab-strip-height);
+                top   : calc(var(--neo-tab-strip-height) * -1);
                 width : 100%;
             }
 
             &.pressed {
-                background-image: var(--tab-button-background-image-pressed-bottom) !important;
+                background-image: var(--neo-tab-button-bottom-background-image-pressed) !important;
             }
         }
     }
 
     &.neo-dock-left {
         height: unset;
-        width : var(--tab-button-height-pressed);
+        width : var(--neo-tab-button-height-pressed);
 
         .neo-tab-header-button.neo-button {
-            background-image: var(--tab-button-background-image-left);
+            background-image: var(--neo-tab-button-left-background-image);
             height          : unset;
-            width           : var(--tab-button-height);
+            width           : var(--neo-tab-button-height);
 
             .neo-tab-button-indicator {
                 bottom: unset;
                 height: 100%;
-                right : calc(var(--tab-strip-height) * -1);
-                width : var(--tab-strip-height);
+                right : calc(var(--neo-tab-strip-height) * -1);
+                width : var(--neo-tab-strip-height);
             }
 
             &.pressed {
-                background-image: var(--tab-button-background-image-pressed-left) !important;
-                width           : var(--tab-button-height-pressed);
+                background-image: var(--neo-tab-button-left-background-image-pressed) !important;
+                width           : var(--neo-tab-button-height-pressed);
             }
 
             &:not(:last-child) {
                 margin-right: unset;
-                margin-top  : var(--tab-button-gap);
+                margin-top  : var(--neo-tab-button-gap);
             }
         }
     }
 
     &.neo-dock-right {
         height: unset;
-        width : var(--tab-button-height-pressed);
+        width : var(--neo-tab-button-height-pressed);
 
         .neo-tab-header-button.neo-button {
             align-self      : start;
-            background-image: var(--tab-button-background-image-right);
+            background-image: var(--neo-tab-button-right-background-image);
             height          : unset;
-            width           : var(--tab-button-height);
+            width           : var(--neo-tab-button-height);
 
             .neo-tab-button-indicator {
                 bottom: unset;
                 height: 100%;
-                left  : calc(var(--tab-strip-height) * -1);
-                width : var(--tab-strip-height);
+                left  : calc(var(--neo-tab-strip-height) * -1);
+                width : var(--neo-tab-strip-height);
             }
 
             &.pressed {
-                background-image: var(--tab-button-background-image-pressed-right) !important;
-                width           : var(--tab-button-height-pressed);
+                background-image: var(--neo-tab-button-right-background-image-pressed) !important;
+                width           : var(--neo-tab-button-height-pressed);
             }
 
             &:not(:last-child) {
-                margin-bottom: var(--tab-button-gap);
+                margin-bottom: var(--neo-tab-button-gap);
                 margin-right : unset;
             }
         }

@@ -1,14 +1,14 @@
 :where(.neo-theme-cyberpunk) {
-    --plan-header-bg   : var(--cyber-bg);
-    --plan-border      : var(--cyber-border);
-    --plan-title       : var(--cyber-cyan);
-    --plan-muted       : var(--cyber-text);
-    --plan-badge-bg    : color-mix(in srgb, var(--cyber-cyan) 12%, var(--cyber-bg-alt));
-    --plan-badge-border: var(--cyber-border);
-    --plan-badge-text  : var(--cyber-cyan);
-    --plan-control-bg  : var(--cyber-bg-alt);
-    --plan-hover-bg    : color-mix(in srgb, var(--cyber-cyan) 14%, transparent);
-    --plan-selected-bg : var(--cyber-cyan);
-    --plan-selected-text: var(--cyber-bg);
-    --plan-focus       : var(--cyber-gold);
+    --plan-header-bg   : var(--neo-cyber-background-color);
+    --plan-border      : var(--neo-cyber-border);
+    --plan-title       : var(--neo-cyber-cyan);
+    --plan-muted       : var(--neo-cyber-color);
+    --plan-badge-bg    : color-mix(in srgb, var(--neo-cyber-cyan) 12%, var(--neo-cyber-alt-background-color));
+    --plan-badge-border: var(--neo-cyber-border);
+    --plan-badge-text  : var(--neo-cyber-cyan);
+    --plan-control-bg  : var(--neo-cyber-alt-background-color);
+    --plan-hover-bg    : color-mix(in srgb, var(--neo-cyber-cyan) 14%, transparent);
+    --plan-selected-bg : var(--neo-cyber-cyan);
+    --plan-selected-text: var(--neo-cyber-background-color);
+    --plan-focus       : var(--neo-cyber-gold);
 }

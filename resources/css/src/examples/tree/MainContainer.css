@@ -12,7 +12,7 @@
     }
 
     .tree-playlist {
-        border       : 1px solid var(--panel-border-color);
+        border       : 1px solid var(--neo-panel-border-color);
         border-radius: 8px;
         overflow     : hidden;
 
@@ -29,7 +29,7 @@
     }
 
     .tree-playlist-hint {
-        border-top: 1px dashed var(--panel-border-color);
+        border-top: 1px dashed var(--neo-panel-border-color);
         opacity   : .7;
         padding   : 12px;
         text-align: center;
@@ -41,12 +41,12 @@
    scheduler's drop surface does */
 body:has(.tree-library.neo-is-dragging) {
     .tree-playlist {
-        outline       : 2px dashed color-mix(in srgb, var(--neo-color) 60%, transparent);
+        outline       : 2px dashed color-mix(in srgb, var(--neo-global-color) 60%, transparent);
         outline-offset: 2px;
     }
 
     .tree-playlist-drop {
-        --drop-target-pointer-events: auto;
+        --neo-drop-target-pointer-events: auto;
     }
 }
 
@@ -57,6 +57,6 @@ body:has(.tree-library.neo-is-dragging) {
 }
 
 .neo-tree-list .neo-list-item.neo-list-folder .neo-list-item-content {
-    &.tree-artist:before {--tree-list-folder-icon: "\f007"; color: color-mix(in srgb, #a855f7 70%, var(--neo-color));}
-    &.tree-album:before  {--tree-list-folder-icon: "\f51f"; color: color-mix(in srgb, #3b82f6 75%, var(--neo-color));}
+    &.tree-artist:before {--neo-tree-list-folder-icon: "\f007"; color: color-mix(in srgb, #a855f7 70%, var(--neo-global-color));}
+    &.tree-album:before  {--neo-tree-list-folder-icon: "\f51f"; color: color-mix(in srgb, #3b82f6 75%, var(--neo-global-color));}
 }

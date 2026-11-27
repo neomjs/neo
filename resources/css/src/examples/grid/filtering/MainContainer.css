@@ -3,31 +3,31 @@
 .neo-examples-grid-filtering [class*=neo-theme-],
 body:has(.neo-examples-grid-filtering) .neo-dragproxy,
 body:has(.neo-examples-grid-filtering) .neo-dragproxy [class*=neo-theme-] {
-    --grid-container-border-color: var(--grid-filtering-border);
-    --grid-container-cell-background-color: var(--grid-filtering-surface);
-    --grid-container-cell-background-color-even: var(--grid-filtering-alternate);
-    --grid-container-color: var(--grid-filtering-text);
-    --grid-container-font-size: 13px;
-    --grid-cell-background-color-hover: var(--grid-filtering-hover);
-    --grid-header-button-background-color: var(--grid-filtering-header);
-    --grid-header-button-background-color-hover: var(--grid-filtering-hover);
-    --grid-header-button-background-image: none;
-    --grid-header-button-border-right-color: var(--grid-filtering-border);
-    --grid-header-button-color: var(--grid-filtering-text);
-    --grid-header-button-color-hover: var(--grid-filtering-accent);
-    --grid-header-button-filtered-color: var(--grid-filtering-accent);
-    --grid-header-button-font-size: 12px;
-    --grid-header-button-font-weight: 600;
-    --grid-header-button-glyph-color: var(--grid-filtering-muted);
-    --grid-header-button-glyph-color-hover: var(--grid-filtering-accent);
-    --grid-rowmodel-selected-cell-background-color: var(--grid-filtering-hover);
-    --grid-rowmodel-selected-cell-color: var(--grid-filtering-title);
-    --textfield-border-color: var(--grid-filtering-border);
-    --textfield-border-color-active: var(--grid-filtering-accent);
-    --textfield-border-color-hovered: var(--grid-filtering-accent);
-    --textfield-input-background-color: var(--grid-filtering-surface);
-    --textfield-input-color: var(--grid-filtering-title);
-    --textfield-input-placeholder-color: var(--grid-filtering-muted);
+    --neo-grid-container-border-color: var(--grid-filtering-border);
+    --neo-grid-container-cell-background-color: var(--grid-filtering-surface);
+    --neo-grid-container-cell-background-color-even: var(--grid-filtering-alternate);
+    --neo-grid-container-color: var(--grid-filtering-text);
+    --neo-grid-container-font-size: 13px;
+    --neo-grid-cell-background-color-hover: var(--grid-filtering-hover);
+    --neo-grid-header-button-background-color: var(--grid-filtering-header);
+    --neo-grid-header-button-background-color-hover: var(--grid-filtering-hover);
+    --neo-grid-header-button-background-image: none;
+    --neo-grid-header-button-border-right-color: var(--grid-filtering-border);
+    --neo-grid-header-button-color: var(--grid-filtering-text);
+    --neo-grid-header-button-color-hover: var(--grid-filtering-accent);
+    --neo-grid-header-button-filtered-color: var(--grid-filtering-accent);
+    --neo-grid-header-button-font-size: 12px;
+    --neo-grid-header-button-font-weight: 600;
+    --neo-grid-header-button-glyph-color: var(--grid-filtering-muted);
+    --neo-grid-header-button-glyph-color-hover: var(--grid-filtering-accent);
+    --neo-grid-rowmodel-cell-background-color-selected: var(--grid-filtering-hover);
+    --neo-grid-rowmodel-cell-color-selected: var(--grid-filtering-title);
+    --neo-textfield-border-color: var(--grid-filtering-border);
+    --neo-textfield-border-color-active: var(--grid-filtering-accent);
+    --neo-textfield-border-color-hover: var(--grid-filtering-accent);
+    --neo-textfield-input-background-color: var(--grid-filtering-surface);
+    --neo-textfield-input-color: var(--grid-filtering-title);
+    --neo-textfield-input-placeholder-color: var(--grid-filtering-muted);
 }
 .neo-examples-grid-filtering .neo-grid-row .neo-grid-cell,
 .neo-examples-grid-filtering [class*=neo-theme-] .neo-grid-row .neo-grid-cell,
@@ -39,7 +39,7 @@ body:has(.neo-examples-grid-filtering) .neo-dragproxy [class*=neo-theme-] .neo-g
 .neo-examples-grid-filtering.neo-viewport {
     background-color: var(--grid-filtering-background);
     color           : var(--grid-filtering-text);
-    font-family     : var(--neo-font-family);
+    font-family     : var(--neo-global-font-family);
 
     .grid-filtering-toolbar {
         background-color: var(--grid-filtering-background);
@@ -89,14 +89,14 @@ body:has(.neo-examples-grid-filtering) .neo-dragproxy [class*=neo-theme-] .neo-g
 
     /* The operator toggles inside the headers take the palette instead of the theme's primary blue */
     .neo-grid-header-button .neo-button {
-        --button-background-color      : var(--grid-filtering-surface);
-        --button-background-color-hover: var(--grid-filtering-hover);
-        --button-background-image      : none;
-        --button-border                : 1px solid var(--grid-filtering-border);
-        --button-border-hover          : 1px solid var(--grid-filtering-accent);
-        --button-border-radius         : 6px;
-        --button-text-color            : var(--grid-filtering-accent);
-        --button-text-color-hover      : var(--grid-filtering-accent);
+        --neo-button-background-color      : var(--grid-filtering-surface);
+        --neo-button-background-color-hover: var(--grid-filtering-hover);
+        --neo-button-background-image      : none;
+        --neo-button-border                : 1px solid var(--grid-filtering-border);
+        --neo-button-border-hover          : 1px solid var(--grid-filtering-accent);
+        --neo-button-border-radius         : 6px;
+        --neo-button-color            : var(--grid-filtering-accent);
+        --neo-button-color-hover      : var(--grid-filtering-accent);
     }
 
     @media (max-width: 700px) {

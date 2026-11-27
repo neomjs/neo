@@ -24,7 +24,7 @@
         height: 30px !important; /* Hack to increase the height by the border-bottom height (29 + 1) */
 
         .neo-button {
-            border-right: 1px solid var(--grid-container-border-color);
+            border-right: 1px solid var(--neo-grid-container-border-color);
         }
     }
 }
@@ -32,11 +32,11 @@
 .neo-grid-header-toolbar {
     &.neo-is-dragging {
         /* The slot a dragged column vacates reads as an empty header cell, not as the generic toolbar beneath it */
-        background-color: var(--grid-header-button-background-color);
+        background-color: var(--neo-grid-header-button-background-color);
 
         .neo-button {
-            border-right: 1px solid var(--grid-container-border-color); /* Would be missing for the last button otherwise */
-            opacity     : var(--grid-header-button-opacity-is-dragging);
+            border-right: 1px solid var(--neo-grid-container-border-color); /* Would be missing for the last button otherwise */
+            opacity     : var(--neo-grid-header-button-dragging-opacity);
         }
     }
 }

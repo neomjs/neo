@@ -1,4 +1,4 @@
 :root .neo-theme-light { /* .neo-container */
-    --container-background-color: #fff;
-    --container-color           : #000;
+    --neo-container-background-color: #fff;
+    --neo-container-color           : #000;
 }

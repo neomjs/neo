@@ -3,7 +3,7 @@
 .examples-layouts-side-by-side {
     background-color: var(--examples-layouts-ground);
     color           : var(--examples-layouts-ink);
-    font-family     : var(--neo-font-family);
+    font-family     : var(--neo-global-font-family);
 
     code {
         font-size: .95em;

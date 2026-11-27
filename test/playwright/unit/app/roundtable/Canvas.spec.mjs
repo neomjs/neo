@@ -192,7 +192,7 @@ test.describe('Neo.app.roundtable.Canvas — what the host hands its renderer', 
 
     test('the scene moves only where the motion vocabulary allows it', async () => {
         const answer = value => {
-            Neo.main = {DomAccess: {getComputedStyle: async () => value instanceof Error ? Promise.reject(value) : {'--motion-base': value}}}
+            Neo.main = {DomAccess: {getComputedStyle: async () => value instanceof Error ? Promise.reject(value) : {'--neo-duration-base': value}}}
         };
 
         host._mounted = true;

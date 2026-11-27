@@ -7,11 +7,11 @@
   }
 
   .neo-accordion-title {
-    background-color: var(--accordion-title-bg-color);
+    background-color: var(--neo-accordion-title-background-color);
     margin-bottom: 15px;
     padding: 5px;
-    border-radius: var(--accordion-item-radius);
-    color: var(--accordion-title-color);
+    border-radius: var(--neo-accordion-item-border-radius);
+    color: var(--neo-accordion-title-color);
 
     label {
       text-transform: uppercase;

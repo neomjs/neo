@@ -44,7 +44,7 @@ const lefts = page => page.evaluate(ids => Object.fromEntries(ids.map(id => {
 const openPlan = async (page, neuralLink, tier) => {
     if (tier) await page.addInitScript(value => document.addEventListener('DOMContentLoaded', () => {
         const style = document.createElement('style');
-        style.textContent = `.neo-gantt {--motion-panel: ${value}}`;
+        style.textContent = `.neo-gantt {--neo-duration-panel: ${value}}`;
         document.head.append(style)
     }), tier);
     await page.goto('/examples/gantt/basic/index.html');

@@ -1,7 +1,7 @@
 :where(.neo-theme-cyberpunk) { /* .neo-desktop: the --cyber-* ground under a cyan and a red light */
-    --desktop-color    : var(--cyber-text);
-    --desktop-wallpaper:
-        radial-gradient(1000px 700px at 15% 15%, color-mix(in srgb, var(--cyber-cyan) 16%, transparent), transparent 60%),
-        radial-gradient(900px 700px at 85% 90%, color-mix(in srgb, var(--cyber-red) 10%, transparent), transparent 60%),
-        linear-gradient(160deg, var(--cyber-bg) 0%, var(--cyber-bg-alt) 50%, var(--cyber-bg) 100%);
+    --neo-desktop-color    : var(--neo-cyber-color);
+    --neo-desktop-wallpaper:
+        radial-gradient(1000px 700px at 15% 15%, color-mix(in srgb, var(--neo-cyber-cyan) 16%, transparent), transparent 60%),
+        radial-gradient(900px 700px at 85% 90%, color-mix(in srgb, var(--neo-cyber-red) 10%, transparent), transparent 60%),
+        linear-gradient(160deg, var(--neo-cyber-background-color) 0%, var(--neo-cyber-alt-background-color) 50%, var(--neo-cyber-background-color) 100%);
 }

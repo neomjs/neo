@@ -161,7 +161,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
 
             return {
                 getPropertyValue(name) {
-                    return name === '--dock-transition-duration' ? '0ms' : 'linear'
+                    return name === '--neo-dock-transition-duration' ? '0ms' : 'linear'
                 }
             }
         };
@@ -210,7 +210,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
         };
         globalThis.getComputedStyle = () => ({
             getPropertyValue(name) {
-                return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
             }
         });
 
@@ -263,7 +263,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
         };
         globalThis.getComputedStyle = () => ({
             getPropertyValue(name) {
-                return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
             }
         });
 
@@ -311,7 +311,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
         };
         globalThis.getComputedStyle = () => ({
             getPropertyValue(name) {
-                return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
             }
         });
 
@@ -358,7 +358,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
         };
         globalThis.getComputedStyle = () => ({
             getPropertyValue(name) {
-                return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
             }
         });
 
@@ -408,7 +408,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
         };
         globalThis.getComputedStyle = () => ({
             getPropertyValue(name) {
-                return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
             }
         });
 
@@ -460,7 +460,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
         };
         globalThis.getComputedStyle = () => ({
             getPropertyValue(name) {
-                return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
             }
         });
 
@@ -522,7 +522,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 transform  : 'none',
                 willChange : 'auto',
                 getPropertyValue(name) {
-                    return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                    return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
                 }
             };
 
@@ -624,7 +624,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 transform  : 'none',
                 willChange : 'auto',
                 getPropertyValue(name) {
-                    return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                    return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
                 }
             };
 
@@ -700,7 +700,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 transform  : 'none',
                 willChange : 'auto',
                 getPropertyValue(name) {
-                    return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                    return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
                 }
             };
 
@@ -759,7 +759,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 transform  : 'none',
                 willChange : 'auto',
                 getPropertyValue(name) {
-                    return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                    return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
                 }
             };
 
@@ -874,7 +874,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 transform  : 'none',
                 willChange : 'auto',
                 getPropertyValue(name) {
-                    return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                    return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
                 }
             };
 
@@ -953,7 +953,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 transform  : 'none',
                 willChange : 'auto',
                 getPropertyValue(name) {
-                    return name === '--dock-transition-duration' ? '260ms' : 'linear'
+                    return name === '--neo-dock-transition-duration' ? '260ms' : 'linear'
                 }
             },
             originalCancelAnimationFrame = globalThis.cancelAnimationFrame,
@@ -1057,7 +1057,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 transform  : 'none',
                 willChange : 'auto',
                 getPropertyValue(name) {
-                    return name === '--dock-transition-duration' ? '260ms' : 'linear'
+                    return name === '--neo-dock-transition-duration' ? '260ms' : 'linear'
                 }
             },
             inlineProperties = [
@@ -1170,7 +1170,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
         };
         globalThis.getComputedStyle = () => ({
             getPropertyValue(name) {
-                return name === '--dock-transition-duration' ? '260ms' : 'linear'
+                return name === '--neo-dock-transition-duration' ? '260ms' : 'linear'
             }
         });
 
@@ -1225,7 +1225,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 transform  : 'none',
                 willChange : 'auto',
                 getPropertyValue(name) {
-                    return name === '--dock-transition-duration' ? '260ms' : 'linear'
+                    return name === '--neo-dock-transition-duration' ? '260ms' : 'linear'
                 }
             };
 
@@ -1301,7 +1301,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
         };
         globalThis.getComputedStyle = () => ({
             getPropertyValue(name) {
-                return name === '--dock-transition-duration' ? '260ms' : 'linear'
+                return name === '--neo-dock-transition-duration' ? '260ms' : 'linear'
             }
         });
 
@@ -1359,7 +1359,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
         };
         globalThis.getComputedStyle = () => ({
             getPropertyValue(name) {
-                return name === '--dock-transition-duration' ? '260ms' : 'linear'
+                return name === '--neo-dock-transition-duration' ? '260ms' : 'linear'
             }
         });
 
@@ -1430,7 +1430,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 transform  : 'none',
                 willChange : 'auto',
                 getPropertyValue(name) {
-                    return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                    return name === '--neo-dock-transition-duration' ? '1ms' : 'linear'
                 }
             };
 

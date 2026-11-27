@@ -18,7 +18,7 @@
     }
 
     .tree-settings-selection {
-        border       : 1px solid var(--panel-border-color);
+        border       : 1px solid var(--neo-panel-border-color);
         border-radius: 8px;
         order        : -1;
         overflow     : hidden;
@@ -42,22 +42,22 @@
     .neo-accordion-item-icon {
         &.color-blue {
             background-color: lightskyblue;
-            color           : var(--list-item-background-color);
+            color           : var(--neo-list-item-background-color);
         }
 
         &.color-red {
             background-color: palevioletred;
-            color           : var(--list-item-background-color);
+            color           : var(--neo-list-item-background-color);
         }
 
         &.color-yellow {
             background-color: goldenrod;
-            color           : var(--list-item-background-color);
+            color           : var(--neo-list-item-background-color);
         }
 
         &.color-green {
             background-color: lightseagreen;
-            color           : var(--list-item-background-color);
+            color           : var(--neo-list-item-background-color);
         }
     }
 

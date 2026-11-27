@@ -356,7 +356,7 @@ test.describe('Monaco wrapper against the engine\'s Monaco build', () => {
         await setConfigs({id: HOST_ID, theme: 'neo-theme-neo-light'});
         await expect.poll(themeToken, {message: 'a live theme change repaints the editor'}).toBe('vs');
 
-        // `neo-theme-cyberpunk` is dark — `--neo-background-color: #0d1117` — and says so nowhere in
+        // `neo-theme-cyberpunk` is dark — `--neo-global-background-color: #0d1117` — and says so nowhere in
         // its name. A substring test on the theme name hands it a LIGHT editor, which is the reported
         // symptom reproduced under a different theme by the code that fixes it. `themeMap` is what
         // makes the answer declared rather than guessed.

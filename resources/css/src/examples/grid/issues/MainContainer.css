@@ -2,21 +2,21 @@
    floats on the body and carries a theme of its own. Each carrier resolves the values for its own theme. */
 .neo-theme-neo-dark,
 .neo-theme-neo-light {
-    --grid-header-button-background-color      : var(--examples-grid-issues-surface);
-    --grid-header-button-background-color-hover: var(--examples-grid-issues-hover);
-    --grid-header-button-border-right-color    : var(--examples-grid-issues-border);
-    --grid-header-button-color                 : var(--examples-grid-issues-muted-color);
-    --grid-header-button-color-hover           : var(--examples-grid-issues-title-color);
-    --grid-header-button-font-size             : 11px;
-    --grid-header-button-font-weight           : 700;
-    --grid-header-button-glyph-color           : var(--examples-grid-issues-muted-color);
-    --grid-header-button-glyph-color-hover     : var(--examples-grid-issues-title-color);
+    --neo-grid-header-button-background-color      : var(--examples-grid-issues-surface);
+    --neo-grid-header-button-background-color-hover: var(--examples-grid-issues-hover);
+    --neo-grid-header-button-border-right-color    : var(--examples-grid-issues-border);
+    --neo-grid-header-button-color                 : var(--examples-grid-issues-muted-color);
+    --neo-grid-header-button-color-hover           : var(--examples-grid-issues-title-color);
+    --neo-grid-header-button-font-size             : 11px;
+    --neo-grid-header-button-font-weight           : 700;
+    --neo-grid-header-button-glyph-color           : var(--examples-grid-issues-muted-color);
+    --neo-grid-header-button-glyph-color-hover     : var(--examples-grid-issues-title-color);
 }
 
 .neo-examples-grid-issues {
     background-color: var(--examples-grid-issues-background);
     color           : var(--examples-grid-issues-text-color);
-    font-family     : var(--neo-font-family);
+    font-family     : var(--neo-global-font-family);
     padding         : 0 20px 20px;
 
     .issues-header {
@@ -44,12 +44,12 @@
     }
 
     .issues-grid {
-        --grid-container-border-color              : var(--examples-grid-issues-border);
-        --grid-container-cell-background-color     : var(--examples-grid-issues-surface);
-        --grid-container-cell-background-color-even: var(--examples-grid-issues-surface);
-        --grid-container-color                     : var(--examples-grid-issues-text-color);
-        --grid-container-font-size                 : 14px;
-        --grid-cell-background-color-hover         : var(--examples-grid-issues-hover);
+        --neo-grid-container-border-color              : var(--examples-grid-issues-border);
+        --neo-grid-container-cell-background-color     : var(--examples-grid-issues-surface);
+        --neo-grid-container-cell-background-color-even: var(--examples-grid-issues-surface);
+        --neo-grid-container-color                     : var(--examples-grid-issues-text-color);
+        --neo-grid-container-font-size                 : 14px;
+        --neo-grid-cell-background-color-hover         : var(--examples-grid-issues-hover);
 
         background-color: var(--examples-grid-issues-surface);
         border          : 1px solid var(--examples-grid-issues-border);

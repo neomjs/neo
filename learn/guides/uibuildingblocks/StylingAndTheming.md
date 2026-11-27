@@ -256,8 +256,8 @@ A theme file can therefore be very clean and focused:
 /* No @import needed! */
 
 :root .neo-theme-dark {
-    --button-background-color: #3c3f41;
-    --button-text-color: #bbb;
+    --neo-button-background-color: #3c3f41;
+    --neo-button-color: #bbb;
 }
 ```
 
@@ -278,24 +278,24 @@ This principle is clearly demonstrated in the styling for `Neo.list.Base`.
 **Structure (`src/list/Base.css`):**
 ```css readonly
 .neo-list-wrapper {
-    background-color: var(--list-container-background-color);
-    border          : var(--list-container-border);
+    background-color: var(--neo-list-container-background-color);
+    border          : var(--neo-list-container-border);
     overflow        : hidden;
     position        : relative;
 }
 
 .neo-list-item {
-    background-color: var(--list-item-background-color);
-    padding         : var(--list-item-padding);
+    background-color: var(--neo-list-item-background-color);
+    padding         : var(--neo-list-item-padding);
     /* ... more structural styles */
 }
 ```
-This file sets up the rules. It says that a `.neo-list-wrapper` *can* have a `border`, and its value is determined by the `--list-container-border` variable.
+This file sets up the rules. It says that a `.neo-list-wrapper` *can* have a `border`, and its value is determined by the `--neo-list-container-border` variable.
 
 **Skin (`theme-dark/list/Base.css`):**
 ```css readonly
 :root .neo-theme-dark {
-    --list-container-border: 1px solid #282829;
+    --neo-list-container-border: 1px solid #282829;
     /* ... other dark theme variables */
 }
 ```
@@ -304,7 +304,7 @@ The dark theme provides a value for the border variable.
 **Skin & Nullification (`theme-light/list/Base.css`):**
 ```css readonly
 :root .neo-theme-light {
-    --list-container-border: 0;
+    --neo-list-container-border: 0;
     /* ... other light theme variables */
 }
 ```
@@ -328,12 +328,12 @@ A later layer wins over an earlier one whatever the selectors weigh. An applicat
 ```css readonly
 /* engine: resources/css/theme-neo-dark/tooltip/Base.css, layer neo.theme */
 :where(.neo-theme-neo-dark) {
-    --tooltip-bg: var(--sem-color-surface-primary-default);
+    --neo-tooltip-background-color: var(--neo-sem-color-surface-primary-default);
 }
 
 /* application: theme-neo-dark/apps/myapp/Viewport.css, layer neo.apps */
 .neo-theme-neo-dark {
-    --tooltip-bg: var(--myapp-panel-2);
+    --neo-tooltip-background-color: var(--myapp-panel-2);
 }
 ```
 

@@ -1,6 +1,6 @@
 .neo-task-worker-example {
-    background: var(--sem-color-surface-neutral-default);
-    color: var(--sem-color-text-neutral-default);
+    background: var(--neo-sem-color-surface-neutral-default);
+    color: var(--neo-sem-color-text-neutral-default);
     gap: 16px;
     min-height: 100%;
     overflow: auto;
@@ -19,7 +19,7 @@
     }
 
     p {
-        color: var(--sem-color-text-neutral-subdued);
+        color: var(--neo-sem-color-text-neutral-subdued);
         line-height: 1.5;
         margin-block: 0;
     }
@@ -29,8 +29,8 @@
     }
 
     .neo-task-worker-card {
-        background: var(--sem-color-surface-neutral-highlighted);
-        border: 1px solid var(--sem-color-border-default);
+        background: var(--neo-sem-color-surface-neutral-highlighted);
+        border: 1px solid var(--neo-sem-color-border-default);
         border-radius: 12px;
         gap: 12px;
         min-width: 0;
@@ -65,7 +65,7 @@
     }
 
     .neo-task-worker-readout {
-        color: var(--sem-color-text-neutral-subdued);
+        color: var(--neo-sem-color-text-neutral-subdued);
         font-size: 14px;
         font-variant-numeric: tabular-nums;
         line-height: 1.4;
@@ -83,7 +83,7 @@
 
         progress {
             appearance: none;
-            background: var(--sem-color-surface-neutral-default);
+            background: var(--neo-sem-color-surface-neutral-default);
             border: 0;
             border-radius: 6px;
             height: 10px;
@@ -91,15 +91,15 @@
             width: 100%;
 
             &::-webkit-progress-bar {
-                background: var(--sem-color-surface-neutral-default);
+                background: var(--neo-sem-color-surface-neutral-default);
             }
 
             &::-webkit-progress-value {
-                background: var(--sem-color-surface-primary-default);
+                background: var(--neo-sem-color-surface-primary-default);
             }
 
             &::-moz-progress-bar {
-                background: var(--sem-color-surface-primary-default);
+                background: var(--neo-sem-color-surface-primary-default);
             }
         }
 

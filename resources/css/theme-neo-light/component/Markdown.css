@@ -1,19 +1,19 @@
 :where(.neo-theme-neo-light) {
-    --markdown-bg                   : #ffffff;
-    --markdown-blockquote-bg        : var(--gray-100);
-    --markdown-blockquote-border    : var(--sem-color-surface-primary-background);
-    --markdown-code-bg              : #f8f8f8;
-    --markdown-code-border          : lightgray;
-    --markdown-details-summary-color: #555555;
-    --markdown-details-icon-color   : #8ba6ff;
-    --markdown-h1-color             : #3e63dd;
-    --markdown-hr-border            : lightgray;
-    --markdown-lab-shadow           : 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-    --markdown-lab-shadow-hover     : 0 8px 16px 0 rgba(0, 0, 0, 0.2);
-    --markdown-link-color           : #3e63dd;
-    --markdown-list-marker-color    : #3e63dd;
-    --markdown-pre-border           : lightgray;
-    --markdown-table-border         : lightgray;
-    --markdown-table-header-bg      : #f8f8f8;
-    --markdown-text-color           : var(--sem-color-text-neutral-default);
+    --neo-markdown-background-color                   : #ffffff;
+    --neo-markdown-blockquote-background-color        : var(--neo-gray-100);
+    --neo-markdown-blockquote-border    : var(--neo-sem-color-surface-primary-background);
+    --neo-markdown-code-background-color              : #f8f8f8;
+    --neo-markdown-code-border          : lightgray;
+    --neo-markdown-details-summary-color: #555555;
+    --neo-markdown-details-icon-color   : #8ba6ff;
+    --neo-markdown-h1-color             : #3e63dd;
+    --neo-markdown-hr-border            : lightgray;
+    --neo-markdown-lab-box-shadow           : 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+    --neo-markdown-lab-box-shadow-hover     : 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+    --neo-markdown-link-color           : #3e63dd;
+    --neo-markdown-list-marker-color    : #3e63dd;
+    --neo-markdown-pre-border           : lightgray;
+    --neo-markdown-table-border         : lightgray;
+    --neo-markdown-table-header-background-color      : #f8f8f8;
+    --neo-markdown-color           : var(--neo-sem-color-text-neutral-default);
 }

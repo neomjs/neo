@@ -74,6 +74,7 @@ jobs:
           {"name": "JSDoc types",               "run": "node ./buildScripts/util/check-jsdoc-types.mjs"},
           {"name": "relative links",            "run": "npm run check-relative-links"},
           {"name": "theme class prefix",        "run": "node ./buildScripts/util/check-theme-class-prefix.mjs"},
+          {"name": "theme property prefix",     "run": "node ./buildScripts/util/check-theme-property-prefix.mjs"},
           {"name": "theme coverage",            "run": "node ./buildScripts/util/check-theme-coverage.mjs"},
           {"name": "theme value files",         "run": "node ./buildScripts/util/check-theme-value-files.mjs"},
           {"name": "theme var references",      "run": "node ./buildScripts/util/check-theme-var-references.mjs"},

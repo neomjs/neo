@@ -128,7 +128,7 @@ class Tree extends Component {
             vdom = me.vdom;
 
         vdom.style = vdom.style || {};
-        vdom.style['--tree-depth'] = value;
+        vdom.style['--neo-tree-depth'] = value;
         me.update()
     }
 

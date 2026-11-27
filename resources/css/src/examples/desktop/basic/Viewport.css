@@ -1,7 +1,7 @@
 /* The product's name, large and faint on the wallpaper, under the windows */
 .desktop-basic-brand {
     bottom        : 20px;
-    color         : var(--desktop-app-window-color);
+    color         : var(--neo-desktop-app-window-color);
     font-size     : 64px;
     font-weight   : 700;
     letter-spacing: -.02em;
@@ -16,10 +16,10 @@
 .desktop-basic-about {
     align-self      : flex-start;
     backdrop-filter : blur(30px) saturate(160%);
-    background-color: var(--desktop-app-window-background-color);
-    border          : 1px solid var(--desktop-app-window-border-color);
+    background-color: var(--neo-desktop-app-window-background-color);
+    border          : 1px solid var(--neo-desktop-app-window-border-color);
     border-radius   : 16px;
-    color           : var(--desktop-app-window-color);
+    color           : var(--neo-desktop-app-window-color);
     margin          : 24px;
     padding         : 20px 22px;
     width           : 300px;
@@ -37,7 +37,7 @@
     }
 
     a {
-        color          : var(--desktop-taskbar-accent-color);
+        color          : var(--neo-desktop-taskbar-accent-color);
         font-size      : 13px;
         font-weight    : 600;
         text-decoration: none;

@@ -94,8 +94,8 @@ const measure = (page, controlId) => page.evaluate(id => {
     return {
         control     : paint(control),
         inline      : paint(inline),
-        surfaceToken: resolve('--sem-color-surface-neutral-highlighted'),
-        borderToken : resolve('--sem-color-border-default')
+        surfaceToken: resolve('--neo-sem-color-surface-neutral-highlighted'),
+        borderToken : resolve('--neo-sem-color-border-default')
     }
 }, controlId);
 
@@ -190,7 +190,7 @@ test.describe('Neo.tab.Container — the inline header paints a flat surface wit
               tier     = await page.evaluate(() => {
                   const probe = document.createElement('div');
 
-                  probe.style.height = 'var(--sem-height-large)';
+                  probe.style.height = 'var(--neo-sem-height-large)';
                   document.body.appendChild(probe);
 
                   const value = probe.getBoundingClientRect().height;

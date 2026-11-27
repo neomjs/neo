@@ -33,7 +33,7 @@ and the placeholder a pane leaves behind while it lives in another window. Every
 sits in the `neo.theme` cascade layer, below your application's `neo.apps`, so nothing it states can win against a value
 you project.
 
-**Your application layer** owns identity and density: your palette, projected into the `--dock-*` and `--agent-dock-*`
+**Your application layer** owns identity and density: your palette, projected into the `--neo-dock-*`
 tokens, and the spacing your product wants. The Workstation, for instance, sets its own reveal ground and tightens the gap
 between edge-zone items to seven pixels.
 
@@ -46,7 +46,7 @@ flowchart TD
     Projection["Your projection<br/>:root .neo-theme-*"]:::app
     Values["Theme values layer<br/>:where(.neo-theme-*), zero weight"]:::engine
     Carrier["Token carriers<br/>.neo-dashboard, under .neo-dock-workspace"]:::engine
-    Structure["Engine structure layer<br/>reads the --dock-* vocabulary"]:::engine
+    Structure["Engine structure layer<br/>reads the --neo-dock-* vocabulary"]:::engine
     InTree["In-tree chrome<br/>headers, splitters, rails, reveal"]:::engine
     Floating["Body-mounted chrome<br/>tooltip, overflow menu, drag proxy"]:::reach
     Bridge["Element-scoped rule<br/>body:has(.your-app) .neo-tooltip"]:::app
@@ -76,7 +76,7 @@ theme sheet when the class is first instantiated, so the order sheets arrive in 
 not your source files.
 
 The dock's values layer is written so that you never enter that race. A projection at theme-root, such as
-`:root .neo-theme-neo-dark { --dock-preview-ground: … }`, weighs (0,2,0). The layer's `:where(.neo-theme-neo-dark)`
+`:root .neo-theme-neo-dark { --neo-dock-preview-background: … }`, weighs (0,2,0). The layer's `:where(.neo-theme-neo-dark)`
 weighs nothing. Wherever both match, your value wins, whichever sheet loaded last.
 
 The chrome a dock composes is not all dock chrome, though. The inline header is a tab header, its actions are buttons,
@@ -109,8 +109,8 @@ the same way: it names the floating element under a condition that only its own 
 
 ```css readonly
 body:has(.workstation-viewport) .neo-menu-list.neo-tab-overflow-menu {
-    --menu-list-background-color: var(--workstation-panel-2);
-    --menu-list-item-color      : var(--workstation-ink);
+    --neo-menu-list-background-color: var(--workstation-panel-2);
+    --neo-menu-list-item-color      : var(--workstation-ink);
 }
 ```
 
@@ -172,7 +172,7 @@ is why some defaults look plain:
 
 - **Splitters** paint a band mixed from the current ink at 9 percent, 16 on hover and 26 while dragging, with a 36-pixel
   handle. The shipped themes produce visibly different bands from that one rule, because their ink differs. Setting
-  `--dock-splitter-handle-size` to `0` is the sanctioned way to remove the handle.
+  `--neo-dock-splitter-handle-size` to `0` is the sanctioned way to remove the handle.
 - **Rail tabs** release the buttons' minimum-width floor, which would otherwise push a rotated label outside a
   fourteen-pixel rail.
 - **The reveal overlay** takes its surface from the host background on purpose, so a revealed pane sits on the same
@@ -206,7 +206,7 @@ The rule that holds mirrors the theme's own reach instead of guessing an element
 ```css readonly
 :root .workstation-viewport[class*="neo-theme-"],
 :root .workstation-viewport [class*="neo-theme-"] {
-    --tab-button-glyph-color: var(--workstation-ink-dim);
+    --neo-tab-button-glyph-color: var(--workstation-ink-dim);
 }
 ```
 

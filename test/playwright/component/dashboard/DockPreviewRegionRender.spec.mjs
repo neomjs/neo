@@ -213,8 +213,8 @@ test.describe('Neo.dashboard.dock.interaction.Preview — what each edge region 
                 cls      : node.className,
                 delay    : after.animationDelay,
                 duration : after.animationDuration,
-                dwellMs  : node.style.getPropertyValue('--dock-native-dwell-ms'),
-                elapsed  : node.style.getPropertyValue('--dock-native-dwell-elapsed')
+                dwellMs  : node.style.getPropertyValue('--neo-dock-native-dwell-ms'),
+                elapsed  : node.style.getPropertyValue('--neo-dock-native-dwell-elapsed')
             }
         });
 

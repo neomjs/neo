@@ -30,8 +30,8 @@
 
     /* The counter is the example's point: it sits at the end of the toolbar, in the board's accent */
     .desk-counter {
-        background          : var(--neo-board-card-selected-background);
-        border              : 1px solid var(--neo-board-card-selected-border-color);
+        background          : var(--neo-board-card-background-selected);
+        border              : 1px solid var(--neo-board-card-border-color-selected);
         border-radius       : 999px;
         color               : var(--neo-board-card-color);
         font-size           : 13px;

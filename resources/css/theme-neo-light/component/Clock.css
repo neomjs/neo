@@ -1,6 +1,6 @@
 :where(.neo-theme-neo-light) { /* .neo-clock */
-    --clock-background-color     : #ddd;
-    --clock-background-image     : radial-gradient(farthest-side circle at center center, #fff 0%, #bbb 100%);
-    --clock-disc-background-color: #bbb;
-    --clock-hand-background-color: #962033;
+    --neo-clock-background-color     : #ddd;
+    --neo-clock-background-image     : radial-gradient(farthest-side circle at center center, #fff 0%, #bbb 100%);
+    --neo-clock-disc-background-color: #bbb;
+    --neo-clock-hand-background-color: #962033;
 }

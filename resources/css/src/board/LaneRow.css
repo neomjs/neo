@@ -4,7 +4,7 @@
 .neo-board-lane {
     background   : var(--neo-board-lane-background);
     border       : 1px solid var(--neo-board-lane-border-color);
-    border-radius: var(--neo-board-radius);
+    border-radius: var(--neo-board-border-radius);
     box-sizing   : border-box;
     flex         : none;
     min-width    : fit-content;
@@ -12,7 +12,7 @@
     &.neo-board-lane-collapsed {
         .neo-board-lane-header {
             border-bottom: 0;
-            border-radius: calc(var(--neo-board-radius) - 1px);
+            border-radius: calc(var(--neo-board-border-radius) - 1px);
         }
     }
 
@@ -25,7 +25,7 @@
     align-items  : center;
     background   : var(--neo-board-lane-header-background);
     border-bottom: 1px solid var(--neo-board-lane-border-color);
-    border-radius: calc(var(--neo-board-radius) - 1px) calc(var(--neo-board-radius) - 1px) 0 0;
+    border-radius: calc(var(--neo-board-border-radius) - 1px) calc(var(--neo-board-border-radius) - 1px) 0 0;
     color        : var(--neo-board-lane-color);
     display      : flex;
     flex         : none;
@@ -77,7 +77,7 @@
         }
 
         &:focus-visible {
-            outline       : 2px solid var(--neo-board-focus-color);
+            outline       : 2px solid var(--neo-board-outline-color-focus);
             outline-offset: 1px;
         }
     }

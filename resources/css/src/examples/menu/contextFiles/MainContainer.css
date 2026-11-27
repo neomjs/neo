@@ -1,7 +1,7 @@
 .neo-context-files.neo-viewport {
     background-color: var(--context-files-background);
     color           : var(--context-files-text);
-    font-family     : var(--neo-font-family);
+    font-family     : var(--neo-global-font-family);
     gap             : 8px;
     padding         : 24px;
 

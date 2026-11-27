@@ -6,7 +6,7 @@
 
 /* The number being typed, or the last result, right-aligned as on a pocket calculator */
 .desktop-basic-calculator-display {
-    color               : var(--desktop-app-window-color);
+    color               : var(--neo-desktop-app-window-color);
     font-size           : 40px;
     font-variant-numeric: tabular-nums;
     font-weight         : 300;
@@ -19,8 +19,8 @@
 
 /* Four columns of keys that share the window's height; the ghost keys sit on the window's own surface tone */
 .desktop-basic-calculator-keys {
-    --button-ghost-background-color: var(--desktop-app-window-border-color);
-    --button-ghost-text-color      : var(--desktop-app-window-color);
+    --neo-button-ghost-background-color: var(--neo-desktop-app-window-border-color);
+    --neo-button-ghost-color      : var(--neo-desktop-app-window-color);
 
     gap                  : 8px;
     grid-auto-rows       : 1fr;
@@ -38,7 +38,7 @@
     }
 
     .desktop-basic-calculator-function {
-        --button-ghost-text-color: var(--desktop-app-window-icon-color);
+        --neo-button-ghost-color: var(--neo-desktop-app-window-icon-color);
     }
 
     .desktop-basic-calculator-zero {

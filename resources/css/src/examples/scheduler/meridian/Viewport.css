@@ -218,12 +218,12 @@
 }
 
 .meridian-desk .meridian-theme-switcher.neo-button {
-    --button-background-color      : var(--mer-panel);
-    --button-background-color-hover: var(--mer-btn-hover);
-    --button-border                : 1px solid var(--mer-line);
-    --button-border-hover          : 1px solid var(--mer-btn-hover-line);
-    --button-text-color            : var(--mer-ink);
-    --button-text-color-hover      : var(--mer-ink);
+    --neo-button-background-color      : var(--mer-panel);
+    --neo-button-background-color-hover: var(--mer-btn-hover);
+    --neo-button-border                : 1px solid var(--mer-line);
+    --neo-button-border-hover          : 1px solid var(--mer-btn-hover-line);
+    --neo-button-color            : var(--mer-ink);
+    --neo-button-color-hover      : var(--mer-ink);
     background   : var(--mer-panel);
     border       : 1px solid var(--mer-line);
     border-radius: 4px;
@@ -361,7 +361,7 @@
     --neo-board-font-size            : 13px;
     --neo-board-gap                  : 5px;
     --neo-board-padding              : 6px;
-    --neo-board-radius               : 4px;
+    --neo-board-border-radius               : 4px;
     --neo-board-column-width         : calc((100% - 10px) / 3);
     --neo-board-column-color         : var(--mer-col-ink);
     --neo-board-column-border-color  : var(--mer-col-line);
@@ -374,7 +374,7 @@
     --neo-board-card-muted-color     : var(--mer-muted);
     --neo-board-card-gap             : 5px;
     --neo-board-accent-color         : var(--mer-mint);
-    --neo-board-focus-color          : var(--mer-lime);
+    --neo-board-outline-color-focus          : var(--mer-lime);
 
     border-top: 1px solid var(--mer-line);
     height    : 218px;
@@ -391,15 +391,15 @@
 
 .meridian-desk :is(.meridian-scheduler.neo-scheduler, .meridian-gantt.neo-gantt),
 .meridian-desk :is(.meridian-scheduler, .meridian-gantt) [class*="neo-theme-"] {
-    --grid-container-border-color              : var(--mer-grid);
-    --grid-container-cell-background-color     : var(--mer-inset);
-    --grid-container-cell-background-color-even: var(--mer-cell-even);
-    --grid-container-color                     : var(--mer-ink);
-    --grid-header-button-background-color      : var(--mer-hdr-bg);
-    --grid-header-button-background-color-hover: var(--mer-hdr-hover);
-    --grid-header-button-color                 : var(--mer-hdr-ink);
-    --grid-header-button-border-right-color    : var(--mer-line);
-    --grid-header-button-glyph-color           : var(--mer-muted);
+    --neo-grid-container-border-color              : var(--mer-grid);
+    --neo-grid-container-cell-background-color     : var(--mer-inset);
+    --neo-grid-container-cell-background-color-even: var(--mer-cell-even);
+    --neo-grid-container-color                     : var(--mer-ink);
+    --neo-grid-header-button-background-color      : var(--mer-hdr-bg);
+    --neo-grid-header-button-background-color-hover: var(--mer-hdr-hover);
+    --neo-grid-header-button-color                 : var(--mer-hdr-ink);
+    --neo-grid-header-button-border-right-color    : var(--mer-line);
+    --neo-grid-header-button-glyph-color           : var(--mer-muted);
     --neo-timeline-header-background           : var(--mer-hdr-bg);
     --neo-timeline-header-color                : var(--mer-hdr-ink);
     --neo-timeline-header-muted-color          : var(--mer-muted);
@@ -409,12 +409,12 @@
     --neo-timeline-bar-background              : var(--mer-bar-bg);
     --neo-timeline-bar-border-color            : var(--mer-bar-line);
     --neo-timeline-bar-color                   : var(--mer-bar-ink);
-    --neo-timeline-bar-hover-border-color      : var(--mer-lime);
-    --neo-timeline-bar-radius                  : 3px;
-    --neo-timeline-focus-color                 : var(--mer-lime);
+    --neo-timeline-bar-border-color-hover      : var(--mer-lime);
+    --neo-timeline-bar-border-radius                  : 3px;
+    --neo-timeline-outline-color-focus                 : var(--mer-lime);
     --neo-gantt-arrow-color                    : var(--mer-arrow);
-    --neo-scheduler-divider-color              : var(--mer-line);
-    --neo-gantt-divider-color                  : var(--mer-line);
+    --neo-scheduler-divider-border-color              : var(--mer-line);
+    --neo-gantt-divider-border-color                  : var(--mer-line);
 }
 
 .meridian-desk :is(.meridian-scheduler.neo-scheduler, .meridian-gantt.neo-gantt) {
@@ -444,7 +444,7 @@
 .meridian-gantt.neo-gantt {height: 259px;}
 
 /* The source Board keeps the gesture. This Scheduler's real track is the only foreign hit target. */
-body:has(.meridian-board.neo-is-dragging) .meridian-scheduler .neo-grid-row .neo-timeline-track {--drop-target-pointer-events: auto;}
+body:has(.meridian-board.neo-is-dragging) .meridian-scheduler .neo-grid-row .neo-timeline-track {--neo-drop-target-pointer-events: auto;}
 body:has(.meridian-request-proxy:is([data-verdict="accepted"], [data-verdict="denied"])) .meridian-board .neo-board-card-slot {
     opacity   : .45;
     visibility: visible !important;

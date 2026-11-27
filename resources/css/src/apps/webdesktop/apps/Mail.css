@@ -1,5 +1,5 @@
 .webdesktop-mail-inbox {
-    border-right: 1px solid var(--desktop-app-window-border-color);
+    border-right: 1px solid var(--neo-desktop-app-window-border-color);
 }
 
 .webdesktop-mail-message {
@@ -21,7 +21,7 @@
     }
 
     .webdesktop-mail-meta {
-        border-bottom  : 1px solid var(--desktop-app-window-border-color);
+        border-bottom  : 1px solid var(--neo-desktop-app-window-border-color);
         color          : var(--webdesktop-ink-dim);
         display        : flex;
         font-size      : 12.5px;
@@ -31,7 +31,7 @@
     }
 
     .webdesktop-mail-from {
-        color      : var(--desktop-app-window-color);
+        color      : var(--neo-desktop-app-window-color);
         font-weight: 600;
     }
 

@@ -5,7 +5,7 @@ const PORTAL = '/apps/portal/index.html',
 
 /**
  * @summary Pins the examples list's transition to the motion vocabulary (`resources/css/src/Global.css`):
- * it resolves through `--motion-panel` and `--ease-out-soft`, and collapses to `0s` under reduced motion.
+ * it resolves through `--neo-duration-panel` and `--neo-ease-out`, and collapses to `0s` under reduced motion.
  * The spec reads one element's computed style, so it covers that list, not every Portal transition.
  */
 test.describe('Portal motion tokens', () => {
@@ -14,11 +14,11 @@ test.describe('Portal motion tokens', () => {
         return {duration: style.transitionDuration, timing: style.transitionTimingFunction}
     });
 
-    test('the examples list transition resolves through --motion-panel and --ease-out-soft', async ({page}) => {
+    test('the examples list transition resolves through --neo-duration-panel and --neo-ease-out', async ({page}) => {
         await page.goto(`${PORTAL}#/examples`);
         await expect(page.locator(LIST).first()).toBeAttached();
 
-        const token      = await page.locator(LIST).first().evaluate(el => getComputedStyle(el).getPropertyValue('--motion-panel').trim());
+        const token      = await page.locator(LIST).first().evaluate(el => getComputedStyle(el).getPropertyValue('--neo-duration-panel').trim());
         const transition = await readTransition(page);
 
         expect(token).toBe('280ms');

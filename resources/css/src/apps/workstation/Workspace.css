@@ -26,8 +26,8 @@
 
     .workstation-tourbar,
     .workstation-statusbar {
-        transition: background var(--dock-transition-duration-fast) var(--dock-transition-easing),
-                    color var(--dock-transition-duration-fast) var(--dock-transition-easing);
+        transition: background var(--neo-dock-transition-duration-fast) var(--neo-dock-transition-timing-function),
+                    color var(--neo-dock-transition-duration-fast) var(--neo-dock-transition-timing-function);
     }
 
     .neo-dashboard-dock-edge-zone,
@@ -49,16 +49,16 @@
        fighting a competing rule, and the engine now owns the active state at its own
        specificity, so there is nothing left to fight. */
     .neo-dashboard-dock-splitter {
-        --dock-splitter-background        : color-mix(in srgb, var(--workstation-signal) 9%, transparent);
-        --dock-splitter-background-hover  : color-mix(in srgb, var(--workstation-signal) 18%, transparent);
-        --dock-splitter-background-active : color-mix(in srgb, var(--workstation-signal) 30%, transparent);
-        --dock-splitter-handle-color      : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
-        --dock-splitter-handle-color-hover: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
-        --dock-splitter-handle-color-active: var(--workstation-signal);
-        --dock-splitter-handle-glow-hover : 0 0 9px color-mix(in srgb, var(--workstation-signal) 48%, transparent);
-        --dock-splitter-ring              : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 18%, transparent);
-        --dock-splitter-ring-hover        : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 38%, transparent);
-        --dock-splitter-ring-active       : inset 0 0 0 1px var(--workstation-signal),
+        --neo-dock-splitter-background-color        : color-mix(in srgb, var(--workstation-signal) 9%, transparent);
+        --neo-dock-splitter-background-color-hover  : color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+        --neo-dock-splitter-background-color-active : color-mix(in srgb, var(--workstation-signal) 30%, transparent);
+        --neo-dock-splitter-handle-color      : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+        --neo-dock-splitter-handle-color-hover: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
+        --neo-dock-splitter-handle-color-active: var(--workstation-signal);
+        --neo-dock-splitter-handle-glow-hover : 0 0 9px color-mix(in srgb, var(--workstation-signal) 48%, transparent);
+        --neo-dock-splitter-ring              : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+        --neo-dock-splitter-ring-hover        : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 38%, transparent);
+        --neo-dock-splitter-ring-active       : inset 0 0 0 1px var(--workstation-signal),
                                             0 0 12px color-mix(in srgb, var(--workstation-signal) 32%, transparent);
     }
 
@@ -84,14 +84,14 @@
        only by copying it. `overflow` rides along because it is what clips the tabs to the 7px
        corners: it belongs to the radius decision made here, not to every rail. */
     .neo-dashboard-dock-edge-rail {
-        --dock-edge-rail-background: color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-rail));
-        --dock-edge-rail-border    : 1px solid color-mix(in srgb, var(--workstation-signal) 52%, var(--workstation-line));
-        --dock-edge-rail-radius    : 7px;
-        --dock-edge-rail-shadow    : 0 0 22px color-mix(in srgb, var(--workstation-signal) 12%, transparent);
-        --dock-edge-rail-overflow  : hidden;
+        --neo-dock-edge-rail-background: color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-rail));
+        --neo-dock-edge-rail-border    : 1px solid color-mix(in srgb, var(--workstation-signal) 52%, var(--workstation-line));
+        --neo-dock-edge-rail-border-radius    : 7px;
+        --neo-dock-edge-rail-box-shadow    : 0 0 22px color-mix(in srgb, var(--workstation-signal) 12%, transparent);
+        --neo-dock-edge-rail-overflow  : hidden;
 
-        /* `.neo-button` sets `min-width: var(--button-min-width)` (`0,1,0` in `src/button/Base.css`,
-           valued at `--button-size-medium-height` = `32px` by default in the Neo themes). On the 14px
+        /* `.neo-button` sets `min-width: var(--neo-button-min-width)` (`0,1,0` in `src/button/Base.css`,
+           valued at `--neo-button-size-medium-height` = `32px` by default in the Neo themes). On the 14px
            vertical rail that floor defeats the cross-axis stretch and pushes the rotated label span
            outside the clipped strip: the rail renders as an empty pill. This app used to release that
            floor itself with its own (0,4,0) `min-width: 0`; the engine now owns that release in
@@ -99,20 +99,20 @@
            Values only: the structural paint and the glyph/text inherit fix live in
            `src/dashboard/Container.css`. */
         .neo-button.neo-dashboard-dock-rail-tab {
-            --dock-rail-tab-background-hover: color-mix(in srgb, var(--workstation-signal) 14%, transparent);
-            --dock-rail-tab-color           : var(--workstation-ink-dim);
-            --dock-rail-tab-color-hover     : var(--workstation-ink);
-            --dock-rail-tab-font-family     : var(--workstation-font-mono);
+            --neo-dock-rail-tab-background-hover: color-mix(in srgb, var(--workstation-signal) 14%, transparent);
+            --neo-dock-rail-tab-color           : var(--workstation-ink-dim);
+            --neo-dock-rail-tab-color-hover     : var(--workstation-ink);
+            --neo-dock-rail-tab-font-family     : var(--workstation-font-mono);
         }
     }
 
     .neo-dashboard-dock-reveal-overlay {
-        --dock-reveal-background     : var(--workstation-rail);
-        --dock-reveal-border         : 1px solid color-mix(in srgb, var(--workstation-signal) 46%, var(--workstation-line));
-        --dock-reveal-min-block-size : 16rem;
-        --dock-reveal-min-inline-size: 20rem;
-        --dock-reveal-radius         : 8px;
-        --dock-reveal-shadow         : 0 14px 38px color-mix(in srgb, var(--workstation-ground) 72%, transparent),
+        --neo-dock-reveal-background     : var(--workstation-rail);
+        --neo-dock-reveal-border         : 1px solid color-mix(in srgb, var(--workstation-signal) 46%, var(--workstation-line));
+        --neo-dock-reveal-min-block-size : 16rem;
+        --neo-dock-reveal-min-inline-size: 20rem;
+        --neo-dock-reveal-border-radius         : 8px;
+        --neo-dock-reveal-box-shadow         : 0 14px 38px color-mix(in srgb, var(--workstation-ground) 72%, transparent),
                                        0 0 20px color-mix(in srgb, var(--workstation-signal) 16%, transparent);
     }
 
@@ -137,8 +137,8 @@
        to it on source order at equal specificity — the declaration this replaces computed to the
        shared 5px. Going through the token is also what gives the trailing button's badge room: the
        bar is flush right, and at 5px the count overflows the viewport edge. */
-    --toolbar-background-color: transparent;
-    --toolbar-padding         : 6px 12px;
+    --neo-toolbar-background-color: transparent;
+    --neo-toolbar-padding         : 6px 12px;
 
     gap: 6px;
 
@@ -149,26 +149,26 @@
        polish; they are the half of the contract the engine deliberately leaves to us. Opacity stays
        at 1 so the state reads as a colour change rather than a wash over the label. */
     .neo-button {
-        --button-background-color         : var(--workstation-panel-2);
-        --button-background-color-disabled: var(--workstation-panel-2);
-        --button-background-color-hover   : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-        --button-badge-background-color   : var(--workstation-signal);
-        --button-badge-color              : var(--workstation-panel);
-        --button-border                   : 1px solid var(--workstation-line);
-        --button-border-disabled          : 1px solid var(--workstation-line);
-        --button-glyph-color              : var(--workstation-ink-dim);
-        --button-glyph-color-disabled     : color-mix(in srgb, var(--workstation-ink-dim) 45%, transparent);
-        --button-glyph-color-hover        : var(--workstation-signal);
-        --button-opacity-disabled         : 1;
-        --button-text-color               : var(--workstation-ink);
-        --button-text-color-disabled      : color-mix(in srgb, var(--workstation-ink) 45%, transparent);
+        --neo-button-background-color         : var(--workstation-panel-2);
+        --neo-button-background-color-disabled: var(--workstation-panel-2);
+        --neo-button-background-color-hover   : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+        --neo-button-badge-background-color   : var(--workstation-signal);
+        --neo-button-badge-color              : var(--workstation-panel);
+        --neo-button-border                   : 1px solid var(--workstation-line);
+        --neo-button-border-disabled          : 1px solid var(--workstation-line);
+        --neo-button-glyph-color              : var(--workstation-ink-dim);
+        --neo-button-glyph-color-disabled     : color-mix(in srgb, var(--workstation-ink-dim) 45%, transparent);
+        --neo-button-glyph-color-hover        : var(--workstation-signal);
+        --neo-button-opacity-disabled         : 1;
+        --neo-button-color               : var(--workstation-ink);
+        --neo-button-color-disabled      : color-mix(in srgb, var(--workstation-ink) 45%, transparent);
     }
 
 }
 
 .workstation-tourbar {
     /* The tour bar's own control height, on purpose: one line with the arrangement switch's 34px pill */
-    --button-height: 34px;
+    --neo-button-height: 34px;
 
     background: linear-gradient(90deg,
         color-mix(in srgb, var(--workstation-signal) 13%, var(--workstation-panel)),
@@ -216,19 +216,19 @@
     }
 
     .workstation-theme-button {
-        --button-background-color       : var(--workstation-panel-2);
-        --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
-        --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-        --button-border                 : 1px solid var(--workstation-line);
-        --button-border-active          : 1px solid var(--workstation-signal);
-        --button-border-hover           : 1px solid color-mix(in srgb, var(--workstation-signal) 55%, var(--workstation-line));
-        --button-glyph-color            : var(--workstation-ink-dim);
-        --button-glyph-color-active     : var(--workstation-signal);
-        --button-glyph-color-hover      : var(--workstation-signal);
-        --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 32%, transparent);
-        --button-text-color             : var(--workstation-ink);
-        --button-text-color-active      : var(--workstation-ink);
-        --button-text-color-hover       : var(--workstation-ink);
+        --neo-button-background-color       : var(--workstation-panel-2);
+        --neo-button-background-color-active: color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
+        --neo-button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+        --neo-button-border                 : 1px solid var(--workstation-line);
+        --neo-button-border-active          : 1px solid var(--workstation-signal);
+        --neo-button-border-hover           : 1px solid color-mix(in srgb, var(--workstation-signal) 55%, var(--workstation-line));
+        --neo-button-glyph-color            : var(--workstation-ink-dim);
+        --neo-button-glyph-color-active     : var(--workstation-signal);
+        --neo-button-glyph-color-hover      : var(--workstation-signal);
+        --neo-button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 32%, transparent);
+        --neo-button-color             : var(--workstation-ink);
+        --neo-button-color-active      : var(--workstation-ink);
+        --neo-button-color-hover       : var(--workstation-ink);
         border-radius: 7px;
         font-family  : var(--workstation-font-mono);
         margin       : 0;
@@ -245,31 +245,31 @@
         padding      : 2px;
 
         .neo-button {
-            --button-background-color       : transparent;
-            --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 18%, transparent);
-            --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 10%, transparent);
-            --button-border                 : 1px solid transparent;
-            --button-border-active          : 1px solid transparent;
-            --button-border-hover           : 1px solid transparent;
-            --button-border-pressed         : 1px solid color-mix(in srgb, var(--workstation-signal) 55%, var(--workstation-line));
-            --button-glyph-color            : var(--workstation-ink-faint);
-            --button-glyph-color-active     : var(--workstation-signal);
-            --button-glyph-color-hover      : var(--workstation-signal);
+            --neo-button-background-color       : transparent;
+            --neo-button-background-color-active: color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+            --neo-button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 10%, transparent);
+            --neo-button-border                 : 1px solid transparent;
+            --neo-button-border-active          : 1px solid transparent;
+            --neo-button-border-hover           : 1px solid transparent;
+            --neo-button-border-pressed         : 1px solid color-mix(in srgb, var(--workstation-signal) 55%, var(--workstation-line));
+            --neo-button-glyph-color            : var(--workstation-ink-faint);
+            --neo-button-glyph-color-active     : var(--workstation-signal);
+            --neo-button-glyph-color-hover      : var(--workstation-signal);
             /* Between the small and medium sizes on purpose: the switch's border and padding make one 34px pill */
-            --button-height                 : 28px;
-            --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 28%, transparent);
-            --button-text-color             : var(--workstation-ink-dim);
-            --button-text-color-active      : var(--workstation-ink);
-            --button-text-color-hover       : var(--workstation-ink);
+            --neo-button-height                 : 28px;
+            --neo-button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 28%, transparent);
+            --neo-button-color             : var(--workstation-ink-dim);
+            --neo-button-color-active      : var(--workstation-ink);
+            --neo-button-color-hover       : var(--workstation-ink);
             border-radius: 6px;
             font-family  : var(--workstation-font-mono);
             margin       : 0;
 
             &.pressed {
-                --button-background-color      : color-mix(in srgb, var(--workstation-signal) 16%, var(--workstation-panel));
-                --button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 20%, var(--workstation-panel));
-                --button-glyph-color           : var(--workstation-signal);
-                --button-text-color            : var(--workstation-ink);
+                --neo-button-background-color      : color-mix(in srgb, var(--workstation-signal) 16%, var(--workstation-panel));
+                --neo-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 20%, var(--workstation-panel));
+                --neo-button-glyph-color           : var(--workstation-signal);
+                --neo-button-color            : var(--workstation-ink);
             }
         }
     }
@@ -277,19 +277,19 @@
 
 .workstation-workspace .neo-button.workstation-tour-play,
 .workstation-workspace .neo-button.workstation-tour-continue {
-    --button-background-color       : var(--workstation-signal);
-    --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
-    --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 88%, var(--workstation-panel));
-    --button-border                 : 1px solid var(--workstation-signal);
-    --button-border-active          : 1px solid var(--workstation-signal);
-    --button-border-hover           : 1px solid var(--workstation-signal);
-    --button-glyph-color            : var(--workstation-ground);
-    --button-glyph-color-active     : var(--workstation-ground);
-    --button-glyph-color-hover      : var(--workstation-ground);
-    --button-ripple-background-color: color-mix(in srgb, var(--workstation-ground) 24%, transparent);
-    --button-text-color             : var(--workstation-ground);
-    --button-text-color-active      : var(--workstation-ground);
-    --button-text-color-hover       : var(--workstation-ground);
+    --neo-button-background-color       : var(--workstation-signal);
+    --neo-button-background-color-active: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
+    --neo-button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 88%, var(--workstation-panel));
+    --neo-button-border                 : 1px solid var(--workstation-signal);
+    --neo-button-border-active          : 1px solid var(--workstation-signal);
+    --neo-button-border-hover           : 1px solid var(--workstation-signal);
+    --neo-button-glyph-color            : var(--workstation-ground);
+    --neo-button-glyph-color-active     : var(--workstation-ground);
+    --neo-button-glyph-color-hover      : var(--workstation-ground);
+    --neo-button-ripple-background-color: color-mix(in srgb, var(--workstation-ground) 24%, transparent);
+    --neo-button-color             : var(--workstation-ground);
+    --neo-button-color-active      : var(--workstation-ground);
+    --neo-button-color-hover       : var(--workstation-ground);
 }
 
 /* Beat generic button focus/pressed descendant colors without relying on theme load order. */
@@ -335,19 +335,19 @@
        and a cap at or below the boot width pins the band with zero outward headroom. The engine's
        50% default then bounds each edge INDIVIDUALLY — a container-relative per-band cap, not an
        aggregate center reservation (opposing edges dragged to their caps can meet in the middle). */
-    --dock-edge-band-left-inline-size     : 20.3125cqi;
-    --dock-edge-band-left-min-inline-size : 11.25rem;
-    --dock-edge-band-right-inline-size    : 25cqi;
-    --dock-edge-band-right-min-inline-size: 13.75rem;
-    --dock-edge-band-bottom-block-size    : 28cqb;
-    --dock-edge-band-bottom-min-block-size: 8.75rem;
+    --neo-dock-edge-band-left-inline-size     : 20.3125cqi;
+    --neo-dock-edge-band-left-min-inline-size : 11.25rem;
+    --neo-dock-edge-band-right-inline-size    : 25cqi;
+    --neo-dock-edge-band-right-min-inline-size: 13.75rem;
+    --neo-dock-edge-band-bottom-block-size    : 28cqb;
+    --neo-dock-edge-band-bottom-min-block-size: 8.75rem;
 
     padding : 12px;
     position: relative;
 
     .workstation-popup-guidance {
-        background    : color-mix(in srgb, var(--agent-dock-preview-reject) 14%, var(--workstation-panel-2));
-        border        : 1px solid color-mix(in srgb, var(--agent-dock-preview-reject) 58%, var(--workstation-line));
+        background    : color-mix(in srgb, var(--neo-dock-preview-reject-color) 14%, var(--workstation-panel-2));
+        border        : 1px solid color-mix(in srgb, var(--neo-dock-preview-reject-color) 58%, var(--workstation-line));
         border-radius : 7px;
         box-shadow    : 0 12px 28px color-mix(in srgb, var(--workstation-ground) 64%, transparent);
         color         : var(--workstation-ink);
@@ -373,16 +373,16 @@
 /* The generic overflow button is a floating direct-body child. Scope its cockpit skin to
    documents that actually contain Workstation rather than coupling the shared plugin to this app. */
 body:has(.workstation-workspace) .neo-button.neo-tab-overflow-control {
-    --button-background-color       : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-    --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 24%, var(--workstation-panel-2));
-    --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
-    --button-border                 : 1px solid color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
-    --button-border-active          : 1px solid var(--workstation-signal);
-    --button-border-hover           : 1px solid color-mix(in srgb, var(--workstation-signal) 70%, var(--workstation-line));
-    --button-glyph-color            : var(--workstation-signal);
-    --button-glyph-color-active     : var(--workstation-signal);
-    --button-glyph-color-hover      : var(--workstation-signal);
-    --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 32%, transparent);
+    --neo-button-background-color       : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+    --neo-button-background-color-active: color-mix(in srgb, var(--workstation-signal) 24%, var(--workstation-panel-2));
+    --neo-button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
+    --neo-button-border                 : 1px solid color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+    --neo-button-border-active          : 1px solid var(--workstation-signal);
+    --neo-button-border-hover           : 1px solid color-mix(in srgb, var(--workstation-signal) 70%, var(--workstation-line));
+    --neo-button-glyph-color            : var(--workstation-signal);
+    --neo-button-glyph-color-active     : var(--workstation-signal);
+    --neo-button-glyph-color-hover      : var(--workstation-signal);
+    --neo-button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 32%, transparent);
     border-radius: 6px;
 }
 
@@ -390,24 +390,24 @@ body:has(.workstation-workspace) .neo-button.neo-tab-overflow-control {
    carries the active palette; this Workstation-only bridge projects that palette into menu-domain
    tokens without coupling the shared tab plugin or shared menu component to product colours. */
 body:has(.workstation-viewport) .neo-menu-list.neo-tab-overflow-menu {
-    --menu-list-background-color              : var(--workstation-panel-2);
-    --menu-list-border-color                  : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
-    --menu-list-item-background-color         : transparent;
-    --menu-list-item-background-color-disabled: transparent;
-    --menu-list-item-background-color-hover   : color-mix(in srgb, var(--workstation-signal) 14%, var(--workstation-panel-2));
-    --menu-list-item-background-color-selected: color-mix(in srgb, var(--workstation-signal) 20%, var(--workstation-panel-2));
-    --menu-list-item-color                    : var(--workstation-ink);
-    --menu-list-item-font-family              : var(--workstation-font-mono);
-    --menu-list-item-font-weight              : 500;
-    --menu-list-item-height                   : 30px;
-    --menu-list-item-icon-color               : var(--workstation-ink-dim);
-    --menu-list-item-icon-color-disabled      : var(--workstation-ink-faint);
-    --menu-list-item-icon-color-selected      : var(--workstation-signal);
-    --menu-list-item-line-height              : 1.2;
-    --menu-list-item-opacity-disabled         : .45;
-    --menu-list-item-outline-focus            : 1px solid var(--workstation-signal);
-    --menu-list-item-padding                  : 4px 10px;
-    --menu-list-item-text-transform           : none;
+    --neo-menu-list-background-color              : var(--workstation-panel-2);
+    --neo-menu-list-border-color                  : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+    --neo-menu-list-item-background-color         : transparent;
+    --neo-menu-list-item-background-color-disabled: transparent;
+    --neo-menu-list-item-background-color-hover   : color-mix(in srgb, var(--workstation-signal) 14%, var(--workstation-panel-2));
+    --neo-menu-list-item-background-color-selected: color-mix(in srgb, var(--workstation-signal) 20%, var(--workstation-panel-2));
+    --neo-menu-list-item-color                    : var(--workstation-ink);
+    --neo-menu-list-item-font-family              : var(--workstation-font-mono);
+    --neo-menu-list-item-font-weight              : 500;
+    --neo-menu-list-item-height                   : 30px;
+    --neo-menu-list-item-icon-color               : var(--workstation-ink-dim);
+    --neo-menu-list-item-icon-color-disabled      : var(--workstation-ink-faint);
+    --neo-menu-list-item-icon-color-selected      : var(--workstation-signal);
+    --neo-menu-list-item-line-height              : 1.2;
+    --neo-menu-list-item-opacity-disabled         : .45;
+    --neo-menu-list-item-outline-focus            : 1px solid var(--workstation-signal);
+    --neo-menu-list-item-padding                  : 4px 10px;
+    --neo-menu-list-item-text-transform           : none;
 
     border-radius: 6px;
     box-shadow   : 0 12px 28px color-mix(in srgb, var(--workstation-ground) 58%, transparent);
@@ -433,11 +433,11 @@ body:has(.workstation-viewport) .neo-menu-list.neo-tab-overflow-menu {
    `neo-theme-neo-light` while `body` still carries `neo-theme-neo-dark`. A body-inherited
    projection could not follow that; an own-element declaration does. */
 body:has(.workstation-viewport) .neo-tooltip {
-    --tooltip-bg       : var(--workstation-panel-2);
-    --tooltip-border   : 1px solid color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
-    --tooltip-boxshadow: 0 12px 28px color-mix(in srgb, var(--workstation-ground) 58%, transparent);
-    --tooltip-color    : var(--workstation-ink);
-    --tooltip-fontsize : 12px;
+    --neo-tooltip-background-color       : var(--workstation-panel-2);
+    --neo-tooltip-border   : 1px solid color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+    --neo-tooltip-box-shadow: 0 12px 28px color-mix(in srgb, var(--workstation-ground) 58%, transparent);
+    --neo-tooltip-color    : var(--workstation-ink);
+    --neo-tooltip-font-size : 12px;
 }
 
 /* Pane skin — `.workstation-placeholder`, `.workstation-resident-*`, `.workstation-data-pane` and

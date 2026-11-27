@@ -4,11 +4,11 @@ import {test, expect} from '@playwright/test';
  * The reveal overlay's discoverability floor, measured on a rendered overlay in both neo themes.
  *
  * A revealed pane is an overlay over the workspace, and the engine keeps its SURFACE the host's —
- * `--dock-reveal-background` resolves to `--neo-background-color`, deliberately. That means the
+ * `--neo-dock-reveal-background` resolves to `--neo-global-background-color`, deliberately. That means the
  * overlay and the pane it covers are the same colour by design, and the only thing separating them
  * is the chrome: a border and an elevation shadow.
  *
- * On a dark ground the shipped default supplied neither. `--dock-reveal-border` was `0` and the
+ * On a dark ground the shipped default supplied neither. `--neo-dock-reveal-border` was `0` and the
  * shadow was `0 12px 32px rgb(0 0 0 / 28%)` — 28%-black over a near-black surface, which is not an
  * edge. The revealed pane read as the pane beneath it with a title line floating in it. Both
  * flagship hosts had already written their own border and shadow to escape it, which is the tell:
@@ -183,7 +183,7 @@ test.describe('the dock reveal overlay carries a discoverability floor in both s
 
             style.textContent =
                 '.neo-dashboard .neo-dashboard-dock-reveal-overlay {' +
-                '  --dock-reveal-border: 3px dashed rgb(255 0 0);' +
+                '  --neo-dock-reveal-border: 3px dashed rgb(255 0 0);' +
                 '}';
             document.head.appendChild(style);
 

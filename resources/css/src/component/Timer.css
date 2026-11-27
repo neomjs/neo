@@ -12,8 +12,8 @@
 
     .countdown {
         display: grid;
-        width: var(--timer-dimension);
-        height: var(--timer-dimension);
+        width: var(--neo-timer-dimension);
+        height: var(--neo-timer-dimension);
         container-type: size;
     }
 
@@ -33,11 +33,11 @@
         stroke: silver;
 
         + [r] {
-            --k: calc(var(--neo-timer-current) / var(--neo-timer-full));
+            --neo-timer-k: calc(var(--neo-timer-current) / var(--neo-timer-full));
             transform: rotate(-90deg);
             stroke-linecap: round;
-            stroke: color-mix(in hsl shorter hue, var(--timer-color-start) calc(var(--k) * 300%), var(--timer-color-end));
-            stroke-dasharray: var(--k) 1
+            stroke: color-mix(in hsl shorter hue, var(--neo-timer-color-start) calc(var(--neo-timer-k) * 300%), var(--neo-timer-color-end));
+            stroke-dasharray: var(--neo-timer-k) 1
         }
     }
 }
@@ -74,12 +74,12 @@
         /* Style the front side (fallback if image is missing) */
         .flip-card-front {
             & > input {
-                background-color: var(--container-background-color);
-                color: var(--container-color);
+                background-color: var(--neo-container-background-color);
+                color: var(--neo-container-color);
                 margin-top: 25%;
                 height:41%;
                 width: 100%;
-                font: calc(var(--timer-dimension) * 0.25)/2 ubuntu mono, consolas, monaco, monospace;
+                font: calc(var(--neo-timer-dimension) * 0.25)/2 ubuntu mono, consolas, monaco, monospace;
                 text-align: center;
                 border-width: 0 !important;
 
@@ -90,7 +90,7 @@
 
             & > button {
                 border: 0 none;
-                background-color: var(--timer-button-color);
+                background-color: var(--neo-timer-button-background-color);
                 height: 35%;
                 width: 100%;
                 font-size: 15cqh;
@@ -102,7 +102,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font: calc(var(--timer-dimension)*.25)/ 2 ubuntu mono, consolas, monaco, monospace;
+            font: calc(var(--neo-timer-dimension)*.25)/ 2 ubuntu mono, consolas, monaco, monospace;
             /* initial transformation */
             transform: rotateY(180deg);
         }

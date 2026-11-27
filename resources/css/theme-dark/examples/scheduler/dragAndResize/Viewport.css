@@ -1,17 +1,17 @@
 :where(.neo-theme-dark) {
-    --depot-header-bg        : var(--grid-container-border-color, #2b2b2b);
+    --depot-header-bg        : var(--neo-grid-container-border-color, #2b2b2b);
     --depot-status-bg        : #232629;
     --depot-border           : #4b5052;
     --depot-title            : #e8eaed;
-    --depot-muted            : var(--neo-color);
+    --depot-muted            : var(--neo-global-color);
     --depot-badge-bg         : #34393c;
     --depot-badge-border     : #5a6266;
     --depot-badge-text       : #e8eaed;
-    --depot-control-bg       : var(--grid-container-cell-background-color, #3c3f41);
-    --depot-hover-bg         : var(--grid-cell-background-color-hover, #54595c);
-    --depot-selected-bg      : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --depot-control-bg       : var(--neo-grid-container-cell-background-color, #3c3f41);
+    --depot-hover-bg         : var(--neo-grid-cell-background-color-hover, #54595c);
+    --depot-selected-bg      : var(--neo-grid-rowmodel-cell-background-color-selected, #64b5f6);
     --depot-selected-text    : #1e242b;
-    --depot-focus            : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --depot-focus            : var(--neo-grid-rowmodel-cell-background-color-selected, #64b5f6);
     --depot-preview-pill-bg  : #243b55;
     --depot-preview-pill-text: #dbeafe;
     --depot-moved-pill-bg    : #1a3a2e;

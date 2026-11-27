@@ -4,7 +4,7 @@
 
     .neo-workbench-stage {
         background-color: var(--panel-background-color);
-        border          : 1px solid var(--panel-border-color);
+        border          : 1px solid var(--neo-panel-border-color);
         border-radius   : 8px;
         box-sizing      : border-box;
         display         : flex;
@@ -29,7 +29,7 @@
     }
 
     .neo-workbench-stage-header {
-        border-bottom : 1px solid var(--panel-border-color);
+        border-bottom : 1px solid var(--neo-panel-border-color);
         box-sizing    : border-box;
         flex          : 0 0 auto;
         padding       : 12px 16px;
@@ -60,7 +60,7 @@
     .neo-workbench-inspector,
     .neo-configuration-panel {
         background-color: var(--panel-background-color);
-        border          : 1px solid var(--panel-border-color);
+        border          : 1px solid var(--neo-panel-border-color);
         border-radius   : 8px;
         box-sizing      : border-box;
         display         : flex;
@@ -69,7 +69,7 @@
 
     .neo-configuration-header-toolbar {
         border       : 0;
-        border-bottom: 1px solid var(--panel-border-color);
+        border-bottom: 1px solid var(--neo-panel-border-color);
         gap          : 8px;
         padding      : 8px 12px;
 
@@ -99,7 +99,7 @@
     }
 
     .neo-workbench-code-panel {
-        border-top    : 1px solid var(--panel-border-color);
+        border-top    : 1px solid var(--neo-panel-border-color);
         display       : flex;
         flex          : 0 0 auto;
         flex-direction: column;
@@ -108,7 +108,7 @@
 
         .neo-workbench-code-header {
             align-items  : center;
-            border-bottom: 1px solid var(--panel-border-color);
+            border-bottom: 1px solid var(--neo-panel-border-color);
             display      : flex;
             flex         : 0 0 auto;
             gap          : 8px;

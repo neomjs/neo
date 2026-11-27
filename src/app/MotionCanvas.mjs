@@ -76,7 +76,7 @@ class MotionCanvas extends SharedCanvas {
     }
 
     /**
-     * @summary Applies the latest mounted read of `--motion-base`. Missing or unreadable durations keep the
+     * @summary Applies the latest mounted read of `--neo-duration-base`. Missing or unreadable durations keep the
      * renderer still. Reads from a departed window or graph cannot update its successor.
      * @returns {Promise<void>}
      */
@@ -88,8 +88,8 @@ class MotionCanvas extends SharedCanvas {
         let duration;
 
         try {
-            const styles = await Neo.main.DomAccess.getComputedStyle({id: me.id, style: '--motion-base', windowId});
-            duration = parseFloat(styles?.['--motion-base'])
+            const styles = await Neo.main.DomAccess.getComputedStyle({id: me.id, style: '--neo-duration-base', windowId});
+            duration = parseFloat(styles?.['--neo-duration-base'])
         } catch {}
 
         if (read === me.motionRead && me.mounted && !me.isDestroyed && me.windowId === windowId && me.rendererGraph === graph) {

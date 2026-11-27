@@ -1,8 +1,8 @@
 /* Reads the date selector's theme variables: Neo.component.DateSelector embeds this component, so it follows that theme */
 .neo-monthyearselector {
-    background-color: var(--dateselector-cell-background-color);
-    border          : 1px solid var(--dateselector-border-color);
-    color           : var(--dateselector-cell-color);
+    background-color: var(--neo-dateselector-cell-background-color);
+    border          : 1px solid var(--neo-dateselector-border-color);
+    color           : var(--neo-dateselector-cell-color);
     display         : flex;
     flex-direction  : column;
     font-size       : 13px;
@@ -30,7 +30,7 @@
     }
 
     .neo-years-region {
-        border-left   : 1px solid var(--dateselector-border-color);
+        border-left   : 1px solid var(--neo-dateselector-border-color);
         display       : flex;
         flex          : 1;
         flex-direction: column;
@@ -47,14 +47,14 @@
         padding: 0 4px;
 
         &:before {
-            color      : var(--dateselector-nav-button-color);
+            color      : var(--neo-dateselector-nav-button-color);
             font-family: var(--fa-style-family-classic);
             font-size  : 16px;
             font-weight: 900;
         }
 
         &:hover:before {
-            color: var(--dateselector-nav-button-color-hover);
+            color: var(--neo-dateselector-nav-button-color-hover);
         }
 
         &.neo-disabled {
@@ -81,7 +81,7 @@
         justify-content: center;
 
         &:hover {
-            color: var(--dateselector-nav-button-color-hover);
+            color: var(--neo-dateselector-nav-button-color-hover);
         }
 
         &:focus {
@@ -89,24 +89,24 @@
         }
 
         &:focus-visible {
-            outline       : 2px solid var(--dateselector-cell-today-border-color);
+            outline       : 2px solid var(--neo-dateselector-cell-today-border-color);
             outline-offset: -2px;
         }
 
         &.neo-selected {
-            background-color: var(--dateselector-cell-today-border-color);
-            color           : var(--dateselector-cell-color-selected);
+            background-color: var(--neo-dateselector-cell-today-border-color);
+            color           : var(--neo-dateselector-cell-color-selected);
         }
 
         &.neo-disabled {
-            color         : var(--dateselector-cell-color-disabled);
+            color         : var(--neo-dateselector-cell-color-disabled);
             cursor        : default;
             pointer-events: none;
         }
     }
 
     .neo-monthyearselector-footer {
-        border-top     : 1px solid var(--dateselector-border-color);
+        border-top     : 1px solid var(--neo-dateselector-border-color);
         display        : flex;
         gap            : 8px;
         justify-content: center;
@@ -114,13 +114,13 @@
     }
 
     .neo-monthyearselector-button {
-        border       : 1px solid var(--dateselector-border-color);
+        border       : 1px solid var(--neo-dateselector-border-color);
         border-radius: 4px;
         cursor       : pointer;
         padding      : 2px 12px;
 
         &:hover {
-            color: var(--dateselector-nav-button-color-hover);
+            color: var(--neo-dateselector-nav-button-color-hover);
         }
     }
 }

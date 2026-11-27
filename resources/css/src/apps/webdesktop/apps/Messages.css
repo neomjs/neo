@@ -1,5 +1,5 @@
 .webdesktop-messages-threads {
-    border-right: 1px solid var(--desktop-app-window-border-color);
+    border-right: 1px solid var(--neo-desktop-app-window-border-color);
     overflow-y  : auto;
     width       : 220px;
 
@@ -80,7 +80,7 @@
 }
 
 .webdesktop-messages-composer {
-    border-top: 1px solid var(--desktop-app-window-border-color);
+    border-top: 1px solid var(--neo-desktop-app-window-border-color);
     gap       : 8px;
     padding   : 10px 12px;
 }

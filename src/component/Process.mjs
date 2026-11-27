@@ -117,7 +117,7 @@ class Process extends Base {
         if (newValue !== null) {
             let style = this.style;
 
-            style['--process-arrow-color'] = newValue + '!important';
+            style['--neo-process-arrow-color'] = newValue + '!important';
             this.style = style
         }
     }
@@ -147,7 +147,7 @@ class Process extends Base {
         if (newValue !== null) {
             let {style} = this;
 
-            style['--process-icon-color'] = newValue + '!important';
+            style['--neo-process-icon-color'] = newValue + '!important';
 
             this.style = style
         }

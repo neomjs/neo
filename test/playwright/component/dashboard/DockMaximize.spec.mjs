@@ -144,7 +144,7 @@ const maximizedRectMatchesHost = page => page.waitForFunction(() => {
 
     const a   = el.getBoundingClientRect(),
           b   = host.getBoundingClientRect(),
-          gap = parseFloat(getComputedStyle(host).getPropertyValue('--dock-maximize-gap')) || 0;
+          gap = parseFloat(getComputedStyle(host).getPropertyValue('--neo-dock-maximize-gap')) || 0;
 
     return Math.abs(a.top - (b.top + gap)) < 1.5 && Math.abs(a.left - (b.left + gap)) < 1.5
         && Math.abs(a.width - (b.width - 2 * gap)) < 1.5 && Math.abs(a.height - (b.height - 2 * gap)) < 1.5
@@ -377,7 +377,7 @@ test.describe('dock maximize — presentation, never topology', () => {
                   root = rect('#dock-maximize-workspace'),
                   bar  = rect('#dock-maximize-chrome'),
                   host = document.querySelector('#dock-maximize-workspace .neo-dashboard'),
-                  gap  = parseFloat(getComputedStyle(host).getPropertyValue('--dock-maximize-gap')) || 0;
+                  gap  = parseFloat(getComputedStyle(host).getPropertyValue('--neo-dock-maximize-gap')) || 0;
 
             return {
                 barBottom: bar.bottom,

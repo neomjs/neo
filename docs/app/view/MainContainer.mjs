@@ -122,8 +122,8 @@ class MainContainer extends Viewport {
                 size        : 5,
 
                 style: {
-                    borderTop: 'var(--tab-strip-height) solid var(--tab-strip-background-color)',
-                    marginTop: 'var(--tab-button-height)'
+                    borderTop: 'var(--neo-tab-strip-height) solid var(--neo-tab-strip-background-color)',
+                    marginTop: 'var(--neo-tab-button-height)'
                 }
             }, {
                 module   : ContentTabContainer,

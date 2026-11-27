@@ -561,8 +561,8 @@ test.describe('Workstation — human popup-over-popup drag (#16117)', () => {
                     text  = element.querySelector('.neo-loading-message');
 
                 return {
-                    ground : style.getPropertyValue('--dock-vessel-placeholder-ground').trim(),
-                    ink    : style.getPropertyValue('--dock-vessel-placeholder-ink').trim(),
+                    ground : style.getPropertyValue('--neo-dock-vessel-placeholder-background-color').trim(),
+                    ink    : style.getPropertyValue('--neo-dock-vessel-placeholder-color').trim(),
                     hostBg : style.backgroundColor,
                     hostInk: style.color,
                     maskBg : mask && getComputedStyle(mask).backgroundColor,

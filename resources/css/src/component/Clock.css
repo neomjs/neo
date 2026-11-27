@@ -1,16 +1,16 @@
 .neo-clock {
     align-items     : center;
-    background-color: var(--clock-background-color);
+    background-color: var(--neo-clock-background-color);
     border-radius   : 50%;
     display         : flex;
     font-size       : 30px;
     justify-content : center;
 
-    background-image: var(--clock-background-image);
+    background-image: var(--neo-clock-background-image);
 
     &.neo-show-disc {
         &:before {
-            background-color: var(--clock-disc-background-color);
+            background-color: var(--neo-clock-disc-background-color);
             border-radius   : 50%;
             content         : '';
             height          : 1em;
@@ -22,7 +22,7 @@
 
     .neo-hours,
     .neo-minutes {
-        background-color: var(--clock-hand-background-color);
+        background-color: var(--neo-clock-hand-background-color);
         height          : 4em;
         position        : absolute;
         transition      : .2s transform ease-out;
@@ -30,11 +30,11 @@
 
     .neo-hours {
         width     : .4em;
-        box-shadow: 0 -2em var(--clock-hand-background-color), 0 -4em var(--clock-hand-background-color);
+        box-shadow: 0 -2em var(--neo-clock-hand-background-color), 0 -4em var(--neo-clock-hand-background-color);
     }
 
     .neo-minutes {
         width     : .3em;
-        box-shadow: 0 -3.4em var(--clock-hand-background-color), 0 -6.8em var(--clock-hand-background-color);
+        box-shadow: 0 -3.4em var(--neo-clock-hand-background-color), 0 -6.8em var(--neo-clock-hand-background-color);
     }
 }

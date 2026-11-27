@@ -39,8 +39,10 @@ const
     DECLARATION = /(?<![\w-])(--[A-Za-z0-9_-]+)\s*:\s*([^;{}]+)(?:;|(?=\}))/g,
     READ        = /var\(\s*(--[A-Za-z0-9_-]+)\s*([,)])/g,
     COLOUR      = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g,
-    // the primitive scales and the `--core-*` aliases a theme's palette declares
-    PALETTE     = /^--(core-|gray-|purple-|green-|red-|orange-|yellow-|blue-|spacing-|height-|borderradius-|white|black|Transparent)/,
+    // the design system's palette names, and the primitive scales and `--core-*` / `--cyber-*` tokens
+    PALETTE     = /^--(?:neo-)?(palette-|core-|gray-|purple-|green-|red-|orange-|yellow-|blue-|spacing-|height-|borderradius-|cyber-|white|black|Transparent)/,
+    SEM         = /^--(?:neo-)?sem-/,
+    CMP         = /^--(?:neo-)?cmp-/,
     STATES      = new Set(['hover', 'active', 'disabled', 'pressed', 'selected', 'focus', 'focused', 'checked', 'invalid', 'readonly']),
     // per meaning, the first word whose pattern a name matches
     WORDS       = {
@@ -54,7 +56,7 @@ const
  * @returns {String} `palette`, `sem`, `cmp` or `component`
  */
 function layerOf(name) {
-    return name.startsWith('--sem-') ? 'sem' : name.startsWith('--cmp-') ? 'cmp' : PALETTE.test(name) ? 'palette' : 'component'
+    return SEM.test(name) ? 'sem' : CMP.test(name) ? 'cmp' : PALETTE.test(name) ? 'palette' : 'component'
 }
 
 /**
@@ -166,7 +168,8 @@ function namingOf(names) {
         }
 
         const
-            parts  = name.slice(2).split('-'),
+            stem   = name.startsWith('--neo-') ? name.slice(6) : name.slice(2),
+            parts  = stem.split('-'),
             states = parts.map((part, index) => index > 0 && STATES.has(part) ? index : -1).filter(index => index > 0);
 
         states.length && naming.state[states.at(-1) === parts.length - 1 ? 'last' : 'elsewhere']++

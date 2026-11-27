@@ -499,7 +499,7 @@ class Column extends Container {
     }
 
     /**
-     * @summary Paints `--neo-board-column-accent` from `color`.
+     * @summary Paints `--neo-board-column-accent-color` from `color`.
      */
     applyColor() {
         let me      = this,
@@ -507,9 +507,9 @@ class Column extends Container {
             {color} = me;
 
         if (color) {
-            style['--neo-board-column-accent'] = color
+            style['--neo-board-column-accent-color'] = color
         } else {
-            delete style['--neo-board-column-accent']
+            delete style['--neo-board-column-accent-color']
         }
 
         me.style = style

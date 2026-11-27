@@ -71,7 +71,7 @@ const readColors = (page, id) => page.evaluate(buttonId => {
           style  = getComputedStyle(button),
           probe  = document.createElement('div');
 
-    probe.style.backgroundColor = 'var(--sem-color-surface-neutral-default)';
+    probe.style.backgroundColor = 'var(--neo-sem-color-surface-neutral-default)';
     document.body.appendChild(probe);
 
     const surface = getComputedStyle(probe).backgroundColor;

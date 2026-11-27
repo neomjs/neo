@@ -4,12 +4,12 @@
 
 .neo-table-header-toolbar {
     &.neo-dragproxy {
-        border-bottom: 1px solid var(--table-container-border-color);
+        border-bottom: 1px solid var(--neo-table-container-border-color);
         height : 31px !important; /* Hack to increase the height by the border-bottom height (29 + 1) */
         padding: 0 0 1px 0;
 
         .neo-table-header-button {
-            border-right: 1px solid var(--table-container-border-color);
+            border-right: 1px solid var(--neo-table-container-border-color);
         }
     }
 
@@ -17,8 +17,8 @@
         height: 32px !important;
 
         .neo-table-header-button {
-            border-right: 1px solid var(--table-container-border-color); /* Would be missing for the last button otherwise */
-            opacity     : var(--table-header-button-opacity-is-dragging);
+            border-right: 1px solid var(--neo-table-container-border-color); /* Would be missing for the last button otherwise */
+            opacity     : var(--neo-table-header-button-dragging-opacity);
         }
 
         .neo-draggable {

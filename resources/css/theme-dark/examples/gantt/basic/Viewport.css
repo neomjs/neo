@@ -1,11 +1,11 @@
 :where(.neo-theme-dark) {
-    --project-header-bg    : var(--grid-container-border-color, #2b2b2b);
+    --project-header-bg    : var(--neo-grid-container-border-color, #2b2b2b);
     --project-border       : #4b5052;
     --project-title        : #e8eaed;
-    --project-muted        : var(--neo-color);
-    --project-control      : var(--grid-container-cell-background-color, #3c3f41);
-    --project-hover        : var(--grid-cell-background-color-hover, #54595c);
-    --project-selected     : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --project-muted        : var(--neo-global-color);
+    --project-control      : var(--neo-grid-container-cell-background-color, #3c3f41);
+    --project-hover        : var(--neo-grid-cell-background-color-hover, #54595c);
+    --project-selected     : var(--neo-grid-rowmodel-cell-background-color-selected, #64b5f6);
     --project-selected-text: #1e242b;
-    --project-focus        : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --project-focus        : var(--neo-grid-rowmodel-cell-background-color-selected, #64b5f6);
 }

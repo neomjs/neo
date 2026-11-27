@@ -45,7 +45,7 @@ function readBarLefts(page, ids) {
 }
 
 /**
- * @summary Opens the office-move cascade example with a deterministic `--motion-panel` duration for frame sampling.
+ * @summary Opens the office-move cascade example with a deterministic `--neo-duration-panel` duration for frame sampling.
  * @param {import('@playwright/test').Page} page
  * @param {Object} neuralLink
  * @param {String} [panelDuration='900ms']
@@ -55,7 +55,7 @@ async function openCascadePlan(page, neuralLink, panelDuration = '900ms') {
     if (panelDuration) {
         await page.addInitScript(value => document.addEventListener('DOMContentLoaded', () => {
             const style = document.createElement('style');
-            style.textContent = `.neo-gantt { --motion-panel: ${value}; }`;
+            style.textContent = `.neo-gantt { --neo-duration-panel: ${value}; }`;
             document.head.append(style)
         }), panelDuration)
     }

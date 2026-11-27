@@ -7,9 +7,9 @@
     --neo-board-font-size              : 14px;
     --neo-board-gap                    : 12px;
     --neo-board-padding                : 12px;
-    --neo-board-radius                 : 8px;
+    --neo-board-border-radius                 : 8px;
     --neo-board-accent-color           : #5eead4;
-    --neo-board-focus-color            : #5eead4;
+    --neo-board-outline-color-focus            : #5eead4;
 
     --neo-board-column-width           : 280px;
     --neo-board-column-collapsed-width : 44px;
@@ -28,22 +28,22 @@
     --neo-board-card-gap               : 8px;
     --neo-board-card-background        : #1c2432;
     --neo-board-card-border-color      : #2b3545;
-    --neo-board-card-hover-border-color: #3b4a60;
-    --neo-board-card-selected-background  : #1e3346;
-    --neo-board-card-selected-border-color: #5eead4;
+    --neo-board-card-border-color-hover: #3b4a60;
+    --neo-board-card-background-selected  : #1e3346;
+    --neo-board-card-border-color-selected: #5eead4;
     --neo-board-card-color             : #e3e8f0;
     --neo-board-card-muted-color       : #9aa6b8;
-    --neo-board-card-shadow            : 0 1px 2px rgba(0, 0, 0, 0.35);
+    --neo-board-card-box-shadow            : 0 1px 2px rgba(0, 0, 0, 0.35);
     --neo-board-card-drag-border-color : #5eead4;
     --neo-board-slot-background        : rgba(94, 234, 212, 0.1);
-    --neo-board-track-color            : #2b3545;
+    --neo-board-track-background            : #2b3545;
     --neo-board-avatar-background      : #2f4a55;
     --neo-board-avatar-color           : #bdeee6;
 
     --neo-board-editor-width           : 440px;
     --neo-board-editor-background      : #161c26;
     --neo-board-editor-border-color    : #2b3545;
-    --neo-board-editor-shadow          : 0 12px 32px rgba(0, 0, 0, 0.55);
+    --neo-board-editor-box-shadow          : 0 12px 32px rgba(0, 0, 0, 0.55);
 
     --neo-board-lane-background        : #121821;
     --neo-board-lane-header-background : #18202c;

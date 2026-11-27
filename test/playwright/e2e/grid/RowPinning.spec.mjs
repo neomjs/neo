@@ -105,7 +105,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
                                     bounces++;
                                     const myBody = trackingRow.closest('.neo-grid-body');
                                     window.__DEBUG_BOUNCES = window.__DEBUG_BOUNCES || [];
-                                    window.__DEBUG_BOUNCES.push(`Row ${trackingRow.id}: currentTop=${currentTop}, lastTop=${lastTop}, moveDelta=${moveDelta}, wrapperScrollTop=${wrapper.scrollTop}, scrollDelta=${scrollDelta}, bodyId=${myBody ? myBody.id : '?'}, offset=${myBody ? myBody.style.getPropertyValue('--grid-row-pin-offset') : '?'}, transform=${trackingRow.style.transform}`);
+                                    window.__DEBUG_BOUNCES.push(`Row ${trackingRow.id}: currentTop=${currentTop}, lastTop=${lastTop}, moveDelta=${moveDelta}, wrapperScrollTop=${wrapper.scrollTop}, scrollDelta=${scrollDelta}, bodyId=${myBody ? myBody.id : '?'}, offset=${myBody ? myBody.style.getPropertyValue('--neo-grid-row-pin-offset') : '?'}, transform=${trackingRow.style.transform}`);
                                 }
                             }
                         }
@@ -125,7 +125,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
                     window.__DEBUG_BLANKS.push({
                         time     : performance.now(),
                         scrollTop: wrapper.scrollTop,
-                        offset   : content.style.getPropertyValue('--grid-row-pin-offset'),
+                        offset   : content.style.getPropertyValue('--neo-grid-row-pin-offset'),
                         rowsTop, rowsBottom,
                         wrapperTop: wrapperRect.top, wrapperBottom: wrapperRect.bottom,
                         numRows   : rows.length
@@ -143,7 +143,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
                 telemetry.push({
                     time     : performance.now(),
                     scrollTop: wrapper.scrollTop,
-                    transform: content.style.getPropertyValue('--grid-row-pin-offset'),
+                    transform: content.style.getPropertyValue('--neo-grid-row-pin-offset'),
                     isBlank,
                     bounces
                 });

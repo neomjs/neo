@@ -201,7 +201,7 @@ test.describe('Preview design language — one scripted drag, replayed per scene
 
         const signalProxy = await page.$eval('.neo-dragproxy', el => ({
             cls      : [...el.classList],
-            signalVar: getComputedStyle(el).getPropertyValue('--agent-dock-preview-signal').trim()
+            signalVar: getComputedStyle(el).getPropertyValue('--neo-dock-preview-signal-color').trim()
         }));
 
         expect(signalProxy.cls).toContain('neo-preview-lang-signal');
@@ -231,7 +231,7 @@ test.describe('Preview design language — one scripted drag, replayed per scene
         await app.callMethod(host, 'set', [{theme: 'neo-theme-neo-light'}]);
         await page.waitForFunction(() =>
             getComputedStyle(document.querySelector('.neo-dashboard-dock-tabs'))
-                .getPropertyValue('--agent-dock-preview-accept').trim() === '#0d9488'
+                .getPropertyValue('--neo-dock-preview-accept-color').trim() === '#0d9488'
         , null, {timeout: 20000});
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(300);
@@ -241,7 +241,7 @@ test.describe('Preview design language — one scripted drag, replayed per scene
 
         const lightProxy = await page.$eval('.neo-dragproxy', el => ({
             themes   : [...el.classList].filter(cls => cls.startsWith('neo-theme-')),
-            signalVar: getComputedStyle(el).getPropertyValue('--agent-dock-preview-signal').trim()
+            signalVar: getComputedStyle(el).getPropertyValue('--neo-dock-preview-signal-color').trim()
         }));
 
         expect(lightProxy.themes, 'the NEAREST ancestor theme rides the proxy — not the dark boot theme')
@@ -286,7 +286,7 @@ test.describe('Preview design language — one scripted drag, replayed per scene
 
         // parked at the zone center: the CENTER indicator is the active (hover-locked)
         // candidate — the signal chip breath (neo-preview-signal-lock) rides
-        // --dock-transition-duration-fast, so the vocabulary collapse must zero it
+        // --neo-dock-transition-duration-fast, so the vocabulary collapse must zero it
         const motion = await page.$eval('.neo-dashboard-dock-drop-indicator-active', el => {
             const style = getComputedStyle(el);
             return {animationDuration: style.animationDuration, transitionDuration: style.transitionDuration}

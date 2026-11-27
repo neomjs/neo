@@ -1,8 +1,8 @@
 :root .neo-theme-light { /* .neo-splitter */
-    --splitter-background-color : #f2f2f2;
-    --splitter-border           : 1px solid #ddd;
-    --splitter-border-radius    : 0;
-    --splitter-hover-color      : #5d83a7;
-    --splitter-margin-horizontal: 0;
-    --splitter-margin-vertical  : 0;
+    --neo-splitter-background-color : #f2f2f2;
+    --neo-splitter-border           : 1px solid #ddd;
+    --neo-splitter-border-radius    : 0;
+    --neo-splitter-background-color-hover      : #5d83a7;
+    --neo-splitter-margin-horizontal: 0;
+    --neo-splitter-margin-vertical  : 0;
 }

@@ -26,8 +26,8 @@
     }
 
     @media (max-width: 1296px) {
-        background-color: var(--neo-app-content-sections-bg);
-        box-shadow      : var(--neo-app-content-sections-shadow);
+        background-color: var(--neo-app-content-sections-background-color);
+        box-shadow      : var(--neo-app-content-sections-box-shadow);
         right           : -250px;
         transition      : right 250ms ease-out;
         z-index         : 100;
@@ -37,8 +37,8 @@
         }
 
         .sections-container-button {
-            background-color: var(--neo-app-content-sections-btn-bg);
-            box-shadow      : var(--neo-app-content-sections-shadow);
+            background-color: var(--neo-app-content-sections-button-background-color);
+            box-shadow      : var(--neo-app-content-sections-box-shadow);
             display         : flex;
             height          : 35px;
             min-width       : 35px;
@@ -47,7 +47,7 @@
             width           : 35px;
 
             &.neo-disabled {
-                background-color: var(--neo-app-content-sections-btn-disabled-bg);
+                background-color: var(--neo-app-content-sections-button-background-color-disabled);
                 opacity         : .5;
             }
 

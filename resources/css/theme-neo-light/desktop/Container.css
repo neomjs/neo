@@ -1,6 +1,6 @@
 :where(.neo-theme-neo-light) { /* .neo-desktop: dark ink on a daylight wallpaper */
-    --desktop-color    : #0f172a;
-    --desktop-wallpaper:
+    --neo-desktop-color    : #0f172a;
+    --neo-desktop-wallpaper:
         radial-gradient(1100px 760px at 12% 18%, rgba(56, 189, 248, .40), transparent 60%),
         radial-gradient(900px 680px at 88% 12%, rgba(167, 139, 250, .42), transparent 58%),
         radial-gradient(1000px 860px at 72% 96%, rgba(45, 212, 191, .34), transparent 62%),

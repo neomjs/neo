@@ -1,10 +1,10 @@
 :where(.neo-theme-light) { /* .neo-scheduler */
-    --neo-scheduler-divider-color      : var(--grid-container-border-color, #ddd);
-    --neo-scheduler-bar-emerald-bg     : #dcfce7;
-    --neo-scheduler-bar-emerald-border : #15803d;
-    --neo-scheduler-bar-amber-bg       : #fef3c7;
-    --neo-scheduler-bar-amber-border   : #b45309;
-    --neo-scheduler-bar-violet-bg      : #ede9fe;
-    --neo-scheduler-bar-violet-border  : #6d28d9;
-    --scheduler-drag-preview-box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
+    --neo-scheduler-divider-border-color      : var(--neo-grid-container-border-color, #ddd);
+    --neo-scheduler-bar-emerald-background     : #dcfce7;
+    --neo-scheduler-bar-emerald-border-color : #15803d;
+    --neo-scheduler-bar-amber-background       : #fef3c7;
+    --neo-scheduler-bar-amber-border-color   : #b45309;
+    --neo-scheduler-bar-violet-background      : #ede9fe;
+    --neo-scheduler-bar-violet-border-color  : #6d28d9;
+    --neo-scheduler-drag-preview-box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
 }

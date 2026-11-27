@@ -1,52 +1,52 @@
 :where(.neo-theme-dark) { /* .neo-board */
     /* The board in the dark theme's register: its grey wells and tiles, its #64b5f6 selection blue, its orange signal. */
-    --neo-board-background             : var(--neo-background-color, #323232);
-    --neo-board-color                  : var(--neo-color, #bbb);
-    --neo-board-font-family            : var(--neo-font-family);
+    --neo-board-background             : var(--neo-global-background-color, #323232);
+    --neo-board-color                  : var(--neo-global-color, #bbb);
+    --neo-board-font-family            : var(--neo-global-font-family);
     --neo-board-font-size              : 14px;
     --neo-board-gap                    : 12px;
     --neo-board-padding                : 12px;
-    --neo-board-radius                 : 4px;
-    --neo-board-accent-color           : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
-    --neo-board-focus-color            : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --neo-board-border-radius                 : 4px;
+    --neo-board-accent-color           : var(--neo-grid-rowmodel-cell-background-color-selected, #64b5f6);
+    --neo-board-outline-color-focus            : var(--neo-grid-rowmodel-cell-background-color-selected, #64b5f6);
 
     --neo-board-column-width           : 280px;
     --neo-board-column-collapsed-width : 44px;
-    --neo-board-column-background      : var(--grid-container-border-color, #2b2b2b);
-    --neo-board-column-border-color    : var(--textfield-border-color, #424242);
-    --neo-board-column-color           : var(--neo-color, #bbb);
+    --neo-board-column-background      : var(--neo-grid-container-border-color, #2b2b2b);
+    --neo-board-column-border-color    : var(--neo-textfield-border-color, #424242);
+    --neo-board-column-color           : var(--neo-global-color, #bbb);
 
-    --neo-board-badge-background       : var(--neo-background-color, #323232);
-    --neo-board-badge-color            : var(--neo-color, #bbb);
+    --neo-board-badge-background       : var(--neo-global-background-color, #323232);
+    --neo-board-badge-color            : var(--neo-global-color, #bbb);
     --neo-board-overdue-background     : rgba(239, 83, 80, 0.18);
     --neo-board-overdue-border-color   : #ef5350;
     --neo-board-overdue-color          : #ffcdd2;
-    --neo-board-wip-color              : var(--textfield-border-color-alert, orange);
-    --neo-board-wip-contrast-color     : var(--grid-container-border-color, #2b2b2b);
+    --neo-board-wip-color              : var(--neo-textfield-border-color-alert, orange);
+    --neo-board-wip-contrast-color     : var(--neo-grid-container-border-color, #2b2b2b);
 
     --neo-board-card-gap               : 8px;
-    --neo-board-card-background        : var(--grid-container-cell-background-color, #3c3f41);
-    --neo-board-card-border-color      : var(--textfield-border-color, #424242);
-    --neo-board-card-hover-border-color: var(--grid-cell-background-color-hover, #54595c);
-    --neo-board-card-selected-background  : var(--grid-cell-value-band-1-background-color, #2d3e50);
-    --neo-board-card-selected-border-color: var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --neo-board-card-background        : var(--neo-grid-container-cell-background-color, #3c3f41);
+    --neo-board-card-border-color      : var(--neo-textfield-border-color, #424242);
+    --neo-board-card-border-color-hover: var(--neo-grid-cell-background-color-hover, #54595c);
+    --neo-board-card-background-selected  : var(--neo-grid-cell-value-band-1-background-color, #2d3e50);
+    --neo-board-card-border-color-selected: var(--neo-grid-rowmodel-cell-background-color-selected, #64b5f6);
     --neo-board-card-color             : #e0e0e0;
-    --neo-board-card-muted-color       : var(--neo-color, #bbb);
-    --neo-board-card-shadow            : 0 1px 3px rgba(0, 0, 0, 0.45);
-    --neo-board-card-drag-border-color : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --neo-board-card-muted-color       : var(--neo-global-color, #bbb);
+    --neo-board-card-box-shadow            : 0 1px 3px rgba(0, 0, 0, 0.45);
+    --neo-board-card-drag-border-color : var(--neo-grid-rowmodel-cell-background-color-selected, #64b5f6);
     --neo-board-slot-background        : color-mix(in srgb, var(--neo-board-accent-color) 10%, transparent);
-    --neo-board-track-color            : var(--grid-container-border-color, #2b2b2b);
-    --neo-board-avatar-background      : var(--button-badge-background-color, #64b5f6);
-    --neo-board-avatar-color           : var(--button-badge-color, #282828);
+    --neo-board-track-background            : var(--neo-grid-container-border-color, #2b2b2b);
+    --neo-board-avatar-background      : var(--neo-button-badge-background-color, #64b5f6);
+    --neo-board-avatar-color           : var(--neo-button-badge-color, #282828);
 
     --neo-board-editor-width           : 440px;
-    --neo-board-editor-background      : var(--grid-container-border-color, #2b2b2b);
-    --neo-board-editor-border-color    : var(--dialog-border-color, #3c3f41);
-    --neo-board-editor-shadow          : var(--dialog-box-shadow, 0 5px 10px rgba(0, 0, 0, 0.4));
+    --neo-board-editor-background      : var(--neo-grid-container-border-color, #2b2b2b);
+    --neo-board-editor-border-color    : var(--neo-dialog-border-color, #3c3f41);
+    --neo-board-editor-box-shadow          : var(--neo-dialog-box-shadow, 0 5px 10px rgba(0, 0, 0, 0.4));
 
-    --neo-board-lane-background        : var(--grid-container-cell-background-color, #3c3f41);
-    --neo-board-lane-header-background : var(--button-background-gradient-start, #434749);
-    --neo-board-lane-border-color      : var(--textfield-border-color, #424242);
+    --neo-board-lane-background        : var(--neo-grid-container-cell-background-color, #3c3f41);
+    --neo-board-lane-header-background : var(--neo-button-gradient-start-color, #434749);
+    --neo-board-lane-border-color      : var(--neo-textfield-border-color, #424242);
     --neo-board-lane-color             : #e0e0e0;
     --neo-board-lane-column-max-height : 280px;
 }

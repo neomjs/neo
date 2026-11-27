@@ -43,19 +43,19 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
     test('FIRES: a property nothing defines, named with its theme, file and line', () => {
         const root = makeTree({
             'theme-a/Global.css'   : ':where(.neo-theme-a) {}',
-            'theme-a/form/Text.css': ':where(.neo-theme-a) {\n    --x-border: var(--red-500);\n}'
+            'theme-a/form/Text.css': ':where(.neo-theme-a) {\n    --x-border: var(--neo-red-500);\n}'
         });
 
         expect(collect({root, runtimeProperties: {}})).toEqual([
-            '[undefined] theme-a reads --red-500, which nothing defines: theme-a/form/Text.css:2'
+            '[undefined] theme-a reads --neo-red-500, which nothing defines: theme-a/form/Text.css:2'
         ]);
     });
 
     test('PASSES: a definition in another file of the theme, or in src/', () => {
         const root = makeTree({
             'src/Base.css'      : '.neo-x {--shared: 1px}',
-            'theme-a/Global.css': ':where(.neo-theme-a) {--red-500: #f00}',
-            'theme-a/Text.css'  : ':where(.neo-theme-a) {--x-border: var(--red-500); --x-gap: var(--shared)}'
+            'theme-a/Global.css': ':where(.neo-theme-a) {--neo-red-500: #f00}',
+            'theme-a/Text.css'  : ':where(.neo-theme-a) {--x-border: var(--neo-red-500); --x-gap: var(--shared)}'
         });
 
         expect(collect({root, runtimeProperties: {}})).toEqual([]);
@@ -64,7 +64,7 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
     test('PASSES: a reference with a fallback is the author\'s explicit choice', () => {
         const root = makeTree({
             'theme-a/Global.css': ':where(.neo-theme-a) {}',
-            'theme-a/Text.css'  : ':where(.neo-theme-a) {--x-border: var(--red-500, red)}'
+            'theme-a/Text.css'  : ':where(.neo-theme-a) {--x-border: var(--neo-red-500, red)}'
         });
 
         expect(collect({root, runtimeProperties: {}})).toEqual([]);
@@ -72,24 +72,24 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
 
     test('FIRES: another theme\'s definition does not count, since a page loads one theme', () => {
         const root = makeTree({
-            'theme-a/Global.css': ':where(.neo-theme-a) {--red-500: #f00}',
+            'theme-a/Global.css': ':where(.neo-theme-a) {--neo-red-500: #f00}',
             'theme-b/Global.css': ':where(.neo-theme-b) {}',
-            'theme-b/Text.css'  : ':where(.neo-theme-b) {--x-border: var(--red-500)}'
+            'theme-b/Text.css'  : ':where(.neo-theme-b) {--x-border: var(--neo-red-500)}'
         });
 
         expect(collect({root, runtimeProperties: {}})).toEqual([
-            '[undefined] theme-b reads --red-500, which nothing defines: theme-b/Text.css:1'
+            '[undefined] theme-b reads --neo-red-500, which nothing defines: theme-b/Text.css:1'
         ]);
     });
 
     test('FIRES: a commented-out definition does not count', () => {
         const root = makeTree({
             'theme-a/Global.css': ':where(.neo-theme-a) {}',
-            'theme-a/Text.css'  : ':where(.neo-theme-a) {\n    /* --red-500: #f00; */\n    --x-border: var(--red-500);\n}'
+            'theme-a/Text.css'  : ':where(.neo-theme-a) {\n    /* --neo-red-500: #f00; */\n    --x-border: var(--neo-red-500);\n}'
         });
 
         expect(collect({root, runtimeProperties: {}})).toEqual([
-            '[undefined] theme-a reads --red-500, which nothing defines: theme-a/Text.css:3'
+            '[undefined] theme-a reads --neo-red-500, which nothing defines: theme-a/Text.css:3'
         ]);
     });
 
@@ -115,12 +115,12 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
 
     test('PASSES: a runtime row that only a structural rule reads, with or without a fallback, is not stale', () => {
         const root = makeTree({
-            'src/tree/List.css' : '.neo-tree-list .neo-list-item {padding-left: calc(var(--neo-tree-level) * 1em)}',
-            'src/grid/Body.css' : '.neo-grid-row {transition-duration: var(--neo-duration, 300ms)}',
+            'src/tree/List.css' : '.neo-tree-list .neo-list-item {padding-left: calc(var(--neo-tree-list-level) * 1em)}',
+            'src/grid/Body.css' : '.neo-grid-row {transition-duration: var(--neo-grid-animate-rows-transition-duration, 300ms)}',
             'theme-a/Global.css': ':where(.neo-theme-a) {--x-gap: 1px}'
         });
 
-        expect(collect({root, runtimeProperties: {'--neo-duration': 'set from JavaScript', '--neo-tree-level': 'set from JavaScript'}})).toEqual([]);
+        expect(collect({root, runtimeProperties: {'--neo-grid-animate-rows-transition-duration': 'set from JavaScript', '--neo-tree-list-level': 'set from JavaScript'}})).toEqual([]);
     });
 
     test('MAP & THEME-BASE: checks theme-base role reads against every mapped theme without treating theme-base as a standalone theme', () => {
@@ -161,7 +161,7 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
 
         fs.writeFileSync(
             path.join(root, 'split-widgets/Button.css'),
-            ':where(.neo-theme-split) {--button-text: var(--brand-ink); --button-border: var(--missing-border)}'
+            ':where(.neo-theme-split) {--button-text: var(--brand-ink); --neo-button-border: var(--missing-border)}'
         );
 
         expect(collect({root, runtimeProperties: {}, themeMapPath: mapPath})).toEqual([

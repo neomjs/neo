@@ -52,7 +52,7 @@
     /* 340 px minimum fits two columns from 704 px of list content width and three once the stage crosses 1100 px. */
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
     padding              : 16px;
-    transition           : padding var(--portal-transition-duration) var(--ease-out-soft);
+    transition           : padding var(--portal-transition-duration) var(--neo-ease-out);
 
     &:not(.portal-examples-tiles) {
         container: examples-list / inline-size;
@@ -85,9 +85,9 @@
         overflow      : hidden;
         padding       : 0;
         position      : relative;
-        transition    : --portal-examples-list-light-hover var(--motion-base) var(--ease-out-soft),
-                        --portal-examples-list-light-select var(--motion-base) var(--ease-out-soft),
-                        box-shadow var(--motion-base) var(--ease-out-soft);
+        transition    : --portal-examples-list-light-hover var(--neo-duration-base) var(--neo-ease-out),
+                        --portal-examples-list-light-select var(--neo-duration-base) var(--neo-ease-out),
+                        box-shadow var(--neo-duration-base) var(--neo-ease-out);
         white-space   : normal;
         width         : 100%;
 
@@ -105,7 +105,7 @@
         &::after {
             border    : 1.5px solid var(--portal-examples-list-hover);
             opacity   : 0;
-            transition: opacity var(--motion-fast) var(--ease-out-soft);
+            transition: opacity var(--neo-duration-fast) var(--neo-ease-out);
             z-index   : 3;
         }
 
@@ -141,9 +141,9 @@
     }
 
     :where(.neo-theme-neo-light, .neo-theme-light) & .neo-list-item.portal-example-paired-cover {
-        --portal-examples-list-pill-bg    : var(--sem-color-surface-neutral-highlighted);
-        --portal-examples-list-pill-border: var(--sem-color-border-default);
-        --portal-examples-list-pill-text  : var(--sem-color-text-neutral-default);
+        --portal-examples-list-pill-bg    : var(--neo-sem-color-surface-neutral-highlighted);
+        --portal-examples-list-pill-border: var(--neo-sem-color-border-default);
+        --portal-examples-list-pill-text  : var(--neo-sem-color-text-neutral-default);
 
         .preview-image {
             background-image: var(--portal-example-cover-light, var(--portal-example-cover, none));
@@ -154,7 +154,7 @@
     .neo-list-item::before {
         border    : 2px solid var(--portal-examples-list-selected);
         opacity   : 0;
-        transition: opacity var(--motion-fast) var(--ease-out-soft);
+        transition: opacity var(--neo-duration-fast) var(--neo-ease-out);
         z-index   : 4;
     }
 
@@ -176,8 +176,8 @@
                         linear-gradient(#000 0 0);
             opacity   : 1;
             padding   : 2px;
-            transition: --portal-examples-list-ring-progress var(--motion-base) var(--ease-in-soft),
-                        --portal-examples-list-ring-lead var(--motion-base) var(--ease-out-soft);
+            transition: --portal-examples-list-ring-progress var(--neo-duration-base) var(--neo-ease-in),
+                        --portal-examples-list-ring-lead var(--neo-duration-base) var(--neo-ease-out);
         }
 
         /* Recorded exception, as for the glass card's lap: a ring is drawn at constant speed (linear). An ease-out
@@ -186,8 +186,8 @@
         .neo-list-item.neo-selected::before {
             --portal-examples-list-ring-progress: 108%;
 
-            transition-duration       : var(--motion-stage), var(--motion-base);
-            transition-timing-function: linear, var(--ease-out-soft);
+            transition-duration       : var(--neo-duration-stage), var(--neo-duration-base);
+            transition-timing-function: linear, var(--neo-ease-out);
         }
 
         /* Both cursors on one card: the ring leads in the pointer's blue and closes in the selection's green */
@@ -222,7 +222,7 @@
         &::after {
             background: linear-gradient(115deg, transparent 38%, var(--portal-examples-list-glint-edge) 45%, var(--portal-examples-list-glint-core) 50%, var(--portal-examples-list-glint-edge) 55%, transparent 62%) 120% 0 / 250% 100% no-repeat;
             opacity   : 0;
-            transition: opacity var(--motion-fast) var(--ease-out-soft);
+            transition: opacity var(--neo-duration-fast) var(--neo-ease-out);
             z-index   : 2;
         }
     }
@@ -230,7 +230,7 @@
     @media (hover: hover) {
         .neo-list-item:hover .preview-image-wrap::after,
         &.portal-examples-tiles .neo-list-item:hover .preview-image::after {
-            animation: portal-examples-list-glint calc(var(--motion-stage) * 1.5) var(--ease-out-soft) forwards;
+            animation: portal-examples-list-glint calc(var(--neo-duration-stage) * 1.5) var(--neo-ease-out) forwards;
             opacity  : 1;
         }
     }
@@ -319,10 +319,10 @@
                 padding        : 0 14px;
                 pointer-events : none;
                 position       : relative;
-                transition     : grid-template-rows var(--motion-base) var(--ease-out-soft),
-                                 opacity var(--motion-base) var(--ease-out-soft),
-                                 padding var(--motion-base) var(--ease-out-soft),
-                                 border-color var(--motion-base) var(--ease-out-soft);
+                transition     : grid-template-rows var(--neo-duration-base) var(--neo-ease-out),
+                                 opacity var(--neo-duration-base) var(--neo-ease-out),
+                                 padding var(--neo-duration-base) var(--neo-ease-out),
+                                 border-color var(--neo-duration-base) var(--neo-ease-out);
                 z-index        : 2;
 
                 .portal-example-look-for,
@@ -388,9 +388,9 @@
                 grid-column: 1;
                 grid-row   : 3;
                 padding    : 0 14px;
-                transition : grid-template-rows var(--motion-base) var(--ease-out-soft),
-                             padding var(--motion-base) var(--ease-out-soft),
-                             border-color var(--motion-base) var(--ease-out-soft);
+                transition : grid-template-rows var(--neo-duration-base) var(--neo-ease-out),
+                             padding var(--neo-duration-base) var(--neo-ease-out),
+                             border-color var(--neo-duration-base) var(--neo-ease-out);
 
                 .portal-example-look-for {
                     -webkit-line-clamp: unset;
@@ -512,7 +512,7 @@
         line-height    : 1.25;
         min-width      : 0;
         text-decoration: none;
-        transition     : color var(--motion-fast) var(--ease-out-soft);
+        transition     : color var(--neo-duration-fast) var(--neo-ease-out);
     }
 
     /* The launch pill keeps its box in every state, so lighting it moves nothing. Its negative margins keep the title
@@ -530,10 +530,10 @@
         margin          : -2px -6px -2px 0;
         padding         : 3px 9px;
         text-decoration : none;
-        transition      : --portal-examples-list-cue-from var(--motion-fast) var(--ease-out-soft),
-                          --portal-examples-list-cue-to var(--motion-fast) var(--ease-out-soft),
-                          border-color var(--motion-fast) var(--ease-out-soft),
-                          color var(--motion-fast) var(--ease-out-soft);
+        transition      : --portal-examples-list-cue-from var(--neo-duration-fast) var(--neo-ease-out),
+                          --portal-examples-list-cue-to var(--neo-duration-fast) var(--neo-ease-out),
+                          border-color var(--neo-duration-fast) var(--neo-ease-out),
+                          color var(--neo-duration-fast) var(--neo-ease-out);
         white-space     : nowrap;
 
         span + .fa {
@@ -610,7 +610,7 @@
         height         : 18px;
         justify-content: center;
         text-decoration: none;
-        transition     : color var(--motion-fast) var(--ease-out-soft);
+        transition     : color var(--neo-duration-fast) var(--neo-ease-out);
         width          : 18px;
     }
 

@@ -29,10 +29,10 @@ body {
 /* The Portal's buttons stand alone on wide sections, and its header canvas draws its waves around each nav item: both
    take the large size. Any other toolbar keeps the neo themes' medium one. */
 .neo-viewport, .portal-header-toolbar {
-    --button-height        : var(--button-size-large-height);
-    --button-min-width     : var(--button-size-large-height);
-    --button-padding       : var(--button-size-large-padding);
-    --button-text-font-size: var(--button-size-large-font-size);
+    --neo-button-height        : var(--neo-button-size-large-height);
+    --neo-button-min-width     : var(--neo-button-size-large-height);
+    --neo-button-padding       : var(--neo-button-size-large-padding);
+    --neo-button-text-font-size: var(--neo-button-size-large-font-size);
 }
 
 .neo-viewport {
@@ -49,13 +49,13 @@ body {
     .neo-layout-cube {
         &.neo-animate {
             .neo-box {
-                transition: transform var(--motion-stage) var(--ease-out-soft);
+                transition: transform var(--neo-duration-stage) var(--neo-ease-out);
             }
         }
 
         .neo-face {
             opacity: 0.8;
-            transition: opacity var(--motion-fast) var(--ease-out-soft);
+            transition: opacity var(--neo-duration-fast) var(--neo-ease-out);
         }
 
         .neo-plane {
@@ -94,7 +94,7 @@ body {
        lights in place instead of lifting (a lift clipped the top border and moved every target inside the card). */
     .portal-content-box {
         box-sizing     : border-box;
-        color          : var(--sem-color-text-neutral-default);
+        color          : var(--neo-sem-color-text-neutral-default);
         display        : flex;
         flex-direction : column;
         margin         : 0;
@@ -106,11 +106,11 @@ body {
         text-decoration: none;
 
         .portal-content-box-headline {
-            color         : var(--sem-color-text-primary-default);
+            color         : var(--neo-sem-color-text-primary-default);
             margin        : 0 0 1rem 0;
             padding-bottom: 0.5rem;
             text-align    : left;
-            transition    : color var(--motion-fast) var(--ease-out-soft);
+            transition    : color var(--neo-duration-fast) var(--neo-ease-out);
         }
 
         h4.portal-content-box-headline {
@@ -129,13 +129,13 @@ body {
             }
 
             li {
-                color        : var(--sem-color-text-neutral-subdued);
+                color        : var(--neo-sem-color-text-neutral-subdued);
                 font-size    : 1rem;
                 line-height  : 1.6;
                 margin-bottom: 0.5rem;
 
                 &::marker {
-                    color: var(--sem-color-text-primary-default);
+                    color: var(--neo-sem-color-text-primary-default);
                 }
             }
         }
@@ -163,7 +163,7 @@ body {
         opacity                : 1;
         padding                : 2.5em;
         position               : relative;
-        transition             : box-shadow var(--motion-base) var(--ease-out-soft), border-color var(--motion-base) var(--ease-out-soft);
+        transition             : box-shadow var(--neo-duration-base) var(--neo-ease-out), border-color var(--neo-duration-base) var(--neo-ease-out);
         width                  : 100%;
 
         /* A hover lights the card and never moves it: a lift clipped the top border and moved every target inside the card. */
@@ -183,7 +183,7 @@ body {
             background:
                 linear-gradient(115deg, transparent 36%, var(--portal-glass-card-glint-edge) 44%, var(--portal-glass-card-glint-core) 50%, var(--portal-glass-card-glint-edge) 56%, transparent 64%) 100% 0 / 250% 100% no-repeat,
                 radial-gradient(120% 70% at 50% 0%, var(--portal-glass-card-hover-light), transparent 70%);
-            transition: opacity var(--motion-base) var(--ease-out-soft);
+            transition: opacity var(--neo-duration-base) var(--neo-ease-out);
         }
 
         /* The border: one lap of light on entry, a conic ring masked down to the border, its head leading */
@@ -202,14 +202,14 @@ body {
             box-shadow  : var(--portal-glass-card-hover-shadow);
 
             &::after {
-                animation: portal-glass-card-glint calc(var(--motion-stage) * 1.5) var(--ease-out-soft) forwards;
+                animation: portal-glass-card-glint calc(var(--neo-duration-stage) * 1.5) var(--neo-ease-out) forwards;
                 opacity  : 1;
             }
 
             /* Recorded exception: a lap runs at constant speed (linear) for twice the stage tier; an ease-out would spend
                three quarters of it in the first 150 ms. Reduced motion collapses the tier to 0, so the lap is skipped. */
             &::before {
-                animation: portal-glass-card-sweep calc(var(--motion-stage) * 2) linear forwards;
+                animation: portal-glass-card-sweep calc(var(--neo-duration-stage) * 2) linear forwards;
             }
         }
 
@@ -236,7 +236,7 @@ body {
                 color          : var(--portal-glass-card-link-color);
                 font-weight    : 600;
                 text-decoration: none;
-                transition     : color var(--motion-fast) var(--ease-out-soft);
+                transition     : color var(--neo-duration-fast) var(--neo-ease-out);
 
                 &:hover {
                     color          : var(--portal-glass-card-link-hover-color);

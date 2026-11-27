@@ -4,9 +4,9 @@
     &.neo-animate-rows.neo-animate-rows-moving:not(.neo-is-scrolling) {
         .neo-grid-row {
             transition:
-                background-color var(--neo-duration) var(--neo-easing),
-                opacity          var(--neo-duration) var(--neo-easing),
-                transform        var(--neo-duration) var(--neo-easing);
+                background-color var(--neo-grid-animate-rows-transition-duration) var(--neo-grid-animate-rows-transition-timing-function),
+                opacity          var(--neo-grid-animate-rows-transition-duration) var(--neo-grid-animate-rows-transition-timing-function),
+                transform        var(--neo-grid-animate-rows-transition-duration) var(--neo-grid-animate-rows-transition-timing-function);
         }
     }
 }

@@ -1,222 +1,222 @@
 :where(.neo-theme-neo-light) {
     /* .neo-button – Styles that will be inherited by ALL button styles */
-    --button-margin                             : var(--sem-spacing-xxsmall);
-    --button-text-font-family                   : var(--core-fontfamily-sans);
-    --button-text-font-weight                   : var(--core-fontweight-semibold);
-    --button-text-line-height                   : inherit;
-    --button-text-transform                     : none;
-    --button-border-radius                      : var(--sem-borderradius-large);
-    --button-border-width                       : 1px;
-    --button-badge-background-color             : var(--sem-color-fg-neutral-contrast);
-    --button-badge-color                        : var(--sem-color-fg-neutral-inverted);
-    --button-badge-margin-left                  : -10px;
-    --button-badge-margin-top                   : -10px;
+    --neo-button-margin                             : var(--neo-sem-spacing-xxsmall);
+    --neo-button-text-font-family                   : var(--neo-core-fontfamily-sans);
+    --neo-button-text-font-weight                   : var(--neo-core-fontweight-semibold);
+    --neo-button-text-line-height                   : inherit;
+    --neo-button-text-transform                     : none;
+    --neo-button-border-radius                      : var(--neo-sem-borderradius-large);
+    --neo-button-border-width                       : 1px;
+    --neo-button-badge-background-color             : var(--neo-sem-color-fg-neutral-contrast);
+    --neo-button-badge-color                        : var(--neo-sem-color-fg-neutral-inverted);
+    --neo-button-badge-margin-left                  : -10px;
+    --neo-button-badge-margin-top                   : -10px;
 
     /* {module: Button; ui: null (neutral application control)} ––––––––––––––––––––––––––––
        Background Color */
-    --button-background-color                   : transparent;
-    --button-background-color-active            : var(--sem-color-surface-neutral-active);
-    --button-background-color-disabled          : var(--sem-color-surface-disabled);
-    --button-background-color-hover             : var(--sem-color-surface-neutral-hover);
-    --button-background-color-pressed           : var(--sem-color-surface-primary-background);
+    --neo-button-background-color                   : transparent;
+    --neo-button-background-color-active            : var(--neo-sem-color-surface-neutral-active);
+    --neo-button-background-color-disabled          : var(--neo-sem-color-surface-disabled);
+    --neo-button-background-color-hover             : var(--neo-sem-color-surface-neutral-hover);
+    --neo-button-background-color-pressed           : var(--neo-sem-color-surface-primary-background);
 
     /* Border */
-    --button-border                             : 1px solid var(--sem-color-border-default);
-    --button-border-active                      : 1px solid var(--sem-color-border-default);
-    --button-border-disabled                    : 1px solid var(--sem-color-border-subtle);
-    --button-border-hover                       : 1px solid var(--sem-color-border-default);
-    --button-border-pressed                     : 1px solid var(--sem-color-surface-primary-default);
+    --neo-button-border                             : 1px solid var(--neo-sem-color-border-default);
+    --neo-button-border-active                      : 1px solid var(--neo-sem-color-border-default);
+    --neo-button-border-disabled                    : 1px solid var(--neo-sem-color-border-subtle);
+    --neo-button-border-hover                       : 1px solid var(--neo-sem-color-border-default);
+    --neo-button-border-pressed                     : 1px solid var(--neo-sem-color-surface-primary-default);
 
     /* Text Color */
-    --button-text-color                         : var(--sem-color-text-neutral-default);
-    --button-text-color-hover                   : var(--sem-color-text-neutral-contrast);
-    --button-text-color-active                  : var(--sem-color-text-neutral-contrast);
-    --button-text-color-disabled                : var(--sem-color-text-disabled);
-    --button-text-color-pressed                 : var(--sem-color-text-neutral-contrast);
+    --neo-button-color                         : var(--neo-sem-color-text-neutral-default);
+    --neo-button-color-hover                   : var(--neo-sem-color-text-neutral-contrast);
+    --neo-button-color-active                  : var(--neo-sem-color-text-neutral-contrast);
+    --neo-button-color-disabled                : var(--neo-sem-color-text-disabled);
+    --neo-button-color-pressed                 : var(--neo-sem-color-text-neutral-contrast);
 
     /* Icon Color */
-    --button-glyph-color                        : var(--sem-color-icon-neutral-default);
-    --button-glyph-color-hover                  : var(--sem-color-icon-neutral-contrast);
-    --button-glyph-color-active                 : var(--sem-color-icon-neutral-contrast);
-    --button-glyph-color-disabled               : var(--sem-color-text-disabled);
-    --button-glyph-color-pressed                : var(--sem-color-icon-neutral-contrast);
-    --button-glyph-margin                       : 1px 6px 0 0;
+    --neo-button-glyph-color                        : var(--neo-sem-color-icon-neutral-default);
+    --neo-button-glyph-color-hover                  : var(--neo-sem-color-icon-neutral-contrast);
+    --neo-button-glyph-color-active                 : var(--neo-sem-color-icon-neutral-contrast);
+    --neo-button-glyph-color-disabled               : var(--neo-sem-color-text-disabled);
+    --neo-button-glyph-color-pressed                : var(--neo-sem-color-icon-neutral-contrast);
+    --neo-button-glyph-margin                       : 1px 6px 0 0;
 
-    --button-background-image                   : none;
-    --button-background-gradient-end            : #323536;
-    --button-background-gradient-start          : #434749;
-    --button-opacity-disabled                   : inherit;
-    --button-outline-active                     : none;
-    --button-ripple-background-color            : #8BA6FF;
-    --button-use-gradients                      : false;
+    --neo-button-background-image                   : none;
+    --neo-button-gradient-end-color            : #323536;
+    --neo-button-gradient-start-color          : #434749;
+    --neo-button-opacity-disabled                   : inherit;
+    --neo-button-outline-active                     : none;
+    --neo-button-ripple-background-color            : #8BA6FF;
+    --neo-button-use-gradients                      : false;
 
     /* {module: Button; ui: --primary} –––––––––––––––––––––––––––––––––––––––––––––––––––––
        Background Color */
-    --button-primary-background-color           : var(--sem-color-surface-primary-default);
-    --button-primary-background-color-active    : var(--sem-color-surface-primary-active);
-    --button-primary-background-color-disabled  : var(--sem-color-bg-primary-disabled);
-    --button-primary-background-color-hover     : var(--sem-color-surface-primary-hover);
-    --button-primary-background-color-pressed   : var(--sem-color-surface-primary-active);
+    --neo-button-primary-background-color           : var(--neo-sem-color-surface-primary-default);
+    --neo-button-primary-background-color-active    : var(--neo-sem-color-surface-primary-active);
+    --neo-button-primary-background-color-disabled  : var(--neo-sem-color-bg-primary-disabled);
+    --neo-button-primary-background-color-hover     : var(--neo-sem-color-surface-primary-hover);
+    --neo-button-primary-background-color-pressed   : var(--neo-sem-color-surface-primary-active);
 
     /* Border */
-    --button-primary-border                     : none;
-    --button-primary-border-active              : none;
-    --button-primary-border-disabled            : none;
-    --button-primary-border-hover               : none;
-    --button-primary-border-pressed             : none;
+    --neo-button-primary-border                     : none;
+    --neo-button-primary-border-active              : none;
+    --neo-button-primary-border-disabled            : none;
+    --neo-button-primary-border-hover               : none;
+    --neo-button-primary-border-pressed             : none;
 
     /* Text Color */
-    --button-primary-text-color                 : var(--sem-color-text-neutral-reversed);
-    --button-primary-text-color-hover           : var(--sem-color-text-neutral-reversed);
-    --button-primary-text-color-active          : var(--sem-color-text-neutral-reversed);
-    --button-primary-text-color-disabled        : var(--sem-color-text-disabled);
-    --button-primary-text-color-pressed         : var(--sem-color-text-neutral-reversed);
+    --neo-button-primary-color                 : var(--neo-sem-color-text-neutral-reversed);
+    --neo-button-primary-color-hover           : var(--neo-sem-color-text-neutral-reversed);
+    --neo-button-primary-color-active          : var(--neo-sem-color-text-neutral-reversed);
+    --neo-button-primary-color-disabled        : var(--neo-sem-color-text-disabled);
+    --neo-button-primary-color-pressed         : var(--neo-sem-color-text-neutral-reversed);
 
     /* Icon Color */
-    --button-primary-glyph-color                : var(--sem-color-text-neutral-reversed);
-    --button-primary-glyph-color-hover          : var(--sem-color-text-neutral-reversed);
-    --button-primary-glyph-color-active         : var(--sem-color-text-neutral-reversed);
-    --button-primary-glyph-color-disabled       : var(--sem-color-text-disabled);
-    --button-primary-glyph-color-pressed        : var(--sem-color-text-neutral-reversed);
+    --neo-button-primary-glyph-color                : var(--neo-sem-color-text-neutral-reversed);
+    --neo-button-primary-glyph-color-hover          : var(--neo-sem-color-text-neutral-reversed);
+    --neo-button-primary-glyph-color-active         : var(--neo-sem-color-text-neutral-reversed);
+    --neo-button-primary-glyph-color-disabled       : var(--neo-sem-color-text-disabled);
+    --neo-button-primary-glyph-color-pressed        : var(--neo-sem-color-text-neutral-reversed);
 
-    --button-primary-background-image           : none;
-    --button-primary-badge-background-color     : var(--button-badge-background-color);
-    --button-primary-badge-color                : var(--button-badge-color);
-    --button-primary-opacity-disabled           : inherit;
-    --button-primary-ripple-background-color    : #8BA6FF;
+    --neo-button-primary-background-image           : none;
+    --neo-button-primary-badge-background-color     : var(--neo-button-badge-background-color);
+    --neo-button-primary-badge-color                : var(--neo-button-badge-color);
+    --neo-button-primary-opacity-disabled           : inherit;
+    --neo-button-primary-ripple-background-color    : #8BA6FF;
 
     /* {module: Button; ui: --secondary}  ––––––––––––––––––––––––––––––––––––––––––––––––––
        Background Color */
-    --button-secondary-background-color         : transparent;
-    --button-secondary-background-color-hover   : var(--sem-color-surface-neutral-hover);
-    --button-secondary-background-color-active  : var(--sem-color-surface-neutral-active);
-    --button-secondary-background-color-disabled: var(--sem-color-surface-disabled);
-    --button-secondary-background-color-pressed : var(--sem-color-surface-primary-background);
+    --neo-button-secondary-background-color         : transparent;
+    --neo-button-secondary-background-color-hover   : var(--neo-sem-color-surface-neutral-hover);
+    --neo-button-secondary-background-color-active  : var(--neo-sem-color-surface-neutral-active);
+    --neo-button-secondary-background-color-disabled: var(--neo-sem-color-surface-disabled);
+    --neo-button-secondary-background-color-pressed : var(--neo-sem-color-surface-primary-background);
 
     /* Border */
-    --button-secondary-border                   : 1px solid var(--sem-color-border-default);
-    --button-secondary-border-hover             : 1px solid var(--sem-color-border-default);
-    --button-secondary-border-active            : 1px solid var(--sem-color-border-default);
-    --button-secondary-border-disabled          : 1px solid var(--sem-color-border-subtle);
-    --button-secondary-border-pressed           : 1px solid var(--sem-color-surface-primary-default);
+    --neo-button-secondary-border                   : 1px solid var(--neo-sem-color-border-default);
+    --neo-button-secondary-border-hover             : 1px solid var(--neo-sem-color-border-default);
+    --neo-button-secondary-border-active            : 1px solid var(--neo-sem-color-border-default);
+    --neo-button-secondary-border-disabled          : 1px solid var(--neo-sem-color-border-subtle);
+    --neo-button-secondary-border-pressed           : 1px solid var(--neo-sem-color-surface-primary-default);
 
     /* Text Color */
-    --button-secondary-text-color               : var(--sem-color-text-neutral-default);
-    --button-secondary-text-color-hover         : var(--sem-color-text-neutral-contrast);
-    --button-secondary-text-color-active        : var(--sem-color-text-neutral-contrast);
-    --button-secondary-text-color-disabled      : var(--sem-color-text-disabled);
-    --button-secondary-text-color-pressed       : var(--sem-color-text-neutral-contrast);
+    --neo-button-secondary-color               : var(--neo-sem-color-text-neutral-default);
+    --neo-button-secondary-color-hover         : var(--neo-sem-color-text-neutral-contrast);
+    --neo-button-secondary-color-active        : var(--neo-sem-color-text-neutral-contrast);
+    --neo-button-secondary-color-disabled      : var(--neo-sem-color-text-disabled);
+    --neo-button-secondary-color-pressed       : var(--neo-sem-color-text-neutral-contrast);
 
     /* Icon Color */
-    --button-secondary-glyph-color              : var(--sem-color-icon-neutral-default);
-    --button-secondary-glyph-color-hover        : var(--sem-color-icon-neutral-contrast);
-    --button-secondary-glyph-color-active       : var(--sem-color-icon-neutral-contrast);
-    --button-secondary-glyph-color-disabled     : var(--sem-color-text-disabled);
-    --button-secondary-glyph-color-pressed      : var(--sem-color-icon-neutral-contrast);
+    --neo-button-secondary-glyph-color              : var(--neo-sem-color-icon-neutral-default);
+    --neo-button-secondary-glyph-color-hover        : var(--neo-sem-color-icon-neutral-contrast);
+    --neo-button-secondary-glyph-color-active       : var(--neo-sem-color-icon-neutral-contrast);
+    --neo-button-secondary-glyph-color-disabled     : var(--neo-sem-color-text-disabled);
+    --neo-button-secondary-glyph-color-pressed      : var(--neo-sem-color-icon-neutral-contrast);
 
-    --button-secondary-background-image         : none;
-    --button-secondary-badge-background-color   : transparent;
-    --button-secondary-badge-color              : transparent;
-    --button-secondary-opacity-disabled         : none;
-    --button-secondary-ripple-background-color  : #8BA6FF;
+    --neo-button-secondary-background-image         : none;
+    --neo-button-secondary-badge-background-color   : transparent;
+    --neo-button-secondary-badge-color              : transparent;
+    --neo-button-secondary-opacity-disabled         : none;
+    --neo-button-secondary-ripple-background-color  : #8BA6FF;
 
 
     /* {module: Button; ui: --ghost}  –––––––––––––––––––––––––––––––––––––––––––––––––––––--
        Background Color */
-    --button-ghost-background-color             : transparent;
-    --button-ghost-background-color-hover       : var(--sem-color-surface-neutral-hover);
-    --button-ghost-background-color-active      : var(--sem-color-surface-neutral-active);
-    --button-ghost-background-color-disabled    : var(--sem-color-surface-disabled);
-    --button-ghost-background-color-pressed     : var(--sem-color-surface-primary-default);
+    --neo-button-ghost-background-color             : transparent;
+    --neo-button-ghost-background-color-hover       : var(--neo-sem-color-surface-neutral-hover);
+    --neo-button-ghost-background-color-active      : var(--neo-sem-color-surface-neutral-active);
+    --neo-button-ghost-background-color-disabled    : var(--neo-sem-color-surface-disabled);
+    --neo-button-ghost-background-color-pressed     : var(--neo-sem-color-surface-primary-default);
 
     /* Border */
-    --button-ghost-border                       : none;
-    --button-ghost-border-active                : none;
-    --button-ghost-border-disabled              : inherit;
-    --button-ghost-border-hover                 : none;
-    --button-ghost-border-pressed               : none;
+    --neo-button-ghost-border                       : none;
+    --neo-button-ghost-border-active                : none;
+    --neo-button-ghost-border-disabled              : inherit;
+    --neo-button-ghost-border-hover                 : none;
+    --neo-button-ghost-border-pressed               : none;
 
     /* Text Color */
-    --button-ghost-text-color                   : var(--sem-color-text-neutral-default);
-    --button-ghost-text-color-hover             : var(--sem-color-text-neutral-contrast);
-    --button-ghost-text-color-active            : var(--sem-color-text-neutral-contrast);
-    --button-ghost-text-color-disabled          : var(--sem-color-text-disabled);
-    --button-ghost-text-color-pressed           : var(--sem-color-text-neutral-reversed);
+    --neo-button-ghost-color                   : var(--neo-sem-color-text-neutral-default);
+    --neo-button-ghost-color-hover             : var(--neo-sem-color-text-neutral-contrast);
+    --neo-button-ghost-color-active            : var(--neo-sem-color-text-neutral-contrast);
+    --neo-button-ghost-color-disabled          : var(--neo-sem-color-text-disabled);
+    --neo-button-ghost-color-pressed           : var(--neo-sem-color-text-neutral-reversed);
 
     /* Icon Color */
-    --button-ghost-glyph-color                  : var(--sem-color-icon-neutral-default);
-    --button-ghost-glyph-color-hover            : var(--sem-color-icon-neutral-contrast);
-    --button-ghost-glyph-color-active           : var(--sem-color-icon-neutral-contrast);
-    --button-ghost-glyph-color-disabled         : var(--sem-color-text-disabled);
-    --button-ghost-glyph-color-pressed          : var(--sem-color-text-neutral-reversed);
+    --neo-button-ghost-glyph-color                  : var(--neo-sem-color-icon-neutral-default);
+    --neo-button-ghost-glyph-color-hover            : var(--neo-sem-color-icon-neutral-contrast);
+    --neo-button-ghost-glyph-color-active           : var(--neo-sem-color-icon-neutral-contrast);
+    --neo-button-ghost-glyph-color-disabled         : var(--neo-sem-color-text-disabled);
+    --neo-button-ghost-glyph-color-pressed          : var(--neo-sem-color-text-neutral-reversed);
 
-    --button-ghost-background-image             : none;
-    --button-ghost-badge-background-color       : transparent;
-    --button-ghost-badge-color                  : transparent;
-    --button-ghost-opacity-disabled             : inherit;
-    --button-ghost-ripple-background-color      : #8BA6FF;
+    --neo-button-ghost-background-image             : none;
+    --neo-button-ghost-badge-background-color       : transparent;
+    --neo-button-ghost-badge-color                  : transparent;
+    --neo-button-ghost-opacity-disabled             : inherit;
+    --neo-button-ghost-ripple-background-color      : #8BA6FF;
 
 
     /* {module: Button; ui: --tertiary}  –––––––––––––––––––––––––––––––––––––––––––––––––––
        Background color */
-    --button-tertiary-background-color          : transparent;
-    --button-tertiary-background-color-hover    : transparent;
-    --button-tertiary-background-color-active   : transparent;
-    --button-tertiary-background-color-disabled : transparent;
-    --button-tertiary-background-color-pressed  : var(--sem-color-surface-primary-default);
+    --neo-button-tertiary-background-color          : transparent;
+    --neo-button-tertiary-background-color-hover    : transparent;
+    --neo-button-tertiary-background-color-active   : transparent;
+    --neo-button-tertiary-background-color-disabled : transparent;
+    --neo-button-tertiary-background-color-pressed  : var(--neo-sem-color-surface-primary-default);
 
     /* Border */
-    --button-tertiary-border                    : none;
-    --button-tertiary-border-hover              : none;
-    --button-tertiary-border-active             : none;
-    --button-tertiary-border-disabled           : none;
-    --button-tertiary-border-pressed            : none;
+    --neo-button-tertiary-border                    : none;
+    --neo-button-tertiary-border-hover              : none;
+    --neo-button-tertiary-border-active             : none;
+    --neo-button-tertiary-border-disabled           : none;
+    --neo-button-tertiary-border-pressed            : none;
 
     /* Text color */
-    --button-tertiary-text-color                : var(--sem-color-text-primary-default);
-    --button-tertiary-text-color-hover          : var(--sem-color-text-primary-default);
-    --button-tertiary-text-color-active         : var(--sem-color-text-neutral-contrast);
-    --button-tertiary-text-color-disabled       : var(--sem-color-text-disabled);
-    --button-tertiary-text-color-pressed        : var(--sem-color-text-neutral-reversed);
+    --neo-button-tertiary-color                : var(--neo-sem-color-text-primary-default);
+    --neo-button-tertiary-color-hover          : var(--neo-sem-color-text-primary-default);
+    --neo-button-tertiary-color-active         : var(--neo-sem-color-text-neutral-contrast);
+    --neo-button-tertiary-color-disabled       : var(--neo-sem-color-text-disabled);
+    --neo-button-tertiary-color-pressed        : var(--neo-sem-color-text-neutral-reversed);
 
     /* Icon color */
-    --button-tertiary-glyph-color               : var(--sem-color-icon-primary-default);
-    --button-tertiary-glyph-color-active        : var(--sem-color-icon-primary-default);
-    --button-tertiary-glyph-color-disabled      : var(--sem-color-icon-primary-default);
-    --button-tertiary-glyph-color-hover         : var(--sem-color-icon-primary-default);
-    --button-tertiary-glyph-color-pressed       : var(--sem-color-text-neutral-reversed);
+    --neo-button-tertiary-glyph-color               : var(--neo-sem-color-icon-primary-default);
+    --neo-button-tertiary-glyph-color-active        : var(--neo-sem-color-icon-primary-default);
+    --neo-button-tertiary-glyph-color-disabled      : var(--neo-sem-color-icon-primary-default);
+    --neo-button-tertiary-glyph-color-hover         : var(--neo-sem-color-icon-primary-default);
+    --neo-button-tertiary-glyph-color-pressed       : var(--neo-sem-color-text-neutral-reversed);
 
-    --button-tertiary-background-image          : none;
-    --button-tertiary-badge-background-color    : var(--button-badge-background-color);
-    --button-tertiary-badge-color               : var(--button-badge-color);
-    --button-tertiary-opacity-disabled          : var(--neo-disabled-opacity);
-    --button-tertiary-ripple-background-color   : inherit;
+    --neo-button-tertiary-background-image          : none;
+    --neo-button-tertiary-badge-background-color    : var(--neo-button-badge-background-color);
+    --neo-button-tertiary-badge-color               : var(--neo-button-badge-color);
+    --neo-button-tertiary-opacity-disabled          : var(--neo-global-opacity-disabled);
+    --neo-button-tertiary-ripple-background-color   : inherit;
 
     /* Moved out of a selector block: the rule is structural, only these values are the theme's. */
-    --button-tertiary-text-decoration           : underline;
-    --button-tertiary-text-decoration-color     : var(--sem-color-text-primary-default);
-    --button-tertiary-text-underline-offset     : 3px;
+    --neo-button-tertiary-text-decoration           : underline;
+    --neo-button-tertiary-text-decoration-color     : var(--neo-sem-color-text-primary-default);
+    --neo-button-tertiary-text-underline-offset     : 3px;
 }
 
 /* The three sizes a button's `size` config picks. The large one is the design system's call to action
-   (--height-48), for a button alone on a wide page. */
+   (--neo-height-48), for a button alone on a wide page. */
 :where(.neo-theme-neo-light) {
-    --button-size-small-font-size : 0.75rem;
-    --button-size-small-height    : var(--height-24);
-    --button-size-small-padding   : 0 var(--sem-spacing-xsmall);
-    --button-size-medium-font-size: 0.875rem;
-    --button-size-medium-height   : var(--height-32);
-    --button-size-medium-padding  : 0 var(--sem-spacing-small);
-    --button-size-large-font-size : var(--core-fontsize-label);
-    --button-size-large-height    : var(--height-48);
-    --button-size-large-padding   : 0 var(--sem-spacing-medium);
+    --neo-button-size-small-font-size : 0.75rem;
+    --neo-button-size-small-height    : var(--neo-height-24);
+    --neo-button-size-small-padding   : 0 var(--neo-sem-spacing-xsmall);
+    --neo-button-size-medium-font-size: 0.875rem;
+    --neo-button-size-medium-height   : var(--neo-height-32);
+    --neo-button-size-medium-padding  : 0 var(--neo-sem-spacing-small);
+    --neo-button-size-large-font-size : var(--neo-core-fontsize-label);
+    --neo-button-size-large-height    : var(--neo-height-48);
+    --neo-button-size-large-padding   : 0 var(--neo-sem-spacing-medium);
 }
 
 /* A button without a size is an app control: medium. A toolbar keeps this size under an ancestor that raises it, as
    the Portal does, through `--toolbar-button-*` (toolbar/Base.css). */
 :where(.neo-theme-neo-light) {
-    --button-height        : var(--button-size-medium-height);
-    --button-min-width     : var(--button-size-medium-height);
-    --button-padding       : var(--button-size-medium-padding);
-    --button-text-font-size: var(--button-size-medium-font-size);
+    --neo-button-height        : var(--neo-button-size-medium-height);
+    --neo-button-min-width     : var(--neo-button-size-medium-height);
+    --neo-button-padding       : var(--neo-button-size-medium-padding);
+    --neo-button-text-font-size: var(--neo-button-size-medium-font-size);
 }

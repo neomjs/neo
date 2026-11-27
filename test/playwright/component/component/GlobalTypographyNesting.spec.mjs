@@ -26,13 +26,13 @@ import {test, expect} from '@playwright/test';
  */
 
 const
-    // 2.5rem against the 16px root, from `--core-fontsize-h1` in both neo themes.
+    // 2.5rem against the 16px root, from `--neo-core-fontsize-h1` in both neo themes.
     NEO_H1_SIZE   = '40px',
     // The UA `h1` is 2em — and it comes from the UA sheet, NOT by inheritance, which is why the
     // fallback is `revert` and not `inherit`. An `inherit` fallback computes 16px here, so this
     // constant is also what separates the two fallback keywords.
     UA_H1_SIZE    = '32px',
-    // neo-dark maps `--global-mark-background-color` to `--green-900`, which resolves to black.
+    // neo-dark maps `--neo-global-mark-background-color` to `--neo-green-900`, which resolves to black.
     NEO_MARK_BG   = 'rgb(0, 0, 0)',
     UA_MARK_BG    = 'rgb(255, 255, 0)',
     // From the composed `resources/css/src/util/HighlightJs.css` — an AUTHOR rule, not the UA's.
@@ -87,7 +87,7 @@ test.beforeEach(async ({page}) => {
 test.describe('Global element typography — a nested classic scope declines, and says so', () => {
     test('h1 font-size: the neo scope resolves its token, the nested classic scope reverts to the UA', async ({page}) => {
         await expect.poll(() => computed(page, 'outer-neo-h1', 'fontSize'),
-            {message: 'control: the neo scope resolves --core-fontsize-h1, so the inner arm can mean something'}
+            {message: 'control: the neo scope resolves --neo-core-fontsize-h1, so the inner arm can mean something'}
         ).toBe(NEO_H1_SIZE);
 
         await expect.poll(() => computed(page, 'inner-classic-h1', 'fontSize'),
@@ -97,7 +97,7 @@ test.describe('Global element typography — a nested classic scope declines, an
 
     test('mark background: the neo scope paints its token, the nested classic scope stays UA yellow', async ({page}) => {
         await expect.poll(() => computed(page, 'outer-neo-mark', 'backgroundColor'),
-            {message: 'control: the neo scope paints --global-mark-background-color'}
+            {message: 'control: the neo scope paints --neo-global-mark-background-color'}
         ).toBe(NEO_MARK_BG);
 
         await expect.poll(() => computed(page, 'inner-classic-mark', 'backgroundColor'),

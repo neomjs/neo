@@ -668,7 +668,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
 
 test.describe('Neo.dashboard.dock.interaction.DockSplitter — drag-proxy token projection', () => {
     /**
-     * The projection restates the `--dock-splitter-*` contract in JS, and a restatement drifts.
+     * The projection restates the `--neo-dock-splitter-*` contract in JS, and a restatement drifts.
      * This is the guard that makes the restatement safe: it parses the engine's own `.neo-dashboard`
      * block and fails when the two sets diverge, so a token added to the stylesheet without a line
      * in `proxyProjectedTokens` turns this red instead of silently vanishing from every drag proxy.
@@ -693,7 +693,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — drag-proxy token 
         expect(open, 'the .neo-dashboard token block must be locatable').toBeGreaterThan(-1);
 
         const declared = [...new Set(
-            [...block.matchAll(/(--dock-splitter-[a-z-]+)\s*:/g)].map(match => match[1])
+            [...block.matchAll(/(--neo-dock-splitter-[a-z-]+)\s*:/g)].map(match => match[1])
         )].sort();
 
         // Non-vacuity: a regex that matched nothing would make the comparison below trivially

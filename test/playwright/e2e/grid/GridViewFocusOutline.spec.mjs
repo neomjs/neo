@@ -3,7 +3,7 @@ import {expect, test} from '../../fixtures.mjs';
 /**
  * @summary The grid View paints no ring around its whole viewport by default: the selection shows where keyboard focus
  * is. That holds for keyboard navigation, and for an editor handing focus back to the View, which carries no modality
- * stamp and so would get the browser's own ring. `--grid-view-focus-outline` still frames keyboard focus, and never
+ * stamp and so would get the browser's own ring. `--neo-grid-view-outline-focus` still frames keyboard focus, and never
  * pointer focus.
  *
  * Fixture: `test/playwright/component/apps/grid-cell-editing`, grid `#grid-cell-editing` (a cell-selecting model). The
@@ -83,10 +83,10 @@ test.describe('Grid View focus outline', () => {
         expect((await readView(page)).outline, 'and no ring').toBe('none')
     });
 
-    test('`--grid-view-focus-outline` frames keyboard focus, and never pointer focus', async ({page}) => {
+    test('`--neo-grid-view-outline-focus` frames keyboard focus, and never pointer focus', async ({page}) => {
         const recordId = await recordIdOf(page, 'Name 2');
 
-        await page.addStyleTag({content: `${GRID} {--grid-view-focus-outline: 3px solid rgb(255, 0, 0)}`});
+        await page.addStyleTag({content: `${GRID} {--neo-grid-view-outline-focus: 3px solid rgb(255, 0, 0)}`});
 
         await cell(page, 'name', recordId).click();
         await expect.poll(async () => (await readView(page)).modality).toBe('pointer');

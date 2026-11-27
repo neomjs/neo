@@ -389,7 +389,7 @@ test.describe('web desktop apps', () => {
 
         const readColors = element => {
             const style = getComputedStyle(element);
-            return ['--desktop-app-window-color', '--webdesktop-ink-dim'].map(name => style.getPropertyValue(name).trim())
+            return ['--neo-desktop-app-window-color', '--webdesktop-ink-dim'].map(name => style.getPropertyValue(name).trim())
         };
         const sourceColors = await mail.locator('.webdesktop-mail').evaluate(readColors);
         expect(sourceColors.every(Boolean)).toBe(true);
@@ -461,7 +461,7 @@ test.describe('web desktop apps', () => {
                 h2Font,
                 iconColor   : iconStyle?.color,
                 iconFontSize: iconStyle?.fontSize,
-                winBgVar    : style.getPropertyValue('--desktop-app-window-background-color').trim()
+                winBgVar    : style.getPropertyValue('--neo-desktop-app-window-background-color').trim()
             }
         };
         const darkDesktopTone = await reports.evaluate(readWindowTone);
@@ -504,8 +504,8 @@ test.describe('web desktop apps', () => {
                 iconWidth   : is?.width,
                 tbBg        : ts.backgroundColor,
                 tbBorder    : ts.borderBottomStyle,
-                wallpaper   : vs.getPropertyValue('--desktop-wallpaper').trim(),
-                winBgVar    : vs.getPropertyValue('--desktop-app-window-background-color').trim()
+                wallpaper   : vs.getPropertyValue('--neo-desktop-wallpaper').trim(),
+                winBgVar    : vs.getPropertyValue('--neo-desktop-app-window-background-color').trim()
             } : null
         });
 

@@ -39,19 +39,19 @@ class DockSplitter extends Splitter {
      * @static
      */
     static proxyProjectedTokens = [
-        '--dock-splitter-background',
-        '--dock-splitter-background-active',
-        '--dock-splitter-background-hover',
-        '--dock-splitter-handle-color',
-        '--dock-splitter-handle-color-active',
-        '--dock-splitter-handle-color-hover',
-        '--dock-splitter-handle-glow-hover',
-        '--dock-splitter-handle-size',
-        '--dock-splitter-handle-thickness',
-        '--dock-splitter-radius',
-        '--dock-splitter-ring',
-        '--dock-splitter-ring-active',
-        '--dock-splitter-ring-hover'
+        '--neo-dock-splitter-background-color',
+        '--neo-dock-splitter-background-color-active',
+        '--neo-dock-splitter-background-color-hover',
+        '--neo-dock-splitter-handle-color',
+        '--neo-dock-splitter-handle-color-active',
+        '--neo-dock-splitter-handle-color-hover',
+        '--neo-dock-splitter-handle-glow-hover',
+        '--neo-dock-splitter-handle-size',
+        '--neo-dock-splitter-handle-thickness',
+        '--neo-dock-splitter-border-radius',
+        '--neo-dock-splitter-ring',
+        '--neo-dock-splitter-ring-active',
+        '--neo-dock-splitter-ring-hover'
     ]
 
     static config = {
