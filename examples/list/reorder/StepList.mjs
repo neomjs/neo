@@ -114,7 +114,8 @@ class StepList extends List {
 
     /**
      * Moves the focused step one place, through the same commit as a drop, keeps the focus on it and announces its new
-     * place. At either end the order and the focus stay as they are.
+     * place. At either end the order and the focus stay as they are. While a pointer drag holds its proxy, the drag
+     * owns the order: a move then would change the store under it, and Escape could no longer restore it.
      * @param {Object} data The keydown data
      * @param {Number} step -1 moves up, 1 down
      * @protected
@@ -124,7 +125,7 @@ class StepList extends List {
             record = (data.ctrlKey || data.metaKey) && data.shiftKey && me.getStepRecord(data.path),
             items, target;
 
-        if (record) {
+        if (record && !me.dragZone?.dragProxy) {
             items  = me.store.items;
             target = items[items.indexOf(record) + step];
 

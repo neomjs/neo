@@ -102,6 +102,44 @@ test.describe('examples/list/reorder', () => {
         await expect(status).toHaveText('Freeze the release branch is already the first step');
         await expect(steps.nth(0)).toBeFocused();
 
+        // And at the bottom edge
+        await page.keyboard.press('End');
+        await expect(steps.nth(7)).toBeFocused();
+        await page.keyboard.press('Control+Shift+ArrowDown');
+        await expect(status).toHaveText('Announce the release is already the last step');
+        await expect(steps.nth(7)).toBeFocused();
+
+        expect(await storeOrder(app, 'Neo.examples.list.reorder.StepList')).toEqual([
+            [1, 0], [2, 1], [3, 2], [4, 3], [5, 4], [6, 5], [7, 6], [8, 7]
+        ])
+    });
+
+    test('Ctrl+Shift+Down during a pointer drag leaves the order to the drag, so Escape restores it', async ({page}) => {
+        const steps = page.locator(STEPS),
+              from  = await steps.nth(0).boundingBox(),
+              x     = from.x + from.width  / 2,
+              y     = from.y + from.height / 2;
+
+        await steps.nth(0).focus();
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+
+        for (let i = 1; i <= 6; i++) {
+            await page.mouse.move(x, y + i * 8)
+        }
+
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(1);
+
+        await page.keyboard.press('Control+Shift+ArrowDown');
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+        await expect(page.locator(`${STEPS} .neo-reorder-text`)).toHaveText([
+            'Freeze the release branch', 'Run the full test suite', 'Write the release notes', 'Bump the version',
+            'Tag the release', 'Publish to npm', 'Deploy the website', 'Announce the release'
+        ]);
+
         expect(await storeOrder(app, 'Neo.examples.list.reorder.StepList')).toEqual([
             [1, 0], [2, 1], [3, 2], [4, 3], [5, 4], [6, 5], [7, 6], [8, 7]
         ])

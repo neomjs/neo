@@ -19,7 +19,11 @@
 
         p {
             color : var(--sem-color-text-neutral-subdued);
-            margin: 0 0 1.5em;
+            margin: 0 0 .4em;
+
+            &:last-child {
+                margin-bottom: 1.5em;
+            }
         }
     }
 
