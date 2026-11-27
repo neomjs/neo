@@ -1,0 +1,10 @@
+:where(.neo-theme-neo-dark) {
+    --neo-sheet-background-color          : var(--neo-color-background-surface-raised);
+    --neo-sheet-border-radius             : var(--neo-radius-extra-large);
+    --neo-sheet-box-shadow                : var(--neo-elevation-3);
+    --neo-sheet-color                     : var(--neo-color-text-default);
+    --neo-sheet-max-inline-size           : calc(var(--neo-space-16) * 10);
+    --neo-sheet-toggle-inset              : var(--neo-space-2);
+    --neo-sheet-transition-duration       : var(--neo-duration-panel);
+    --neo-sheet-transition-timing-function: var(--neo-ease-out);
+}

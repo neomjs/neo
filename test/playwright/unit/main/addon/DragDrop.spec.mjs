@@ -390,10 +390,36 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         expect(style.getPropertyValue('width')).toBe('220px');
 
         expect(resize.finish({clientX: 190, clientY: 0})).toEqual({
-            axis: 'width', size: 210, targetId: 'target-wrapper'
+            axis: 'width', size: 210, targetId: 'target-wrapper', velocity: 0
         });
         expect(resize.state).toBeNull();
         expect(style.getPropertyValue('width')).toBe('210px')
+    });
+
+    test('the terminal reports the release velocity of the timed frames inside the window, positive while growing', () => {
+        let {resize} = createState();
+
+        // resizeNext: the pointer moving left grows the target, 30px in 30ms
+        resize.apply({clientX: 100, clientY: 0, timeStamp: 1000});
+        resize.apply({clientX: 85,  clientY: 0, timeStamp: 1015});
+
+        expect(resize.finish({clientX: 70, clientY: 0, timeStamp: 1030}).velocity).toBe(1);
+
+        ({resize} = createState({axis: 'height', resizeNext: false}));
+
+        // A frame older than the window measures nothing: only the last two count, 20px down in 10ms
+        resize.apply({clientX: 0, clientY: 100, timeStamp: 1000});
+        resize.apply({clientX: 0, clientY: 300, timeStamp: 1150});
+
+        expect(resize.finish({clientX: 0, clientY: 320, timeStamp: 1160}).velocity).toBe(2);
+
+        ({resize} = createState());
+
+        // A pointer that rested past the window releases at 0, and untimed frames are not sampled
+        resize.apply({clientX: 100, clientY: 0, timeStamp: 1000});
+        resize.apply({clientX: 50,  clientY: 0});
+
+        expect(resize.finish({clientX: 50, clientY: 0, timeStamp: 1200}).velocity).toBe(0)
     });
 
     test('previous/horizontal math is symmetric and deferred mode computes without mutating', () => {
@@ -405,7 +431,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         state = createState({preview: false});
 
         expect(state.resize.finish({clientX: 180, clientY: 0})).toEqual({
-            axis: 'width', size: 220, targetId: 'target-wrapper'
+            axis: 'width', size: 220, targetId: 'target-wrapper', velocity: 0
         });
         expect(state.style.getPropertyValue('width')).toBe('');
         expect(state.style.getPropertyValue('flex')).toBe('1 1 0%')
@@ -420,7 +446,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         expect(style.getPropertyValue('width')).toBe('180px');
 
         expect(resize.finish({clientX: -500, clientY: 0})).toEqual({
-            axis: 'width', size: 420, targetId: 'target-wrapper'
+            axis: 'width', size: 420, targetId: 'target-wrapper', velocity: 0
         });
         expect(style.getPropertyValue('width')).toBe('420px')
     });
@@ -435,7 +461,8 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
             axis      : 'width',
             generation: 1,
             size      : 210,
-            targetId  : 'target-wrapper'
+            targetId  : 'target-wrapper',
+            velocity  : 0
         });
         expect(state.style.getPropertyValue('width')).toBe('210px');
         expect(state.resize.settle({

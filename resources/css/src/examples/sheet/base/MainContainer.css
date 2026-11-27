@@ -1,0 +1,30 @@
+/* The title lines up with the toolbar's other text */
+.neo-sheet-example-title {
+    font-weight         : 600;
+    padding-inline-start: 11px;
+}
+
+/* A drawn map behind the sheet: water to the north, a street grid, and three pins */
+.neo-sheet-example-map {
+    background-color: var(--neo-color-background-canvas, #e8eef0);
+    background-image:
+        radial-gradient(circle at 22% 38%, var(--neo-color-background-accent, #1c60a0) 0 7px, transparent 8px),
+        radial-gradient(circle at 64% 30%, var(--neo-color-background-accent, #1c60a0) 0 7px, transparent 8px),
+        radial-gradient(circle at 48% 56%, var(--neo-color-background-accent, #1c60a0) 0 7px, transparent 8px),
+        linear-gradient(170deg, var(--neo-color-background-info-subtle, #cfe3f5) 0 18%, transparent 18%),
+        repeating-linear-gradient(90deg, var(--neo-color-border-subtle, rgba(127, 127, 127, .25)) 0 2px, transparent 2px 64px),
+        repeating-linear-gradient(0deg, var(--neo-color-border-subtle, rgba(127, 127, 127, .25)) 0 2px, transparent 2px 64px);
+}
+
+.neo-sheet-example-count {
+    color  : var(--neo-color-text-muted, inherit);
+    padding: 4px 16px 8px;
+}
+
+/* Place rows a thumb can hit, divided so the list reads as items rather than running text */
+.neo-sheet-example-places {
+    .neo-list-item {
+        border-bottom: 1px solid var(--neo-color-border-subtle, rgba(127, 127, 127, .2));
+        padding      : 12px 16px;
+    }
+}

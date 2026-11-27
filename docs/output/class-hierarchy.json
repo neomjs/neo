@@ -557,6 +557,8 @@
  "Neo.selection.table.CellRowModel": "Neo.selection.table.CellModel",
  "Neo.selection.table.ColumnModel": "Neo.selection.table.BaseModel",
  "Neo.selection.table.RowModel": "Neo.selection.table.BaseModel",
+ "Neo.sheet.Base": "Neo.container.Base",
+ "Neo.sheet.Handle": "Neo.component.Base",
  "Neo.sitemap.Component": "Neo.component.Base",
  "Neo.sitemap.Model": "Neo.data.Model",
  "Neo.sitemap.Store": "Neo.data.Store",

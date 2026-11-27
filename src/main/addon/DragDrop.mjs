@@ -340,7 +340,8 @@ class DragDrop extends Base {
                         resizeAxis      : resize.axis,
                         resizeGeneration: resize.generation,
                         resizeSize      : resize.size,
-                        resizeTargetId  : resize.targetId
+                        resizeTargetId  : resize.targetId,
+                        resizeVelocity  : resize.velocity
                     } : {}),
                     dragZoneId: me.dragZoneId,
                     isDrop,

@@ -1,0 +1,58 @@
+/* A sheet fixed to the bottom edge of its window, inside the safe area, centred and capped in width on wide screens.
+   Its inline height is its snap point, and its min and max height are the first and last points, so the first paint
+   shows it in place. A settle animates the height; a drag has the main thread write it on every frame. */
+.neo-sheet {
+    background-color          : var(--neo-sheet-background-color);
+    border-start-end-radius   : var(--neo-sheet-border-radius);
+    border-start-start-radius : var(--neo-sheet-border-radius);
+    box-shadow                : var(--neo-sheet-box-shadow);
+    box-sizing                : border-box;
+    color                     : var(--neo-sheet-color);
+    inset-block-end           : 0;
+    inset-inline              : 0;
+    margin-inline             : auto;
+    max-inline-size           : var(--neo-sheet-max-inline-size);
+    overflow                  : hidden;
+    padding-block-end         : env(safe-area-inset-bottom);
+    position                  : fixed;
+    transition-duration       : var(--neo-sheet-transition-duration);
+    transition-property       : height;
+    transition-timing-function: var(--neo-sheet-transition-timing-function);
+    z-index                   : 100;
+
+    /* The header and the body show the sheet's surface, not a container background */
+    .neo-sheet-body, .neo-sheet-header {
+        background-color: transparent;
+    }
+
+    .neo-sheet-header {
+        flex    : none;
+        position: relative;
+
+        /* The handle's focus ring follows the sheet's rounded top */
+        .neo-sheet-handle {
+            border-start-end-radius  : var(--neo-sheet-border-radius);
+            border-start-start-radius: var(--neo-sheet-border-radius);
+        }
+    }
+
+    /* The button sits over the end of the handle's bar, so the grip stays centred on the sheet */
+    .neo-sheet-toggle {
+        inset-block-start: 50%;
+        inset-inline-end : var(--neo-sheet-toggle-inset);
+        position         : absolute;
+        translate        : 0 -50%;
+    }
+
+    /* The content scrolls inside the sheet, and its overscroll never pulls the page */
+    .neo-sheet-body {
+        min-block-size     : 0;
+        overflow-y         : auto;
+        overscroll-behavior: contain;
+    }
+}
+
+/* While a pointer drags, the main thread writes the height on every frame: an animated height would trail the finger */
+.neo-drag-active .neo-sheet {
+    transition-property: none;
+}
