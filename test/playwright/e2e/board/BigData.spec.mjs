@@ -66,7 +66,7 @@ const
     },
     // The toolbar shows its theme switcher in view, and nothing in it runs past the screen's edge
     switcherInView = async (page, width) => {
-        const switcher = page.locator('.desk-toolbar .neo-theme-switcher');
+        const switcher = page.locator('.desk-toolbar .neo-themeswitcher');
 
         await expect(switcher, 'the theme switcher is in the toolbar').toBeVisible();
 

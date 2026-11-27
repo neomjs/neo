@@ -71,8 +71,8 @@ test.describe('Standalone Examples ThemeSwitcher Rollout', () => {
         await page.goto('/examples/menu/context/index.html');
 
         const
-            switcher = page.locator('.neo-theme-switcher').first(),
-            menu     = page.locator('.neo-theme-switcher-menu');
+            switcher = page.locator('.neo-themeswitcher').first(),
+            menu     = page.locator('.neo-themeswitcher-menu');
 
         await expect(switcher).toBeVisible();
 
@@ -122,7 +122,7 @@ test.describe('Standalone Examples ThemeSwitcher Rollout', () => {
 
             await page.goto(`/examples/${path}/index.html`);
 
-            const switcher = page.locator('.neo-theme-switcher').first();
+            const switcher = page.locator('.neo-themeswitcher').first();
             await expect(switcher).toBeVisible();
 
             const
@@ -138,7 +138,7 @@ test.describe('Standalone Examples ThemeSwitcher Rollout', () => {
                 const hasMenu = (await switcher.getAttribute('aria-haspopup')) === 'menu';
                 await switcher.click();
                 if (hasMenu) {
-                    const menu = page.locator('.neo-theme-switcher-menu');
+                    const menu = page.locator('.neo-themeswitcher-menu');
                     await expect(menu).toBeVisible();
                     await menu.getByRole('menuitemradio', {name: THEME_LABELS[targetTheme], exact: true}).click()
                 }
@@ -182,7 +182,7 @@ test.describe('Standalone Examples ThemeSwitcher Rollout', () => {
         captureErrors(cwPopup, errors);
         await cwPopup.locator('.agentos-dockdemo-counter-pane').waitFor({timeout: 30000});
 
-        await page.locator('.neo-theme-switcher').first().click();
+        await page.locator('.neo-themeswitcher').first().click();
         await expect.poll(() => page.evaluate(() => document.body.classList.contains('neo-theme-neo-light'))).toBe(true);
         await expect.poll(() => cwPopup.evaluate(() => document.body.classList.contains('neo-theme-neo-light'))).toBe(true);
         await cwPopup.close({runBeforeUnload: true});
@@ -200,7 +200,7 @@ test.describe('Standalone Examples ThemeSwitcher Rollout', () => {
         captureErrors(vessel, errors);
         await expect(vessel.locator('.tear-out-target')).toHaveCount(1);
 
-        await page.locator('.neo-theme-switcher').first().click();
+        await page.locator('.neo-themeswitcher').first().click();
         await expect.poll(() => page.evaluate(() => document.body.classList.contains('neo-theme-neo-light'))).toBe(true);
         await expect.poll(() => vessel.evaluate(() => document.body.classList.contains('neo-theme-neo-light'))).toBe(true);
         await vessel.close({runBeforeUnload: true});
@@ -216,7 +216,7 @@ test.describe('Standalone Examples ThemeSwitcher Rollout', () => {
         captureErrors(presenter, errors);
         await expect(presenter.locator('.air-cue')).toBeVisible();
 
-        await page.locator('.neo-theme-switcher').first().click();
+        await page.locator('.neo-themeswitcher').first().click();
         await expect.poll(() => page.evaluate(() => document.body.classList.contains('neo-theme-neo-light'))).toBe(true);
         await expect.poll(() => presenter.evaluate(() => document.body.classList.contains('neo-theme-neo-light'))).toBe(true);
         await presenter.close({runBeforeUnload: true});
@@ -246,15 +246,15 @@ test.describe('Standalone Examples ThemeSwitcher Rollout', () => {
             for (const path of ALL_SLICE_EXAMPLES) {
                 await page.goto(`/examples/${path}/index.html`);
 
-                const switcher = page.locator('.neo-theme-switcher').first();
+                const switcher = page.locator('.neo-themeswitcher').first();
                 await expect(switcher, `${path} @ ${width}x${height}`).toBeVisible();
 
                 const check = await page.evaluate(vw => {
-                    const sw = document.querySelector('.neo-theme-switcher');
-                    if (!sw) return {ok: false, reason: 'missing .neo-theme-switcher'};
+                    const sw = document.querySelector('.neo-themeswitcher');
+                    if (!sw) return {ok: false, reason: 'missing .neo-themeswitcher'};
 
                     const r   = sw.getBoundingClientRect(),
-                          hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('.neo-theme-switcher') === sw;
+                          hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('.neo-themeswitcher') === sw;
 
                     return {
                         hit,

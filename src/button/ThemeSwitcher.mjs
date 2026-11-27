@@ -18,15 +18,15 @@ class ThemeSwitcher extends Button {
          */
         className: 'Neo.button.ThemeSwitcher',
         /**
-         * @member {String} ntype='theme-switcher'
+         * @member {String} ntype='themeswitcher'
          * @protected
          */
-        ntype: 'theme-switcher',
+        ntype: 'themeswitcher',
         /**
-         * @member {String[]} baseCls=['neo-button','neo-theme-switcher']
+         * @member {String[]} baseCls=['neo-button','neo-themeswitcher']
          * @protected
          */
-        baseCls: ['neo-button', 'neo-theme-switcher'],
+        baseCls: ['neo-button', 'neo-themeswitcher'],
         /**
          * Shows the action or current theme beside the icon when space allows.
          * @member {Boolean} showText_=true
@@ -301,7 +301,7 @@ class ThemeSwitcher extends Button {
             me.menu = menuItems ? {
                 module: ThemeSwitcherMenu,
                 align : {edgeAlign: 't1-b1', target: me.id},
-                cls   : ['neo-theme-switcher-menu'],
+                cls   : ['neo-themeswitcher-menu'],
                 items : menuItems
             } : null
         } else {
@@ -310,7 +310,7 @@ class ThemeSwitcher extends Button {
 
         me.set({
             ariaLabel: next ? 'Switch to ' + label : 'Theme: ' + label,
-            iconCls  : 'neo-theme-switcher-icon-' + icon,
+            iconCls  : 'neo-themeswitcher-icon-' + icon,
             text     : me.showText ? label : null
         });
         me.syncMenuAria()

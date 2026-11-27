@@ -223,7 +223,7 @@ test.describe('Gantt office-move cascade example', () => {
         await expect(page.locator('.neo-timeline-bar[data-event-id="first-day"]')).toBeVisible();
 
         const
-            switcher = page.locator('.neo-theme-switcher').first(),
+            switcher = page.locator('.neo-themeswitcher').first(),
             menu     = page.getByRole('menu'),
             themes   = [
                 ['Light',     'neo-theme-light'],

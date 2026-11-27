@@ -82,7 +82,7 @@
         }
 
         .due-reset-button.neo-button,
-        .neo-theme-switcher.neo-button {
+        .neo-themeswitcher.neo-button {
             --button-background-color         : var(--due-btn-bg);
             --button-background-color-disabled: var(--due-btn-bg);
             --button-background-color-hover   : var(--due-btn-hover-bg);
@@ -353,7 +353,7 @@
 
             .due-late-toggle.neo-button,
             .due-reset-button.neo-button,
-            .neo-theme-switcher.neo-button {
+            .neo-themeswitcher.neo-button {
                 font-size : 11.5px;
                 min-height: 28px;
                 padding   : 0 10px;

@@ -1,4 +1,4 @@
-.neo-button.neo-theme-switcher {
+.neo-button.neo-themeswitcher {
     .neo-button-glyph {
         align-items    : center;
         display        : inline-flex;
@@ -9,7 +9,7 @@
         width          : 16px;
     }
 
-    .neo-theme-switcher-icon-sun::before {
+    .neo-themeswitcher-icon-sun::before {
         border       : 1.5px solid currentColor;
         border-radius: 50%;
         box-sizing   : border-box;
@@ -18,7 +18,7 @@
         width        : 8px;
     }
 
-    .neo-theme-switcher-icon-sun::after {
+    .neo-themeswitcher-icon-sun::after {
         background-color: currentColor;
         border-radius   : 50%;
         box-shadow      : 0 14px, -7px 7px, 7px 7px, -5px 2px, 5px 2px, -5px 12px, 5px 12px;
@@ -29,7 +29,7 @@
         width           : 2px;
     }
 
-    .neo-theme-switcher-icon-moon::before {
+    .neo-themeswitcher-icon-moon::before {
         background-color: currentColor;
         border-radius   : 50%;
         content         : '';
@@ -38,7 +38,7 @@
         width           : 14px;
     }
 
-    .neo-theme-switcher-icon-palette {
+    .neo-themeswitcher-icon-palette {
         gap  : 4px;
         width: 25px;
 
