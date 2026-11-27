@@ -1,0 +1,906 @@
+[
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-dark",
+        "state": "active",
+        "part": ".neo-button",
+        "property": "background-image",
+        "reason": "A variant drops its background image while :active without :hover, as a plain button does. It kept it only because its rest rule came after the generic :active rule."
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "base": "5px",
+        "head": "4px",
+        "reason": "badge corner -> radius-small: 5px had no step on the radius scale"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "5px",
+        "head": "4px",
+        "reason": "badge corner -> radius-small: 5px had no step on the radius scale"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "5px",
+        "head": "4px",
+        "reason": "badge corner -> radius-small: 5px had no step on the radius scale"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "badge fill -> background-inverse: the extreme neutral instead of pure black or white"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "badge fill -> background-inverse: the extreme neutral instead of pure black or white"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "disabled fill and disabled border -> background-disabled and border-subtle, both neutral-900"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "disabled fill and disabled border -> background-disabled and border-subtle, both neutral-900"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "disabled fill and disabled border -> background-disabled and border-subtle, both neutral-900"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "disabled fill and disabled border -> background-disabled and border-subtle, both neutral-900"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "disabled fill and disabled border -> background-disabled and border-subtle, both neutral-900"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "disabled fill and disabled border -> background-disabled and border-subtle, both neutral-900"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "disabled tertiary glyph -> text-disabled like its text (design read point 5, a repair)"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(84, 114, 228)",
+        "head": "3px none oklch(0.544 0.042 270)",
+        "reason": "disabled tertiary glyph -> text-disabled like its text (design read point 5, a repair)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(94, 103, 129)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(94, 103, 129)",
+        "head": "3px none oklch(0.544 0.042 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(94, 103, 129)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(94, 103, 129)",
+        "head": "3px none oklch(0.544 0.042 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(94, 103, 129)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(94, 103, 129)",
+        "head": "3px none oklch(0.544 0.042 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(94, 103, 129)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(94, 103, 129)",
+        "head": "3px none oklch(0.544 0.042 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(94, 103, 129)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(94, 103, 129)",
+        "head": "3px none oklch(0.544 0.042 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.28 0.095 267)",
+        "reason": "neutral pressed fill -> background-selected, one step deeper into the accent tint"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.28 0.095 267)",
+        "reason": "neutral pressed fill -> background-selected, one step deeper into the accent tint"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.28 0.095 267)",
+        "reason": "neutral pressed fill -> background-selected, one step deeper into the accent tint"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.28 0.095 267)",
+        "reason": "neutral pressed fill -> background-selected, one step deeper into the accent tint"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "button[large]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "button[small]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.544 0.042 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(37, 57, 116)",
+        "head": "oklch(0.39 0.14 267)",
+        "reason": "primary active and pressed fill -> background-accent-active, two grades from the accent"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(67, 93, 177)",
+        "head": "oklch(0.47 0.17 267)",
+        "reason": "primary hover fill -> background-accent-hover, one grade from the accent"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.7 0.15 267)",
+        "reason": "tertiary text, glyph and underline -> text-accent: brighter accent text on the dark canvas"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(84, 114, 228)",
+        "head": "3px none oklch(0.7 0.15 267)",
+        "reason": "tertiary text, glyph and underline -> text-accent: brighter accent text on the dark canvas"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.7 0.15 267)",
+        "reason": "tertiary text, glyph and underline -> text-accent: brighter accent text on the dark canvas"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(84, 114, 228)",
+        "head": "3px none oklch(0.7 0.15 267)",
+        "reason": "tertiary text, glyph and underline -> text-accent: brighter accent text on the dark canvas"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[large]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[large]",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[small]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[small]",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "theme-switcher",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "theme-switcher",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "base": "5px",
+        "head": "4px",
+        "reason": "badge corner -> radius-small: 5px had no step on the radius scale"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "base": "5px",
+        "head": "4px",
+        "reason": "badge corner -> radius-small: 5px had no step on the radius scale"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "base": "5px",
+        "head": "4px",
+        "reason": "badge corner -> radius-small: 5px had no step on the radius scale"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "badge fill -> background-inverse: the extreme neutral instead of pure black or white"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "badge fill -> background-inverse: the extreme neutral instead of pure black or white"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(240, 242, 240)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "disabled border -> border-subtle"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(240, 242, 240)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "disabled border -> border-subtle"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(240, 242, 240)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "disabled border -> border-subtle"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(240, 242, 240)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "disabled border -> border-subtle"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(240, 242, 240)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "disabled border -> border-subtle"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "disabled fill -> background-disabled"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "disabled fill -> background-disabled"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "disabled fill -> background-disabled"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "disabled fill -> background-disabled"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "disabled fill -> background-disabled"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "disabled fill -> background-disabled"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.79 0.021 270)",
+        "reason": "disabled tertiary glyph -> text-disabled like its text (design read point 5, a repair)"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(62, 99, 221)",
+        "head": "3px none oklch(0.79 0.021 270)",
+        "reason": "disabled tertiary glyph -> text-disabled like its text (design read point 5, a repair)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(182, 189, 180)",
+        "head": "oklch(0.79 0.021 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(182, 189, 180)",
+        "head": "3px none oklch(0.79 0.021 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(182, 189, 180)",
+        "head": "oklch(0.79 0.021 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(182, 189, 180)",
+        "head": "3px none oklch(0.79 0.021 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(182, 189, 180)",
+        "head": "oklch(0.79 0.021 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(182, 189, 180)",
+        "head": "3px none oklch(0.79 0.021 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(182, 189, 180)",
+        "head": "oklch(0.79 0.021 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(182, 189, 180)",
+        "head": "3px none oklch(0.79 0.021 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(182, 189, 180)",
+        "head": "oklch(0.79 0.021 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(182, 189, 180)",
+        "head": "3px none oklch(0.79 0.021 270)",
+        "reason": "disabled text and glyph -> text-disabled"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(214, 225, 255)",
+        "head": "oklch(0.875 0.061 267)",
+        "reason": "neutral pressed fill -> background-selected, one step deeper into the accent tint"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(214, 225, 255)",
+        "head": "oklch(0.875 0.061 267)",
+        "reason": "neutral pressed fill -> background-selected, one step deeper into the accent tint"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(214, 225, 255)",
+        "head": "oklch(0.875 0.061 267)",
+        "reason": "neutral pressed fill -> background-selected, one step deeper into the accent tint"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(214, 225, 255)",
+        "head": "oklch(0.875 0.061 267)",
+        "reason": "neutral pressed fill -> background-selected, one step deeper into the accent tint"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(62, 99, 221)",
+        "head": "3px none oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(62, 99, 221)",
+        "head": "3px none oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "notation only: accent-600 serializes as oklch(), the same sRGB colour"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.61 0.04 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.61 0.04 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "button[large]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.61 0.04 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.61 0.04 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "button[small]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.61 0.04 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.61 0.04 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.61 0.04 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.61 0.04 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210)",
+        "head": "oklch(0.61 0.04 270)",
+        "reason": "outlined border -> border-strong, a 3:1 edge (design read point 1; the dense-page frame pair is its gate)"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(37, 57, 116)",
+        "head": "oklch(0.39 0.14 267)",
+        "reason": "primary active and pressed fill -> background-accent-active, two grades from the accent"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(67, 93, 177)",
+        "head": "oklch(0.47 0.17 267)",
+        "reason": "primary hover fill -> background-accent-hover, one grade from the accent"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(14, 15, 13)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(14, 15, 13)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[large]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[large]",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(14, 15, 13)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(14, 15, 13)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[small]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "button[small]",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(14, 15, 13)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "theme-switcher",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "theme-switcher",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(14, 15, 13)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "text and glyph -> text-default: the cool neutral replaces the green-tinted one (ADR 0044)"
+    }
+]
