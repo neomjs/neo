@@ -302,7 +302,7 @@ class CommandPalette extends Dialog {
         if (!me.parentComponent || me.parentComponent === oldValue) {
             me.parentComponent = value
         }
-        if (value.windowId != null && (me.windowId == null || me.#windowDerivedFromOwner || me.windowId === oldValue?.windowId)) {
+        if (value.windowId != null && (me.windowId == null || me.#windowDerivedFromOwner)) {
             me.#windowDerivedFromOwner = true;
             me.#syncOwnerWindowId(value.windowId)
         }
@@ -337,9 +337,9 @@ class CommandPalette extends Dialog {
                 }
             });
 
-            observe('windowId', (newWindowId, prevWindowId) => {
+            observe('windowId', newWindowId => {
                 if (me.isDestroyed || me.owner !== value || newWindowId == null) return;
-                if (me.windowId == null || me.#windowDerivedFromOwner || me.windowId === prevWindowId) {
+                if (me.windowId == null || me.#windowDerivedFromOwner) {
                     me.#windowDerivedFromOwner = true;
                     me.#syncOwnerWindowId(newWindowId)
                 }
@@ -376,18 +376,19 @@ class CommandPalette extends Dialog {
     /** @protected */
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
-        const me = this;
-
-        if (!me.#syncingOwnerWindow && oldValue !== undefined && me.owner && value !== me.owner.windowId) {
-            me.#windowDerivedFromOwner = false
-        }
         if (value == null) return;
 
-        for (const cmp of [me.headerToolbar, ...(me.headers || []), me.queryField, me.actionList, me.emptyState, me.statusComponent, me.legendComponent, me.errorNotice]) {
+        for (const cmp of [this.headerToolbar, ...(this.headers || []), this.queryField, this.actionList, this.emptyState, this.statusComponent, this.legendComponent, this.errorNotice]) {
             if (cmp instanceof Neo.core.Base && !cmp.isDestroyed && cmp.windowId !== value) {
                 cmp.windowId = value
             }
         }
+    }
+
+    /** @protected */
+    beforeSetWindowId(value, oldValue) {
+        if (!this.#syncingOwnerWindow && oldValue !== undefined) this.#windowDerivedFromOwner = value == null;
+        return value
     }
 
     /** @protected */

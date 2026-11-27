@@ -511,7 +511,8 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
     });
 
     test('observes owner lifecycle without mutating owner methods, supports out-of-order multi-palette teardown, and keeps windowId coherent on owner reassignment', async () => {
-        const providerWindows = [],
+        const explicitWindows = [],
+              providerWindows = [],
               owner1          = Neo.create(Container, {
                   appName,
                   autoInitVnode: false,
@@ -542,9 +543,17 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
                   },
                   enableShortcuts: true,
                   owner          : owner1
+              }),
+              paletteExplicit = Neo.create(CommandPalette, {
+                  commandProvider: ({windowId}) => {
+                      explicitWindows.push(windowId);
+                      return [{id: 'explicit', label: 'Action Explicit', handler: () => {}}]
+                  },
+                  owner   : owner1,
+                  windowId: 1
               });
 
-        instances.push(paletteA, paletteB, owner1, owner2);
+        instances.push(paletteA, paletteB, paletteExplicit, owner1, owner2);
 
         expect(owner1.destroy, 'palette registration never wraps owner.destroy').toBe(priorDestroy1);
         expect(chordMap.size).toBe(2);
@@ -574,12 +583,25 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
         expect(providerWindows.at(-1)).toBe(2);
         expect(navigatorCalls.navigateTo.at(-1)?.windowId).toBe(2);
 
-        // Destroying owner1 now has zero effect on reassigned paletteB; destroying owner2 tears down paletteB
+        // Explicit windowId: 1 on owner1 stays pinned to window 1 when owner is reassigned to owner2 (window 2)
+        paletteExplicit.owner = owner2;
+        expect(paletteExplicit.windowId).toBe(1);
+        expect(paletteExplicit.headerToolbar.windowId).toBe(1);
+
+        paletteExplicit.show(false);
+        await expect.poll(() => paletteExplicit.mounted).toBe(true);
+        expect(paletteExplicit.windowId).toBe(1);
+        expect(paletteExplicit.actionList.windowId).toBe(1);
+        expect(explicitWindows.at(-1)).toBe(1);
+
+        // Destroying owner1 now has zero effect on reassigned palettes; destroying owner2 tears down both
         owner1.destroy();
         expect(paletteB.isDestroyed).toBeFalsy();
+        expect(paletteExplicit.isDestroyed).toBeFalsy();
 
         owner2.destroy();
         expect(paletteB.isDestroyed).toBe(true);
+        expect(paletteExplicit.isDestroyed).toBe(true);
         expect(chordMap.size).toBe(0)
     });
 
