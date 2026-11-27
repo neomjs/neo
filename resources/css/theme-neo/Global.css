@@ -142,7 +142,7 @@
     --neo-color-background-accent-active    : var(--neo-palette-accent-800);
     --neo-color-background-accent-subtle    : light-dark(var(--neo-palette-accent-100),  var(--neo-palette-accent-900));
     /* background: the selected row, the pressed button. Default text stays on it */
-    --neo-color-background-selected         : light-dark(var(--neo-palette-accent-200),  var(--neo-palette-accent-900));
+    --neo-color-background-selected         : light-dark(var(--neo-palette-accent-200),  var(--neo-palette-accent-800));
     /* background: tinted regions for identity marks and the four statuses */
     --neo-color-background-brand-subtle     : light-dark(var(--neo-palette-brand-100),   var(--neo-palette-brand-900));
     --neo-color-background-danger-subtle    : light-dark(var(--neo-palette-danger-100),  var(--neo-palette-danger-900));
