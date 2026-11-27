@@ -6,7 +6,8 @@
  * scheme the theme declares, and every palette declares the same `--neo-` names as every other.
  *
  * A palette is a theme class whose `Global.css` declares a `--neo-palette-*` name. A theme without one is
- * not written against the roles yet and is skipped. The lightness numbers are each theme's own, so a palette
+ * not written against the roles yet and is skipped. A name with two different values for one class fails,
+ * in one sheet or across the folders that serve the class: this check models no cascade. The lightness numbers are each theme's own, so a palette
  * is compared with itself and never with a table. Contrast is measured on the resolved colours and never
  * read off the grade distance: OKLCH lightness is not luminance.
  */
@@ -187,13 +188,32 @@ function fraction(text) {
 }
 
 /**
- * @summary Parses a resolved CSS colour. Returns null for a syntax this check cannot measure, so a caller
- * fails closed instead of passing a pair it did not read.
+ * @summary Holds a channel to the range a browser clamps it to.
+ * @param {Number} value
+ * @param {Number} [max=1]
+ * @returns {Number}
+ */
+function clamp(value, max=1) {
+    return Math.min(max, Math.max(0, value))
+}
+
+const
+    NUMBER = '[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)',
+    OKLCH  = new RegExp(`^oklch\\(\\s*(${NUMBER}%?)\\s+(${NUMBER})\\s+(${NUMBER})(?:deg)?\\s*(?:\\/\\s*(${NUMBER}%?))?\\s*\\)$`),
+    RGB    = new RegExp(`^rgba?\\(\\s*(${NUMBER})[\\s,]+(${NUMBER})[\\s,]+(${NUMBER})\\s*(?:[\\/,]\\s*(${NUMBER}%?))?\\s*\\)$`);
+
+/**
+ * @summary Parses a resolved CSS colour as a browser paints it: a channel out of range is clamped. Returns
+ * null for a syntax this check cannot measure or a number it cannot read, so a caller fails closed instead
+ * of passing a pair it did not read.
  * @param {String} text
  * @returns {{rgba: Number[], lightness: Number, literal: Boolean}|null} `literal` marks a stated OKLCH lightness
  */
 export function parseColor(text) {
-    const value = text.trim().toLowerCase();
+    const
+        value   = text.trim().toLowerCase(),
+        alphaOf = part => part === undefined ? 1 : clamp(fraction(part)),
+        finite  = color => [...color.rgba, color.lightness].every(Number.isFinite) ? color : null;
 
     let match, rgb;
 
@@ -201,12 +221,12 @@ export function parseColor(text) {
         return {rgba: [0, 0, 0, 0], lightness: 0, literal: false}
     }
 
-    if ((match = value.match(/^oklch\(\s*([\d.]+%?)\s+([\d.]+)\s+([\d.]+)(?:deg)?\s*(?:\/\s*([\d.]+%?))?\s*\)$/))) {
-        const lightness = fraction(match[1]);
+    if ((match = value.match(OKLCH))) {
+        const lightness = clamp(fraction(match[1]));
 
-        rgb = oklchToRgb([lightness, parseFloat(match[2]), parseFloat(match[3])]);
+        rgb = oklchToRgb([lightness, Math.max(0, parseFloat(match[2])), parseFloat(match[3])]);
 
-        return {rgba: [...rgb, match[4] ? fraction(match[4]) : 1], lightness, literal: true}
+        return finite({rgba: [...rgb, alphaOf(match[4])], lightness, literal: true})
     }
 
     if ((match = value.match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/))) {
@@ -219,10 +239,10 @@ export function parseColor(text) {
         return {rgba: [...rgb, bytes[3] ?? 1], lightness: oklchLightness(rgb), literal: false}
     }
 
-    if ((match = value.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)\s*(?:[\/,]\s*([\d.]+%?))?\s*\)$/))) {
-        rgb = [match[1], match[2], match[3]].map(channel => parseFloat(channel) / 255);
+    if ((match = value.match(RGB))) {
+        rgb = [match[1], match[2], match[3]].map(channel => clamp(parseFloat(channel), 255) / 255);
 
-        return {rgba: [...rgb, match[4] ? fraction(match[4]) : 1], lightness: oklchLightness(rgb), literal: false}
+        return finite({rgba: [...rgb, alphaOf(match[4])], lightness: oklchLightness(rgb), literal: false})
     }
 
     return null
@@ -292,17 +312,19 @@ export function resolveValue(value, declarations, scheme) {
 
 /**
  * @summary Reads a comment-free `Global.css` into one declaration map per theme class. A rule's
- * declarations belong to every theme class its selector list names, and a later rule wins.
+ * declarations belong to every theme class its selector list names, and a later rule wins. That is no
+ * cascade: `onDeclaration` hears every declaration, so a caller can refuse a name that has two values.
  * @param {String} css
+ * @param {Function} [onDeclaration] Called with `(themeClass, name, value)` for each declaration read
  * @returns {Map<String, Map<String,String>>}
  */
-export function readThemeDeclarations(css) {
+export function readThemeDeclarations(css, onDeclaration) {
     const themes = new Map();
 
     for (const [, header, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-        const classes = [...header.matchAll(/\.(neo-theme-[a-zA-Z0-9_-]+)/g)]
+        const classes = new Set([...header.matchAll(/\.(neo-theme-[a-zA-Z0-9_-]+)/g)]
             .map(match => match[1])
-            .filter(name => name !== 'neo-theme-scope');
+            .filter(name => name !== 'neo-theme-scope'));
 
         for (const themeClass of classes) {
             let declarations = themes.get(themeClass);
@@ -312,7 +334,8 @@ export function readThemeDeclarations(css) {
             }
 
             for (const [, name, value] of body.matchAll(/(--[a-zA-Z0-9_-]+)\s*:\s*([^;]+)/g)) {
-                declarations.set(name, value.trim())
+                declarations.set(name, value.trim());
+                onDeclaration?.(themeClass, name, value.trim())
             }
         }
     }
@@ -448,7 +471,8 @@ function checkPalette({declarations, failures, relPath, themeClass}) {
             region = back.rgba[3] < 1 ? composite(back.rgba, canvas.rgba) : back.rgba.slice(0, 3),
             ratio  = contrastRatio(composite(front.rgba, region), region);
 
-        if (ratio < floor) {
+        // Written so that a ratio which is no number fails as well.
+        if (!(ratio >= floor)) {
             failures.add(`${label} is ${ratio.toFixed(2)}:1; the floor is ${floor}:1`)
         }
     }
@@ -484,6 +508,29 @@ function checkNames({declared, failures}) {
 }
 
 /**
+ * @summary Refuses a palette or role name that has two different values for one theme class, in one sheet or
+ * across the folders that serve the class. This check reads one declaration per name and models no
+ * specificity, layer or folder order, so it cannot tell which value the browser paints.
+ * @param {Object} data
+ * @param {Map<String,String>} data.declarations The palette sheet's declarations for the class
+ * @param {Set<String>} data.failures
+ * @param {String} data.themeClass
+ * @param {Map<String, Map<String,String>>} data.values Per name, each value with the sheet that declares it
+ */
+function checkCascade({declarations, failures, themeClass, values}) {
+    for (const name of declarations.keys()) {
+        const seen = values.get(name);
+
+        if (name.startsWith('--neo-') && seen.size > 1) {
+            failures.add(
+                `[cascade] ${name} has ${seen.size} values for .${themeClass} (${[...new Set(seen.values())].join(', ')}); ` +
+                `this check reads one declaration per name and cannot tell which one the browser paints`
+            )
+        }
+    }
+}
+
+/**
  * @summary Walks every theme folder's `Global.css`, checks each palette it declares, and compares their names.
  * @param {Object} [options={}]
  * @param {String} [options.root=repoRoot]
@@ -501,22 +548,47 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         return {failures: [`[surface] missing resources/css under ${root}`], names: 0, palettes}
     }
 
-    const folders = [...new Set(Object.values(collectThemeClassMap([cssRoot])).flat())].sort();
+    const
+        folders = [...new Set(Object.values(collectThemeClassMap([cssRoot])).flat())].sort(),
+        themes  = new Map(),
+        theme   = themeClass => themes.get(themeClass) ?? themes.set(themeClass, {sheets: [], values: new Map()}).get(themeClass);
 
+    // Every sheet first, then every class: more than one folder can serve a class.
     for (const folder of folders) {
         const
             file    = path.join(cssRoot, folder, 'Global.css'),
-            relPath = path.relative(root, file).replaceAll('\\', '/');
+            relPath = path.relative(root, file).replaceAll('\\', '/'),
+            sheets  = readThemeDeclarations(readCss(file), (themeClass, name, value) => {
+                const {values} = theme(themeClass);
 
-        for (const [themeClass, declarations] of readThemeDeclarations(readCss(file))) {
-            if (![...declarations.keys()].some(name => name.startsWith('--neo-palette-'))) {
-                continue
-            }
+                values.has(name) || values.set(name, new Map());
+                values.get(name).has(value) || values.get(name).set(value, relPath)
+            });
 
-            palettes.push(`${themeClass} (${declarations.get(SCHEME) ?? 'no scheme'})`);
-            declared.push({names: [...declarations.keys()].filter(name => name.startsWith('--neo-')), relPath, themeClass});
-            checkPalette({declarations, failures, relPath, themeClass})
+        for (const [themeClass, declarations] of sheets) {
+            theme(themeClass).sheets.push({declarations, relPath})
         }
+    }
+
+    for (const [themeClass, {sheets, values}] of themes) {
+        const [palette, second] = sheets.filter(({declarations}) =>
+            [...declarations.keys()].some(name => name.startsWith('--neo-palette-')));
+
+        if (!palette) {
+            continue
+        }
+
+        const {declarations, relPath} = palette;
+
+        if (second) {
+            failures.add(`[cascade] .${themeClass} has a palette in ${relPath} and in ${second.relPath}; a theme class has one`)
+        }
+
+        checkCascade({declarations, failures, themeClass, values});
+
+        palettes.push(`${themeClass} (${declarations.get(SCHEME) ?? 'no scheme'})`);
+        declared.push({names: [...declarations.keys()].filter(name => name.startsWith('--neo-')), relPath, themeClass});
+        checkPalette({declarations, failures, relPath, themeClass})
     }
 
     const names = checkNames({declared, failures});

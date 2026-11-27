@@ -158,6 +158,49 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         expect(failures).toEqual([])
     });
 
+    test('a role with a second, different value for one class fails, wherever the other declaration sits', () => {
+        const override = '{ --neo-color-text-default: var(--neo-color-background-canvas); }';
+
+        // A more specific rule wins in the browser from any place in the sheet; here it stands first.
+        expect(plant(css => `:root .neo-theme-neo-light ${override}\n${css}`).failures).toEqual([expect.stringMatching(
+            /^\[cascade\] --neo-color-text-default has 2 values for \.neo-theme-neo-light \(resources\/css\/theme-neo\/Global\.css\)/
+        )]);
+
+        // The same override in a second folder that serves the class.
+        expect(inspect({
+            'theme-neo/Global.css'      : source,
+            'theme-neo-light/Global.css': `:where(.neo-theme-neo-light) ${override}`
+        }).failures).toEqual([expect.stringMatching(
+            /^\[cascade\] --neo-color-text-default has 2 values for \.neo-theme-neo-light \(resources\/css\/theme-neo\/Global\.css, resources\/css\/theme-neo-light\/Global\.css\)/
+        )])
+    });
+
+    test('CONTROL: a second folder that repeats a name with the same value passes', () => {
+        const {failures, palettes} = inspect({
+            'theme-neo/Global.css'      : source,
+            'theme-neo-light/Global.css': ':where(:root:has(> .neo-theme-neo-light), .neo-theme-neo-light) { --neo-color-scheme: light; --button-color: red; }'
+        });
+
+        expect(failures).toEqual([]);
+        expect(palettes).toHaveLength(2)
+    });
+
+    test('a colour the browser clamps is measured as it paints, and a malformed number fails closed', () => {
+        const
+            weak    = value => plant(css => setRole(css, '--neo-color-text-strong', value)).failures,
+            asWhite = weak('#fff');
+
+        expect(asWhite.length).toBeGreaterThan(0);
+        expect(weak('rgb(512 512 512)')).toEqual(asWhite);
+
+        expect(weak('rgb(0 0 .)').length).toBeGreaterThan(0);
+        expect(weak('rgb(0 0 .)').every(failure => failure.includes('cannot measure'))).toBe(true);
+
+        expect(parseColor('rgb(512 512 512)').rgba).toEqual(parseColor('#fff').rgba);
+        expect(parseColor('rgb(0 0 .)')).toBeNull();
+        expect(parseColor('oklch(1.4 0 0)').lightness).toBe(1)
+    });
+
     test('CONTROL: a second theme with the same names passes, and the live file declares 194', () => {
         const {failures, names, palettes} = plantSecond();
 
