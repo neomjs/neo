@@ -101,11 +101,25 @@ function createFakeElement(tagName) {
             return attrMap.get(name) ?? null
         },
 
+        hasAttribute(name) {
+            return attrMap.has(name)
+        },
+
         removeAttribute(name) {
             attrMap.delete(name);
             if (name === 'class') {
                 classSet.clear()
             }
+        },
+
+        toggleAttribute(name, force) {
+            const enabled = force === undefined ? !attrMap.has(name) : Boolean(force);
+            if (enabled) {
+                el.setAttribute(name, '')
+            } else {
+                el.removeAttribute(name)
+            }
+            return enabled
         },
 
         appendChild(child) {
@@ -269,12 +283,11 @@ test.describe('Neo.main.DeltaUpdates — changeNodeName & updateNode rebind', ()
         expect(oldEl.innerHTML).toBe('')
     });
 
-    test('updateNode and changeNodeName map boolean attribute readonly onto DOM IDL readOnly while keeping disabled and checked intact', () => {
+    test('updateNode toggles readonly via HTML attribute presence and changeNodeName preserves it via attribute copy while keeping disabled and checked live-state writes intact', () => {
         const parent = createFakeElement('div'),
               input  = createFakeElement('input');
 
         input.setAttribute('id', 'readonly-input');
-        input.readOnly = false;
         input.disabled = false;
         input.checked  = false;
         parent.appendChild(input);
@@ -289,8 +302,9 @@ test.describe('Neo.main.DeltaUpdates — changeNodeName & updateNode rebind', ()
             }
         });
 
-        expect(input.readOnly).toBe(true);
+        expect(input.hasAttribute('readonly')).toBe(true);
         expect(Object.hasOwn(input, 'readonly')).toBe(false);
+        expect(Object.hasOwn(input, 'readOnly')).toBe(false);
         expect(input.disabled).toBe(true);
         expect(input.checked).toBe(true);
 
@@ -298,8 +312,9 @@ test.describe('Neo.main.DeltaUpdates — changeNodeName & updateNode rebind', ()
         nodesById.set('readonly-input', textarea);
 
         expect(textarea.tagName).toBe('TEXTAREA');
-        expect(textarea.readOnly).toBe(true);
+        expect(textarea.hasAttribute('readonly')).toBe(true);
         expect(Object.hasOwn(textarea, 'readonly')).toBe(false);
+        expect(Object.hasOwn(textarea, 'readOnly')).toBe(false);
         expect(textarea.disabled).toBe(true);
 
         DeltaUpdates.updateNode({
@@ -310,8 +325,9 @@ test.describe('Neo.main.DeltaUpdates — changeNodeName & updateNode rebind', ()
             }
         });
 
-        expect(textarea.readOnly).toBe(false);
+        expect(textarea.hasAttribute('readonly')).toBe(false);
         expect(Object.hasOwn(textarea, 'readonly')).toBe(false);
+        expect(Object.hasOwn(textarea, 'readOnly')).toBe(false);
         expect(textarea.disabled).toBe(false)
     });
 });

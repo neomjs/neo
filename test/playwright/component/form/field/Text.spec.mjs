@@ -724,4 +724,127 @@ test.describe('Neo.form.field.Text', () => {
             value   : Neo.getComponent(id).value
         }), fieldId)).toEqual({readOnly: false, value: 'Neo Workspace v2'})
     });
+
+    test('DeltaUpdates toggles readonly via attribute presence without throwing on getter-only custom elements or creating expandos on non-form retags', async ({page}) => {
+        const result = await page.evaluate(() => {
+            if (!customElements.get('neo-readonly-getter-probe')) {
+                class ReadOnlyGetterProbe extends HTMLElement {
+                    get readOnly() {
+                        return true
+                    }
+                }
+                customElements.define('neo-readonly-getter-probe', ReadOnlyGetterProbe)
+            }
+
+            const host = document.createElement('div');
+            document.body.appendChild(host);
+
+            try {
+                // 1. Live readonly delta on a getter-only custom element applies cleanly and reaches subsequent attributes
+                const custom = document.createElement('neo-readonly-getter-probe');
+                custom.id = 'readonly-getter-delta-probe';
+                host.appendChild(custom);
+
+                Neo.main.DeltaUpdates.updateNode({
+                    id        : 'readonly-getter-delta-probe',
+                    attributes: {
+                        readonly    : 'true',
+                        'data-after': 'applied'
+                    }
+                });
+
+                const afterSet = {
+                    afterAttr: custom.getAttribute('data-after'),
+                    hasAttr  : custom.hasAttribute('readonly'),
+                    ownLower : Object.hasOwn(custom, 'readonly'),
+                    ownProp  : Object.hasOwn(custom, 'readOnly'),
+                    readOnly : custom.readOnly
+                };
+
+                Neo.main.DeltaUpdates.updateNode({
+                    id        : 'readonly-getter-delta-probe',
+                    attributes: {
+                        readonly    : null,
+                        'data-after': 'cleared'
+                    }
+                });
+
+                const afterClear = {
+                    afterAttr: custom.getAttribute('data-after'),
+                    hasAttr  : custom.hasAttribute('readonly')
+                };
+
+                // 2. Retagging an editable <input> to the getter-only custom element succeeds without throwing
+                const editableInput = document.createElement('input');
+                editableInput.id = 'readonly-retag-custom-probe';
+                host.appendChild(editableInput);
+
+                const retaggedCustom = Neo.main.DeltaUpdates.changeNodeName(editableInput, 'neo-readonly-getter-probe');
+
+                // 3. Retagging a readonly <input> to <textarea> preserves native reflection via attribute copy;
+                //    retagging to <span> creates no own readOnly property
+                const roInput = document.createElement('input');
+                roInput.id = 'readonly-retag-native-probe';
+                roInput.toggleAttribute('readonly', true);
+                host.appendChild(roInput);
+
+                const retaggedTextarea = Neo.main.DeltaUpdates.changeNodeName(roInput, 'textarea');
+
+                const plainInput = document.createElement('input');
+                plainInput.id = 'readonly-retag-span-probe';
+                host.appendChild(plainInput);
+
+                const retaggedSpan = Neo.main.DeltaUpdates.changeNodeName(plainInput, 'span');
+
+                return {
+                    afterClear,
+                    afterSet,
+                    retaggedCustom: {
+                        inDom  : retaggedCustom.parentNode === host,
+                        tagName: retaggedCustom.tagName
+                    },
+                    retaggedSpan: {
+                        ownReadOnly: Object.hasOwn(retaggedSpan, 'readOnly'),
+                        tagName    : retaggedSpan.tagName
+                    },
+                    retaggedTextarea: {
+                        hasAttr : retaggedTextarea.hasAttribute('readonly'),
+                        ownProp : Object.hasOwn(retaggedTextarea, 'readOnly'),
+                        readOnly: retaggedTextarea.readOnly,
+                        tagName : retaggedTextarea.tagName
+                    }
+                }
+            } finally {
+                host.remove()
+            }
+        });
+
+        expect(result).toEqual({
+            afterSet: {
+                afterAttr: 'applied',
+                hasAttr  : true,
+                ownLower : false,
+                ownProp  : false,
+                readOnly : true
+            },
+            afterClear: {
+                afterAttr: 'cleared',
+                hasAttr  : false
+            },
+            retaggedCustom: {
+                inDom  : true,
+                tagName: 'NEO-READONLY-GETTER-PROBE'
+            },
+            retaggedTextarea: {
+                hasAttr : true,
+                ownProp : false,
+                readOnly: true,
+                tagName : 'TEXTAREA'
+            },
+            retaggedSpan: {
+                ownReadOnly: false,
+                tagName    : 'SPAN'
+            }
+        })
+    });
 });

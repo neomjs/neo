@@ -181,10 +181,8 @@ class DeltaUpdates extends Base {
         }
 
         for (const key of voidAttributes) {
-            const domKey = key === 'readonly' ? 'readOnly' : key;
-
-            if (node[domKey] !== undefined && node[domKey] !== clone[domKey]) {
-                clone[domKey] = node[domKey]
+            if (node[key] !== undefined && node[key] !== clone[key]) {
+                clone[key] = node[key]
             }
         }
 
@@ -937,7 +935,11 @@ class DeltaUpdates extends Base {
                             val = value[key];
 
                             if (voidAttributes.has(key)) {
-                                node[key === 'readonly' ? 'readOnly' : key] = val === 'true' // vnode attribute values get converted into strings
+                                if (key === 'readonly') {
+                                    node.toggleAttribute(key, val === 'true' || val === true)
+                                } else {
+                                    node[key] = val === 'true' // vnode attribute values get converted into strings
+                                }
                             } else if (val === null || val === '') {
                                 if (key === 'value') {
                                     node[key] = '' // input fields => pseudo attribute can not be removed
