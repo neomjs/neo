@@ -35,7 +35,7 @@ function read(page, id, key) {
  */
 test.describe('A mount hook that throws (#19916)', () => {
     test('resolves its render and mounts its siblings, so no later update inserts a node twice', async ({page, workerErrors}) => {
-        const logged = /^App Worker: syncVnodeTree: a mount hook failed mount-hook-view /;
+        const logged = /^App Worker: syncVnodeTree: a mount hook failed mount-hook-thrower /;
 
         workerErrors.expect(logged);
 

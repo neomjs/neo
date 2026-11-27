@@ -195,7 +195,7 @@ class Container extends Component {
     }
 
     /**
-     * Triggered after the mounted config got changed
+     * @summary Cascades unmounts immediately and mounts only items whose vnode exists, or when test-mode VDOM updates are disabled.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -204,8 +204,10 @@ class Container extends Component {
         if (oldValue !== undefined) {
             super.afterSetMounted(value, oldValue);
 
+            const vdomDisabledInTest = Neo.config.unitTestMode && !Neo.config.allowVdomUpdatesInTests;
+
             for (let i = 0, {items} = this, {length} = items; i < length; i++) {
-                if (!items[i].vdom.removeDom) {
+                if (!items[i].vdom.removeDom && (!value || vdomDisabledInTest || Boolean(items[i].vnode))) {
                     items[i].mounted = value
                 }
             }
