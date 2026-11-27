@@ -132,7 +132,7 @@
         "lint-staged"                  : "^17.6.0",
         "marked"                       : "^18.1.0",
         "mermaid"                      : "^12.1.0",
-        "monaco-editor"                : "0.57.0",
+        "monaco-editor"                : "0.58.0",
         "neo-agent-skills"             : "2.10.0",
         "parse5"                       : "^8.0.1",
         "postcss"                      : "^8.5.29",
@@ -147,7 +147,6 @@
         "ws"                           : "^8.22.0"
     },
     "overrides": {
-        "dompurify": "^3.4.17",
         "gray-matter": {
             "js-yaml": "^3.15.2"
         },
