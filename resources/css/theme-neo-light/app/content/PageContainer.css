@@ -1,4 +1,5 @@
 :where(.neo-theme-neo-light) {
+    --app-content-toolbar-spacing-horizontal     : var(--cmp-button-spacinghorizontal);
     --neo-app-content-page-scrollbar-color-scheme: light;
     --neo-app-content-toolbar-btn-bg             : #fff;
     --neo-app-content-toolbar-text-color         : #000;

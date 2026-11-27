@@ -1,4 +1,5 @@
 :root .neo-theme-light { /* .neo-list-container */
+    --list-border-color                   : #ddd;
     --list-scrollbar-color-scheme         : light;
     --list-container-background-color     : #fff;
     --list-container-border               : 0;
@@ -6,6 +7,7 @@
     --list-item-background-color          : #fff;
     --list-item-background-color-hover    : rgb(91.2429971989%, 91.3865546218%, 92.6785714286%);
     --list-item-background-color-selected : rgb(80.8010521282%, 90.8340506934%, 98.8852223816%);
+    --list-item-border-color-active       : #1c60a0;
     --list-item-color-selected            : #2b2b2b;
     --list-item-focus-outline             : 1px solid darkorange;
     --list-item-focus-outline-offset      : -1px;

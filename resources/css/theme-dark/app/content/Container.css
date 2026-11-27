@@ -1,0 +1,5 @@
+:root .neo-theme-dark { /* .neo-app-content-container */
+    --neo-app-content-sidenav-bg    : #323232;
+    --neo-app-content-sidenav-btn-bg: #3c3f41;
+    --neo-app-content-sidenav-shadow: 0 5px 10px rgba(0, 0, 0, 0.5);
+}

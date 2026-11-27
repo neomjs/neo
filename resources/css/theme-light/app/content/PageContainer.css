@@ -1,0 +1,6 @@
+:root .neo-theme-light { /* .neo-app-content-page-container */
+    --app-content-toolbar-spacing-horizontal     : 12px;
+    --neo-app-content-page-scrollbar-color-scheme: light;
+    --neo-app-content-toolbar-btn-bg             : #216ab0;
+    --neo-app-content-toolbar-text-color         : #fff;
+}

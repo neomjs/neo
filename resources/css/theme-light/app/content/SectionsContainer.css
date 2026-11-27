@@ -1,0 +1,7 @@
+:root .neo-theme-light { /* .neo-app-content-sections-container */
+    --neo-app-content-sections-bg             : #fff;
+    --neo-app-content-sections-btn-bg         : #fff;
+    --neo-app-content-sections-btn-disabled-bg: #e0e0e0;
+    --neo-app-content-sections-glyph-color    : #1c60a0;
+    --neo-app-content-sections-shadow         : 0 5px 10px rgba(0, 0, 0, 0.2);
+}

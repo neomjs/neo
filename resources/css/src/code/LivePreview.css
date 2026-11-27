@@ -6,27 +6,27 @@
     transition-timing-function: ease-out;
 
     .live-preview-container {
-        border-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
+        border-radius: calc(var(--live-preview-tab-strip-height) + var(--live-preview-button-border-radius));
         box-shadow   : var(--live-preview-container-box-shadow);
         overflow     : hidden;
 
         .neo-tab-header-toolbar {
-            background-color       : var(--sem-color-surface-neutral-default);
+            background-color       : var(--live-preview-header-background-color);
             border                 : 1px solid var(--live-preview-border-color);
-            border-top-left-radius : calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
-            border-top-right-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
-            padding                : var(--cmp-tab-strip-height);
+            border-top-left-radius : calc(var(--live-preview-tab-strip-height) + var(--live-preview-button-border-radius));
+            border-top-right-radius: calc(var(--live-preview-tab-strip-height) + var(--live-preview-button-border-radius));
+            padding                : var(--live-preview-tab-strip-height);
         }
 
         .neo-tab-strip {
-            margin-top: calc(var(--cmp-tab-strip-height) * (-1) - 1px);
+            margin-top: calc(var(--live-preview-tab-strip-height) * (-1) - 1px);
         }
 
         .neo-tab-body-container {
             background-color          : transparent;
             border                    : 1px solid var(--live-preview-border-color);
-            border-bottom-left-radius : calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
-            border-bottom-right-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
+            border-bottom-left-radius : calc(var(--live-preview-tab-strip-height) + var(--live-preview-button-border-radius));
+            border-bottom-right-radius: calc(var(--live-preview-tab-strip-height) + var(--live-preview-button-border-radius));
             border-top                : 0;
         }
     }
