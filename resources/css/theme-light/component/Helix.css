@@ -1,0 +1,8 @@
+:root .neo-theme-light { /* .neo-helix */
+    --helix-background-color        : #000;
+    --helix-border-color            : #3c3f41;
+    --helix-contact-item-box-shadow : 0 0 12px rgba(231, 254, 237, 0.6);
+    --helix-contact-name-text-shadow: 0 0 10px #61dfe5;
+    --helix-item-background-color   : rgba(73, 160, 154, 0.35);
+    --helix-item-box-shadow-selected: 0 0 35px #61dfe5;
+}

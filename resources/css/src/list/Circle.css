@@ -9,7 +9,7 @@
             top: 50%;
 
             .neo-circle-back {
-                background-color: rgba(62, 123, 134, 0.302);
+                background-color: var(--circle-list-back-background-color);
             }
         }
     }

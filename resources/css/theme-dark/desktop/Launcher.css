@@ -2,7 +2,10 @@
     --desktop-launcher-color                       : #e0e0e0;
     --desktop-launcher-focus-color                 : var(--button-badge-background-color, #64b5f6);
     --desktop-launcher-header-color                : var(--neo-color, #bbb);
+    --desktop-launcher-icon-color                  : #fff;
+    --desktop-launcher-icon-highlight-color        : rgba(255, 255, 255, .35);
     --desktop-launcher-item-background-color-active: rgba(255, 255, 255, .12);
     --desktop-launcher-item-background-color-hover : rgba(255, 255, 255, .06);
     --desktop-launcher-label-shadow                : 0 1px 2px rgba(0, 0, 0, .6);
+    --desktop-launcher-proxy-item-box-shadow       : 0 18px 40px -12px rgba(0, 0, 0, .55);
 }

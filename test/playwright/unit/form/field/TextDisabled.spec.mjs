@@ -234,5 +234,136 @@ test.describe('Neo.form.field.Text#afterSetDisabled', () => {
         expect(chip.getInputEl().disabled).toBe(true);
         chip.disabled = false;
         expect(chip.getInputEl().disabled).toBeUndefined()
+    });
+
+    test('ignores stale inline centerBorderElWidth timers and getDomRect resolutions after width writes, disable, blur, or destroy', async () => {
+        const flushAsync = async target => {
+            for (let i = 0; i < 6; i++) {
+                await Promise.resolve()
+            }
+            if (target?.isVdomUpdating) {
+                await target.promiseUpdate()
+            }
+        };
+
+        const origProtoTimeout      = TextField.prototype.timeout;
+        let   releaseConstructTimer = null;
+
+        TextField.prototype.timeout = function(delay) {
+            if (delay === 20) {
+                return new Promise(resolve => {
+                    releaseConstructTimer = resolve
+                })
+            }
+            return origProtoTimeout.call(this, delay)
+        };
+
+        let field;
+
+        try {
+            field = Neo.create(TextField, {
+                appName,
+                disabled     : true,
+                labelPosition: 'inline',
+                value        : 'Neo Workspace'
+            });
+            instances.push(field)
+        } finally {
+            TextField.prototype.timeout = origProtoTimeout
+        }
+
+        await field.initVnode();
+        field.mounted = true;
+        await flushAsync(field);
+
+        field.disabled            = false;
+        field.value               = null;
+        field.centerBorderElWidth = 84;
+        await flushAsync(field);
+        field.onFocusEnter({path: []});
+        await flushAsync(field);
+
+        // Simulate the 20ms construct-time labelPosition timer landing mid-test in a loaded CI shard
+        releaseConstructTimer?.();
+        await flushAsync(field);
+
+        expect(field.centerBorderElWidth).toBe(84);
+        expect(field.getCenterBorderEl().width).toBe(84);
+
+        // Runtime labelPosition -> 'inline' timer superseded by an explicit centerBorderElWidth write
+        const origFieldTimeout    = field.timeout.bind(field);
+        let   releaseRuntimeTimer = null;
+        field.value             = 'Restored';
+        field.labelPosition     = 'top';
+        await flushAsync(field);
+
+        field.timeout = delay => delay === 20
+            ? new Promise(resolve => {releaseRuntimeTimer = resolve})
+            : origFieldTimeout(delay);
+
+        field.labelPosition = 'inline';
+        field.timeout       = origFieldTimeout;
+
+        field.centerBorderElWidth       = 92;
+        field.getCenterBorderEl().width = 92;
+        await flushAsync(field);
+
+        releaseRuntimeTimer?.();
+        await flushAsync(field);
+
+        expect(field.centerBorderElWidth).toBe(92);
+        expect(field.getCenterBorderEl().width).toBe(92);
+
+        // Controlled in-flight getDomRect promises superseded by explicit write, disable, blur, and destroy
+        const pendingRects = [];
+        field.getDomRect   = () => new Promise(resolve => {
+            pendingRects.push(resolve)
+        });
+
+        // 1. Explicit centerBorderElWidth write wins over an earlier in-flight getDomRect
+        field.updateCenterBorderElWidth(false);
+        expect(pendingRects).toHaveLength(1);
+        field.centerBorderElWidth       = 84;
+        field.getCenterBorderEl().width = 84;
+        pendingRects.shift()({width: 1000});
+        await flushAsync(field);
+        expect(field.centerBorderElWidth).toBe(84);
+        expect(field.getCenterBorderEl().width).toBe(84);
+
+        // 2. Runtime disable on an empty inline field clears the cut-out and rejects an earlier in-flight getDomRect
+        field.value = null;
+        await flushAsync(field);
+        field.onFocusEnter({path: []});
+        await flushAsync(field);
+        field.updateCenterBorderElWidth(false);
+        expect(pendingRects).toHaveLength(1);
+        field.disabled = true;
+        await flushAsync(field);
+        expect(field.getCenterBorderEl().width).toBeUndefined();
+        pendingRects.shift()({width: 1000});
+        await flushAsync(field);
+        expect(field.getCenterBorderEl().width).toBeUndefined();
+
+        // 3. Focus leave on an empty inline field clears the cut-out and rejects an earlier in-flight getDomRect
+        field.disabled = false;
+        await flushAsync(field);
+        field.onFocusEnter({path: []});
+        await flushAsync(field);
+        field.updateCenterBorderElWidth(false);
+        expect(pendingRects).toHaveLength(1);
+        field.onFocusLeave({oldPath: []});
+        await flushAsync(field);
+        expect(field.getCenterBorderEl().width).toBeUndefined();
+        pendingRects.shift()({width: 1000});
+        await flushAsync(field);
+        expect(field.getCenterBorderEl().width).toBeUndefined();
+
+        // 4. Unmount + destroy while getDomRect is in flight neither mutates nor throws
+        field.updateCenterBorderElWidth(false);
+        expect(pendingRects).toHaveLength(1);
+        field.mounted = false;
+        field.destroy();
+        pendingRects.shift()({width: 1000});
+        await flushAsync(null)
     })
 });

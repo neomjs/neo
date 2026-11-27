@@ -1,6 +1,7 @@
 :where(.neo-theme-neo-dark) { /* .neo-desktop-task-list: light ink on the taskbar's dark glass */
     --desktop-task-list-accent-color                : #60a5fa;
     --desktop-task-list-color                       : #f1f5f9;
+    --desktop-task-list-icon-color                  : #fff;
     --desktop-task-list-item-background-color-active: rgba(255, 255, 255, .14);
     --desktop-task-list-item-background-color-hover : rgba(255, 255, 255, .08);
 }

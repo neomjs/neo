@@ -23,7 +23,7 @@
     left             : 0;
     bottom           : 0;
     right            : 0;
-    background-color : rgba(100, 100, 100, 0.5);
+    background-color : var(--dialog-modal-mask-background-color);
     backdrop-filter  : blur(1px);
     z-index          : 1000;
 }

@@ -37,7 +37,7 @@
     align-items     : center;
     background-color: var(--desktop-app-color);
     border-radius   : 7px;
-    color           : #fff;
+    color           : var(--desktop-app-window-glyph-color);
     display         : inline-flex;
     flex            : none;
     font-size       : 12px;

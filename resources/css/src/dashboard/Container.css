@@ -851,7 +851,7 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
     background: var(--dock-preview-ground, rgba(28, 33, 40, 0.92));
     border: 1px solid var(--dock-preview-line, rgba(139, 148, 158, 0.45));
     border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    box-shadow: var(--dashboard-dock-drop-chip-box-shadow);
     display: flex;
     justify-content: center;
     opacity: 0.92;
@@ -948,7 +948,7 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
 .neo-preview-lang-signal .neo-dashboard-dock-drop-chip {
     background: var(--agent-dock-preview-signal-ground);
     border-color: color-mix(in srgb, var(--agent-dock-preview-signal) 45%, transparent);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--dashboard-dock-drop-chip-signal-box-shadow);
 }
 .neo-preview-lang-signal .neo-dashboard-dock-drop-indicator::before,
 .neo-preview-lang-signal .neo-dashboard-dock-drop-chip::before {

@@ -40,7 +40,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       BASELINE_ZERO_COVERAGE = {
           filter : 'data-filtering behavior package — renders no user-visible chrome of its own',
           layout : 'flex/grid positioning only — structure, no paint',
-          plugin : 'behavior augmentations — no chrome of its own',
           sitemap: 'single-file utility — no chrome of its own'
       },
 

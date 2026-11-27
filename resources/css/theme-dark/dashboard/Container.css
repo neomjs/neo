@@ -14,4 +14,7 @@
     --agent-dock-proxy-ground         : #3c3f41;
     --agent-dock-proxy-shadow         : #2b2b2b;
     --agent-dock-proxy-text           : #bbb;
+
+    --dashboard-dock-drop-chip-box-shadow       : 0 2px 8px rgba(0, 0, 0, 0.35);
+    --dashboard-dock-drop-chip-signal-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }
