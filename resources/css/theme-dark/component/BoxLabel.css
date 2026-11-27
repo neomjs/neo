@@ -1,5 +1,5 @@
 :root .neo-theme-dark { /* .neo-box-label */
-    --boxlabel-background-color: #323232;
-    --boxlabel-border          : 0;
-    --boxlabel-color           : #ddd;
+    --neo-boxlabel-background-color: #323232;
+    --neo-boxlabel-border          : 0;
+    --neo-boxlabel-color           : #ddd;
 }

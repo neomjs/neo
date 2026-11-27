@@ -1,3 +1,3 @@
 :where(.neo-theme-neo-dark) { /* .neo-searchfield */
-    --searchfield-glyph-color: var(--purple-300);
+    --neo-searchfield-glyph-color: var(--neo-purple-300);
 }

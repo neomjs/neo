@@ -1,7 +1,7 @@
 :where(.neo-theme-neo-light) { /* .neo-desktop-task-list: dark ink on the taskbar's light glass */
-    --desktop-task-list-accent-color                : #2563eb;
-    --desktop-task-list-color                       : #0f172a;
-    --desktop-task-list-icon-color                  : #fff;
-    --desktop-task-list-item-background-color-active: rgba(15, 23, 42, .09);
-    --desktop-task-list-item-background-color-hover : rgba(15, 23, 42, .05);
+    --neo-desktop-task-list-accent-color                : #2563eb;
+    --neo-desktop-task-list-color                       : #0f172a;
+    --neo-desktop-task-list-icon-color                  : #fff;
+    --neo-desktop-task-list-item-background-color-active: rgba(15, 23, 42, .09);
+    --neo-desktop-task-list-item-background-color-hover : rgba(15, 23, 42, .05);
 }

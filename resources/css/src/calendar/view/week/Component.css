@@ -15,14 +15,14 @@
         }
 
         .neo-allday-spacer {
-            border-left : 1px solid var(--c-w-border-color);
+            border-left : 1px solid var(--neo-calendar-week-border-color);
             border-right: none;
             left        : unset;
             right       : 0;
         }
 
         .neo-c-w-column{
-            border-left : 1px solid var(--c-w-border-color);
+            border-left : 1px solid var(--neo-calendar-week-border-color);
             border-right: none;
 
             &:first-child {
@@ -53,7 +53,7 @@
     }
 
     .neo-c-w-column{
-        border-right  : 1px solid var(--c-w-border-color);
+        border-right  : 1px solid var(--neo-calendar-week-border-color);
         display       : flex;
         flex          : 1 0 calc(100% / 21);
         flex-direction: column;
@@ -64,7 +64,7 @@
         }
 
         &.neo-weekend {
-            background-color: var(--c-w-weekend-background-color);
+            background-color: var(--neo-calendar-week-weekend-background-color);
         }
     }
 
@@ -106,11 +106,11 @@
         }
 
         &.neo-focus {
-            color  : var(--c-w-event-color-focus);
+            color  : var(--neo-calendar-week-event-color-focus);
             outline: 0;
 
             .neo-resizable {
-                color: var(--c-w-event-color-focus);
+                color: var(--neo-calendar-week-event-color-focus);
             }
         }
 
@@ -163,8 +163,8 @@
 
     .neo-header-row-item {
         align-items     : center;
-        background-color: var(--c-w-header-background-color);
-        border-bottom   : 1px solid var(--c-w-border-color);
+        background-color: var(--neo-calendar-week-header-background-color);
+        border-bottom   : 1px solid var(--neo-calendar-week-border-color);
         cursor          : pointer;
         display         : flex;
         flex            : 1 0 calc(100% / 5);
@@ -179,15 +179,15 @@
 
         &:hover {
             .neo-date {
-                background-color: var(--c-w-header-date-background-color-hover);
-                color           : var(--c-w-header-date-color-hover);
+                background-color: var(--neo-calendar-week-header-date-background-color-hover);
+                color           : var(--neo-calendar-week-header-date-color-hover);
             }
         }
 
         .neo-date {
             align-items    : center;
             border-radius  : 50%;
-            color          : var(--c-w-header-date-color);
+            color          : var(--neo-calendar-week-header-date-color);
             display        : flex;
             font-size      : 1.6em;
             height         : 1.62em;
@@ -196,21 +196,21 @@
             width          : 1.62em;
 
             &.neo-today {
-                background-color: var(--c-w-header-today-background-color);
-                color           : var(--c-w-header-today-color);
+                background-color: var(--neo-calendar-week-header-today-background-color);
+                color           : var(--neo-calendar-week-header-today-color);
             }
         }
 
         .neo-day {
-            color        : var(--c-w-header-day-color);
+            color        : var(--neo-calendar-week-header-day-color);
             font-size    : .7em;
             margin-bottom: .3em;
         }
     }
 
     .neo-allday-row {
-        background-color: var(--c-w-header-background-color);
-        border-bottom   : 1px solid var(--c-w-border-color);
+        background-color: var(--neo-calendar-week-header-background-color);
+        border-bottom   : 1px solid var(--neo-calendar-week-border-color);
         display         : flex;
         flex            : none;
         min-width       : calc(300% - 100px);
@@ -220,14 +220,14 @@
     }
 
     .neo-allday-row + .neo-c-w-column-timeaxis-container {
-        background-color: var(--c-w-background-color);
+        background-color: var(--neo-calendar-week-background-color);
         padding-top     : .5em;
     }
 
     .neo-allday-spacer {
-        background-color: var(--c-w-header-background-color);
-        border-right    : 1px solid var(--c-w-border-color);
-        box-shadow      : -1px 0 0 var(--c-w-header-background-color);
+        background-color: var(--neo-calendar-week-header-background-color);
+        border-right    : 1px solid var(--neo-calendar-week-border-color);
+        box-shadow      : -1px 0 0 var(--neo-calendar-week-header-background-color);
         flex            : none;
         left            : 0;
         position        : sticky;
@@ -256,7 +256,7 @@
             color            .15s ease-out;
 
         &.neo-focus {
-            color  : var(--c-w-allday-event-color-focus);
+            color  : var(--neo-calendar-week-allday-event-color-focus);
             outline: 0;
         }
 
@@ -276,7 +276,7 @@
     }
 
     .neo-scroll-overlay {
-        background-color: var(--c-w-header-background-color);
+        background-color: var(--neo-calendar-week-header-background-color);
         height          : 4.4em;
         left            : 0;
         position        : absolute;

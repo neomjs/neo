@@ -1,8 +1,8 @@
 :where(.neo-theme-light) { /* .neo-desktop-app-window: a white sheet with the dialog's border, shadow and blue icons */
-    --desktop-app-window-background-color: #fff;
-    --desktop-app-window-border-color    : var(--dialog-border-color, #ddd);
-    --desktop-app-window-color           : #2b2b2b;
-    --desktop-app-window-glyph-color     : #fff;
-    --desktop-app-window-icon-color      : var(--dialog-icon-color, #1c60a0);
-    --desktop-app-window-shadow          : var(--dialog-box-shadow, 0 5px 10px rgba(0, 0, 0, .4));
+    --neo-desktop-app-window-background-color: #fff;
+    --neo-desktop-app-window-border-color    : var(--neo-dialog-border-color, #ddd);
+    --neo-desktop-app-window-color           : #2b2b2b;
+    --neo-desktop-app-window-glyph-color     : #fff;
+    --neo-desktop-app-window-icon-color      : var(--neo-dialog-icon-color, #1c60a0);
+    --neo-desktop-app-window-box-shadow          : var(--neo-dialog-box-shadow, 0 5px 10px rgba(0, 0, 0, .4));
 }

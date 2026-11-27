@@ -89,8 +89,8 @@
     }
 
     .venue-legend-violet::before {
-        background  : var(--neo-scheduler-bar-violet-bg);
-        border-color: var(--neo-scheduler-bar-violet-border);
+        background  : var(--neo-scheduler-bar-violet-background);
+        border-color: var(--neo-scheduler-bar-violet-border-color);
     }
 
     .venue-legend-talk::before {
@@ -99,13 +99,13 @@
     }
 
     .venue-legend-emerald::before {
-        background  : var(--neo-scheduler-bar-emerald-bg);
-        border-color: var(--neo-scheduler-bar-emerald-border);
+        background  : var(--neo-scheduler-bar-emerald-background);
+        border-color: var(--neo-scheduler-bar-emerald-border-color);
     }
 
     .venue-legend-amber::before {
-        background  : var(--neo-scheduler-bar-amber-bg);
-        border-color: var(--neo-scheduler-bar-amber-border);
+        background  : var(--neo-scheduler-bar-amber-background);
+        border-color: var(--neo-scheduler-bar-amber-border-color);
     }
 
     .venue-room-name,

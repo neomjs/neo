@@ -432,8 +432,8 @@ class Preview extends Component {
                 // the fill's duration and the time already spent, so a node rebuilt mid-hold resumes
                 // at the right height (the stylesheet applies the elapsed time as a negative delay)
                 ...(dwell ? {
-                    '--dock-native-dwell-ms'     : `${dwell.durationMs}ms`,
-                    '--dock-native-dwell-elapsed': `${elapsed}ms`
+                    '--neo-dock-native-dwell-ms'     : `${dwell.durationMs}ms`,
+                    '--neo-dock-native-dwell-elapsed': `${elapsed}ms`
                 } : {})
             }
         }

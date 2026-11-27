@@ -721,7 +721,7 @@ class VesselWorkspace extends DockWorkspace {
                 const viewport = source.app?.mainView;
                 if (viewport && !viewport.isDestroyed) {
                     viewport.addCls('workstation-vessel-departing');
-                    // The designed exit (Viewport.css): the theme-ground overlay fades in over `--motion-panel`
+                    // The designed exit (Viewport.css): the theme-ground overlay fades in over `--neo-duration-panel`
                     // and holds before the OS close. Awaited through the browser's own Animation API in the
                     // vessel's window once the class has reached its DOM, then held one beat so the opaque ground
                     // is what the window dies on. Presentation never refuses a transfer: a view that cannot

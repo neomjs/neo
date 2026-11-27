@@ -303,16 +303,16 @@
     width                : 100%;
 
     .sp-field.neo-textfield {
-        --textfield-border-color          : var(--sp-border-strong);
-        --textfield-border-color-active   : var(--sp-accent);
-        --textfield-border-color-hovered  : var(--sp-accent);
-        --textfield-border-radius         : 8px;
-        --textfield-input-background-color: var(--sp-surface-raised);
-        --textfield-input-color           : var(--sp-ink);
-        --textfield-input-font            : 500 13px/18px var(--sp-sans);
-        --textfield-input-height          : 32px;
-        --textfield-input-padding         : 5px 10px;
-        --textfield-label-color           : var(--sp-muted);
+        --neo-textfield-border-color          : var(--sp-border-strong);
+        --neo-textfield-border-color-active   : var(--sp-accent);
+        --neo-textfield-border-color-hover  : var(--sp-accent);
+        --neo-textfield-border-radius         : 8px;
+        --neo-textfield-input-background-color: var(--sp-surface-raised);
+        --neo-textfield-input-color           : var(--sp-ink);
+        --neo-textfield-input-font            : 500 13px/18px var(--sp-sans);
+        --neo-textfield-input-height          : 32px;
+        --neo-textfield-input-padding         : 5px 10px;
+        --neo-textfield-label-color           : var(--sp-muted);
         gap                               : 4px;
         height                            : auto;
         margin                            : 0;
@@ -460,9 +460,9 @@
 
 /* Dialog & Companion Window surfaces */
 .sp-profile-dialog.neo-dialog.neo-floating {
-    --dialog-border-color: var(--sp-border-strong);
-    --dialog-header-color: var(--sp-ink);
-    --dialog-icon-color  : var(--sp-muted);
+    --neo-dialog-border-color: var(--sp-border-strong);
+    --neo-dialog-header-color: var(--sp-ink);
+    --neo-dialog-icon-color  : var(--sp-muted);
     background           : var(--sp-surface);
     border-radius        : 12px;
     bottom               : 16px;

@@ -17,12 +17,12 @@ import path from 'node:path';
  * @type {Object<String,String>}
  */
 export const RUNTIME_PROPERTIES = Object.freeze({
-    '--desktop-app-color'      : 'desktop.AppWindow, desktop.Launcher and desktop.PopupViewport set it from the app record',
-    '--fa-style-family-classic': 'Font Awesome sets it in its own stylesheet',
-    '--neo-duration'           : 'grid.plugin.AnimateRows sets it on the grid',
-    '--neo-easing'             : 'grid.plugin.AnimateRows sets it on the grid',
-    '--neo-tree-level'         : 'tree.List sets it per item from the record level',
-    '--upload-progress'        : 'form.field.FileUpload sets it while a file uploads'
+    '--neo-desktop-app-color'                           : 'desktop.AppWindow, desktop.Launcher and desktop.PopupViewport set it from the app record',
+    '--fa-style-family-classic'                         : 'Font Awesome sets it in its own stylesheet',
+    '--neo-grid-animate-rows-transition-duration'       : 'grid.plugin.AnimateRows sets it on the grid',
+    '--neo-grid-animate-rows-transition-timing-function': 'grid.plugin.AnimateRows sets it on the grid',
+    '--neo-tree-list-level'                             : 'tree.List sets it per item from the record level',
+    '--neo-fileuploadfield-upload-progress'             : 'form.field.FileUpload sets it while a file uploads'
 });
 
 /**

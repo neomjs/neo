@@ -2,20 +2,20 @@
     --portal-bg-main                    : #fcfcfc;
     --portal-glass-card-background      : rgba(255, 255, 255, 0.6);
     --portal-glass-card-border          : 1px solid rgba(255, 255, 255, 0.2);
-    --portal-glass-card-glint-core      : color-mix(in srgb, var(--sem-color-border-focus) 22%, transparent);
-    --portal-glass-card-glint-edge      : color-mix(in srgb, var(--sem-color-border-focus) 10%, transparent);
+    --portal-glass-card-glint-core      : color-mix(in srgb, var(--neo-sem-color-border-focus) 22%, transparent);
+    --portal-glass-card-glint-edge      : color-mix(in srgb, var(--neo-sem-color-border-focus) 10%, transparent);
     --portal-glass-card-hover-border    : rgba(62, 99, 221, 0.4);
-    --portal-glass-card-hover-light     : color-mix(in srgb, var(--sem-color-border-focus) 14%, transparent);
+    --portal-glass-card-hover-light     : color-mix(in srgb, var(--neo-sem-color-border-focus) 14%, transparent);
     --portal-glass-card-hover-shadow    : 0 20px 40px rgba(0, 0, 0, 0.1);
     --portal-glass-card-link-color      : #3E63DD;
     --portal-glass-card-link-hover-color: #8BA6FF;
     --portal-glass-card-shadow          : 0 4px 30px rgba(0, 0, 0, 0.05);
-    --portal-glass-card-sweep-color     : color-mix(in srgb, var(--sem-color-border-focus) 45%, transparent);
-    --portal-glass-card-sweep-head      : var(--sem-color-border-focus);
+    --portal-glass-card-sweep-color     : color-mix(in srgb, var(--neo-sem-color-border-focus) 45%, transparent);
+    --portal-glass-card-sweep-head      : var(--neo-sem-color-border-focus);
     --portal-glass-card-sweep-width     : 3px;
     --portal-glass-card-text-opacity    : 0.85;
     --portal-headline-primary           : #3e63dd;
     --portal-scrollbar-thumb            : #3e63dd;
     --portal-scrollbar-track            : #f0f0f0;
-    --portal-transition-duration        : var(--motion-panel);
+    --portal-transition-duration        : var(--neo-duration-panel);
 }

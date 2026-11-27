@@ -15,9 +15,9 @@
         .neo-table-cell {
             &.neo-is-modified {
                 &:after {
-                    border-color: transparent var(--table-cell-ismodified-color) transparent transparent;
+                    border-color: transparent var(--neo-table-cell-ismodified-color) transparent transparent;
                     border-style: solid;
-                    border-width: 0 var(--table-cell-ismodified-size) var(--table-cell-ismodified-size) 0;
+                    border-width: 0 var(--neo-table-cell-ismodified-size) var(--neo-table-cell-ismodified-size) 0;
                     content     : '';
                     height      : 0;
                     position    : absolute;
@@ -30,28 +30,28 @@
 
         &:hover {
             .neo-table-cell {
-                background-color: var(--table-cell-background-color-hover);
+                background-color: var(--neo-table-cell-background-color-hover);
             }
         }
 
         /* selection.RowModel */
         &.neo-selected {
             .neo-table-cell {
-                background-color: var(--table-rowmodel-selected-cell-background-color);
-                color           : var(--table-rowmodel-selected-cell-color);
+                background-color: var(--neo-table-rowmodel-cell-background-color-selected);
+                color           : var(--neo-table-rowmodel-cell-color-selected);
             }
         }
 
         /* selection.CellModel */
         .neo-table-cell {
             &.neo-selected {
-                background-color: var(--table-cellmodel-selected-cell-background-color) !important;
-                color           : var(--table-cellmodel-selected-cell-color) !important;
+                background-color: var(--neo-table-cellmodel-cell-background-color-selected) !important;
+                color           : var(--neo-table-cellmodel-cell-color-selected) !important;
             }
 
             &.selected-column-cell {
-                background-color: var(--table-cellmodel-selected-column-cell-background-color);
-                color           : var(--table-cellmodel-selected-column-cell-color);
+                background-color: var(--neo-table-cellmodel-column-cell-background-color-selected);
+                color           : var(--neo-table-cellmodel-column-cell-color-selected);
             }
         }
     }
@@ -62,15 +62,15 @@
     .neo-table-row {
         &.neo-selected {
             .neo-table-cell {
-                background-color: var(--table-cellrowmodel-selected-row-cell-background-color);
-                color           : var(--table-cellrowmodel-selected-row-cell-color);
+                background-color: var(--neo-table-cellrowmodel-row-cell-background-color-selected);
+                color           : var(--neo-table-cellrowmodel-row-cell-color-selected);
             }
         }
 
         .neo-table-cell {
             &.neo-selected {
-                background-color: var(--table-cellrowmodel-selected-cell-background-color);
-                color           : var(--table-cellrowmodel-selected-cell-color);
+                background-color: var(--neo-table-cellrowmodel-cell-background-color-selected);
+                color           : var(--neo-table-cellrowmodel-cell-color-selected);
             }
         }
     }

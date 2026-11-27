@@ -1,5 +1,5 @@
 .neo-sitemap {
-    border: 1px solid var(--panel-border-color);
+    border: 1px solid var(--neo-panel-border-color);
     display: flex;
     padding: 30px 100px 60px;
 }
@@ -38,6 +38,6 @@
 }
 
 .neo-sitemap .neo-sitemap-column:not(:last-child) {
-    border-right: 1px solid var(--panel-border-color);
+    border-right: 1px solid var(--neo-panel-border-color);
     margin-right: 25px;
 }

@@ -2,7 +2,7 @@
     container-type: inline-size;
 
     .neo-calendar-header-toolbar {
-        border-bottom: 1px solid var(--calendar-border-color);
+        border-bottom: 1px solid var(--neo-calendar-border-color);
 
         &.neo-left {
             padding-right: 0;
@@ -18,7 +18,7 @@
     }
 
     .neo-calendar-header-period {
-        color        : var(--sem-color-text-neutral-default, var(--button-text-color));
+        color        : var(--neo-sem-color-text-neutral-default, var(--neo-button-color));
         font-size    : 14px;
         font-weight  : 600;
         margin       : 0 8px 0 6px;
@@ -43,7 +43,7 @@
             min-width: 0;
 
             &.neo-left {
-                padding-right: var(--toolbar-padding);
+                padding-right: var(--neo-toolbar-padding);
 
                 .neo-calendar-nav-spacer {
                     max-width: 8px;
@@ -70,7 +70,7 @@
     }
 
     .neo-calendar-sidebar {
-        border-right: 1px solid var(--calendar-border-color);
+        border-right: 1px solid var(--neo-calendar-border-color);
         transition  : margin-left 350ms ease-out;
     }
 
@@ -110,91 +110,91 @@
         color            .15s ease-out;
 
     &.neo-blue {
-        background-color: var(--event-blue-background-color);
-        border-left     : 2px solid var(--event-blue-color);
-        color           : var(--event-blue-color);
+        background-color: var(--neo-event-blue-background-color);
+        border-left     : 2px solid var(--neo-event-blue-color);
+        color           : var(--neo-event-blue-color);
 
         &.neo-focus {
-            background-color: var(--event-blue-background-color-focus);
+            background-color: var(--neo-event-blue-background-color-focus);
         }
 
         .neo-resizable {
-            color: var(--event-blue-color);
+            color: var(--neo-event-blue-color);
         }
     }
 
     &.neo-green {
-        background-color: var(--event-green-background-color);
-        border-left     : 2px solid var(--event-green-color);
-        color           : var(--event-green-color);
+        background-color: var(--neo-event-green-background-color);
+        border-left     : 2px solid var(--neo-event-green-color);
+        color           : var(--neo-event-green-color);
 
         &.neo-focus {
-            background-color: var(--event-green-background-color-focus);
+            background-color: var(--neo-event-green-background-color-focus);
         }
 
         .neo-resizable {
-            color: var(--event-green-color);
+            color: var(--neo-event-green-color);
         }
     }
 
     &.neo-orange {
-        background-color: var(--event-orange-background-color);
-        border-left     : 2px solid var(--event-orange-color);
-        color           : var(--event-orange-color);
+        background-color: var(--neo-event-orange-background-color);
+        border-left     : 2px solid var(--neo-event-orange-color);
+        color           : var(--neo-event-orange-color);
 
         &.neo-focus {
-            background-color: var(--event-orange-background-color-focus);
+            background-color: var(--neo-event-orange-background-color-focus);
         }
 
         .neo-resizable {
-            color: var(--event-orange-color);
+            color: var(--neo-event-orange-color);
         }
     }
 
     &.neo-pink {
-        background-color: var(--event-pink-background-color);
-        border-left     : 2px solid var(--event-pink-color);
-        color           : var(--event-pink-color);
+        background-color: var(--neo-event-pink-background-color);
+        border-left     : 2px solid var(--neo-event-pink-color);
+        color           : var(--neo-event-pink-color);
 
         &.neo-focus {
-            background-color: var(--event-pink-background-color-focus);
+            background-color: var(--neo-event-pink-background-color-focus);
         }
 
         .neo-resizable {
-            color: var(--event-pink-color);
+            color: var(--neo-event-pink-color);
         }
     }
 
     &.neo-red {
-        background-color: var(--event-red-background-color);
-        border-left     : 2px solid var(--event-red-color);
-        color           : var(--event-red-color);
+        background-color: var(--neo-event-red-background-color);
+        border-left     : 2px solid var(--neo-event-red-color);
+        color           : var(--neo-event-red-color);
 
         &.neo-focus {
-            background-color: var(--event-red-background-color-focus);
+            background-color: var(--neo-event-red-background-color-focus);
         }
 
         .neo-resizable {
-            color: var(--event-red-color);
+            color: var(--neo-event-red-color);
         }
     }
 
     &.neo-yellow {
-        background-color: var(--event-yellow-background-color);
-        border-left     : 2px solid var(--event-yellow-border-color);
-        color           : var(--event-yellow-color);
+        background-color: var(--neo-event-yellow-background-color);
+        border-left     : 2px solid var(--neo-event-yellow-border-color);
+        color           : var(--neo-event-yellow-color);
 
         &.neo-focus {
-            background-color: var(--event-yellow-background-color-focus);
-            color           : var(--event-yellow-color-focus) !important;
+            background-color: var(--neo-event-yellow-background-color-focus);
+            color           : var(--neo-event-yellow-color-focus) !important;
 
             .neo-resizable {
-                color: var(--event-yellow-color-focus) !important;
+                color: var(--neo-event-yellow-color-focus) !important;
             }
         }
 
         .neo-resizable {
-            color: var(--event-yellow-color);
+            color: var(--neo-event-yellow-color);
         }
     }
 }
@@ -205,27 +205,27 @@
         border-radius: 3px;
 
         &.neo-blue {
-            border: 1px solid var(--event-blue-color);
+            border: 1px solid var(--neo-event-blue-color);
         }
 
         &.neo-green {
-            border: 1px solid var(--event-green-color);
+            border: 1px solid var(--neo-event-green-color);
         }
 
         &.neo-orange {
-            border: 1px solid var(--event-orange-color);
+            border: 1px solid var(--neo-event-orange-color);
         }
 
         &.neo-pink {
-            border: 1px solid var(--event-pink-color);
+            border: 1px solid var(--neo-event-pink-color);
         }
 
         &.neo-red {
-            border: 1px solid var(--event-red-color);
+            border: 1px solid var(--neo-event-red-color);
         }
 
         &.neo-yellow {
-            border: 1px solid var(--event-yellow-border-color);
+            border: 1px solid var(--neo-event-yellow-border-color);
         }
     }
 }
@@ -235,32 +235,32 @@
     .neo-allday-event {
         &.neo-blue {
             border-left : 0;
-            border-right: 2px solid var(--event-blue-color);
+            border-right: 2px solid var(--neo-event-blue-color);
         }
 
         &.neo-green {
             border-left : 0;
-            border-right: 2px solid var(--event-green-color);
+            border-right: 2px solid var(--neo-event-green-color);
         }
 
         &.neo-orange {
             border-left : 0;
-            border-right: 2px solid var(--event-orange-color);
+            border-right: 2px solid var(--neo-event-orange-color);
         }
 
         &.neo-pink {
             border-left : 0;
-            border-right: 2px solid var(--event-pink-color);
+            border-right: 2px solid var(--neo-event-pink-color);
         }
 
         &.neo-red {
             border-left : 0;
-            border-right: 2px solid var(--event-red-color);
+            border-right: 2px solid var(--neo-event-red-color);
         }
 
         &.neo-yellow {
             border-left : 0;
-            border-right: 2px solid var(--event-yellow-border-color);
+            border-right: 2px solid var(--neo-event-yellow-border-color);
         }
     }
 }

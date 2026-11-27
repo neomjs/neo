@@ -101,8 +101,8 @@ test.describe('Portal.view.home.ContentBox', () => {
         expect(cueItem.iconCls).toBe('fa fa-arrow-down');
         expect(cueItem.iconPosition).toBe('right');
         expect(cueItem.url).toBeUndefined();
-        expect(cueBlock).toContain('--button-secondary-background-color: var(--sem-color-bg-neutral-highlighted)');
-        expect(cueBlock).toContain('--button-secondary-text-color      : var(--sem-color-text-neutral-default)');
+        expect(cueBlock).toContain('--neo-button-secondary-background-color: var(--neo-sem-color-bg-neutral-highlighted)');
+        expect(cueBlock).toContain('--neo-button-secondary-color      : var(--neo-sem-color-text-neutral-default)');
         expect(cueBlock).not.toMatch(/(?:^|\s)background-color\s*:/)
     });
 

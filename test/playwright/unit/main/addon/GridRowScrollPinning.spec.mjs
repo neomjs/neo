@@ -21,7 +21,7 @@ import * as core      from '../../../../../src/core/_export.mjs';
  * the thumb is released.
  *
  * DOM nodes are stand-ins: the wrapper holds `scrollTop` and clamps it to its extent as a scroll container does,
- * a body holds the `--grid-row-pin-offset` property.
+ * a body holds the `--neo-grid-row-pin-offset` property.
  */
 const
     originalDeltaUpdates = Neo.main.DeltaUpdates,
@@ -96,7 +96,7 @@ test.describe('Neo.main.addon.GridRowScrollPinning — content-sized scroll corr
     /**
      * @returns {String} The pin offset the bodies carry
      */
-    const pinOffset = () => nodes.body.style.getPropertyValue('--grid-row-pin-offset');
+    const pinOffset = () => nodes.body.style.getPropertyValue('--neo-grid-row-pin-offset');
 
     test.beforeEach(() => {
         globalThis.window = windowRef;

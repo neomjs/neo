@@ -1,6 +1,6 @@
 :where(.neo-theme-neo-light) {
-    --app-content-toolbar-text-inset             : var(--sem-spacing-medium);
+    --neo-app-content-toolbar-text-inset             : var(--neo-sem-spacing-medium);
     --neo-app-content-page-scrollbar-color-scheme: light;
-    --neo-app-content-toolbar-btn-bg             : #fff;
-    --neo-app-content-toolbar-text-color         : #000;
+    --neo-app-content-toolbar-button-background-color             : #fff;
+    --neo-app-content-toolbar-color         : #000;
 }

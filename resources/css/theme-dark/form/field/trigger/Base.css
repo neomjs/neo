@@ -1,6 +1,6 @@
 :root .neo-theme-dark {
-    --trigger-background-color-hover: #33343d;
-    --trigger-border-width          : 1px;
-    --trigger-color                 : #bbb;
-    --trigger-color-hover           : #ddd;
+    --neo-trigger-background-color-hover: #33343d;
+    --neo-trigger-border-width          : 1px;
+    --neo-trigger-color                 : #bbb;
+    --neo-trigger-color-hover           : #ddd;
 }

@@ -17,8 +17,8 @@ import {getTitleField} from './CardItems.mjs';
  *
  * When a drag begins on a selected card and the board's selection holds more than one record, {@link #getDragProxyConfig}
  * builds a paper-stack proxy with the dragged card's clone in front, up to four clones of the other selected cards
- * behind it (`.neo-board-stack-card`, with alternating `--stack-angle`, `--stack-offset`, `--stack-opacity`, and
- * FLIP origin offsets `--flip-x` / `--flip-y`), and a `.neo-board-stack-count` badge with the selection's total.
+ * behind it (`.neo-board-stack-card`, with alternating `--neo-board-stack-angle`, `--neo-board-stack-offset`, `--neo-board-stack-opacity`, and
+ * FLIP origin offsets `--neo-board-stack-flip-x` / `--neo-board-stack-flip-y`), and a `.neo-board-stack-count` badge with the selection's total.
  * Offscreen selected records in a sliced column render a title-only clone. Rendered selected cards receive
  * `.neo-board-card-ghost` until the gesture ends. The drop lands the selection as one block in board order, starting
  * at the slot ({@link #processDragEnd}).
@@ -336,7 +336,7 @@ class BoardSortZone extends SortZone {
                 : {
                     tag  : 'div',
                     cls  : ['neo-board-card'],
-                    style: record?.color ? {'--neo-board-card-accent': record.color} : {},
+                    style: record?.color ? {'--neo-board-card-accent-color': record.color} : {},
                     cn   : [{
                         tag : 'div',
                         cls : ['neo-board-card-title'],
@@ -364,8 +364,8 @@ class BoardSortZone extends SortZone {
     /**
      * @summary Returns the drag proxy configuration: a single card drags as today, while a multi-selection returns a
      * paper-stack VDOM with the dragged card's clone in front, up to four `.neo-board-stack-card` clones behind it
-     * (alternating `--stack-angle` between 2 and 6 degrees, `--stack-offset`, opacity falling from 0.9 to 0.6, and FLIP
-     * origin offsets `--flip-x` / `--flip-y`), and a `.neo-board-stack-count` badge with the total of selected cards:
+     * (alternating `--neo-board-stack-angle` between 2 and 6 degrees, `--neo-board-stack-offset`, opacity falling from 0.9 to 0.6, and FLIP
+     * origin offsets `--neo-board-stack-flip-x` / `--neo-board-stack-flip-y`), and a `.neo-board-stack-count` badge with the total of selected cards:
      * past five the stack stops growing, and only the number says how many.
      * @returns {Object}
      */
@@ -402,13 +402,13 @@ class BoardSortZone extends SortZone {
 
                 clone.style = {
                     ...clone.style,
-                    '--flip-x'       : `${flipX}px`,
-                    '--flip-y'       : `${flipY}px`,
-                    '--stack-angle'  : `${angle}deg`,
-                    '--stack-offset' : `${offset}px`,
-                    '--stack-opacity': `${opacity}`,
-                    opacity          : `${opacity}`,
-                    zIndex           : `${4 - i}`
+                    '--neo-board-stack-flip-x' : `${flipX}px`,
+                    '--neo-board-stack-flip-y' : `${flipY}px`,
+                    '--neo-board-stack-angle'  : `${angle}deg`,
+                    '--neo-board-stack-offset' : `${offset}px`,
+                    '--neo-board-stack-opacity': `${opacity}`,
+                    opacity                    : `${opacity}`,
+                    zIndex                     : `${4 - i}`
                 };
 
                 return clone

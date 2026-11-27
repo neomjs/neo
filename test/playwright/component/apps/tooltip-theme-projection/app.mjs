@@ -3,7 +3,7 @@ import Viewport from '../../../../../src/container/Viewport.mjs';
 
 /**
  * One button with a shared tooltip under the dark neo theme (the body carries the first entry of
- * `themes`). `index.html` projects `--tooltip-bg` at theme-root — the consumer's documented path —
+ * `themes`). `index.html` projects `--neo-tooltip-background-color` at theme-root — the consumer's documented path —
  * before any engine theme sheet loads, and leaves every other tooltip token to the engine sheet.
  */
 export const onStart = () => Neo.app({

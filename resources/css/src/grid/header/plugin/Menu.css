@@ -2,9 +2,9 @@
 .neo-grid-menu-wrapper {
     > .neo-grid-menu-trigger {
         /* The arrow is button text: colour it like the header's own glyphs (the sort icons) */
-        --button-text-color       : var(--grid-header-button-glyph-color);
-        --button-text-color-active: var(--grid-header-button-glyph-color-hover);
-        --button-text-color-hover : var(--grid-header-button-glyph-color-hover);
+        --neo-button-color       : var(--neo-grid-header-button-glyph-color);
+        --neo-button-color-active: var(--neo-grid-header-button-glyph-color-hover);
+        --neo-button-color-hover : var(--neo-grid-header-button-glyph-color-hover);
 
         background : transparent;
         border     : 0;
@@ -35,10 +35,10 @@
 
 .neo-grid-column-menu,
 .neo-grid-column-menu-hint {
-    background-color: var(--grid-header-button-background-color);
-    border          : 1px solid var(--grid-header-button-border-right-color);
+    background-color: var(--neo-grid-header-button-background-color);
+    border          : 1px solid var(--neo-grid-header-button-border-right-color);
     border-radius   : 4px;
-    box-shadow      : var(--grid-column-menu-box-shadow);
+    box-shadow      : var(--neo-grid-column-menu-box-shadow);
     padding         : 8px;
 
     .neo-form-field {
@@ -47,8 +47,8 @@
 
     .neo-value-picker {
         /* Its rows sit on the menu's surface: a standalone list's row colour reads as a band here */
-        --list-item-background-color: transparent;
+        --neo-list-item-background-color: transparent;
 
-        background-color: var(--grid-header-button-background-color);
+        background-color: var(--neo-grid-header-button-background-color);
     }
 }

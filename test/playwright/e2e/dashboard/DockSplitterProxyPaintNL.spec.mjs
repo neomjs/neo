@@ -80,7 +80,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the drag affordan
                 const style = getComputedStyle(el);
                 return {
                     background: style.backgroundColor,
-                    handleSize: style.getPropertyValue('--dock-splitter-handle-size').trim()
+                    handleSize: style.getPropertyValue('--neo-dock-splitter-handle-size').trim()
                 }
             });
 
@@ -128,7 +128,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the drag affordan
                           const style = getComputedStyle(el);
                           return {
                               background: style.backgroundColor,
-                              handleSize: style.getPropertyValue('--dock-splitter-handle-size').trim()
+                              handleSize: style.getPropertyValue('--neo-dock-splitter-handle-size').trim()
                           }
                       });
 

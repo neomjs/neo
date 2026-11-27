@@ -42,10 +42,10 @@
         }
 
         .neo-button.neo-button-ghost {
-            --button-ghost-glyph-color           : var(--portal-footer-text-color);
-            --button-ghost-glyph-color-hover     : var(--portal-footer-highlight-color);
-            --button-ghost-text-color            : var(--portal-footer-text-color);
-            --button-ghost-text-color-hover      : var(--portal-footer-highlight-color);
+            --neo-button-ghost-glyph-color           : var(--portal-footer-text-color);
+            --neo-button-ghost-glyph-color-hover     : var(--portal-footer-highlight-color);
+            --neo-button-ghost-color            : var(--portal-footer-text-color);
+            --neo-button-ghost-color-hover      : var(--portal-footer-highlight-color);
 
             justify-content: flex-start;
             margin-bottom  : 0.5em;

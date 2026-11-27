@@ -68,7 +68,7 @@
         background   : var(--dashboard-example-line);
         border-radius: 3px;
         height    : 5px;
-        transition: background var(--motion-base) var(--ease-out-soft);
+        transition: background var(--neo-duration-base) var(--neo-ease-out);
         width     : 14px;
     }
 

@@ -10,7 +10,7 @@ import MotionCanvas from '../MotionCanvas.mjs';
  * boxes, and what crosses them is erased) and by `bandIds` (no seat stands in their rows). The host measures them
  * whenever the surface changes, relative to the canvas.
  *
- * Stillness is the motion vocabulary's own verdict: `--motion-base` collapses to `0ms` under
+ * Stillness is the motion vocabulary's own verdict: `--neo-duration-base` collapses to `0ms` under
  * `prefers-reduced-motion: reduce` (`resources/css/src/Global.css`), and the canvas reads it from its node each
  * time it mounts or the preference changes. Every mount starts still, and a failed read keeps it still.
  *

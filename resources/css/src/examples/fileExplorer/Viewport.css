@@ -1,9 +1,9 @@
 /* The file explorer example: a header above the tree and the detail pane. Colours come from the theme's own
    tokens, so the page follows neo-light and neo-dark without a theme file of its own. */
 .file-explorer-viewport {
-    background: var(--neo-background-color);
+    background: var(--neo-global-background-color);
     box-sizing: border-box;
-    color     : var(--neo-color);
+    color     : var(--neo-global-color);
     gap       : 12px;
     padding   : 16px 20px;
 

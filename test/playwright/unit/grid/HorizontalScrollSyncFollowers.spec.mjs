@@ -13,7 +13,7 @@ import * as core      from '../../../../src/core/_export.mjs';
 import ScrollManager  from '../../../../src/grid/ScrollManager.mjs';
 
 /**
- * Unit tests for synchronizing --grid-scroll-left onto follower rows outside grid.body, and for a registration that
+ * Unit tests for synchronizing --neo-grid-scroll-left onto follower rows outside grid.body, and for a registration that
  * comes before its nodes or outlives one of them.
  *
  * A mock element's `trigger()` delivers an event in a browser's order: the document's capture listeners, then each
@@ -152,7 +152,7 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             addon = null;
         });
 
-        test('follower elements receive --grid-scroll-left on scroller onScroll', () => {
+        test('follower elements receive --neo-grid-scroll-left on scroller onScroll', () => {
             addon.register({
                 id         : 'test-grid__h_scroll',
                 scrollerId : 'grid-scroller',
@@ -166,12 +166,12 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             elements['grid-scroller'].scrollLeft = 120;
             elements['grid-scroller'].trigger('scroll');
 
-            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('120px');
-            expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).toBe('120px');
-            expect(elements['follower-row-2'].style.getPropertyValue('--grid-scroll-left')).toBe('120px');
+            expect(elements['grid-body'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('120px');
+            expect(elements['follower-row-1'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('120px');
+            expect(elements['follower-row-2'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('120px');
         });
 
-        test('registerFollower mid-scroll immediately seeds --grid-scroll-left from current scroller', () => {
+        test('registerFollower mid-scroll immediately seeds --neo-grid-scroll-left from current scroller', () => {
             elements['grid-scroller'].scrollLeft = 250;
 
             addon.register({
@@ -188,10 +188,10 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
                 followerId: 'follower-row-1'
             });
 
-            expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).toBe('250px');
+            expect(elements['follower-row-1'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('250px');
         });
 
-        test('unregisterFollower stops --grid-scroll-left updates on scroller onScroll', () => {
+        test('unregisterFollower stops --neo-grid-scroll-left updates on scroller onScroll', () => {
             addon.register({
                 id         : 'test-grid__h_scroll',
                 scrollerId : 'grid-scroller',
@@ -209,9 +209,9 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             elements['grid-scroller'].scrollLeft = 300;
             elements['grid-scroller'].trigger('scroll');
 
-            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('300px');
-            expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).toBe('0px');
-            expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).not.toBe('300px');
+            expect(elements['grid-body'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('300px');
+            expect(elements['follower-row-1'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('0px');
+            expect(elements['follower-row-1'].style.getPropertyValue('--neo-grid-scroll-left')).not.toBe('300px');
         });
 
         test('a registration made before its nodes are in the document syncs once they are', () => {
@@ -234,9 +234,9 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             elements['grid-scroller'].scrollLeft = 120;
             elements['grid-scroller'].trigger('scroll');
 
-            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('120px');
+            expect(elements['grid-body'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('120px');
             expect(elements['grid-header'].scrollLeft).toBe(120);
-            expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).toBe('120px');
+            expect(elements['follower-row-1'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('120px');
 
             elements['grid-view'].trigger('wheel', {deltaX: 30});
             expect(elements['grid-scroller'].scrollLeft, 'the view\'s wheel moves the scrollbar').toBe(150)
@@ -255,7 +255,7 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             elements['grid-scroller'] = createElement('grid-scroller', 80);
             elements['grid-scroller'].trigger('scroll');
 
-            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('80px')
+            expect(elements['grid-body'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('80px')
         });
 
         test('a wheel a nested control consumes leaves the scrollbar, and one it passes on moves it', () => {
@@ -300,7 +300,7 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
 
                 elements['grid-scroller'].scrollLeft = 70;
                 elements['grid-scroller'].trigger('scroll');
-                expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('70px');
+                expect(elements['grid-body'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('70px');
                 expect(elements['grid-header'].scrollLeft).toBe(70);
 
                 elements['grid-view'].trigger('wheel', {deltaX: 10});
@@ -328,8 +328,8 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             elements['second-scroller'].scrollLeft = 60;
             elements['second-scroller'].trigger('scroll');
 
-            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left'), 'the unregistered grid keeps its registered position').toBe('0px');
-            expect(elements['second-body'].style.getPropertyValue('--grid-scroll-left'), 'the other grid').toBe('60px')
+            expect(elements['grid-body'].style.getPropertyValue('--neo-grid-scroll-left'), 'the unregistered grid keeps its registered position').toBe('0px');
+            expect(elements['second-body'].style.getPropertyValue('--neo-grid-scroll-left'), 'the other grid').toBe('60px')
         });
 
         test('sync re-applies the live scroller scrollLeft without triggering onHeaderScroll rollback (#22245)', () => {
@@ -364,8 +364,8 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
 
             expect(elements['grid-header'].scrollLeft).toBe(0);
             expect(elements['grid-scroller'].scrollLeft).toBe(0);
-            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('0px');
-            expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).toBe('0px');
+            expect(elements['grid-body'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('0px');
+            expect(elements['follower-row-1'].style.getPropertyValue('--neo-grid-scroll-left')).toBe('0px');
         });
     });
 

@@ -11,10 +11,10 @@
     }
 
     .neo-list-item {
-        background-color: var(--sem-color-bg-neutral-highlighted);
+        background-color: var(--neo-sem-color-bg-neutral-highlighted);
         border-radius   : 20px;
         box-shadow      : 0 5px 10px rgba(0, 0, 0, 0.3);
-        color           : var(--sem-color-fg-neutral-default);
+        color           : var(--neo-sem-color-fg-neutral-default);
         display         : flex;
         flex-direction  : column;
         margin          : 0 auto 10px;
@@ -28,8 +28,8 @@
             cursor: default;
 
             &:hover, &:active {
-                background-color: var(--sem-color-bg-neutral-highlighted);
-                color           : var(--sem-color-fg-neutral-default);
+                background-color: var(--neo-sem-color-bg-neutral-highlighted);
+                color           : var(--neo-sem-color-fg-neutral-default);
             }
         }
     }
@@ -78,7 +78,7 @@
         position        : absolute;
         top             : 50%;
         transform       : translate(-50%, -50%);
-        transition      : background-color var(--motion-fast) var(--ease-out-soft);
+        transition      : background-color var(--neo-duration-fast) var(--neo-ease-out);
         width           : 72px;
     }
 
@@ -100,7 +100,7 @@
     }
 
     .portal-videos-meta {
-        color     : var(--sem-color-fg-neutral-subdued);
+        color     : var(--neo-sem-color-fg-neutral-subdued);
         font-size : 14px;
         margin-top: 6px;
     }

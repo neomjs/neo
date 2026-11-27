@@ -1,7 +1,7 @@
 .portal-home-parts-audiencedoors {
     background-color: transparent;
     box-sizing      : border-box;
-    color           : var(--sem-color-text-neutral-default);
+    color           : var(--neo-sem-color-text-neutral-default);
     padding         : clamp(2rem, 4vh, 3.5rem) 2rem;
 
     .content-wrapper {
@@ -36,7 +36,7 @@
     }
 
     .portal-audience-lead {
-        color      : var(--sem-color-text-neutral-subdued);
+        color      : var(--neo-sem-color-text-neutral-subdued);
         font-size  : clamp(1rem, 1.25vw, 1.2rem);
         line-height: 1.55;
         margin     : 0.75rem auto 0;
@@ -54,7 +54,7 @@
 
     .portal-glass-card {
         align-items   : stretch;
-        border        : 1px solid var(--sem-color-border-default);
+        border        : 1px solid var(--neo-sem-color-border-default);
         display       : flex;
         flex-direction: column;
         gap           : 1rem;
@@ -78,7 +78,7 @@
         }
 
         .portal-door-eyebrow {
-            color         : var(--sem-color-text-primary-default);
+            color         : var(--neo-sem-color-text-primary-default);
             display       : block;
             font-size     : 0.75rem;
             font-weight   : 600;
@@ -89,7 +89,7 @@
         }
 
         .portal-content-box-headline {
-            color        : var(--sem-color-text-neutral-contrast);
+            color        : var(--neo-sem-color-text-neutral-contrast);
             font-family  : "GT-Planar", sans-serif;
             font-size    : 1.4rem;
             font-weight  : 600;
@@ -99,15 +99,15 @@
         }
 
         .portal-door-copy {
-            color        : var(--sem-color-text-neutral-subdued);
+            color        : var(--neo-sem-color-text-neutral-subdued);
             font-size    : 0.96rem;
             line-height  : 1.58;
             margin       : 0 0 0.85rem;
         }
 
         .portal-door-command {
-            background-color: var(--sem-color-bg-neutral-highlighted);
-            border          : 1px solid var(--sem-color-border-subtle);
+            background-color: var(--neo-sem-color-bg-neutral-highlighted);
+            border          : 1px solid var(--neo-sem-color-border-subtle);
             border-radius   : 8px;
             box-sizing      : border-box;
             margin-top      : auto;
@@ -119,8 +119,8 @@
                 background   : transparent;
                 border       : 0;
                 border-radius: 0;
-                color        : var(--sem-color-text-neutral-contrast);
-                font-family  : var(--core-fontfamily-mono);
+                color        : var(--neo-sem-color-text-neutral-contrast);
+                font-family  : var(--neo-core-fontfamily-mono);
                 font-size    : 0.85rem;
                 font-weight  : 500;
                 padding      : 0;
@@ -129,7 +129,7 @@
         }
 
         .portal-door-proof {
-            border-top : 1px solid var(--sem-color-border-default);
+            border-top : 1px solid var(--neo-sem-color-border-default);
             font-size  : 0.88rem;
             line-height: 1.4;
             margin     : 0.75rem 0 0;
@@ -143,14 +143,14 @@
         }
 
         .portal-door-cta {
-            --button-height                           : 42px;
-            --button-margin                           : 0;
-            --button-secondary-background-color       : var(--sem-color-bg-neutral-highlighted);
-            --button-secondary-background-color-hover : var(--sem-color-surface-primary-background);
-            --button-secondary-border                 : 1px solid var(--sem-color-border-default);
-            --button-secondary-border-hover           : 1px solid var(--sem-color-border-focus);
-            --button-secondary-text-color             : var(--sem-color-text-neutral-default);
-            --button-secondary-text-color-hover       : var(--sem-color-text-neutral-contrast);
+            --neo-button-height                           : 42px;
+            --neo-button-margin                           : 0;
+            --neo-button-secondary-background-color       : var(--neo-sem-color-bg-neutral-highlighted);
+            --neo-button-secondary-background-color-hover : var(--neo-sem-color-surface-primary-background);
+            --neo-button-secondary-border                 : 1px solid var(--neo-sem-color-border-default);
+            --neo-button-secondary-border-hover           : 1px solid var(--neo-sem-color-border-focus);
+            --neo-button-secondary-color             : var(--neo-sem-color-text-neutral-default);
+            --neo-button-secondary-color-hover       : var(--neo-sem-color-text-neutral-contrast);
             box-sizing                                : border-box;
             justify-content                           : center;
             width                                     : 100%;
@@ -218,8 +218,8 @@
             }
 
             .portal-door-cta {
-                --button-height        : 36px;
-                --button-text-font-size: 0.86rem;
+                --neo-button-height        : 36px;
+                --neo-button-text-font-size: 0.86rem;
             }
         }
     }

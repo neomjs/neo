@@ -3,8 +3,8 @@
 .neo-board-column {
     background   : var(--neo-board-column-background);
     border       : 1px solid var(--neo-board-column-border-color);
-    border-radius: var(--neo-board-radius);
-    border-top   : 3px solid var(--neo-board-column-accent, var(--neo-board-column-border-color));
+    border-radius: var(--neo-board-border-radius);
+    border-top   : 3px solid var(--neo-board-column-accent-color, var(--neo-board-column-border-color));
     box-sizing   : border-box;
     min-height   : 0;
     min-width    : var(--neo-board-column-width);
@@ -38,7 +38,7 @@
 
 /* The sorter moves pinned columns by updating left, so the header and cards slide together. */
 .neo-board.neo-is-dragging > .neo-board-column:not(.neo-board-column-locked) {
-    transition: left var(--motion-base) var(--ease-out-soft);
+    transition: left var(--neo-duration-base) var(--neo-ease-out);
 }
 
 .neo-board-column-header {
@@ -112,7 +112,7 @@
         }
 
         &:focus-visible {
-            outline       : 2px solid var(--neo-board-focus-color);
+            outline       : 2px solid var(--neo-board-outline-color-focus);
             outline-offset: 1px;
         }
     }
@@ -127,7 +127,7 @@
 /* A dragged column rides in a proxy sized from its own rect. The proxy renders outside the scope that may set
    --neo-board-column-width, so the column fills the proxy instead of falling back to the default width. */
 .neo-dragproxy > .neo-board-column {
-    box-shadow: var(--neo-board-card-shadow);
+    box-shadow: var(--neo-board-card-box-shadow);
     cursor    : grabbing;
     height    : 100%;
     min-width : 0;
@@ -136,7 +136,7 @@
 
 .neo-board-column-body {
     /* The body paints a surface, so a square corner would cover the column's arc: it follows the column's inner curve */
-    border-radius: 0 0 calc(var(--neo-board-radius) - 1px) calc(var(--neo-board-radius) - 1px);
+    border-radius: 0 0 calc(var(--neo-board-border-radius) - 1px) calc(var(--neo-board-border-radius) - 1px);
     box-sizing   : border-box;
     flex         : 1 1 auto;
     min-height   : 120px;

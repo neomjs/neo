@@ -3,24 +3,24 @@
 .neo-examples-grid-pinned-columns [class*=neo-theme-],
 body:has(.neo-examples-grid-pinned-columns) .neo-dragproxy,
 body:has(.neo-examples-grid-pinned-columns) .neo-dragproxy [class*=neo-theme-] {
-    --grid-container-border-color: var(--pinned-columns-border);
-    --grid-container-cell-background-color: var(--pinned-columns-surface);
-    --grid-container-cell-background-color-even: var(--pinned-columns-alternate);
-    --grid-container-color: var(--pinned-columns-text);
-    --grid-container-font-size: 13px;
-    --grid-cell-background-color-hover: var(--pinned-columns-hover);
-    --grid-header-button-background-color: var(--pinned-columns-header);
-    --grid-header-button-background-color-hover: var(--pinned-columns-hover);
-    --grid-header-button-background-image: none;
-    --grid-header-button-border-right-color: var(--pinned-columns-border);
-    --grid-header-button-color: var(--pinned-columns-text);
-    --grid-header-button-color-hover: var(--pinned-columns-accent);
-    --grid-header-button-font-size: 12px;
-    --grid-header-button-font-weight: 600;
-    --grid-header-button-glyph-color: var(--pinned-columns-muted);
-    --grid-header-button-glyph-color-hover: var(--pinned-columns-accent);
-    --grid-rowmodel-selected-cell-background-color: var(--pinned-columns-hover);
-    --grid-rowmodel-selected-cell-color: var(--pinned-columns-title);
+    --neo-grid-container-border-color: var(--pinned-columns-border);
+    --neo-grid-container-cell-background-color: var(--pinned-columns-surface);
+    --neo-grid-container-cell-background-color-even: var(--pinned-columns-alternate);
+    --neo-grid-container-color: var(--pinned-columns-text);
+    --neo-grid-container-font-size: 13px;
+    --neo-grid-cell-background-color-hover: var(--pinned-columns-hover);
+    --neo-grid-header-button-background-color: var(--pinned-columns-header);
+    --neo-grid-header-button-background-color-hover: var(--pinned-columns-hover);
+    --neo-grid-header-button-background-image: none;
+    --neo-grid-header-button-border-right-color: var(--pinned-columns-border);
+    --neo-grid-header-button-color: var(--pinned-columns-text);
+    --neo-grid-header-button-color-hover: var(--pinned-columns-accent);
+    --neo-grid-header-button-font-size: 12px;
+    --neo-grid-header-button-font-weight: 600;
+    --neo-grid-header-button-glyph-color: var(--pinned-columns-muted);
+    --neo-grid-header-button-glyph-color-hover: var(--pinned-columns-accent);
+    --neo-grid-rowmodel-cell-background-color-selected: var(--pinned-columns-hover);
+    --neo-grid-rowmodel-cell-color-selected: var(--pinned-columns-title);
 }
 .neo-examples-grid-pinned-columns .neo-grid-header-group-row .neo-grid-header-group-cell,
 .neo-examples-grid-pinned-columns [class*=neo-theme-] .neo-grid-header-group-row .neo-grid-header-group-cell,
@@ -40,7 +40,7 @@ body:has(.neo-examples-grid-pinned-columns) .neo-dragproxy [class*=neo-theme-] .
 .neo-examples-grid-pinned-columns.neo-viewport {
     background-color: var(--pinned-columns-background);
     color           : var(--pinned-columns-text);
-    font-family     : var(--neo-font-family);
+    font-family     : var(--neo-global-font-family);
 
     .pinned-columns-toolbar {
         background-color: var(--pinned-columns-background);

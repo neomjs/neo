@@ -32,7 +32,7 @@
         line-height          : 1.3;
         padding              : 5px 8px;
         text-decoration      : none;
-        transition           : background-color var(--motion-fast) var(--ease-out-soft);
+        transition           : background-color var(--neo-duration-fast) var(--neo-ease-out);
 
         &:hover {
             background-color: var(--portal-examples-entry-hover);

@@ -40,7 +40,7 @@
                 position     : absolute;
                 top          : 50%;
                 transform    : translateY(-50%);
-                transition   : background-color var(--motion-fast, 160ms) var(--ease-out-soft, ease-out), box-shadow var(--motion-fast, 160ms) var(--ease-out-soft, ease-out);
+                transition   : background-color var(--neo-duration-fast, 160ms) var(--neo-ease-out, ease-out), box-shadow var(--neo-duration-fast, 160ms) var(--neo-ease-out, ease-out);
                 width        : 7px;
             }
         }
@@ -62,11 +62,11 @@
         }
 
         .gate-pause-btn.neo-button {
-            --button-background-color-hover: var(--gate-btn-hover-bg);
-            --button-border-hover          : 1px solid var(--gate-btn-border);
-            --button-text-color            : var(--gate-title);
-            --button-text-color-active     : var(--gate-title);
-            --button-text-color-hover      : var(--gate-title);
+            --neo-button-background-color-hover: var(--gate-btn-hover-bg);
+            --neo-button-border-hover          : 1px solid var(--gate-btn-border);
+            --neo-button-color            : var(--gate-title);
+            --neo-button-color-active     : var(--gate-title);
+            --neo-button-color-hover      : var(--gate-title);
             align-items   : center;
             background    : var(--gate-btn-bg);
             border        : 1px solid var(--gate-btn-border);
@@ -79,7 +79,7 @@
             min-height    : 32px;
             padding       : 0 14px 0 30px;
             position      : relative;
-            transition    : background-color var(--motion-fast, 160ms) var(--ease-out-soft, ease-out), border-color var(--motion-fast, 160ms) var(--ease-out-soft, ease-out);
+            transition    : background-color var(--neo-duration-fast, 160ms) var(--neo-ease-out, ease-out), border-color var(--neo-duration-fast, 160ms) var(--neo-ease-out, ease-out);
 
             &::before {
                 border-left : 2.5px solid var(--gate-btn-glyph);
@@ -91,7 +91,7 @@
                 position    : absolute;
                 top         : 50%;
                 transform   : translateY(-50%);
-                transition  : border-color var(--motion-fast, 160ms) var(--ease-out-soft, ease-out);
+                transition  : border-color var(--neo-duration-fast, 160ms) var(--neo-ease-out, ease-out);
                 width       : 8px;
             }
 
@@ -249,10 +249,10 @@
         background: var(--gate-header-bg);
 
         .neo-grid-header-toolbar .neo-grid-header-button {
-            --button-background-color      : var(--gate-subbar-bg);
-            --button-background-color-hover: var(--gate-subbar-bg);
-            --button-text-color            : var(--gate-title);
-            --button-text-color-hover      : var(--gate-title);
+            --neo-button-background-color      : var(--gate-subbar-bg);
+            --neo-button-background-color-hover: var(--gate-subbar-bg);
+            --neo-button-color            : var(--gate-title);
+            --neo-button-color-hover      : var(--gate-title);
             background   : var(--gate-subbar-bg);
             border-bottom: 1px solid var(--gate-border);
             border-right : 1px solid var(--gate-border);
@@ -278,10 +278,10 @@
             color        : var(--gate-bar-text);
             cursor       : grab;
             padding      : 4px 9px 5px 10px;
-            transition   : background-color var(--motion-slow, 480ms) var(--ease-out-soft, ease-out),
-                           border-color var(--motion-slow, 480ms) var(--ease-out-soft, ease-out),
-                           box-shadow var(--motion-slow, 480ms) var(--ease-out-soft, ease-out),
-                           left var(--motion-fast, 160ms) var(--ease-out-soft, ease-out);
+            transition   : background-color var(--motion-slow, 480ms) var(--neo-ease-out, ease-out),
+                           border-color var(--motion-slow, 480ms) var(--neo-ease-out, ease-out),
+                           box-shadow var(--motion-slow, 480ms) var(--neo-ease-out, ease-out),
+                           left var(--neo-duration-fast, 160ms) var(--neo-ease-out, ease-out);
 
             &:active {
                 cursor: grabbing;
@@ -361,8 +361,8 @@
                 letter-spacing      : .02em;
                 line-height         : 1.2;
                 padding             : 1px 5px;
-                transition          : opacity var(--motion-slow, 480ms) var(--ease-out-soft, ease-out),
-                                      background-color var(--motion-slow, 480ms) var(--ease-out-soft, ease-out);
+                transition          : opacity var(--motion-slow, 480ms) var(--neo-ease-out, ease-out),
+                                      background-color var(--motion-slow, 480ms) var(--neo-ease-out, ease-out);
 
                 &.is-fresh {
                     background: var(--gate-fresh-delta-bg);

@@ -368,7 +368,7 @@ test.describe('Desktop window tear-out admission and restoration', () => {
         await expect.poll(() => toolbar.hidden).toBe(false);
         expect(icon.hidden).toBe(false);
         expect(icon.cellIconCls).toEqual(['fas', 'fa-note-sticky']);
-        expect(icon.style).toEqual({'--desktop-app-color': '#eab308'});
+        expect(icon.style).toEqual({'--neo-desktop-app-color': '#eab308'});
         expect(title.hidden).toBe(false);
         expect(title.text).toBe('Notes');
         expect(spacer.hidden).toBe(false);

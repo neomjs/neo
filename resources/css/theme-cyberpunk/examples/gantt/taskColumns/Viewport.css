@@ -1,13 +1,13 @@
 :where(.neo-theme-cyberpunk) {
-    --tc-header-bg    : var(--cyber-bg);
-    --tc-border       : var(--cyber-border);
-    --tc-title        : var(--cyber-cyan);
-    --tc-muted        : var(--cyber-text);
+    --tc-header-bg    : var(--neo-cyber-background-color);
+    --tc-border       : var(--neo-cyber-border);
+    --tc-title        : var(--neo-cyber-cyan);
+    --tc-muted        : var(--neo-cyber-color);
     --tc-badge-l      : 0.32;
     --tc-badge-c      : 0.1;
     --tc-badge-ink-l  : 0.9;
     --tc-badge-ink-c  : 0.13;
-    --tc-done-track   : var(--cyber-bg-alt);
-    --tc-done-fill    : var(--cyber-cyan);
-    --tc-done-complete: var(--cyber-gold);
+    --tc-done-track   : var(--neo-cyber-alt-background-color);
+    --tc-done-fill    : var(--neo-cyber-cyan);
+    --tc-done-complete: var(--neo-cyber-gold);
 }

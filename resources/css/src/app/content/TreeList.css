@@ -15,14 +15,14 @@
                     background-color: transparent;
 
                     &:hover {
-                        background-color: var(--list-item-background-color-hover);
-                        color           : var(--list-container-list-color);
+                        background-color: var(--neo-list-item-background-color-hover);
+                        color           : var(--neo-list-container-list-color);
                     }
                 }
 
                 &[aria-selected=true]:hover {
-                    background-color: var(--list-item-background-color-selected);
-                    color           : var(--list-item-color-selected);
+                    background-color: var(--neo-list-item-background-color-selected);
+                    color           : var(--neo-list-item-color-selected);
                 }
 
                 &.neo-list-item-leaf {
@@ -55,7 +55,7 @@
                     }
 
                     &.neo-stuck {
-                        background-color: var(--list-item-background-color);
+                        background-color: var(--neo-list-item-background-color);
                     }
                 }
             }
@@ -75,7 +75,7 @@
         border-radius   : 8px;
         font-size       : 16px;
         margin-right    : 0 !important;
-        padding         : 0 3px 0 calc(var(--tree-list-indent-base) + (var(--neo-tree-level) * var(--tree-list-indent-step))) !important;
+        padding         : 0 3px 0 calc(var(--neo-tree-list-indent-base) + (var(--neo-tree-list-level) * var(--neo-tree-list-indent-step))) !important;
         height          : 48px;
         display         : flex;
         align-items     : center;
@@ -107,7 +107,7 @@
             justify-content : space-between;
 
             &:after {
-                color       : var(--list-item-glyph-color);
+                color       : var(--neo-list-item-glyph-color);
                 content     : "\f054";
                 display     : inline-block;
                 font-family : "Font Awesome 7 Free";

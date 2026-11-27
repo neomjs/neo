@@ -3,7 +3,7 @@ import {test, expect} from '@playwright/test';
 /**
  * The reveal overlay's ORIGIN, measured on a rendered dock rather than on stylesheet text.
  *
- * `--dock-edge-rail-size` gives the rail's extent and the overlay's inset one shared VALUE. That is
+ * `--neo-dock-edge-rail-size` gives the rail's extent and the overlay's inset one shared VALUE. That is
  * only half of "the overlay starts exactly where the strip ends": the two readers also have to
  * measure from the same ORIGIN. The rail is laid out in normal flow, inside its ancestor's
  * content box; an absolutely positioned overlay resolves against the nearest positioned ancestor's

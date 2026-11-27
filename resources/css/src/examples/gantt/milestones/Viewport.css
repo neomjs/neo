@@ -43,8 +43,8 @@
             }
 
             &.is-gate::before {
-                background: var(--neo-gantt-milestone-bg);
-                border    : 2px solid var(--neo-gantt-milestone-border);
+                background: var(--neo-gantt-milestone-fill);
+                border    : 2px solid var(--neo-gantt-milestone-stroke);
                 height    : 10px;
                 transform : rotate(45deg);
                 width     : 10px;
@@ -72,8 +72,8 @@
             }
 
             &.is-phase::before {
-                background   : var(--neo-gantt-summary-bg);
-                border       : 1px solid var(--neo-gantt-summary-border);
+                background   : var(--neo-gantt-summary-background);
+                border       : 1px solid var(--neo-gantt-summary-border-color);
                 border-radius: 2px;
                 height       : 7px;
                 width        : 16px;
@@ -81,15 +81,15 @@
         }
 
         .milestones-slip-btn {
-            --button-background-color       : var(--milestones-cta-bg);
-            --button-background-color-active: var(--milestones-cta-hover);
-            --button-background-color-hover : var(--milestones-cta-hover);
-            --button-border                 : 1px solid var(--milestones-cta-border);
-            --button-border-hover           : 1px solid var(--milestones-cta-border);
-            --button-glyph-color            : var(--milestones-cta-text);
-            --button-text-color             : var(--milestones-cta-text);
-            --button-text-color-active      : var(--milestones-cta-text);
-            --button-text-color-hover       : var(--milestones-cta-text);
+            --neo-button-background-color       : var(--milestones-cta-bg);
+            --neo-button-background-color-active: var(--milestones-cta-hover);
+            --neo-button-background-color-hover : var(--milestones-cta-hover);
+            --neo-button-border                 : 1px solid var(--milestones-cta-border);
+            --neo-button-border-hover           : 1px solid var(--milestones-cta-border);
+            --neo-button-glyph-color            : var(--milestones-cta-text);
+            --neo-button-color             : var(--milestones-cta-text);
+            --neo-button-color-active      : var(--milestones-cta-text);
+            --neo-button-color-hover       : var(--milestones-cta-text);
             align-items  : center;
             background   : var(--milestones-cta-bg);
             border       : 1px solid var(--milestones-cta-border);
@@ -112,16 +112,16 @@
         }
 
         .milestones-reset-btn {
-            --button-background-color-hover          : var(--milestones-hover-bg);
-            --button-glyph-color                     : var(--milestones-title);
-            --button-secondary-background-color-hover: var(--milestones-hover-bg);
-            --button-secondary-border-hover          : 1px solid var(--milestones-border);
-            --button-secondary-text-color            : var(--milestones-title);
-            --button-secondary-text-color-active     : var(--milestones-title);
-            --button-secondary-text-color-hover      : var(--milestones-title);
-            --button-text-color                      : var(--milestones-title);
-            --button-text-color-active               : var(--milestones-title);
-            --button-text-color-hover                : var(--milestones-title);
+            --neo-button-background-color-hover          : var(--milestones-hover-bg);
+            --neo-button-glyph-color                     : var(--milestones-title);
+            --neo-button-secondary-background-color-hover: var(--milestones-hover-bg);
+            --neo-button-secondary-border-hover          : 1px solid var(--milestones-border);
+            --neo-button-secondary-color            : var(--milestones-title);
+            --neo-button-secondary-color-active     : var(--milestones-title);
+            --neo-button-secondary-color-hover      : var(--milestones-title);
+            --neo-button-color                      : var(--milestones-title);
+            --neo-button-color-active               : var(--milestones-title);
+            --neo-button-color-hover                : var(--milestones-title);
             align-items  : center;
             background   : var(--milestones-control-bg);
             border       : 1px solid var(--milestones-border);

@@ -1,8 +1,8 @@
 .neo-animate-dialog {
     /* default styling to match buttons, since this is the most common use case */
-    background-color: var(--button-background-color);
-    background-image: var(--button-background-image);
-    border          : var(--button-border-active);
+    background-color: var(--neo-button-background-color);
+    background-image: var(--neo-button-background-image);
+    border          : var(--neo-button-border-active);
 
     position: fixed;
     z-index : 1000;
@@ -23,14 +23,14 @@
     left             : 0;
     bottom           : 0;
     right            : 0;
-    background-color : var(--dialog-modal-mask-background-color);
+    background-color : var(--neo-dialog-modal-mask-background-color);
     backdrop-filter  : blur(1px);
     z-index          : 1000;
 }
 
 .neo-dialog {
-    border        : 1px solid var(--dialog-border-color);
-    box-shadow    : var(--dialog-box-shadow);
+    border        : 1px solid var(--neo-dialog-border-color);
+    box-shadow    : var(--neo-dialog-box-shadow);
     display       : flex;
     flex-direction: column;
 
@@ -53,11 +53,11 @@
     /* The maximized geometry has to beat the dialog's inline position and size, hence !important. A later layer's
        !important cannot beat it, so a variant or an app re-values these variables on the dialog instead. */
     &.neo-maximized {
-        height   : var(--dialog-maximized-height, 98%) !important;
-        left     : var(--dialog-maximized-left, 1%) !important;
-        top      : var(--dialog-maximized-top, 1%) !important;
+        height   : var(--neo-dialog-maximized-height, 98%) !important;
+        left     : var(--neo-dialog-maximized-left, 1%) !important;
+        top      : var(--neo-dialog-maximized-top, 1%) !important;
         transform: none !important;
-        width    : var(--dialog-maximized-width, 98%) !important;
+        width    : var(--neo-dialog-maximized-width, 98%) !important;
 
         &.neo-panel {
             .neo-header-toolbar {
@@ -71,18 +71,18 @@
     &.neo-panel {
         .neo-footer-toolbar {
             border    : none;
-            border-top: 1px solid var(--dialog-border-color);
+            border-top: 1px solid var(--neo-dialog-border-color);
 
             .neo-button {
-                border-radius: var(--dialog-footer-button-border-radius);
-                height       : var(--dialog-footer-button-height);
-                margin-left  : var(--dialog-footer-button-margin-left);
+                border-radius: var(--neo-dialog-footer-button-border-radius);
+                height       : var(--neo-dialog-footer-button-height);
+                margin-left  : var(--neo-dialog-footer-button-margin-left);
             }
         }
 
         .neo-header-toolbar {
             border       : none;
-            border-bottom: 1px solid var(--dialog-border-color);
+            border-bottom: 1px solid var(--neo-dialog-border-color);
 
             .neo-button {
                 border      : 0;
@@ -92,7 +92,7 @@
                 /* Theme Neo paints these controls flat with the rule at the end of this file, so the
                    hover state is declared here, above it, and a disabled control keeps no hover state. */
                 &:hover:not(.neo-disabled) {
-                    background-color: var(--dialog-header-button-background-color-hover, transparent);
+                    background-color: var(--neo-dialog-header-button-background-color-hover, transparent);
                 }
 
                 &:active {
@@ -108,7 +108,7 @@
                box keeps every control a 24px target (WCAG 2.2 SC 2.5.8) */
             .neo-button-glyph {
                 align-items    : center;
-                color          : var(--dialog-icon-color);
+                color          : var(--neo-dialog-icon-color);
                 display        : inline-flex;
                 font-size      : 1em;
                 height         : 24px;
@@ -117,11 +117,11 @@
             }
 
             .neo-button:hover .neo-button-glyph {
-                color: var(--dialog-icon-color-hover, var(--dialog-icon-color));
+                color: var(--neo-dialog-icon-color-hover, var(--neo-dialog-icon-color));
             }
 
             .neo-panel-header-text {
-                color         : var(--dialog-header-color);
+                color         : var(--neo-dialog-header-color);
                 overflow      : hidden;
                 pointer-events: none;
                 text-overflow : ellipsis;

@@ -1,4 +1,4 @@
 :root .neo-theme-dark { /* .neo-grid-cell .neo-icon-link */
-    --grid-column-icon-link-font-size      : 16px;
-    --grid-column-icon-link-label-font-size: 13px;
+    --neo-grid-column-icon-link-font-size      : 16px;
+    --neo-grid-column-icon-link-label-font-size: 13px;
 }

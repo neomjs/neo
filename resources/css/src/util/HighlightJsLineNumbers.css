@@ -7,9 +7,9 @@
         }
 
         td.hljs-ln-numbers {
-            background-color     : var(--hljs-line-numbers-background-color);
-            border-right         : var(--hljs-line-numbers-border-right);
-            color                : var(--hljs-line-numbers-color);
+            background-color     : var(--neo-hljs-line-numbers-background-color);
+            border-right         : var(--neo-hljs-line-numbers-border-right);
+            color                : var(--neo-hljs-line-numbers-color);
             padding-right        : 5px;
             text-align           : right;
             user-select          : none;
@@ -28,6 +28,6 @@
     }
 
     .neo-highlighted-line {
-        background-color: var(--hljs-line-numbers-highlighted-line);
+        background-color: var(--neo-hljs-line-numbers-highlighted-line);
     }
 }

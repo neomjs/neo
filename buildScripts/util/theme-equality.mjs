@@ -145,14 +145,60 @@ function byGlobalFirst(a, b) {
 }
 
 /**
- * @summary Resolves a `--base` or `--head` path to its built CSS root and optional `theme-map.json` data.
- * Prefers `<dir>/dist/<env>/css` when `inputPath` is a repository or worktree root (whose `<dir>/src` holds
- * JavaScript sources), while retaining direct CSS-root support (`<dir>/src/Global.css`).
+ * @summary Returns true when `dir` holds a full Neo Engine JavaScript `src/` tree (`src/Neo.mjs` + `src/DefaultConfig.mjs`).
+ * @param {String|null} dir
+ * @returns {Boolean}
+ */
+function hasEngineSourceTree(dir) {
+    return Boolean(dir) &&
+        fs.existsSync(path.join(dir, 'src', 'Neo.mjs')) &&
+        fs.existsSync(path.join(dir, 'src', 'DefaultConfig.mjs'))
+}
+
+/**
+ * @summary Infers the enclosing checkout root for standard checkout CSS directories (`<checkout>/dist/<env>/css`
+ * or `<checkout>/resources/css`) when that checkout contains a full Engine JavaScript `src/` tree.
+ * @param {String|null} cssRoot
+ * @returns {String|null}
+ */
+function inferEnclosingCheckout(cssRoot) {
+    if (!cssRoot || path.basename(cssRoot) !== 'css') {
+        return null
+    }
+
+    const
+        parent      = path.dirname(cssRoot),
+        grandParent = path.dirname(parent);
+
+    if (path.basename(grandParent) === 'dist') {
+        const candidate = path.dirname(grandParent);
+        return hasEngineSourceTree(candidate) ? candidate : null
+    }
+
+    if (path.basename(parent) === 'resources') {
+        return hasEngineSourceTree(grandParent) ? grandParent : null
+    }
+
+    return null
+}
+
+/**
+ * @summary Resolves a `--base` or `--head` path to its built CSS root, JavaScript `sourceRoot`, `sourceMode`,
+ * and optional `theme-map.json` data.
+ *
+ * - Checkout/worktree roots (`<checkout>`) resolve `<checkout>/dist/<env>/css` and `sourceRoot: <checkout>` (`'checkout'`).
+ * - Standard checkout CSS build folders (`<checkout>/dist/<env>/css`) infer `sourceRoot: <checkout>` (`'inferred-checkout'`).
+ * - Portable CSS snapshots outside any checkout resolve `sourceRoot: null` (`'portable-unresolved'`) unless an explicit
+ *   `options.sourceRoot` (`<checkout>` or `'workspace'`) is supplied (`'explicit'` / `'explicit-workspace'`).
+ *
  * @param {String} inputPath Path to checkout/worktree root or built CSS directory.
  * @param {String} [env='development'] Build environment name when `inputPath` is a checkout root.
- * @returns {Object} Resolved `{cssRoot, themeMap, inputPath}`.
+ * @param {Object} [options={}]
+ * @param {String} [options.repoRoot=REPO_ROOT] Workspace root used when `options.sourceRoot === 'workspace'`.
+ * @param {String} [options.sourceRoot] Explicit JS source root path or `'workspace'` for portable CSS snapshots.
+ * @returns {Object} Resolved `{cssRoot, inputPath, sourceMode, sourceRoot, themeMap}`.
  */
-export function resolveBuiltTree(inputPath, env = 'development') {
+export function resolveBuiltTree(inputPath, env = 'development', options = {}) {
     if (typeof inputPath !== 'string' || !inputPath.trim()) {
         throw new Error('A non-empty --base / --head path is required.')
     }
@@ -160,8 +206,8 @@ export function resolveBuiltTree(inputPath, env = 'development') {
     const resolved = path.resolve(inputPath),
           asDist   = path.join(resolved, 'dist', env, 'css'),
           cssRoot  = hasBuiltStructuralCss(asDist)   ? asDist
-                   : hasBuiltStructuralCss(resolved) ? resolved
-                   : null;
+                       : hasBuiltStructuralCss(resolved) ? resolved
+                       : null;
 
     if (!cssRoot) {
         throw new Error(
@@ -170,12 +216,54 @@ export function resolveBuiltTree(inputPath, env = 'development') {
         )
     }
 
+    let sourceRoot = null,
+        sourceMode = 'portable-unresolved';
+
+    if (options.sourceRoot !== undefined && options.sourceRoot !== null) {
+        if (typeof options.sourceRoot !== 'string' || !options.sourceRoot.trim()) {
+            throw new Error('Explicit sourceRoot must be a non-empty directory path or "workspace".')
+        }
+
+        if (options.sourceRoot === 'workspace') {
+            const wsRoot = options.repoRoot ? path.resolve(options.repoRoot) : REPO_ROOT;
+
+            if (!hasEngineSourceTree(wsRoot)) {
+                throw new Error(`Workspace root "${wsRoot}" is missing Engine JavaScript "src/Neo.mjs" or "src/DefaultConfig.mjs".`)
+            }
+
+            sourceRoot = wsRoot;
+            sourceMode = 'explicit-workspace'
+        } else {
+            const explicitDir = path.resolve(options.sourceRoot);
+
+            if (!hasEngineSourceTree(explicitDir)) {
+                throw new Error(
+                    `Explicit source root "${explicitDir}" is missing Engine JavaScript "src/Neo.mjs" or "src/DefaultConfig.mjs".`
+                )
+            }
+
+            sourceRoot = explicitDir;
+            sourceMode = 'explicit'
+        }
+    } else if (hasEngineSourceTree(resolved)) {
+        sourceRoot = resolved;
+        sourceMode = 'checkout'
+    } else {
+        const inferred = inferEnclosingCheckout(cssRoot);
+
+        if (inferred) {
+            sourceRoot = inferred;
+            sourceMode = 'inferred-checkout'
+        }
+    }
+
     const candidateMaps = [
         path.join(cssRoot, 'theme-map.json'),
         path.join(resolved, 'theme-map.json'),
         path.join(resolved, 'resources', 'theme-map.json'),
         path.join(path.dirname(cssRoot), 'resources', 'theme-map.json'),
-        path.join(path.resolve(cssRoot, '../../..'), 'resources', 'theme-map.json')
+        path.join(path.resolve(cssRoot, '../../..'), 'resources', 'theme-map.json'),
+        ...(sourceRoot ? [path.join(sourceRoot, 'resources', 'theme-map.json')] : [])
     ];
 
     let themeMap = null;
@@ -187,7 +275,7 @@ export function resolveBuiltTree(inputPath, env = 'development') {
         }
     }
 
-    return {cssRoot, inputPath: resolved, themeMap}
+    return {cssRoot, inputPath: resolved, sourceMode, sourceRoot, themeMap}
 }
 
 /**
@@ -515,16 +603,29 @@ function startEqualityServer(repoRoot, getActiveTree) {
 
                 filePath = target
             } else {
-                const relRepo = pathname.replace(/^\/+/, ''),
-                      target  = path.resolve(repoRoot, relRepo);
+                const relRepo  = pathname.replace(/^\/+/, ''),
+                      baseRoot = pathname.startsWith('/src/') && tree?.sourceRoot ? tree.sourceRoot : repoRoot,
+                      primary  = path.resolve(baseRoot, relRepo);
 
-                if (target !== repoRoot && !target.startsWith(repoRoot + path.sep)) {
+                if (primary !== baseRoot && !primary.startsWith(baseRoot + path.sep)) {
                     res.writeHead(403);
                     res.end('Forbidden');
                     return
                 }
 
-                filePath = target
+                if (fs.existsSync(primary) && fs.statSync(primary).isFile()) {
+                    filePath = primary
+                } else {
+                    const fallback = path.resolve(repoRoot, relRepo);
+
+                    if (fallback !== repoRoot && !fallback.startsWith(repoRoot + path.sep)) {
+                        res.writeHead(403);
+                        res.end('Forbidden');
+                        return
+                    }
+
+                    filePath = fallback
+                }
             }
 
             if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
@@ -1076,9 +1177,24 @@ export async function runThemeEquality(options) {
 
     validateExpectedRules(expectedRules);
 
-    const baseTree    = resolveBuiltTree(options.base, env),
-          headTree    = resolveBuiltTree(options.head, env),
-          baseUrlsMap = buildValidatedThemeUrlMap(baseTree, themes),
+    const baseTree = resolveBuiltTree(options.base, env, {repoRoot, sourceRoot: options.baseSource}),
+          headTree = resolveBuiltTree(options.head, env, {repoRoot, sourceRoot: options.headSource});
+
+    if (!baseTree.sourceRoot) {
+        throw new Error(
+            `Portable CSS snapshot "${baseTree.cssRoot}" has no enclosing Engine checkout "src/" tree; ` +
+            `pass --base-source <checkout|workspace> (or baseSource in runThemeEquality) so JavaScript runtime property writers are paired explicitly.`
+        )
+    }
+
+    if (!headTree.sourceRoot) {
+        throw new Error(
+            `Portable CSS snapshot "${headTree.cssRoot}" has no enclosing Engine checkout "src/" tree; ` +
+            `pass --head-source <checkout|workspace> (or headSource in runThemeEquality) so JavaScript runtime property writers are paired explicitly.`
+        )
+    }
+
+    const baseUrlsMap = buildValidatedThemeUrlMap(baseTree, themes),
           headUrlsMap = buildValidatedThemeUrlMap(headTree, themes);
 
     let activeTree = baseTree,
@@ -1130,6 +1246,8 @@ export async function runThemeEquality(options) {
             elapsedMs,
             themes,
             scopes         : [...SCOPES],
+            baseSource     : {mode: baseTree.sourceMode, root: baseTree.sourceRoot},
+            headSource     : {mode: headTree.sourceMode, root: headTree.sourceRoot},
             componentCount : COMPONENT_MATRIX.length,
             packageMatrix  : ENGINE_PACKAGE_MATRIX,
             packageCoverage,
@@ -1158,6 +1276,8 @@ export async function main(argv = process.argv) {
         .description('Compare computed painted styles across themes, scopes, states, and parts between two built CSS trees.')
         .requiredOption('-b, --base <path>', 'Base built CSS folder or checkout/worktree root')
         .option('-h, --head <path>', 'Head built CSS folder or checkout/worktree root', REPO_ROOT)
+        .option('--base-source <path>', 'Explicit JavaScript checkout root (or "workspace") when --base is a portable CSS snapshot')
+        .option('--head-source <path>', 'Explicit JavaScript checkout root (or "workspace") when --head is a portable CSS snapshot')
         .option('-e, --env <env>', 'Build environment when --base/--head points to a checkout root', 'development')
         .option('-x, --expected <file>', 'JSON file listing expected difference rules')
         .option('-t, --themes <list>', 'Comma-separated theme class names to compare')
@@ -1175,9 +1295,11 @@ export async function main(argv = process.argv) {
         : [...THEMES];
 
     const result = await runThemeEquality({
-        base: opts.base,
-        head: opts.head,
-        env : opts.env,
+        base      : opts.base,
+        head      : opts.head,
+        baseSource: opts.baseSource,
+        headSource: opts.headSource,
+        env       : opts.env,
         expected,
         themes
     });

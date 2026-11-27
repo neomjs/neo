@@ -95,7 +95,7 @@ async function createGrid(store, config = {}) {
  * @returns {String}
  */
 function transformAt(offset) {
-    return `translate3d(0px, calc(${offset}px + var(--grid-row-pin-offset, 0px)), 0px)`
+    return `translate3d(0px, calc(${offset}px + var(--neo-grid-row-pin-offset, 0px)), 0px)`
 }
 
 test.describe('Grid scroll pages: the page math', () => {

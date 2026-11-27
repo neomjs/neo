@@ -142,11 +142,11 @@ class GridRowScrollPinning extends Base {
 
         if (state.isPinningActive) {
             contentNodes.forEach(node => {
-                node.style.setProperty('--grid-row-pin-offset', `${deltaY}px`);
+                node.style.setProperty('--neo-grid-row-pin-offset', `${deltaY}px`);
             });
-        } else if (contentNodes[0].style.getPropertyValue('--grid-row-pin-offset') !== '0px') {
+        } else if (contentNodes[0].style.getPropertyValue('--neo-grid-row-pin-offset') !== '0px') {
             contentNodes.forEach(node => {
-                node.style.setProperty('--grid-row-pin-offset', '0px');
+                node.style.setProperty('--neo-grid-row-pin-offset', '0px');
             });
         }
     }

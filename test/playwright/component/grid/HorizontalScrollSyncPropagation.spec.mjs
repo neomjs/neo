@@ -20,7 +20,7 @@ import {test, expect} from '@playwright/test';
  * @returns {Promise<{body: String, header: Number, scroller: Number}>} The probe grid's horizontal positions
  */
 const read = page => page.evaluate(() => ({
-    body    : document.getElementById('probe-body').style.getPropertyValue('--grid-scroll-left'),
+    body    : document.getElementById('probe-body').style.getPropertyValue('--neo-grid-scroll-left'),
     header  : document.getElementById('probe-header').scrollLeft,
     scroller: document.getElementById('probe-scroller').scrollLeft
 }));
@@ -130,7 +130,7 @@ test.describe('Neo.main.addon.GridHorizontalScrollSync in the browser', () => {
             const node = id => document.querySelector(`[data-neo-id="${id}"]`);
 
             return {
-                body    : node('probe-data-body').style.getPropertyValue('--grid-scroll-left'),
+                body    : node('probe-data-body').style.getPropertyValue('--neo-grid-scroll-left'),
                 header  : node('probe-data-header').scrollLeft,
                 scroller: node('probe-data-scroller').scrollLeft
             }
@@ -139,7 +139,7 @@ test.describe('Neo.main.addon.GridHorizontalScrollSync in the browser', () => {
 
     test('a grid whose scrollbar moved before it registered takes that position at once (#21841)', async ({page}) => {
         const readLate = () => page.evaluate(() => ({
-            body    : document.getElementById('late-body').style.getPropertyValue('--grid-scroll-left'),
+            body    : document.getElementById('late-body').style.getPropertyValue('--neo-grid-scroll-left'),
             header  : document.getElementById('late-header').scrollLeft,
             scroller: document.getElementById('late-scroller').scrollLeft
         }));

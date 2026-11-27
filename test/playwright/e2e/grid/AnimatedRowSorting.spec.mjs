@@ -12,7 +12,7 @@ import {expect, test} from '../../fixtures.mjs';
  */
 const APP = 'examples/grid/animatedRowSorting/index.html',
       ROW = '.neo-grid-body .neo-grid-row';
-      
+
 const FIRSTNAME_ASC = [
     'Alex', 'Amanda', 'Ananya', 'Carol', 'Chloe', 'Daniel', 'Elena', 'Fatima',
     'Gabriel', 'Kenji', 'Liam', 'Lucas', 'Mateo', 'Max', 'Mei', 'Noah',
@@ -240,7 +240,7 @@ test.describe('grid: AnimateRows on the pooled body', () => {
         }
 
         await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('.neo-grid-body')]
-            .map(body => getComputedStyle(body).getPropertyValue('--neo-duration').trim()))).toEqual(['800ms', '800ms']);
+            .map(body => getComputedStyle(body).getPropertyValue('--neo-grid-animate-rows-transition-duration').trim()))).toEqual(['800ms', '800ms']);
 
         await page.evaluate(() => {
             window.__durations = [];

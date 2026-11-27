@@ -9,7 +9,7 @@
     /* An empty column says what it is for; the drag's slot fills it, so the hint leaves while a card is over it */
     .triage-board .neo-board-column-cards:empty::before {
         border       : 1px dashed var(--neo-board-column-border-color);
-        border-radius: var(--neo-board-radius, 8px);
+        border-radius: var(--neo-board-border-radius, 8px);
         color        : var(--neo-board-card-muted-color);
         content      : 'Drop reports here';
         display      : block;
@@ -59,18 +59,18 @@
         padding             : 4px 12px;
 
         &.triage-has-selection {
-            background  : var(--neo-board-card-selected-background);
-            border-color: var(--neo-board-card-selected-border-color);
+            background  : var(--neo-board-card-background-selected);
+            border-color: var(--neo-board-card-border-color-selected);
             color       : var(--neo-board-card-color);
         }
     }
 
     .triage-clear.neo-button {
-        --button-background-color      : transparent;
-        --button-background-color-hover: var(--neo-board-badge-background);
+        --neo-button-background-color      : transparent;
+        --neo-button-background-color-hover: var(--neo-board-badge-background);
         --button-border-color          : var(--neo-board-column-border-color);
-        --button-text-color            : var(--neo-board-card-color);
-        --button-text-color-hover      : var(--neo-board-card-color);
+        --neo-button-color            : var(--neo-board-card-color);
+        --neo-button-color-hover      : var(--neo-board-card-color);
 
         border-radius: 999px;
         font-size    : 13px;
@@ -79,7 +79,7 @@
         padding      : 0 14px;
 
         &:focus-visible {
-            outline       : 2px solid var(--neo-board-focus-color);
+            outline       : 2px solid var(--neo-board-outline-color-focus);
             outline-offset: 2px;
         }
 

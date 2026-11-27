@@ -1,6 +1,6 @@
 .neo-tree-list {
     border         : none;
-    color          : var(--tree-list-color);
+    color          : var(--neo-tree-list-color);
     display        : flex;
     flex-direction : column;
     overflow       : hidden;
@@ -16,8 +16,8 @@
     }
 
     .neo-list-container {
-        background-color: var(--list-container-background-color);
-        border          : var(--list-container-border);
+        background-color: var(--neo-list-container-background-color);
+        border          : var(--neo-list-container-border);
         overflow        : auto;
 
         /* Allow item's scrollIntoView upwards to avoid
@@ -25,17 +25,17 @@
         scroll-padding-block-start: 3em;
     }
 
-    /* A tree that draws its own folder icon sets --tree-list-folder-icon: this !important outranks every later layer */
+    /* A tree that draws its own folder icon sets --neo-tree-list-folder-icon: this !important outranks every later layer */
     .neo-list-folder {
         .neo-list-item-content:before {
-            content    : var(--tree-list-folder-icon, "\f07b") !important;
+            content    : var(--neo-tree-list-folder-icon, "\f07b") !important;
             margin-left: 0;
         }
     }
 
     .neo-list-folder.neo-folder-open {
         .neo-list-item-content:before {
-            content    : var(--tree-list-folder-icon, "\f07c") !important;
+            content    : var(--neo-tree-list-folder-icon, "\f07c") !important;
             margin-left: 0;
         }
     }
@@ -48,7 +48,7 @@
         margin-right: 10px;
 
         .neo-list-item-content:before {
-            color      : var(--list-item-glyph-color); /* todo: tree-list var */
+            color      : var(--neo-list-item-glyph-color); /* todo: tree-list var */
             content    : "\f1f9";
             display    : inline-block;
             font-family: var(--fa-style-family-classic);
@@ -76,7 +76,7 @@
         }
 
         .neo-treelist-menu-item-content:before {
-            color      : var(--tree-list-menu-item-color);
+            color      : var(--neo-tree-list-menu-item-color);
             display    : inline-block;
             font-family: var(--fa-style-family-classic);
             font-weight: 900;

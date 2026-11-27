@@ -30,7 +30,7 @@
    reach, and the note over an empty launcher centers beside it. The panel is in the DOM only while it is open. */
 @media (min-width: 601px) {
     body:has(.webdesktop-permission-panel) .neo-dialog.neo-desktop-app-window.neo-maximized {
-        --dialog-maximized-width: calc(100% - 320px);
+        --neo-dialog-maximized-width: calc(100% - 320px);
     }
 
     .neo-desktop-workspace:has(> .webdesktop-permission-panel) > .webdesktop-empty {

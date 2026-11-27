@@ -1,5 +1,5 @@
 :root .neo-theme-light { /* .neo-app-content-container */
-    --neo-app-content-sidenav-bg    : #fff;
-    --neo-app-content-sidenav-btn-bg: #fff;
-    --neo-app-content-sidenav-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    --neo-app-content-sidenav-background-color    : #fff;
+    --neo-app-content-sidenav-button-background-color: #fff;
+    --neo-app-content-sidenav-box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
 }

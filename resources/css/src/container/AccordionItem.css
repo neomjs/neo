@@ -1,11 +1,11 @@
 .neo-accordion-item {
-  box-shadow: var(--accordion-item-shadow);
-  background-color: var(--accordion-item-bg-color);
-  border: 1px solid var(--accordion-item-border-color);
-  border-radius: var(--accordion-item-radius);
+  box-shadow: var(--neo-accordion-item-box-shadow);
+  background-color: var(--neo-accordion-item-background-color);
+  border: 1px solid var(--neo-accordion-item-border-color);
+  border-radius: var(--neo-accordion-item-border-radius);
 
   transition: max-height 0.5s cubic-bezier(0, 1, 0, 1);
-  max-height: var(--accordion-item-header-height);
+  max-height: var(--neo-accordion-item-header-height);
 
   overflow: hidden;
 
@@ -22,7 +22,7 @@
     transition: max-height 1s ease-in-out;
 
     .neo-toolbar {
-      border-bottom-color: var(--accordion-item-border-color);
+      border-bottom-color: var(--neo-accordion-item-border-color);
 
       .neo-accordion-header-arrow::before {
         transform: rotate(0deg);
@@ -37,8 +37,8 @@
   }
 
   .neo-toolbar {
-    max-height: var(--accordion-item-header-height);
-    min-height: var(--accordion-item-header-height);
+    max-height: var(--neo-accordion-item-header-height);
+    min-height: var(--neo-accordion-item-header-height);
     border-bottom: 1px solid transparent;
 
     /* The spacing sits on the icon's own box: on its ::before it pushed a wide glyph over the title */
@@ -58,11 +58,11 @@
     }
 
     .neo-accordion-header-arrow {
-      background-color: var(--accordion-item-arrow-bg-color);
+      background-color: var(--neo-accordion-item-arrow-background-color);
       height: 30px;
       width: 30px;
-      border-radius: var(--accordion-item-radius);
-      box-shadow: var(--accordion-item-arrow-shadow);
+      border-radius: var(--neo-accordion-item-border-radius);
+      box-shadow: var(--neo-accordion-item-arrow-box-shadow);
       padding: 7px;
       text-align: center;
 
@@ -76,9 +76,9 @@
   }
 
   .neo-accordion-content {
-    background-color: var(--accordion-item-content-bg-color);
-    border-bottom-left-radius: var(--accordion-item-radius);
-    border-bottom-right-radius: var(--accordion-item-radius);
+    background-color: var(--neo-accordion-item-content-background-color);
+    border-bottom-left-radius: var(--neo-accordion-item-border-radius);
+    border-bottom-right-radius: var(--neo-accordion-item-border-radius);
     padding: 15px;
   }
 }

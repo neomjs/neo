@@ -1,19 +1,19 @@
 :root .neo-theme-dark { /* .neo-markdown-component */
-    --markdown-bg                   : #2b2b2b;
-    --markdown-blockquote-bg        : #333638;
-    --markdown-blockquote-border    : #5d83a7;
-    --markdown-code-bg              : #232526;
-    --markdown-code-border          : #45484a;
-    --markdown-details-icon-color   : #64b5f6;
-    --markdown-details-summary-color: #ddd;
-    --markdown-h1-color             : #e0e0e0;
-    --markdown-hr-border            : #45484a;
-    --markdown-lab-shadow           : 0 4px 8px 0 rgba(0, 0, 0, 0.5);
-    --markdown-lab-shadow-hover     : 0 8px 16px 0 rgba(0, 0, 0, 0.65);
-    --markdown-link-color           : #64b5f6;
-    --markdown-list-marker-color    : #64b5f6;
-    --markdown-pre-border           : #45484a;
-    --markdown-table-border         : #45484a;
-    --markdown-table-header-bg      : #3c3f41;
-    --markdown-text-color           : #bbb;
+    --neo-markdown-background-color                   : #2b2b2b;
+    --neo-markdown-blockquote-background-color        : #333638;
+    --neo-markdown-blockquote-border    : #5d83a7;
+    --neo-markdown-code-background-color              : #232526;
+    --neo-markdown-code-border          : #45484a;
+    --neo-markdown-details-icon-color   : #64b5f6;
+    --neo-markdown-details-summary-color: #ddd;
+    --neo-markdown-h1-color             : #e0e0e0;
+    --neo-markdown-hr-border            : #45484a;
+    --neo-markdown-lab-box-shadow           : 0 4px 8px 0 rgba(0, 0, 0, 0.5);
+    --neo-markdown-lab-box-shadow-hover     : 0 8px 16px 0 rgba(0, 0, 0, 0.65);
+    --neo-markdown-link-color           : #64b5f6;
+    --neo-markdown-list-marker-color    : #64b5f6;
+    --neo-markdown-pre-border           : #45484a;
+    --neo-markdown-table-border         : #45484a;
+    --neo-markdown-table-header-background-color      : #3c3f41;
+    --neo-markdown-color           : #bbb;
 }

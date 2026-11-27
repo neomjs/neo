@@ -1,6 +1,6 @@
 :where(.neo-theme-light) {
-    --tc-header-bg    : var(--neo-background-color);
-    --tc-border       : var(--grid-container-border-color, #ddd);
+    --tc-header-bg    : var(--neo-global-background-color);
+    --tc-border       : var(--neo-grid-container-border-color, #ddd);
     --tc-title        : #163a5f;
     --tc-muted        : #4d4d4d;
     --tc-badge-l      : 0.9;
@@ -8,6 +8,6 @@
     --tc-badge-ink-l  : 0.38;
     --tc-badge-ink-c  : 0.1;
     --tc-done-track   : #e6eef7;
-    --tc-done-fill    : var(--button-text-color, #1c60a0);
+    --tc-done-fill    : var(--neo-button-color, #1c60a0);
     --tc-done-complete: #2e7d32;
 }

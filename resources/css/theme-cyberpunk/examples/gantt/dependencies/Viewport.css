@@ -1,10 +1,10 @@
 :where(.neo-theme-cyberpunk) {
-    --launch-header-bg : var(--cyber-bg);
-    --launch-border    : var(--cyber-border);
-    --launch-title     : var(--cyber-cyan);
-    --launch-muted     : var(--cyber-text);
-    --launch-control   : var(--cyber-bg-alt);
-    --launch-hover     : color-mix(in srgb, var(--cyber-cyan) 14%, transparent);
-    --launch-focus     : var(--cyber-gold);
-    --launch-legend-bar: color-mix(in srgb, var(--cyber-cyan) 30%, var(--cyber-bg-alt));
+    --launch-header-bg : var(--neo-cyber-background-color);
+    --launch-border    : var(--neo-cyber-border);
+    --launch-title     : var(--neo-cyber-cyan);
+    --launch-muted     : var(--neo-cyber-color);
+    --launch-control   : var(--neo-cyber-alt-background-color);
+    --launch-hover     : color-mix(in srgb, var(--neo-cyber-cyan) 14%, transparent);
+    --launch-focus     : var(--neo-cyber-gold);
+    --launch-legend-bar: color-mix(in srgb, var(--neo-cyber-cyan) 30%, var(--neo-cyber-alt-background-color));
 }

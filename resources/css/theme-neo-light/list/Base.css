@@ -1,26 +1,26 @@
 :where(.neo-theme-neo-light) { /* .neo-list-container */
-    --list-scrollbar-color-scheme        : light;
-    --list-container-background-color    : #fff;
-    --list-container-border              : none;
-    --list-container-list-color          : var(--sem-color-fg-neutral-contrast);
+    --neo-list-scrollbar-color-scheme        : light;
+    --neo-list-container-background-color    : #fff;
+    --neo-list-container-border              : none;
+    --neo-list-container-list-color          : var(--neo-sem-color-fg-neutral-contrast);
 
     /* Background Color */
-    --list-item-background-color         : #fff;
-    --list-item-background-color-hover   : var(--sem-color-surface-neutral-hover);
-    --list-item-background-color-active  : var(--sem-color-surface-primary-background);
-    --list-item-background-color-selected: var(--sem-color-surface-primary-background);
+    --neo-list-item-background-color         : #fff;
+    --neo-list-item-background-color-hover   : var(--neo-sem-color-surface-neutral-hover);
+    --neo-list-item-background-color-active  : var(--neo-sem-color-surface-primary-background);
+    --neo-list-item-background-color-selected: var(--neo-sem-color-surface-primary-background);
 
     /* Text Color */
-    --list-item-color-selected           : var(--sem-color-text-primary-default);
+    --neo-list-item-color-selected           : var(--neo-sem-color-text-primary-default);
 
     /* Border Color */
-    --list-border-color                  : var(--sem-color-border-default);
-    --list-item-border-color-active      : var(--sem-color-border-focus);
+    --neo-list-border-color                  : var(--neo-sem-color-border-default);
+    --neo-list-item-border-color-active      : var(--neo-sem-color-border-focus);
 
-    --list-item-focus-outline            : 3px solid var(--sem-color-border-focus);
-    --list-item-focus-outline-offset     : -3px; /* the ring's width: inside the row, which the list clips */
-    --list-item-glyph-color              : var(--sem-color-icon-neutral-default);
+    --neo-list-item-outline-focus            : 3px solid var(--neo-sem-color-border-focus);
+    --neo-list-item-outline-offset-focus     : -3px; /* the ring's width: inside the row, which the list clips */
+    --neo-list-item-glyph-color              : var(--neo-sem-color-icon-neutral-default);
 
-    --list-item-highlight-search-color   : red;
-    --list-item-padding                  : 5px;
+    --neo-list-item-highlight-search-color   : red;
+    --neo-list-item-padding                  : 5px;
 }

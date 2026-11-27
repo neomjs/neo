@@ -1,11 +1,11 @@
 /* The sparkline example: a toolbar above a grid of metric cards. Colours come from the theme's own tokens, so
    the cards follow neo-light and neo-dark without a theme file of their own. */
 .neo-examples-sparkline {
-    background: var(--neo-background-color);
-    color     : var(--neo-color);
+    background: var(--neo-global-background-color);
+    color     : var(--neo-global-color);
 
     .neo-examples-sparkline-toolbar {
-        border-bottom: 1px solid color-mix(in srgb, var(--neo-color) 14%, transparent);
+        border-bottom: 1px solid color-mix(in srgb, var(--neo-global-color) 14%, transparent);
         column-gap   : 16px;
         padding      : 8px 16px;
         row-gap      : 8px;
@@ -29,8 +29,8 @@
     }
 
     .neo-examples-sparkline-card {
-        background    : color-mix(in srgb, var(--neo-color) 4%, var(--neo-background-color));
-        border        : 1px solid color-mix(in srgb, var(--neo-color) 12%, transparent);
+        background    : color-mix(in srgb, var(--neo-global-color) 4%, var(--neo-global-background-color));
+        border        : 1px solid color-mix(in srgb, var(--neo-global-color) 12%, transparent);
         border-radius : 8px;
         display       : flex;
         flex-direction: column;

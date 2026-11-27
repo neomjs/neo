@@ -26,8 +26,8 @@ test.describe('Workstation theme projection', () => {
             const style = getComputedStyle(document.querySelector('.workstation-workspace .neo-dashboard'));
 
             return {
-                accent: style.getPropertyValue('--agent-dock-preview-accept').trim(),
-                fill  : style.getPropertyValue('--agent-dock-preview-accept-fill').trim(),
+                accent: style.getPropertyValue('--neo-dock-preview-accept-color').trim(),
+                fill  : style.getPropertyValue('--neo-dock-preview-accept-background-color').trim(),
                 signal: style.getPropertyValue('--workstation-signal').trim()
             }
         });

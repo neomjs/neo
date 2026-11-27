@@ -35,17 +35,17 @@
         }
 
         .due-late-toggle.neo-button {
-            --button-background-color        : var(--due-late-bg);
-            --button-background-color-hover  : var(--due-late-active-bg);
-            --button-background-color-pressed: var(--due-late-active-bg);
+            --neo-button-background-color        : var(--due-late-bg);
+            --neo-button-background-color-hover  : var(--due-late-active-bg);
+            --neo-button-background-color-pressed: var(--due-late-active-bg);
             --button-border-color            : var(--due-late-border);
-            --button-border-hover            : 1px solid var(--due-late-active-border);
-            --button-border-pressed          : 1px solid var(--due-late-active-border);
-            --button-ripple-background-color : transparent;
-            --button-text-color              : var(--due-late-text);
-            --button-text-color-active       : var(--due-late-active-text);
-            --button-text-color-hover        : var(--due-late-text);
-            --button-text-color-pressed      : var(--due-late-active-text);
+            --neo-button-border-hover            : 1px solid var(--due-late-active-border);
+            --neo-button-border-pressed          : 1px solid var(--due-late-active-border);
+            --neo-button-ripple-background-color : transparent;
+            --neo-button-color              : var(--due-late-text);
+            --neo-button-color-active       : var(--due-late-active-text);
+            --neo-button-color-hover        : var(--due-late-text);
+            --neo-button-color-pressed      : var(--due-late-active-text);
             background          : var(--due-late-bg);
             border              : 1px solid var(--due-late-border);
             border-left-width   : 3px;
@@ -59,11 +59,11 @@
             padding             : 0 13px;
 
             &.pressed {
-                --button-background-color      : var(--due-late-active-bg);
-                --button-background-color-hover: var(--due-late-active-bg);
+                --neo-button-background-color      : var(--due-late-active-bg);
+                --neo-button-background-color-hover: var(--due-late-active-bg);
                 --button-border-color          : var(--due-late-active-border);
-                --button-text-color            : var(--due-late-active-text);
-                --button-text-color-hover      : var(--due-late-active-text);
+                --neo-button-color            : var(--due-late-active-text);
+                --neo-button-color-hover      : var(--due-late-active-text);
                 background       : var(--due-late-active-bg);
                 border-color     : var(--due-late-active-border);
                 border-left-width: 3px;
@@ -83,16 +83,16 @@
 
         .due-reset-button.neo-button,
         .neo-themeswitcher.neo-button {
-            --button-background-color         : var(--due-btn-bg);
-            --button-background-color-disabled: var(--due-btn-bg);
-            --button-background-color-hover   : var(--due-btn-hover-bg);
+            --neo-button-background-color         : var(--due-btn-bg);
+            --neo-button-background-color-disabled: var(--due-btn-bg);
+            --neo-button-background-color-hover   : var(--due-btn-hover-bg);
             --button-border-color             : var(--due-btn-border);
-            --button-border-disabled          : 1px solid var(--due-border);
-            --button-border-hover             : 1px solid var(--due-card-hover-border);
-            --button-text-color               : var(--due-btn-text);
-            --button-text-color-active        : var(--due-title);
-            --button-text-color-disabled      : var(--due-muted);
-            --button-text-color-hover         : var(--due-title);
+            --neo-button-border-disabled          : 1px solid var(--due-border);
+            --neo-button-border-hover             : 1px solid var(--due-card-hover-border);
+            --neo-button-color               : var(--due-btn-text);
+            --neo-button-color-active        : var(--due-title);
+            --neo-button-color-disabled      : var(--due-muted);
+            --neo-button-color-hover         : var(--due-title);
             background   : var(--due-btn-bg);
             border       : 1px solid var(--due-btn-border);
             border-radius: 999px;
@@ -201,21 +201,21 @@
         --neo-board-card-border-color      : var(--due-card-border);
         --neo-board-card-color             : var(--due-title);
         --neo-board-card-gap               : 8px;
-        --neo-board-card-hover-border-color: var(--due-card-hover-border);
+        --neo-board-card-border-color-hover: var(--due-card-hover-border);
         --neo-board-card-muted-color       : var(--due-muted);
-        --neo-board-card-shadow            : var(--due-card-shadow);
+        --neo-board-card-box-shadow            : var(--due-card-shadow);
         --neo-board-column-background      : var(--due-col-bg);
         --neo-board-column-border-color    : var(--due-border);
         --neo-board-column-color           : var(--due-title);
         --neo-board-column-width           : 280px;
         --neo-board-editor-width           : min(440px, calc(100vw - 24px));
-        --neo-board-focus-color            : var(--due-focus);
+        --neo-board-outline-color-focus            : var(--due-focus);
         --neo-board-gap                    : 10px;
         --neo-board-overdue-background     : var(--due-late-bg);
         --neo-board-overdue-border-color   : var(--due-late-border);
         --neo-board-overdue-color          : var(--due-late-text);
         --neo-board-padding                : 12px;
-        --neo-board-track-color            : var(--due-progress-track);
+        --neo-board-track-background            : var(--due-progress-track);
 
         .neo-board-column-header {
             border-bottom: 1px solid var(--due-border);

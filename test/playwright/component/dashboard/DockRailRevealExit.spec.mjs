@@ -99,8 +99,8 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay — the exit motion'
 
     /**
      * The operator saw this in one skin and not the other, which is the whole reason it needs a
-     * theme dimension. The overlay's surface is deliberately the host's — `--dock-reveal-background`
-     * resolves to `--neo-background-color` — so an empty overlay fading out is nearly invisible on a
+     * theme dimension. The overlay's surface is deliberately the host's — `--neo-dock-reveal-background`
+     * resolves to `--neo-global-background-color` — so an empty overlay fading out is nearly invisible on a
      * dark ground and just barely legible on a light one. A single-theme eye-read would have called
      * this working (light) or shown nothing at all (dark); neither is evidence.
      *

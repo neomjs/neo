@@ -9,7 +9,7 @@ import {test, expect} from '@playwright/test';
  * both. Before that weight, the two declarations tied at (0,2,0) and the engine sheet won on load
  * order, because the Stylesheet addon appends per-class theme sheets after the host's own.
  *
- * The fixture projects one token, `--tooltip-bg`, and nothing else; the control reads a token the
+ * The fixture projects one token, `--neo-tooltip-background-color`, and nothing else; the control reads a token the
  * host leaves alone, so a green here means the engine sheet still supplies the family at its new
  * weight rather than having been wiped by the projection.
  */
@@ -50,8 +50,8 @@ test.describe('Neo.tooltip.Base — a theme-root projection outranks the engine 
     test('control: a token the host does not project still comes from the engine sheet', async ({page}) => {
         const tooltip = await showTooltip(page);
 
-        // `--tooltip-fontsize` is the engine sheet's alone; at `:where()` weight it still applies.
-        await expect.poll(() => tooltip.evaluate(node => getComputedStyle(node).getPropertyValue('--tooltip-fontsize').trim()),
+        // `--neo-tooltip-font-size` is the engine sheet's alone; at `:where()` weight it still applies.
+        await expect.poll(() => tooltip.evaluate(node => getComputedStyle(node).getPropertyValue('--neo-tooltip-font-size').trim()),
             {message: 'the engine sheet supplies the rest of the family'}).toBe('14px')
     })
 });

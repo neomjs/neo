@@ -507,7 +507,7 @@ class Toolbar extends BaseToolbar {
      * whatever ancestor can move — in a locked grid that is the grid container, dragging the locked
      * regions off-screen and never re-rendering the body) means the production pipeline performs
      * the sync: `Neo.main.addon.GridHorizontalScrollSync` mirrors the value onto this toolbar's
-     * element and the body's `--grid-scroll-left` var in-frame, while `grid.ScrollManager` ingests
+     * element and the body's `--neo-grid-scroll-left` var in-frame, while `grid.ScrollManager` ingests
      * it for buffered column mounting. Locked regions stay frozen; both scroll directions work.
      *
      * Only the center (unlocked) toolbar scrolls — locked-region toolbars no-op, since their

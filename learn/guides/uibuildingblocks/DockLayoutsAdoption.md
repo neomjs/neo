@@ -336,15 +336,15 @@ mystery-override sessions:
 
 ```css readonly
 .my-app-theme .neo-dock-workspace .neo-dashboard {
-    --dock-splitter-handle-size: 48px;
-    --dock-preview-ground      : rgb(18 22 28 / 94%);
-    --dock-transition-duration : 180ms;
+    --neo-dock-splitter-handle-size: 48px;
+    --neo-dock-preview-background      : rgb(18 22 28 / 94%);
+    --neo-dock-transition-duration : 180ms;
 }
 ```
 
 Those three are real engine tokens (`resources/css/src/dashboard/Container.css` is the vocabulary's one source —
 the splitter handle family, the drop-preview ground and line, the motion durations); setting
-`--dock-splitter-handle-size: 0` is even the sanctioned way to *opt out* of the visible handle, an explicit design
+`--neo-dock-splitter-handle-size: 0` is even the sanctioned way to *opt out* of the visible handle, an explicit design
 statement that greps.
 
 Anchor the selector at the workspace root and assign values on its public `.neo-dashboard` token carriers. Do not

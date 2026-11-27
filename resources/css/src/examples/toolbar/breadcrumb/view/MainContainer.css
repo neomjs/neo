@@ -1,7 +1,7 @@
 .neo-breadcrumb-folders.neo-viewport {
     background-color: var(--breadcrumb-folders-background);
     color           : var(--breadcrumb-folders-text);
-    font-family     : var(--neo-font-family);
+    font-family     : var(--neo-global-font-family);
     gap             : 12px;
     padding         : 24px;
 

@@ -6,29 +6,29 @@
 
     .neo-tree-indent {
         flex : none;
-        width: calc(var(--tree-depth, 0) * var(--tree-indent, 16px));
+        width: calc(var(--neo-tree-depth, 0) * var(--neo-tree-indent, 16px));
     }
 
     .neo-tree-toggle {
         cursor    : pointer;
         flex      : none;
         text-align: center;
-        width     : var(--tree-toggle-width, 24px);
+        width     : var(--neo-tree-toggle-width, 24px);
 
         &.is-leaf {
             cursor: default;
         }
 
         &.is-collapsed::before {
-            content: var(--tree-toggle-icon-collapsed);
+            content: var(--neo-tree-toggle-icon-collapsed);
         }
 
         &.is-expanded::before {
-            content: var(--tree-toggle-icon-expanded);
+            content: var(--neo-tree-toggle-icon-expanded);
         }
 
         &.is-leaf::before {
-            content: var(--tree-toggle-icon-leaf);
+            content: var(--neo-tree-toggle-icon-leaf);
         }
 
         &::before {

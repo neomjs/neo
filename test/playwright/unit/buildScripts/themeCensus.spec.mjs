@@ -13,16 +13,16 @@ import {fileURLToPath} from 'url';
 const
     repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..'),
     cli      = path.join(repoRoot, 'buildScripts/util/theme-census.mjs'),
-    runtime  = {'--neo-tree-level': 'set from JavaScript'},
+    runtime  = {'--neo-tree-list-level': 'set from JavaScript'},
 
     FIXTURE = {
         'src/button/Base.css': [
             '.neo-button {',
-            '    background-color: var(--button-background-color);',
-            '    color           : var(--button-text-color);',
+            '    background-color: var(--neo-button-background-color);',
+            '    color           : var(--widget-text-color);',
             '    border          : 1px solid #ff0000;',
             '    box-shadow      : 0 0 2px rgba(0, 0, 0, 0.5);',
-            '    padding-left    : calc(var(--neo-tree-level) * 1em);',
+            '    padding-left    : calc(var(--neo-tree-list-level) * 1em);',
             '    margin          : var(--ghost-margin);',
             '    outline         : var(--fallback-only, 0);',
             '    top             : var(--mixed-read, 0);',
@@ -37,33 +37,33 @@ const
         // a block's last declaration without its `;`
         'src/component/Timer.css'        : '@keyframes t {\n    to {\n        --neo-timer-current: 0\n    }\n}\n.neo-timer {width: var(--neo-timer-current);}',
         'src/apps/demo/Main.css'         : '.demo-main {color: var(--app-ghost)}',
-        'theme-x-dark/Global.css'        : ':where(.neo-theme-x-dark) {--gray-100: #111111; --sem-surface: #222222; --sem-unused: #333333; --cmp-radius: 4px;}',
+        'theme-x-dark/Global.css'        : ':where(.neo-theme-x-dark) {--neo-gray-100: #111111; --sem-surface: #222222; --sem-unused: #333333; --cmp-radius: 4px;}',
         'theme-x-dark/apps/demo/Main.css': ':where(.neo-theme-x-dark) {--demo-panel-bg: #101010;}',
         'theme-x-dark/button/Base.css'   : [
             ':where(.neo-theme-x-dark) {',
-            '    --button-background-color   : var(--sem-surface);',
-            '    --button-text-color         : #eeeeee;',
-            '    --button-border-radius      : var(--cmp-radius);',
-            '    --button-gap                : var(--gray-100);',
-            '    --button-color-hover        : var(--button-text-color);',
+            '    --neo-button-background-color   : var(--sem-surface);',
+            '    --widget-text-color         : #eeeeee;',
+            '    --neo-button-border-radius      : var(--cmp-radius);',
+            '    --button-gap                : var(--neo-gray-100);',
+            '    --button-color-hover        : var(--widget-text-color);',
             '    --button-focus-outline-width: 2px;',
             '    /* --button-ghost: 1px; */',
             '}'
         ].join('\n'),
-        'theme-x-dark/button/Split.css': ':where(.neo-theme-x-dark) .neo-split-button {--button-text-color: #000000;}',
-        'theme-x-light/Global.css'     : ':where(.neo-theme-x-light) {--gray-100: #eeeeee; --sem-surface: #fafafa; --sem-unused: #333333; --cmp-radius: 4px;}',
+        'theme-x-dark/button/Split.css': ':where(.neo-theme-x-dark) .neo-split-button {--widget-text-color: #000000;}',
+        'theme-x-light/Global.css'     : ':where(.neo-theme-x-light) {--neo-gray-100: #eeeeee; --sem-surface: #fafafa; --sem-unused: #333333; --cmp-radius: 4px;}',
         'theme-x-light/button/Base.css': [
             ':where(.neo-theme-x-light) {',
-            '    --button-background-color: var(--sem-surface);',
-            '    --button-text-color      : #111111;',
-            '    --button-border-radius   : var(--cmp-radius);',
-            '    --button-gap             : var(--gray-100);',
-            '    --button-color-hover     : var(--button-text-color);',
+            '    --neo-button-background-color: var(--sem-surface);',
+            '    --widget-text-color      : #111111;',
+            '    --neo-button-border-radius   : var(--cmp-radius);',
+            '    --button-gap             : var(--neo-gray-100);',
+            '    --button-color-hover     : var(--widget-text-color);',
             '    --button-light-only      : 1px;',
             '}'
         ].join('\n'),
         'theme-solo/Global.css'     : ':where(.neo-theme-solo) {}',
-        'theme-solo/button/Base.css': ':where(.neo-theme-solo) {--button-background-color: #123456}'
+        'theme-solo/button/Base.css': ':where(.neo-theme-solo) {--neo-button-background-color: #123456}'
     };
 
 test.describe('theme-census — the shape of the theme tree, as counts anyone can re-run', () => {
@@ -113,7 +113,7 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
         expect(theme.files).toEqual({engine: 3, apps: 1, examples: 0});
         expect(theme.properties.engine).toEqual({palette: 1, sem: 2, cmp: 1, component: 6, total: 10});
         expect(theme.properties.apps).toEqual({palette: 0, sem: 0, cmp: 0, component: 1, total: 1});
-        expect(theme.redeclared.engine).toEqual({count: 1, conflicting: ['--button-text-color']});
+        expect(theme.redeclared.engine).toEqual({count: 1, conflicting: ['--widget-text-color']});
     });
 
     test('2: an engine component value is made of a role, a component token, the palette, another variable or a literal; the first declaration in file order counts', () => {
@@ -146,7 +146,7 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
             palette  : [],
             sem      : ['--sem-unused'],
             cmp      : [],
-            component: ['--button-border-radius', '--button-color-hover', '--button-focus-outline-width', '--button-gap']
+            component: ['--button-color-hover', '--button-focus-outline-width', '--button-gap', '--neo-button-border-radius']
         });
         expect(unread.apps.component).toEqual(['--demo-panel-bg']);
     });
@@ -154,10 +154,10 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
     test('6: a structural read without a fallback that nothing declares, once per name; a fallback, a structural or theme declaration (with or without its `;`) and a runtime row each excuse it', () => {
         const census = collect({root, runtimeProperties: runtime}), {themes} = census;
 
-        expect(census.runtime).toEqual(['--neo-tree-level']);
+        expect(census.runtime).toEqual(['--neo-tree-list-level']);
         expect(themes['theme-x-dark'].unresolved).toEqual({engine: ['--ghost-margin', '--mixed-read'], apps: ['--app-ghost'], examples: []});
-        expect(themes['theme-solo'].unresolved.engine).toEqual(['--button-text-color', '--ghost-margin', '--mixed-read']);
-        expect(collect({root, runtimeProperties: {}}).themes['theme-x-dark'].unresolved.engine).toContain('--neo-tree-level');
+        expect(themes['theme-solo'].unresolved.engine).toEqual(['--ghost-margin', '--mixed-read', '--widget-text-color']);
+        expect(collect({root, runtimeProperties: {}}).themes['theme-x-dark'].unresolved.engine).toContain('--neo-tree-list-level');
     });
 
     test('7: colour literals in structural rules, per engine file, outside custom-property declarations: bare, or inside a var() fallback', () => {
@@ -181,7 +181,7 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
 
         expect(markdown.startsWith('# Theme census: `fixture/css`')).toBe(true);
         expect(markdown.match(/^## \d\. /gm)).toHaveLength(8);
-        expect(markdown).toContain('Set at runtime, so not counted: `--neo-tree-level`.');
+        expect(markdown).toContain('Set at runtime, so not counted: `--neo-tree-list-level`.');
         expect(markdown).toContain('3 in 1 files: 2 bare, 1 inside a `var()` fallback');
         expect(markdown).toContain('| `button/Base.css` | 2 | 1 |');
     });
@@ -228,13 +228,13 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
                   fs.writeFileSync(full, css, 'utf8')
               };
 
-        writeCss('src/button/Base.css', '.neo-button { background-color: var(--button-background-color); color: var(--button-color); }');
+        writeCss('src/button/Base.css', '.neo-button { background-color: var(--neo-button-background-color); color: var(--button-color); }');
         writeCss('obsidian/Global.css', ':where(.neo-theme-brand-dark) { --sem-surface: #111111; }');
-        writeCss('obsidian/button/Base.css', ':where(.neo-theme-brand-dark) { --button-background-color: var(--sem-surface); --button-color: #eeeeee; }');
+        writeCss('obsidian/button/Base.css', ':where(.neo-theme-brand-dark) { --neo-button-background-color: var(--sem-surface); --button-color: #eeeeee; }');
         writeCss('alabaster/Global.css', ':where(.neo-theme-brand-light) { --sem-surface: #ffffff; }');
-        writeCss('alabaster/button/Base.css', ':where(.neo-theme-brand-light) { --button-background-color: var(--sem-surface); --button-color: #111111; }');
+        writeCss('alabaster/button/Base.css', ':where(.neo-theme-brand-light) { --neo-button-background-color: var(--sem-surface); --button-color: #111111; }');
         writeCss('split-roles/Global.css', ':where(.neo-theme-split) { --sem-surface: #333333; }');
-        writeCss('split-widgets/button/Base.css', ':where(.neo-theme-split) { --button-background-color: var(--sem-surface); --button-color: #dddddd; }');
+        writeCss('split-widgets/button/Base.css', ':where(.neo-theme-split) { --neo-button-background-color: var(--sem-surface); --button-color: #dddddd; }');
         fs.writeFileSync(mapPath, JSON.stringify({
             themes: {
                 'neo-theme-brand-dark' : ['obsidian'],

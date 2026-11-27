@@ -3,24 +3,24 @@
 .neo-examples-grid-countries [class*=neo-theme-],
 body:has(.neo-examples-grid-countries) .neo-dragproxy,
 body:has(.neo-examples-grid-countries) .neo-dragproxy [class*=neo-theme-] {
-    --grid-container-border-color: var(--countries-border);
-    --grid-container-cell-background-color: var(--countries-surface);
-    --grid-container-cell-background-color-even: var(--countries-alternate);
-    --grid-container-color: var(--countries-text);
-    --grid-container-font-size: 13px;
-    --grid-cell-background-color-hover: var(--countries-hover);
-    --grid-header-button-background-color: var(--countries-header);
-    --grid-header-button-background-color-hover: var(--countries-hover);
-    --grid-header-button-background-image: none;
-    --grid-header-button-border-right-color: var(--countries-border);
-    --grid-header-button-color: var(--countries-text);
-    --grid-header-button-color-hover: var(--countries-accent);
-    --grid-header-button-font-size: 12px;
-    --grid-header-button-font-weight: 600;
-    --grid-header-button-glyph-color: var(--countries-muted);
-    --grid-header-button-glyph-color-hover: var(--countries-accent);
-    --grid-rowmodel-selected-cell-background-color: var(--countries-hover);
-    --grid-rowmodel-selected-cell-color: var(--countries-title);
+    --neo-grid-container-border-color: var(--countries-border);
+    --neo-grid-container-cell-background-color: var(--countries-surface);
+    --neo-grid-container-cell-background-color-even: var(--countries-alternate);
+    --neo-grid-container-color: var(--countries-text);
+    --neo-grid-container-font-size: 13px;
+    --neo-grid-cell-background-color-hover: var(--countries-hover);
+    --neo-grid-header-button-background-color: var(--countries-header);
+    --neo-grid-header-button-background-color-hover: var(--countries-hover);
+    --neo-grid-header-button-background-image: none;
+    --neo-grid-header-button-border-right-color: var(--countries-border);
+    --neo-grid-header-button-color: var(--countries-text);
+    --neo-grid-header-button-color-hover: var(--countries-accent);
+    --neo-grid-header-button-font-size: 12px;
+    --neo-grid-header-button-font-weight: 600;
+    --neo-grid-header-button-glyph-color: var(--countries-muted);
+    --neo-grid-header-button-glyph-color-hover: var(--countries-accent);
+    --neo-grid-rowmodel-cell-background-color-selected: var(--countries-hover);
+    --neo-grid-rowmodel-cell-color-selected: var(--countries-title);
 }
 .neo-examples-grid-countries .neo-grid-header-group-row .neo-grid-header-group-cell,
 .neo-examples-grid-countries [class*=neo-theme-] .neo-grid-header-group-row .neo-grid-header-group-cell,
@@ -66,7 +66,7 @@ body:has(.neo-examples-grid-countries) .neo-dragproxy [class*=neo-theme-] .neo-g
 .neo-examples-grid-countries.neo-viewport {
     background-color: var(--countries-background);
     color           : var(--countries-text);
-    font-family     : var(--neo-font-family);
+    font-family     : var(--neo-global-font-family);
 
     .countries-toolbar {
         background-color: var(--countries-background);

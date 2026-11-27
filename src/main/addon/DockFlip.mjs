@@ -508,7 +508,7 @@ class DockFlip extends Base {
 
     /**
      * Converts one computed CSS time token to milliseconds. Exact zero is meaningful: the
-     * reduced-motion contract collapses `--dock-transition-duration` to `0ms`, which must not
+     * reduced-motion contract collapses `--neo-dock-transition-duration` to `0ms`, which must not
      * fall through to the visual fallback. Both CSS time units are accepted.
      * @param {String} value
      * @returns {Number}
@@ -583,8 +583,8 @@ class DockFlip extends Base {
      * then play the transition to their new geometry. Safe to call unconditionally after a
      * swap — with no prior `captureFirst()` snapshot, or under reduced motion, it no-ops and
      * the layout simply lands.
-     * Duration and easing resolve from the motion-contract tokens (`--dock-transition-duration`
-     * / `--dock-transition-easing`) on the nearest descendant dashboard token scope — zero
+     * Duration and easing resolve from the motion-contract tokens (`--neo-dock-transition-duration`
+     * / `--neo-dock-transition-timing-function`) on the nearest descendant dashboard token scope — zero
      * local duration policy. Missing or invalid tokens fail safe to the instant path; a token
      * collapsed to `0ms` is the token-layer reduced-motion path.
      * @param {Object} opts
@@ -697,8 +697,8 @@ class DockFlip extends Base {
                     ? hostEl
                     : hostEl?.querySelector?.('.neo-dashboard') || hostEl,
                 tokens    = tokenHost && globalThis.getComputedStyle?.(tokenHost),
-                duration  = this.parseDurationToken(tokens?.getPropertyValue('--dock-transition-duration')),
-                easing    = tokens?.getPropertyValue('--dock-transition-easing')?.trim();
+                duration  = this.parseDurationToken(tokens?.getPropertyValue('--neo-dock-transition-duration')),
+                easing    = tokens?.getPropertyValue('--neo-dock-transition-timing-function')?.trim();
 
             if (!(duration > 0) || !easing) {
                 return false // token-layer reduced-motion collapse or missing contract: land instantly

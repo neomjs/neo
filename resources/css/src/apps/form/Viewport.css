@@ -1,6 +1,6 @@
 .form-viewport {
-    background: var(--neo-background-color);
-    color     : var(--neo-color);
+    background: var(--neo-global-background-color);
+    color     : var(--neo-global-color);
 
     .form-step-nav {
         padding: 24px;
@@ -8,7 +8,7 @@
     }
 
     .form-step-nav-text {
-        color      : var(--sem-color-text-neutral-subdued);
+        color      : var(--neo-sem-color-text-neutral-subdued);
         font-size  : 14px;
         line-height: 1.5;
         margin     : 0 0 20px;
@@ -47,7 +47,7 @@
             width  : auto;
 
             &.form-step-nav-open {
-                border-bottom: 1px solid var(--sem-color-border-default);
+                border-bottom: 1px solid var(--neo-sem-color-border-default);
                 display      : flex;
             }
         }

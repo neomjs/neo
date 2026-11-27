@@ -9,9 +9,9 @@
         z-index: 5;
 
         &:not(:empty) {
-            background: var(--sem-color-surface-neutral-default, Canvas);
+            background: var(--neo-sem-color-surface-neutral-default, Canvas);
             border: 1px solid var(--neo-gantt-arrow-color);
-            color: var(--sem-color-text-neutral-default, CanvasText);
+            color: var(--neo-sem-color-text-neutral-default, CanvasText);
             padding: 4px 8px;
         }
     }
@@ -46,9 +46,9 @@
         right        : -10px;
         top          : calc(50% - 5px);
         transform    : scale(.5);
-        transition   : box-shadow var(--motion-fast) var(--ease-out-soft),
-                       opacity var(--motion-fast) var(--ease-out-soft),
-                       transform var(--motion-fast) var(--ease-out-soft);
+        transition   : box-shadow var(--neo-duration-fast) var(--neo-ease-out),
+                       opacity var(--neo-duration-fast) var(--neo-ease-out),
+                       transform var(--neo-duration-fast) var(--neo-ease-out);
         width        : 10px;
         z-index      : 3;
 
@@ -93,7 +93,7 @@
     .neo-grid-row {
         .neo-grid-cell.neo-locked-start {
             align-items : center;
-            border-right: 1px solid var(--neo-gantt-divider-color);
+            border-right: 1px solid var(--neo-gantt-divider-border-color);
             display     : flex;
             font-weight : 500;
         }
@@ -111,7 +111,7 @@
         pointer-events: none;
         position      : absolute;
         top           : 0;
-        transform     : translateX(calc(var(--grid-scroll-left, 0px) * -1));
+        transform     : translateX(calc(var(--neo-grid-scroll-left, 0px) * -1));
         z-index       : 4;
     }
 
@@ -141,8 +141,8 @@
 
     .neo-timeline-bar {
         &.neo-gantt-bar-summary {
-            background  : var(--neo-gantt-summary-bg);
-            border-color: var(--neo-gantt-summary-border);
+            background  : var(--neo-gantt-summary-background);
+            border-color: var(--neo-gantt-summary-border-color);
             font-weight : 600;
         }
 
@@ -180,16 +180,16 @@
         }
 
         .neo-gantt-milestone-shape {
-            fill           : var(--neo-gantt-milestone-bg);
-            stroke         : var(--neo-gantt-milestone-border);
+            fill           : var(--neo-gantt-milestone-fill);
+            stroke         : var(--neo-gantt-milestone-stroke);
             stroke-linejoin: round;
             stroke-width   : 2px;
         }
 
         .neo-gantt-milestone-label {
-            background   : color-mix(in srgb, var(--grid-cell-background-color, Canvas) 94%, transparent);
+            background   : color-mix(in srgb, var(--neo-grid-cell-background-color, Canvas) 94%, transparent);
             border-radius: 3px;
-            color        : var(--grid-cell-color, var(--sem-color-text-neutral-default, CanvasText));
+            color        : var(--neo-grid-cell-color, var(--neo-sem-color-text-neutral-default, CanvasText));
             font-size    : 12px;
             font-weight  : 600;
             left         : calc(100% + 14px);
@@ -218,12 +218,12 @@ body:has(.neo-gantt.neo-is-dragging) .neo-gantt.neo-is-dragging {
 
 /* The body-rooted proxy contains a clone of the rendered bar, including custom and task-kind classes. */
 .neo-gantt-task-proxy {
-    box-shadow: var(--gantt-task-proxy-box-shadow);
+    box-shadow: var(--neo-gantt-task-proxy-box-shadow);
 
     &:has(> .neo-gantt-bar-milestone) {
         background: transparent;
         box-shadow: none;
-        filter    : var(--gantt-task-proxy-milestone-filter);
+        filter    : var(--neo-gantt-task-proxy-milestone-filter);
     }
 }
 

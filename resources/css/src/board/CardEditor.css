@@ -2,8 +2,8 @@
 .neo-board-card-editor {
     background   : var(--neo-board-editor-background, var(--neo-board-column-background));
     border       : 1px solid var(--neo-board-editor-border-color, var(--neo-board-column-border-color));
-    border-radius: var(--neo-board-radius);
-    box-shadow   : var(--neo-board-editor-shadow, var(--neo-board-card-shadow));
+    border-radius: var(--neo-board-border-radius);
+    box-shadow   : var(--neo-board-editor-box-shadow, var(--neo-board-card-box-shadow));
     color        : var(--neo-board-color);
     font-family  : var(--neo-board-font-family);
     font-size    : var(--neo-board-font-size);
@@ -27,9 +27,9 @@
     }
 
     .neo-board-card-editor-save {
-        --button-text-color       : var(--neo-board-background);
-        --button-text-color-active: var(--neo-board-background);
-        --button-text-color-hover : var(--neo-board-background);
+        --neo-button-color       : var(--neo-board-background);
+        --neo-button-color-active: var(--neo-board-background);
+        --neo-button-color-hover : var(--neo-board-background);
         background                : var(--neo-board-accent-color);
         border-color              : var(--neo-board-accent-color);
         border-radius             : 6px;
@@ -38,9 +38,9 @@
     }
 
     .neo-board-card-editor-cancel {
-        --button-text-color       : var(--neo-board-color);
-        --button-text-color-active: var(--neo-board-color);
-        --button-text-color-hover : var(--neo-board-color);
+        --neo-button-color       : var(--neo-board-color);
+        --neo-button-color-active: var(--neo-board-color);
+        --neo-button-color-hover : var(--neo-board-color);
         background                : var(--neo-board-badge-background);
         border-color              : var(--neo-board-card-border-color);
         border-radius             : 6px;

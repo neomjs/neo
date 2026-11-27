@@ -412,8 +412,8 @@ test.describe('Neo.tab.Container — ui variants', () => {
                   style = getComputedStyle(text);
 
             return {
-                buttonWeight: style.getPropertyValue('--button-text-font-weight').trim(),
-                tabWeight   : style.getPropertyValue('--tab-button-text-font-weight').trim()
+                buttonWeight: style.getPropertyValue('--neo-button-text-font-weight').trim(),
+                tabWeight   : style.getPropertyValue('--neo-tab-button-text-font-weight').trim()
             }
         });
 
@@ -460,7 +460,7 @@ test.describe('Neo.tab.Container — ui variants', () => {
 
             // A consumer root is the broadest supported owner. The direct-child selector must paint
             // the inline header but neither a sibling nor a nested ui:null header.
-            document.body.style.setProperty('--tab-header-inline-background-image', gradient);
+            document.body.style.setProperty('--neo-tab-header-inline-background-image', gradient);
 
             return {
                 default: getComputedStyle(document.querySelector('#tab-ui-default > .neo-tab-header-toolbar')).backgroundImage,

@@ -1,6 +1,6 @@
 /* A detached tile's window: the tile fills it on the page colour of the theme its dashboard passed. */
 .sortable-widget-viewport {
-    background: var(--neo-background-color);
+    background: var(--neo-global-background-color);
     box-sizing: border-box;
     padding   : 10px;
 }

@@ -1,7 +1,7 @@
 .neo-gallery {
-    background-color: var(--gallery-background-color);
+    background-color: var(--neo-gallery-background-color);
     display         : block;
-    border          : 1px solid var(--gallery-border-color);
+    border          : 1px solid var(--neo-gallery-border-color);
     margin          : 0 auto;
     overflow        : hidden;
     perspective     : 600px;

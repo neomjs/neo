@@ -1,5 +1,5 @@
 :where(.neo-theme-neo-light) { /* .neo-pickerfield */
-    --pickerfield-container-background-color: #fff;
-    --pickerfield-container-border          : none;
-    --pickerfield-container-box-shadow      : 0 5px 10px rgba(0,0,0,.4);
+    --neo-pickerfield-container-background-color: #fff;
+    --neo-pickerfield-container-border          : none;
+    --neo-pickerfield-container-box-shadow      : 0 5px 10px rgba(0,0,0,.4);
 }

@@ -101,7 +101,7 @@
                 justify-content : space-between;
 
                 &:after {
-                    color       : var(--list-item-glyph-color);
+                    color       : var(--neo-list-item-glyph-color);
                     content     : "\f054";
                     display     : inline-block;
                     font-family : "Font Awesome 7 Free";

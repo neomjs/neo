@@ -9,7 +9,7 @@ import {getTitleField, renderCardItem} from './CardItems.mjs';
  * @description Render-all columns keep the instance for the record's life; sliced columns create visible cards and
  * retain only a bounded offscreen set. `board.getCard` returns null offscreen in sliced mode; `column.scrollToRecord`
  * renders the requested record again. Its id derives from the board and the record key (`<board>__card__<key>`), so a
- * whitebox test or an agent resolves it without an index. The record's `color` paints `--neo-board-card-accent`; the rest
+ * whitebox test or an agent resolves it without an index. The record's `color` paints `--neo-board-card-accent-color`; the rest
  * is the items' work ({@link Neo.board.CardItems}).
  *
  * Double-clicking `.neo-board-card-title` or pressing `F2` on a focused card replaces the title node with a
@@ -366,9 +366,9 @@ class Card extends Component {
         }
 
         if (color) {
-            style['--neo-board-card-accent'] = color
+            style['--neo-board-card-accent-color'] = color
         } else {
-            delete style['--neo-board-card-accent']
+            delete style['--neo-board-card-accent-color']
         }
 
         const

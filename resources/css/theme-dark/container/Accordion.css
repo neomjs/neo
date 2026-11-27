@@ -1,5 +1,5 @@
 :root .neo-theme-dark { /* .neo-accordion */
-    --accordion-item-radius   : 5px;
-    --accordion-title-bg-color: #292929;
-    --accordion-title-color   : #ccc;
+    --neo-accordion-item-border-radius   : 5px;
+    --neo-accordion-title-background-color: #292929;
+    --neo-accordion-title-color   : #ccc;
 }

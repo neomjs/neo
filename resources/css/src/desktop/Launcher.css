@@ -2,15 +2,15 @@
    A dragged icon's proxy is mounted on the body, so it carries the tile rules under its own class. */
 .neo-desktop-launcher,
 .neo-desktop-launcher-proxy {
-    --list-container-list-color          : var(--desktop-launcher-color);
-    --list-item-background-color         : transparent;
-    --list-item-background-color-active  : var(--desktop-launcher-item-background-color-active);
-    --list-item-background-color-hover   : var(--desktop-launcher-item-background-color-hover);
-    --list-item-background-color-selected: var(--desktop-launcher-item-background-color-active);
-    --list-item-color-selected           : var(--desktop-launcher-color);
-    --list-item-focus-outline            : 2px solid var(--desktop-launcher-focus-color);
-    --list-item-focus-outline-offset     : 2px;
-    --list-item-padding                  : 9px 4px 8px;
+    --neo-list-container-list-color          : var(--neo-desktop-launcher-color);
+    --neo-list-item-background-color         : transparent;
+    --neo-list-item-background-color-active  : var(--neo-desktop-launcher-item-background-color-active);
+    --neo-list-item-background-color-hover   : var(--neo-desktop-launcher-item-background-color-hover);
+    --neo-list-item-background-color-selected: var(--neo-desktop-launcher-item-background-color-active);
+    --neo-list-item-color-selected           : var(--neo-desktop-launcher-color);
+    --neo-list-item-outline-focus            : 2px solid var(--neo-desktop-launcher-color-focus);
+    --neo-list-item-outline-offset-focus     : 2px;
+    --neo-list-item-padding                  : 9px 4px 8px;
 
     .neo-list-item:not(.neo-list-header) {
         align-items   : center;
@@ -19,28 +19,28 @@
         flex-direction: column;
         gap           : 8px;
         margin        : 0;
-        transition    : background-color var(--motion-fast) var(--ease-out-soft), transform var(--motion-base) var(--ease-out-soft);
+        transition    : background-color var(--neo-duration-fast) var(--neo-ease-out), transform var(--neo-duration-base) var(--neo-ease-out);
 
         &:hover {
             transform: translateY(-2px);
 
             .neo-desktop-app-icon {
-                box-shadow: 0 16px 34px -10px color-mix(in srgb, var(--desktop-app-color) 85%, transparent), inset 0 1px 0 var(--desktop-launcher-icon-highlight-color);
+                box-shadow: 0 16px 34px -10px color-mix(in srgb, var(--neo-desktop-app-color) 85%, transparent), inset 0 1px 0 var(--neo-desktop-launcher-icon-highlight-color);
             }
         }
     }
 
     .neo-desktop-app-icon {
         align-items    : center;
-        background     : linear-gradient(145deg, color-mix(in srgb, var(--desktop-app-color) 70%, white), var(--desktop-app-color) 55%, color-mix(in srgb, var(--desktop-app-color) 82%, black));
+        background     : linear-gradient(145deg, color-mix(in srgb, var(--neo-desktop-app-color) 70%, white), var(--neo-desktop-app-color) 55%, color-mix(in srgb, var(--neo-desktop-app-color) 82%, black));
         border-radius  : 16px;
-        box-shadow     : 0 10px 24px -10px color-mix(in srgb, var(--desktop-app-color) 75%, transparent), inset 0 1px 0 var(--desktop-launcher-icon-highlight-color);
-        color          : var(--desktop-launcher-icon-color);
+        box-shadow     : 0 10px 24px -10px color-mix(in srgb, var(--neo-desktop-app-color) 75%, transparent), inset 0 1px 0 var(--neo-desktop-launcher-icon-highlight-color);
+        color          : var(--neo-desktop-launcher-icon-color);
         display        : flex;
         font-size      : 24px;
         height         : 56px;
         justify-content: center;
-        transition     : box-shadow var(--motion-base) var(--ease-out-soft);
+        transition     : box-shadow var(--neo-duration-base) var(--neo-ease-out);
         width          : 56px;
     }
 
@@ -52,7 +52,7 @@
         overflow     : hidden;
         text-align   : center;
         text-overflow: ellipsis;
-        text-shadow  : var(--desktop-launcher-label-shadow);
+        text-shadow  : var(--neo-desktop-launcher-label-text-shadow);
     }
 }
 
@@ -74,7 +74,7 @@
 
     .neo-list-header {
         align-self    : end;
-        color         : var(--desktop-launcher-header-color);
+        color         : var(--neo-desktop-launcher-header-color);
         font-size     : 12px;
         font-weight   : 600;
         grid-row-start: 1;
@@ -82,7 +82,7 @@
         padding       : 0 0 4px;
         text-align    : center;
         text-overflow : ellipsis;
-        text-shadow   : var(--desktop-launcher-label-shadow);
+        text-shadow   : var(--neo-desktop-launcher-label-text-shadow);
     }
 
     /* The icon fades while the proxy carries it. An outlined slot marks the proposed new position. */
@@ -93,7 +93,7 @@
 
     .neo-list-item.neo-sort-source.neo-sort-placement {
         opacity       : 1;
-        outline       : 2px dashed var(--desktop-launcher-focus-color);
+        outline       : 2px dashed var(--neo-desktop-launcher-color-focus);
         outline-offset: -2px;
 
         > * {
@@ -104,8 +104,8 @@
 
 /* The proxy is the icon lifted off the desktop */
 .neo-desktop-launcher-proxy .neo-list-item {
-    background-color: var(--desktop-launcher-item-background-color-active);
-    box-shadow      : var(--desktop-launcher-proxy-item-box-shadow);
+    background-color: var(--neo-desktop-launcher-item-background-color-active);
+    box-shadow      : var(--neo-desktop-launcher-proxy-item-box-shadow);
 }
 
 .neo-desktop-launcher-proxy.neo-sort-drop-rejected {

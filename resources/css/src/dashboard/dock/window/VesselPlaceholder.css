@@ -16,6 +16,6 @@
    landing on the dock's own default reads better than a white flash — but it is a copy of one
    theme, and a future theme must add its values sheet rather than rely on these. */
 .neo-dashboard-dock-vessel-placeholder {
-    background-color: var(--dock-vessel-placeholder-ground, #1a212c);
-    color           : var(--dock-vessel-placeholder-ink,    #d6dce6);
+    background-color: var(--neo-dock-vessel-placeholder-background-color, #1a212c);
+    color           : var(--neo-dock-vessel-placeholder-color,    #d6dce6);
 }

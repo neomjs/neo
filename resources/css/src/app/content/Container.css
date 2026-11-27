@@ -33,8 +33,8 @@
 
     @media (max-width: 640px) {
         .sidenav-container {
-            background-color: var(--neo-app-content-sidenav-bg);
-            box-shadow      : var(--neo-app-content-sidenav-shadow);
+            background-color: var(--neo-app-content-sidenav-background-color);
+            box-shadow      : var(--neo-app-content-sidenav-box-shadow);
             height          : 100%;
             left      : -350px;
             overflow  : visible;
@@ -47,8 +47,8 @@
             }
 
             .sidenav-button {
-                background-color: var(--neo-app-content-sidenav-btn-bg);
-                box-shadow      : var(--neo-app-content-sidenav-shadow);
+                background-color: var(--neo-app-content-sidenav-button-background-color);
+                box-shadow      : var(--neo-app-content-sidenav-box-shadow);
                 display         : flex;
                 height          : 35px;
                 min-width       : 35px;

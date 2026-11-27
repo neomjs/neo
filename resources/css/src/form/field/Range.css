@@ -15,7 +15,7 @@
     }
 
     input[type=range]::-moz-range-track {
-        background   : var(--rangefield-track-background);
+        background   : var(--neo-rangefield-track-background);
         border-radius: 2px;
         cursor       : pointer;
         height       : 4px;
@@ -23,7 +23,7 @@
     }
 
     input[type=range]::-webkit-slider-runnable-track {
-        background   : var(--rangefield-track-background);
+        background   : var(--neo-rangefield-track-background);
         border-radius: 2px;
         cursor       : pointer;
         height       : 4px;
@@ -31,8 +31,8 @@
     }
 
     input[type=range]::-moz-range-thumb {
-        background   : var(--rangefield-thumb-background);
-        border-color : var(--rangefield-thumb-border-color);
+        background   : var(--neo-rangefield-thumb-background);
+        border-color : var(--neo-rangefield-thumb-border-color);
         border-radius: 50%;
         cursor       : ew-resize;
         height       : 15px;
@@ -40,13 +40,13 @@
         will-change  : box-shadow;
 
         &:active {
-            box-shadow: var(--rangefield-thumb-box-shadow-active);
+            box-shadow: var(--neo-rangefield-thumb-box-shadow-active);
         }
     }
 
     input[type=range]::-webkit-slider-thumb {
-        background   : var(--rangefield-thumb-background);
-        border-color : var(--rangefield-thumb-border-color);
+        background   : var(--neo-rangefield-thumb-background);
+        border-color : var(--neo-rangefield-thumb-border-color);
         border-radius: 50%;
         cursor       : ew-resize;
         height       : 15px;
@@ -57,7 +57,7 @@
         -webkit-appearance: none;
 
         &:active {
-            box-shadow: var(--rangefield-thumb-box-shadow-active);
+            box-shadow: var(--neo-rangefield-thumb-box-shadow-active);
         }
     }
 }

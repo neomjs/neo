@@ -233,10 +233,10 @@ class EditEventContainer extends FormContainer {
                     let value = data[scope.colorField];
 
                     if (value === 'yellow') {
-                        return 'var(--event-yellow-border-color)';
+                        return 'var(--neo-event-yellow-border-color)';
                     }
 
-                    return `var(--event-${value}-color)`
+                    return `var(--neo-event-${value}-color)`
                 },
 
                 store: {

@@ -56,15 +56,15 @@
         }
 
         .depot-legend-parcel::before {
-            background: var(--neo-scheduler-bar-emerald-border);
+            background: var(--neo-scheduler-bar-emerald-border-color);
         }
 
         .depot-legend-cold::before {
-            background: var(--neo-scheduler-bar-amber-border);
+            background: var(--neo-scheduler-bar-amber-border-color);
         }
 
         .depot-legend-freight::before {
-            background: var(--neo-scheduler-bar-violet-border);
+            background: var(--neo-scheduler-bar-violet-border-color);
         }
 
         .depot-snap-group.neo-container {
@@ -81,11 +81,11 @@
         }
 
         .depot-snap-btn {
-            --button-background-color-hover: var(--depot-hover-bg);
-            --button-border-hover          : 1px solid var(--depot-border);
-            --button-text-color            : var(--depot-muted);
-            --button-text-color-active     : var(--depot-title);
-            --button-text-color-hover      : var(--depot-title);
+            --neo-button-background-color-hover: var(--depot-hover-bg);
+            --neo-button-border-hover          : 1px solid var(--depot-border);
+            --neo-button-color            : var(--depot-muted);
+            --neo-button-color-active     : var(--depot-title);
+            --neo-button-color-hover      : var(--depot-title);
             background          : var(--depot-control-bg);
             border              : 1px solid var(--depot-border);
             border-radius       : 0;
@@ -99,10 +99,10 @@
             padding             : 0 11px;
 
             &.pressed {
-                --button-background-color-hover: var(--depot-selected-bg);
-                --button-text-color            : var(--depot-selected-text);
-                --button-text-color-active     : var(--depot-selected-text);
-                --button-text-color-hover      : var(--depot-selected-text);
+                --neo-button-background-color-hover: var(--depot-selected-bg);
+                --neo-button-color            : var(--depot-selected-text);
+                --neo-button-color-active     : var(--depot-selected-text);
+                --neo-button-color-hover      : var(--depot-selected-text);
                 background  : var(--depot-selected-bg);
                 border-color: var(--depot-selected-bg);
                 position    : relative;
@@ -158,13 +158,13 @@
 
             &.is-moved {
                 background  : var(--depot-moved-pill-bg);
-                border-color: var(--neo-scheduler-bar-emerald-border);
+                border-color: var(--neo-scheduler-bar-emerald-border-color);
                 color       : var(--depot-moved-pill-text);
             }
 
             &.is-resized {
                 background  : var(--depot-resized-pill-bg);
-                border-color: var(--neo-scheduler-bar-amber-border);
+                border-color: var(--neo-scheduler-bar-amber-border-color);
                 color       : var(--depot-resized-pill-text);
             }
         }
@@ -195,11 +195,11 @@
             font-variant-numeric: tabular-nums;
             font-weight         : 600;
             padding             : 0 6px;
-            transition          : box-shadow var(--motion-fast) var(--ease-out-soft), filter var(--motion-fast) var(--ease-out-soft), opacity var(--motion-fast) var(--ease-out-soft), transform var(--motion-fast) var(--ease-out-soft);
+            transition          : box-shadow var(--neo-duration-fast) var(--neo-ease-out), filter var(--neo-duration-fast) var(--neo-ease-out), opacity var(--neo-duration-fast) var(--neo-ease-out), transform var(--neo-duration-fast) var(--neo-ease-out);
 
             .neo-timeline-bar-handle {
                 cursor    : ew-resize;
-                transition: background-color var(--motion-fast) var(--ease-out-soft);
+                transition: background-color var(--neo-duration-fast) var(--neo-ease-out);
                 width     : 8px;
             }
 

@@ -3,9 +3,9 @@
 .neo-board-card {
     background   : var(--neo-board-card-background);
     border       : 1px solid var(--neo-board-card-border-color);
-    border-left  : 3px solid var(--neo-board-card-accent, var(--neo-board-card-border-color));
-    border-radius: var(--neo-board-radius);
-    box-shadow   : var(--neo-board-card-shadow);
+    border-left  : 3px solid var(--neo-board-card-accent-color, var(--neo-board-card-border-color));
+    border-radius: var(--neo-board-border-radius);
+    box-shadow   : var(--neo-board-card-box-shadow);
     box-sizing   : border-box;
     color        : var(--neo-board-card-color);
     cursor       : grab;
@@ -24,23 +24,23 @@
     }
 
     &:hover {
-        border-color     : var(--neo-board-card-hover-border-color);
-        border-left-color: var(--neo-board-card-accent, var(--neo-board-card-hover-border-color));
+        border-color     : var(--neo-board-card-border-color-hover);
+        border-left-color: var(--neo-board-card-accent-color, var(--neo-board-card-border-color-hover));
     }
 
     &.neo-board-card-overdue {
         border-color     : color-mix(in srgb, var(--neo-board-overdue-border-color) 55%, var(--neo-board-card-border-color));
-        border-left-color: var(--neo-board-card-accent, var(--neo-board-overdue-border-color));
+        border-left-color: var(--neo-board-card-accent-color, var(--neo-board-overdue-border-color));
     }
 
     &.neo-selected {
-        background       : var(--neo-board-card-selected-background, var(--neo-board-card-background));
-        border-color     : var(--neo-board-card-selected-border-color, var(--neo-board-accent-color));
-        border-left-color: var(--neo-board-card-accent, var(--neo-board-card-selected-border-color, var(--neo-board-accent-color)));
+        background       : var(--neo-board-card-background-selected, var(--neo-board-card-background));
+        border-color     : var(--neo-board-card-border-color-selected, var(--neo-board-accent-color));
+        border-left-color: var(--neo-board-card-accent-color, var(--neo-board-card-border-color-selected, var(--neo-board-accent-color)));
 
         @media (hover: hover) {
             &:hover {
-                box-shadow: 0 0 0 1px var(--neo-board-card-selected-border-color, var(--neo-board-accent-color)), var(--neo-board-card-shadow);
+                box-shadow: 0 0 0 1px var(--neo-board-card-border-color-selected, var(--neo-board-accent-color)), var(--neo-board-card-box-shadow);
             }
         }
     }
@@ -54,7 +54,7 @@
     &.neo-board-card-slot::after {
         background   : var(--neo-board-slot-background);
         border       : 2px dashed var(--neo-board-accent-color);
-        border-radius: var(--neo-board-radius);
+        border-radius: var(--neo-board-border-radius);
         box-sizing   : border-box;
         content      : '';
         inset        : -1px -1px -1px -3px;
@@ -64,7 +64,7 @@
 
     &:focus,
     &:focus-visible {
-        outline       : 2px solid var(--neo-board-focus-color);
+        outline       : 2px solid var(--neo-board-outline-color-focus);
         outline-offset: 1px;
     }
 
@@ -79,7 +79,7 @@
     .neo-board-card-inline-editor {
         /* The board's focus ring says the name is being edited, in themes whose field border barely shows. A focused
            field paints its input's outline from this variable, so the ring outlasts `.neo-focus`. */
-        --textfield-outline-active: 2px solid var(--neo-board-focus-color);
+        --neo-textfield-outline-active: 2px solid var(--neo-board-outline-color-focus);
 
         font-weight  : 600;
         height       : auto;
@@ -96,7 +96,7 @@
             padding   : 0 4px;
 
             &:focus {
-                outline       : var(--textfield-outline-active);
+                outline       : var(--neo-textfield-outline-active);
                 outline-offset: 1px;
             }
         }
@@ -126,7 +126,7 @@
         }
 
         &:focus-visible {
-            outline       : 2px solid var(--neo-board-focus-color);
+            outline       : 2px solid var(--neo-board-outline-color-focus);
             outline-offset: 1px;
         }
     }
@@ -153,20 +153,20 @@
     }
 
     .neo-board-card-progress {
-        background   : var(--neo-board-track-color);
+        background   : var(--neo-board-track-background);
         border-radius: 999px;
         height       : 4px;
         overflow     : hidden;
     }
 
     .neo-board-card-progress-bar {
-        background: var(--neo-board-card-accent, var(--neo-board-accent-color));
+        background: var(--neo-board-card-accent-color, var(--neo-board-accent-color));
         height    : 100%;
     }
 
     .neo-board-card-due-date {
         align-items         : center;
-        border              : 1px solid var(--neo-board-card-hover-border-color);
+        border              : 1px solid var(--neo-board-card-border-color-hover);
         border-radius       : 4px;
         color               : var(--neo-board-badge-color);
         display             : inline-flex;
@@ -236,8 +236,8 @@
 .neo-dragproxy > .neo-board-card,
 .neo-board-stack .neo-board-stack-lead {
     border-color     : var(--neo-board-card-drag-border-color);
-    border-left-color: var(--neo-board-card-accent, var(--neo-board-card-drag-border-color));
-    box-shadow       : var(--neo-board-editor-shadow);
+    border-left-color: var(--neo-board-card-accent-color, var(--neo-board-card-drag-border-color));
+    box-shadow       : var(--neo-board-editor-box-shadow);
 }
 
 .neo-board-stack {
@@ -256,10 +256,10 @@
     .neo-board-stack-card {
         animation       : neo-board-stack-fly-in 200ms ease forwards;
         inset           : 0;
-        opacity         : var(--stack-opacity, 0.85);
+        opacity         : var(--neo-board-stack-opacity, 0.85);
         pointer-events  : none;
         position        : absolute;
-        transform       : translate3d(var(--stack-offset, 6px), var(--stack-offset, 6px), 0) rotate(var(--stack-angle, 3deg));
+        transform       : translate3d(var(--neo-board-stack-offset, 6px), var(--neo-board-stack-offset, 6px), 0) rotate(var(--neo-board-stack-angle, 3deg));
         transform-origin: center center;
         transition      : transform 200ms ease, opacity 200ms ease;
     }
@@ -269,7 +269,7 @@
         background     : var(--neo-board-accent-color);
         border         : 2px solid var(--neo-board-card-background);
         border-radius  : 999px;
-        box-shadow     : var(--neo-board-card-shadow);
+        box-shadow     : var(--neo-board-card-box-shadow);
         /* Each theme's accent sits opposite its background in lightness, so the background reads on it */
         color          : var(--neo-board-background);
         display        : inline-flex;
@@ -290,18 +290,18 @@
 .neo-board-stack-reverse .neo-board-stack-card {
     animation: none;
     opacity  : 0.4;
-    transform: translate3d(var(--flip-x, 0px), var(--flip-y, 0px), 0) rotate(0deg);
+    transform: translate3d(var(--neo-board-stack-flip-x, 0px), var(--neo-board-stack-flip-y, 0px), 0) rotate(0deg);
 }
 
 @keyframes neo-board-stack-fly-in {
     from {
         opacity  : 0.4;
-        transform: translate3d(var(--flip-x, 0px), var(--flip-y, 0px), 0) rotate(0deg);
+        transform: translate3d(var(--neo-board-stack-flip-x, 0px), var(--neo-board-stack-flip-y, 0px), 0) rotate(0deg);
     }
 
     to {
-        opacity  : var(--stack-opacity, 0.85);
-        transform: translate3d(var(--stack-offset, 6px), var(--stack-offset, 6px), 0) rotate(var(--stack-angle, 3deg));
+        opacity  : var(--neo-board-stack-opacity, 0.85);
+        transform: translate3d(var(--neo-board-stack-offset, 6px), var(--neo-board-stack-offset, 6px), 0) rotate(var(--neo-board-stack-angle, 3deg));
     }
 }
 

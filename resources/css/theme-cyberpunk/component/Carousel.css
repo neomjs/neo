@@ -1,9 +1,9 @@
 :root .neo-theme-cyberpunk { /* .neo-carousel */
-    --carousel-background-color      : transparent;
-    --carousel-duration              : .7s;
-    --carousel-inner-background-color: var(--cyber-cyan);
-    --carousel-inner-color           : transparent;
-    --carousel-transition-timing     : cubic-bezier(.4, 0, .2, 1);
-    --carousel-translate-x           : 0;
-    --carousel-translate-y           : 0;
+    --neo-carousel-background-color      : transparent;
+    --neo-carousel-duration              : .7s;
+    --neo-carousel-inner-background-color: var(--neo-cyber-cyan);
+    --neo-carousel-inner-color           : transparent;
+    --neo-carousel-transition-timing     : cubic-bezier(.4, 0, .2, 1);
+    --neo-carousel-translate-x           : 0;
+    --neo-carousel-translate-y           : 0;
 }

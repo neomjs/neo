@@ -3,9 +3,9 @@ import { test, expect } from '../../fixtures.mjs';
 /**
  * Whitebox-e2e: an auxiliary element mounted OUTSIDE grid.body (appended to the grid's ARIA wrapper,
  * the `[role="grid"]` element) and registered via scrollManager.registerHorizontalScrollFollower()
- * receives --grid-scroll-left in step with the centre body — including a follower that registers
+ * receives --neo-grid-scroll-left in step with the centre body — including a follower that registers
  * mid-scroll, when the scrollbar already sits at scrollLeft > 0. Locked bodyStart / bodyEnd cells
- * neither inherit --grid-scroll-left nor shift horizontally.
+ * neither inherit --neo-grid-scroll-left nor shift horizontally.
  *
  * The review-suggested `.neo-grid-aria-wrapper` selector does not exist in the DOM: the ARIA wrapper
  * renders without that class (baseCls: [] in grid.Container), so this spec mounts into `[role="grid"]`,
@@ -15,7 +15,7 @@ import { test, expect } from '../../fixtures.mjs';
  *
  * Run: npx playwright test HorizontalScrollFollowerSync -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
-test.describe('Desktop (1920x1080): lockedColumns Fixture — follower rows outside grid.body sync --grid-scroll-left', () => {
+test.describe('Desktop (1920x1080): lockedColumns Fixture — follower rows outside grid.body sync --neo-grid-scroll-left', () => {
     test.setTimeout(90000);
     test.use({ viewport: { width: 1920, height: 1080 } });
 
@@ -28,7 +28,7 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture — follower rows outs
         await page.waitForTimeout(500); // settle render before measuring
     });
 
-    test('follower outside grid.body mirrors --grid-scroll-left; locked cells neither inherit it nor shift', async ({ page, neuralLink }) => {
+    test('follower outside grid.body mirrors --neo-grid-scroll-left; locked cells neither inherit it nor shift', async ({ page, neuralLink }) => {
         const app = await neuralLink.connectToApp('Neo.examples.grid.lockedColumns');
 
         // Worker oracles: the centre body (most columns) and the grid's ScrollManager
@@ -78,8 +78,8 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture — follower rows outs
                 const s = document.querySelector('.neo-grid-row .neo-grid-cell.neo-locked-start');
                 const e = document.querySelector('.neo-grid-row .neo-grid-cell.neo-locked-end');
                 return {
-                    startVar: s ? getComputedStyle(s).getPropertyValue('--grid-scroll-left') : null,
-                    endVar  : e ? getComputedStyle(e).getPropertyValue('--grid-scroll-left') : null
+                    startVar: s ? getComputedStyle(s).getPropertyValue('--neo-grid-scroll-left') : null,
+                    endVar  : e ? getComputedStyle(e).getPropertyValue('--neo-grid-scroll-left') : null
                 };
             };
 
@@ -99,8 +99,8 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture — follower rows outs
                 return {
                     scrolled          : hScrollbar.scrollLeft > 0,
                     expected,
-                    bodyVar           : bodyNode ? bodyNode.style.getPropertyValue('--grid-scroll-left') : null,
-                    followerVar       : follower ? follower.style.getPropertyValue('--grid-scroll-left') : null,
+                    bodyVar           : bodyNode ? bodyNode.style.getPropertyValue('--neo-grid-scroll-left') : null,
+                    followerVar       : follower ? follower.style.getPropertyValue('--neo-grid-scroll-left') : null,
                     lockedStartPresent: initialLocked.startLeft !== null,
                     lockedEndPresent  : initialLocked.endLeft !== null,
                     lockedStartStable : initialLocked.startLeft === afterLocked.startLeft,
@@ -119,12 +119,12 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture — follower rows outs
         expect(phase1.lockedEndPresent,   'locked-end cells present (no vacuous pass)').toBe(true);
 
         // The follower mirrors the centre body exactly (AC-3)
-        expect(phase1.bodyVar,     'centre body carries --grid-scroll-left').toBe(phase1.expected);
+        expect(phase1.bodyVar,     'centre body carries --neo-grid-scroll-left').toBe(phase1.expected);
         expect(phase1.followerVar, 'follower outside grid.body matches the centre body').toBe(phase1.bodyVar);
 
         // Locked isolation (AC-4): no inheritance, no shift
-        expect(phase1.lockedStartVar, 'locked-start cells do not inherit --grid-scroll-left').toBe('');
-        expect(phase1.lockedEndVar,   'locked-end cells do not inherit --grid-scroll-left').toBe('');
+        expect(phase1.lockedStartVar, 'locked-start cells do not inherit --neo-grid-scroll-left').toBe('');
+        expect(phase1.lockedEndVar,   'locked-end cells do not inherit --neo-grid-scroll-left').toBe('');
         expect(phase1.lockedStartStable, 'locked-start stayed put').toBe(true);
         expect(phase1.lockedEndStable,   'locked-end stayed put').toBe(true);
 
@@ -141,8 +141,8 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture — follower rows outs
         await app.callMethod(scrollManagerId, 'registerHorizontalScrollFollower', [midScrollMountId]);
 
         await expect.poll(async () => {
-            return page.evaluate(id => document.getElementById(id)?.style.getPropertyValue('--grid-scroll-left') ?? null, midScrollMountId);
-        }, 'mid-scroll follower seeds --grid-scroll-left from the current scroller position').toBe(scrollLeftNow + 'px');
+            return page.evaluate(id => document.getElementById(id)?.style.getPropertyValue('--neo-grid-scroll-left') ?? null, midScrollMountId);
+        }, 'mid-scroll follower seeds --neo-grid-scroll-left from the current scroller position').toBe(scrollLeftNow + 'px');
 
         // Phase 3: a further scroll moves BOTH followers with the body; locked cells still frozen
         const phase3 = await page.evaluate(({ followerId, midScrollMountId, centreId }) => {
@@ -166,9 +166,9 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture — follower rows outs
 
                 return {
                     expected,
-                    bodyVar          : document.getElementById(centreId)?.style.getPropertyValue('--grid-scroll-left') ?? null,
-                    follower1Var     : document.getElementById(followerId)?.style.getPropertyValue('--grid-scroll-left') ?? null,
-                    follower2Var     : document.getElementById(midScrollMountId)?.style.getPropertyValue('--grid-scroll-left') ?? null,
+                    bodyVar          : document.getElementById(centreId)?.style.getPropertyValue('--neo-grid-scroll-left') ?? null,
+                    follower1Var     : document.getElementById(followerId)?.style.getPropertyValue('--neo-grid-scroll-left') ?? null,
+                    follower2Var     : document.getElementById(midScrollMountId)?.style.getPropertyValue('--neo-grid-scroll-left') ?? null,
                     lockedStartStable: beforeLocked.startLeft === afterLocked.startLeft,
                     lockedEndStable  : beforeLocked.endLeft === afterLocked.endLeft
                 };

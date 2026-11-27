@@ -1,52 +1,52 @@
 :where(.neo-theme-cyberpunk) { /* .neo-board */
     /* The board in the cyberpunk register: the --cyber-* palette, cyan for selection and drag, gold for the WIP signal. */
-    --neo-board-background             : var(--cyber-bg);
-    --neo-board-color                  : var(--cyber-text);
-    --neo-board-font-family            : var(--neo-font-family);
+    --neo-board-background             : var(--neo-cyber-background-color);
+    --neo-board-color                  : var(--neo-cyber-color);
+    --neo-board-font-family            : var(--neo-global-font-family);
     --neo-board-font-size              : 14px;
     --neo-board-gap                    : 12px;
     --neo-board-padding                : 12px;
-    --neo-board-radius                 : 2px;
-    --neo-board-accent-color           : var(--cyber-cyan);
-    --neo-board-focus-color            : var(--cyber-cyan);
+    --neo-board-border-radius                 : 2px;
+    --neo-board-accent-color           : var(--neo-cyber-cyan);
+    --neo-board-outline-color-focus            : var(--neo-cyber-cyan);
 
     --neo-board-column-width           : 280px;
     --neo-board-column-collapsed-width : 44px;
-    --neo-board-column-background      : var(--cyber-bg-alt);
-    --neo-board-column-border-color    : var(--cyber-border);
-    --neo-board-column-color           : var(--cyber-text);
+    --neo-board-column-background      : var(--neo-cyber-alt-background-color);
+    --neo-board-column-border-color    : var(--neo-cyber-border);
+    --neo-board-column-color           : var(--neo-cyber-color);
 
-    --neo-board-badge-background       : var(--cyber-border);
-    --neo-board-badge-color            : var(--cyber-text);
-    --neo-board-overdue-background     : color-mix(in srgb, var(--cyber-red) 18%, var(--cyber-bg));
-    --neo-board-overdue-border-color   : var(--cyber-red);
-    --neo-board-overdue-color          : color-mix(in srgb, var(--cyber-red) 72%, var(--cyber-text));
-    --neo-board-wip-color              : var(--cyber-gold);
-    --neo-board-wip-contrast-color     : var(--cyber-bg);
+    --neo-board-badge-background       : var(--neo-cyber-border);
+    --neo-board-badge-color            : var(--neo-cyber-color);
+    --neo-board-overdue-background     : color-mix(in srgb, var(--neo-cyber-red) 18%, var(--neo-cyber-background-color));
+    --neo-board-overdue-border-color   : var(--neo-cyber-red);
+    --neo-board-overdue-color          : color-mix(in srgb, var(--neo-cyber-red) 72%, var(--neo-cyber-color));
+    --neo-board-wip-color              : var(--neo-cyber-gold);
+    --neo-board-wip-contrast-color     : var(--neo-cyber-background-color);
 
     --neo-board-card-gap               : 8px;
-    --neo-board-card-background        : var(--cyber-bg);
-    --neo-board-card-border-color      : var(--cyber-border);
-    --neo-board-card-hover-border-color: color-mix(in srgb, var(--cyber-cyan) 50%, var(--cyber-border));
-    --neo-board-card-selected-background  : color-mix(in srgb, var(--cyber-cyan) 12%, var(--cyber-bg));
-    --neo-board-card-selected-border-color: var(--cyber-cyan);
-    --neo-board-card-color             : var(--cyber-text);
-    --neo-board-card-muted-color       : color-mix(in srgb, var(--cyber-text) 65%, var(--cyber-bg));
-    --neo-board-card-shadow            : 0 1px 2px rgba(0, 0, 0, 0.6);
-    --neo-board-card-drag-border-color : var(--cyber-cyan);
-    --neo-board-slot-background        : color-mix(in srgb, var(--cyber-cyan) 10%, transparent);
-    --neo-board-track-color            : var(--cyber-border);
-    --neo-board-avatar-background      : color-mix(in srgb, var(--cyber-cyan) 20%, var(--cyber-bg));
-    --neo-board-avatar-color           : var(--cyber-cyan);
+    --neo-board-card-background        : var(--neo-cyber-background-color);
+    --neo-board-card-border-color      : var(--neo-cyber-border);
+    --neo-board-card-border-color-hover: color-mix(in srgb, var(--neo-cyber-cyan) 50%, var(--neo-cyber-border));
+    --neo-board-card-background-selected  : color-mix(in srgb, var(--neo-cyber-cyan) 12%, var(--neo-cyber-background-color));
+    --neo-board-card-border-color-selected: var(--neo-cyber-cyan);
+    --neo-board-card-color             : var(--neo-cyber-color);
+    --neo-board-card-muted-color       : color-mix(in srgb, var(--neo-cyber-color) 65%, var(--neo-cyber-background-color));
+    --neo-board-card-box-shadow            : 0 1px 2px rgba(0, 0, 0, 0.6);
+    --neo-board-card-drag-border-color : var(--neo-cyber-cyan);
+    --neo-board-slot-background        : color-mix(in srgb, var(--neo-cyber-cyan) 10%, transparent);
+    --neo-board-track-background            : var(--neo-cyber-border);
+    --neo-board-avatar-background      : color-mix(in srgb, var(--neo-cyber-cyan) 20%, var(--neo-cyber-background-color));
+    --neo-board-avatar-color           : var(--neo-cyber-cyan);
 
     --neo-board-editor-width           : 440px;
-    --neo-board-editor-background      : var(--cyber-bg-alt);
-    --neo-board-editor-border-color    : var(--cyber-cyan);
-    --neo-board-editor-shadow          : var(--cyber-glow), 0 12px 32px rgba(0, 0, 0, 0.75);
+    --neo-board-editor-background      : var(--neo-cyber-alt-background-color);
+    --neo-board-editor-border-color    : var(--neo-cyber-cyan);
+    --neo-board-editor-box-shadow          : var(--neo-cyber-glow), 0 12px 32px rgba(0, 0, 0, 0.75);
 
-    --neo-board-lane-background        : color-mix(in srgb, var(--cyber-cyan) 3%, var(--cyber-bg));
-    --neo-board-lane-header-background : var(--cyber-bg-alt);
-    --neo-board-lane-border-color      : var(--cyber-border);
-    --neo-board-lane-color             : var(--cyber-text);
+    --neo-board-lane-background        : color-mix(in srgb, var(--neo-cyber-cyan) 3%, var(--neo-cyber-background-color));
+    --neo-board-lane-header-background : var(--neo-cyber-alt-background-color);
+    --neo-board-lane-border-color      : var(--neo-cyber-border);
+    --neo-board-lane-color             : var(--neo-cyber-color);
     --neo-board-lane-column-max-height : 280px;
 }

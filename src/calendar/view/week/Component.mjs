@@ -316,9 +316,9 @@ class Component extends BaseComponent {
 
         for (; i < rowsPerItem; i++) {
             gradient.push(
-                `var(--c-w-background-color) ${i * rowHeight + i}px`,
-                `var(--c-w-background-color) ${(i + 1) * rowHeight + i}px`,
-                'var(--c-w-border-color) 0'
+                `var(--neo-calendar-week-background-color) ${i * rowHeight + i}px`,
+                `var(--neo-calendar-week-background-color) ${(i + 1) * rowHeight + i}px`,
+                'var(--neo-calendar-week-border-color) 0'
             )
         }
 

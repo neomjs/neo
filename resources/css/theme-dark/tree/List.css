@@ -1,6 +1,6 @@
 :root .neo-theme-dark { /* .neo-tree-list */
-    --tree-list-color          : #bbb;
-    --tree-list-indent-base    : 16px;
-    --tree-list-indent-step    : 16px;
-    --tree-list-menu-item-color: rgb(38.2142857143%, 38.9635854342%, 45.7072829132%);
+    --neo-tree-list-color          : #bbb;
+    --neo-tree-list-indent-base    : 16px;
+    --neo-tree-list-indent-step    : 16px;
+    --neo-tree-list-menu-item-color: rgb(38.2142857143%, 38.9635854342%, 45.7072829132%);
 }

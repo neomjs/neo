@@ -1,12 +1,12 @@
 :where(.neo-theme-neo-light) { /* .neo-dialog */
-    --dialog-border-color                        : #ddd;
-    --dialog-box-shadow                          : 0 5px 10px rgba(0,0,0,.4);
-    --dialog-footer-button-border-radius         : 5px;
-    --dialog-footer-button-height                : 1.7em;
-    --dialog-footer-button-margin-left           : 0.3em;
-    --dialog-header-button-background-color-hover: var(--sem-color-surface-neutral-hover);
-    --dialog-header-color                        : var(--purple-500);
-    --dialog-icon-color                          : var(--purple-500);
-    --dialog-icon-color-hover                    : var(--sem-color-icon-neutral-contrast);
-    --dialog-modal-mask-background-color         : rgba(100, 100, 100, 0.5);
+    --neo-dialog-border-color                        : #ddd;
+    --neo-dialog-box-shadow                          : 0 5px 10px rgba(0,0,0,.4);
+    --neo-dialog-footer-button-border-radius         : 5px;
+    --neo-dialog-footer-button-height                : 1.7em;
+    --neo-dialog-footer-button-margin-left           : 0.3em;
+    --neo-dialog-header-button-background-color-hover: var(--neo-sem-color-surface-neutral-hover);
+    --neo-dialog-header-color                        : var(--neo-purple-500);
+    --neo-dialog-icon-color                          : var(--neo-purple-500);
+    --neo-dialog-icon-color-hover                    : var(--neo-sem-color-icon-neutral-contrast);
+    --neo-dialog-modal-mask-background-color         : rgba(100, 100, 100, 0.5);
 }

@@ -42,9 +42,9 @@
 
     /* Must stay aligned with `Viewport#getSize` (`x-small` <= 640px) and `HeaderToolbar` `home-button` text bind */
     @media (max-width: 640px) {
-        --button-min-width     : 30px;
-        --button-padding       : 0 4px;
-        --button-text-font-size: 13px;
+        --neo-button-min-width     : 30px;
+        --neo-button-padding       : 0 4px;
+        --neo-button-text-font-size: 13px;
 
         .neo-button.neo-button-ghost {
             &:not(:first-child) {
@@ -88,8 +88,8 @@
     }
 
     @media (min-width: 390px) and (max-width: 640px) {
-        --button-min-width: 36px;
-        --button-padding  : 0 6px;
+        --neo-button-min-width: 36px;
+        --neo-button-padding  : 0 6px;
 
         .neo-button.neo-button-ghost {
             &.no-text,

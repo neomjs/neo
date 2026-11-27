@@ -1,5 +1,5 @@
 .neo-grid-cell {
     .neo-icon {
-        font-size: var(--grid-column-icon-font-size);
+        font-size: var(--neo-grid-column-icon-font-size);
     }
 }

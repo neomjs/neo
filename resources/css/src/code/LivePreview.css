@@ -6,27 +6,27 @@
     transition-timing-function: ease-out;
 
     .live-preview-container {
-        border-radius: calc(var(--tab-strip-height) + var(--button-border-radius));
-        box-shadow   : var(--live-preview-container-box-shadow);
+        border-radius: calc(var(--neo-tab-strip-height) + var(--neo-button-border-radius));
+        box-shadow   : var(--neo-live-preview-container-box-shadow);
         overflow     : hidden;
 
         .neo-tab-header-toolbar {
-            background-color       : var(--live-preview-header-background-color);
-            border                 : 1px solid var(--live-preview-border-color);
-            border-top-left-radius : calc(var(--tab-strip-height) + var(--button-border-radius));
-            border-top-right-radius: calc(var(--tab-strip-height) + var(--button-border-radius));
-            padding                : var(--tab-strip-height);
+            background-color       : var(--neo-live-preview-header-background-color);
+            border                 : 1px solid var(--neo-live-preview-border-color);
+            border-top-left-radius : calc(var(--neo-tab-strip-height) + var(--neo-button-border-radius));
+            border-top-right-radius: calc(var(--neo-tab-strip-height) + var(--neo-button-border-radius));
+            padding                : var(--neo-tab-strip-height);
         }
 
         .neo-tab-strip {
-            margin-top: calc(var(--tab-strip-height) * (-1) - 1px);
+            margin-top: calc(var(--neo-tab-strip-height) * (-1) - 1px);
         }
 
         .neo-tab-body-container {
             background-color          : transparent;
-            border                    : 1px solid var(--live-preview-border-color);
-            border-bottom-left-radius : calc(var(--tab-strip-height) + var(--button-border-radius));
-            border-bottom-right-radius: calc(var(--tab-strip-height) + var(--button-border-radius));
+            border                    : 1px solid var(--neo-live-preview-border-color);
+            border-bottom-left-radius : calc(var(--neo-tab-strip-height) + var(--neo-button-border-radius));
+            border-bottom-right-radius: calc(var(--neo-tab-strip-height) + var(--neo-button-border-radius));
             border-top                : 0;
         }
     }

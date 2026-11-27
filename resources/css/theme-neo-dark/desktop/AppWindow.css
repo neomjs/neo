@@ -1,8 +1,8 @@
 :where(.neo-theme-neo-dark) { /* .neo-desktop-app-window: dark glass */
-    --desktop-app-window-background-color: rgba(15, 23, 42, .74);
-    --desktop-app-window-border-color    : rgba(255, 255, 255, .10);
-    --desktop-app-window-color           : #f1f5f9;
-    --desktop-app-window-glyph-color     : #fff;
-    --desktop-app-window-icon-color      : rgba(226, 232, 240, .72);
-    --desktop-app-window-shadow          : 0 30px 80px -20px rgba(2, 6, 23, .70);
+    --neo-desktop-app-window-background-color: rgba(15, 23, 42, .74);
+    --neo-desktop-app-window-border-color    : rgba(255, 255, 255, .10);
+    --neo-desktop-app-window-color           : #f1f5f9;
+    --neo-desktop-app-window-glyph-color     : #fff;
+    --neo-desktop-app-window-icon-color      : rgba(226, 232, 240, .72);
+    --neo-desktop-app-window-box-shadow          : 0 30px 80px -20px rgba(2, 6, 23, .70);
 }

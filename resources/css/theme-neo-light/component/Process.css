@@ -1,9 +1,9 @@
 :where(.neo-theme-neo-light) {
-    --process-arrow-color     : #6d5f28;
-    --process-background-color: #fff;
-    --process-icon-color      : #a3996f;
-    --process-icon-size       : 2rem;
-    --process-shadow-color    : rgba(0, 0, 0, .5);
-    --process-text-color      : #444444;
-    --process-title-color     : #363636;
+    --neo-process-arrow-color     : #6d5f28;
+    --neo-process-background-color: #fff;
+    --neo-process-icon-color      : #a3996f;
+    --neo-process-icon-size       : 2rem;
+    --neo-process-shadow-color    : rgba(0, 0, 0, .5);
+    --neo-process-color      : #444444;
+    --neo-process-title-color     : #363636;
 }

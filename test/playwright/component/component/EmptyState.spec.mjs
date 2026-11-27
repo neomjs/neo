@@ -162,9 +162,9 @@ test.describe('Neo.component.EmptyState browser contract', () => {
 
         const withAction = await page.evaluate(id => {
             const viewport = document.getElementById('component-test-viewport');
-            viewport.style.setProperty('--button-height', '48px');
-            viewport.style.setProperty('--button-padding', '0 16px');
-            viewport.style.setProperty('--button-text-font-size', '16px');
+            viewport.style.setProperty('--neo-button-height', '48px');
+            viewport.style.setProperty('--neo-button-padding', '0 16px');
+            viewport.style.setProperty('--neo-button-text-font-size', '16px');
 
             const el    = document.getElementById(id),
                   title = getComputedStyle(el.querySelector('.neo-empty-state-title')),

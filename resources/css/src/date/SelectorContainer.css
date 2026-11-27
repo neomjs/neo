@@ -1,6 +1,6 @@
 .neo-dateselector.neo-container {
-    background-color: var(--dateselector-background-color);
-    color           : var(--dateselector-color);
+    background-color: var(--neo-dateselector-background-color);
+    color           : var(--neo-dateselector-color);
     font-size       : 16px; /* todo: em-based once table headers are em based */
     font-weight     : 400;
     user-select     : none;
@@ -18,33 +18,33 @@
     }
 
     .neo-header-toolbar {
-        background-color: var(--dateselector-header-background-color);
-        border          : 1px solid var(--dateselector-border-color);
-        border-bottom   : var(--dateselector-header-border-bottom);
+        background-color: var(--neo-dateselector-header-background-color);
+        border          : 1px solid var(--neo-dateselector-border-color);
+        border-bottom   : var(--neo-dateselector-header-border-bottom);
         min-height      : 30px;
     }
 
     .neo-day-view {
-        border        : 1px solid var(--dateselector-border-color);
-        border-top    : var(--dateselector-content-border-top);
+        border        : 1px solid var(--neo-dateselector-border-color);
+        border-top    : var(--neo-dateselector-content-border-top);
         display       : flex;
         flex          : 1;
         flex-direction: column;
         font-size     : 12px;
 
         .neo-row {
-            border-bottom: 1px solid var(--dateselector-border-color);
+            border-bottom: 1px solid var(--neo-dateselector-border-color);
             display      : flex;
             flex         : 1;
 
             &.neo-header-row {
-                border-bottom: var(--dateselector-header-cell-border-bottom) !important;
+                border-bottom: var(--neo-dateselector-header-cell-border-bottom) !important;
                 flex         : none;
                 height       : 30px;
 
                 .neo-cell {
-                    background-color: var(--dateselector-header-cell-background-color);
-                    color           : var(--dateselector-header-cell-color);
+                    background-color: var(--neo-dateselector-header-cell-background-color);
+                    color           : var(--neo-dateselector-header-cell-color);
                     cursor          : default;
                     pointer-events  : none;
                 }
@@ -56,9 +56,9 @@
 
             .neo-cell {
                 align-items     : center;
-                background-color: var(--dateselector-cell-background-color);
-                border-right    : 1px solid var(--dateselector-border-color);
-                color           : var(--dateselector-cell-color);
+                background-color: var(--neo-dateselector-cell-background-color);
+                border-right    : 1px solid var(--neo-dateselector-border-color);
+                color           : var(--neo-dateselector-cell-color);
                 cursor          : pointer;
                 display         : flex;
                 flex            : 1;
@@ -74,9 +74,9 @@
                 }
 
                 &.neo-disabled {
-                    background-color: var(--dateselector-cell-background-color-disabled);
-                    color           : var(--dateselector-cell-color-disabled);
-                    opacity         : var(--dateselector-cell-opacity-disabled);
+                    background-color: var(--neo-dateselector-cell-background-color-disabled);
+                    color           : var(--neo-dateselector-cell-color-disabled);
+                    opacity         : var(--neo-dateselector-cell-opacity-disabled);
                 }
 
                 &.neo-disabled {
@@ -86,10 +86,10 @@
 
                 &.neo-selected {
                     .neo-cell-content {
-                        background-color: var(--dateselector-cell-today-border-color);
-                        border          : 1px solid var(--dateselector-header-cell-background-color);
+                        background-color: var(--neo-dateselector-cell-today-border-color);
+                        border          : 1px solid var(--neo-dateselector-header-cell-background-color);
                         border-radius   : 50%;
-                        color           : var(--dateselector-cell-color-selected);
+                        color           : var(--neo-dateselector-cell-color-selected);
 
                         &:before {
                             content    : '';
@@ -110,7 +110,7 @@
                     pointer-events : none;
 
                     &.neo-today {
-                        border       : 1px solid var(--dateselector-cell-today-border-color);
+                        border       : 1px solid var(--neo-dateselector-cell-today-border-color);
                         border-radius: 50%;
                     }
                 }

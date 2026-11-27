@@ -1,35 +1,35 @@
 .neo-splitter {
-    background-color: var(--splitter-background-color);
-    border          : var(--splitter-border);
-    border-radius   : var(--splitter-border-radius);
+    background-color: var(--neo-splitter-background-color);
+    border          : var(--neo-splitter-border);
+    border-radius   : var(--neo-splitter-border-radius);
     /* a drag handle: a touch on it is a resize, never a pan that cancels the pointer mid-drag */
     touch-action    : none;
     transition      : background-color 0.3s ease-in-out, border-color 0.3s ease-in-out;
 
     &:active, &:hover {
-        background-color: var(--splitter-hover-color);
-        border-color    : var(--splitter-hover-color);
+        background-color: var(--neo-splitter-background-color-hover);
+        border-color    : var(--neo-splitter-background-color-hover);
     }
 
     &.neo-horizontal {
         border-left : none;
         border-right: none;
         cursor      : ns-resize !important;
-        margin      : var(--splitter-margin-horizontal);
+        margin      : var(--neo-splitter-margin-horizontal);
     }
 
     &.neo-vertical {
         border-bottom: none;
         border-top   : none;
         cursor       : ew-resize;
-        margin      : var(--splitter-margin-vertical);
+        margin      : var(--neo-splitter-margin-vertical);
     }
 }
 
 .neo-dragproxy {
     &.neo-splitter {
-        background-color: var(--splitter-hover-color);
-        border-color    : var(--splitter-hover-color);
+        background-color: var(--neo-splitter-background-color-hover);
+        border-color    : var(--neo-splitter-background-color-hover);
 
         &.neo-horizontal, &.neo-vertical {
             /* getBoundingClientRect() already adds margins to positions,

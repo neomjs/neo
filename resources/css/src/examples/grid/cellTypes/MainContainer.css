@@ -3,24 +3,24 @@
 .neo-examples-grid-cell-types [class*=neo-theme-],
 body:has(.neo-examples-grid-cell-types) .neo-dragproxy,
 body:has(.neo-examples-grid-cell-types) .neo-dragproxy [class*=neo-theme-] {
-    --grid-container-border-color                  : var(--cell-types-border);
-    --grid-container-cell-background-color         : var(--cell-types-surface);
-    --grid-container-cell-background-color-even    : var(--cell-types-alternate);
-    --grid-container-color                         : var(--cell-types-text);
-    --grid-container-font-size                     : 13px;
-    --grid-cell-background-color-hover             : var(--cell-types-hover);
-    --grid-header-button-background-color          : var(--cell-types-header);
-    --grid-header-button-background-color-hover    : var(--cell-types-hover);
-    --grid-header-button-background-image          : none;
-    --grid-header-button-border-right-color        : var(--cell-types-border);
-    --grid-header-button-color                     : var(--cell-types-text);
-    --grid-header-button-color-hover               : var(--cell-types-accent);
-    --grid-header-button-font-size                 : 12px;
-    --grid-header-button-font-weight               : 600;
-    --grid-header-button-glyph-color               : var(--cell-types-muted);
-    --grid-header-button-glyph-color-hover         : var(--cell-types-accent);
-    --grid-rowmodel-selected-cell-background-color : var(--cell-types-hover);
-    --grid-rowmodel-selected-cell-color            : var(--cell-types-title);
+    --neo-grid-container-border-color                  : var(--cell-types-border);
+    --neo-grid-container-cell-background-color         : var(--cell-types-surface);
+    --neo-grid-container-cell-background-color-even    : var(--cell-types-alternate);
+    --neo-grid-container-color                         : var(--cell-types-text);
+    --neo-grid-container-font-size                     : 13px;
+    --neo-grid-cell-background-color-hover             : var(--cell-types-hover);
+    --neo-grid-header-button-background-color          : var(--cell-types-header);
+    --neo-grid-header-button-background-color-hover    : var(--cell-types-hover);
+    --neo-grid-header-button-background-image          : none;
+    --neo-grid-header-button-border-right-color        : var(--cell-types-border);
+    --neo-grid-header-button-color                     : var(--cell-types-text);
+    --neo-grid-header-button-color-hover               : var(--cell-types-accent);
+    --neo-grid-header-button-font-size                 : 12px;
+    --neo-grid-header-button-font-weight               : 600;
+    --neo-grid-header-button-glyph-color               : var(--cell-types-muted);
+    --neo-grid-header-button-glyph-color-hover         : var(--cell-types-accent);
+    --neo-grid-rowmodel-cell-background-color-selected : var(--cell-types-hover);
+    --neo-grid-rowmodel-cell-color-selected            : var(--cell-types-title);
 }
 
 .neo-examples-grid-cell-types .neo-grid-row .neo-grid-cell,
@@ -43,7 +43,7 @@ body:has(.neo-examples-grid-cell-types) .neo-dragproxy [class*=neo-theme-] {
 .neo-examples-grid-cell-types.neo-viewport {
     background-color: var(--cell-types-background);
     color           : var(--cell-types-text);
-    font-family     : var(--neo-font-family);
+    font-family     : var(--neo-global-font-family);
 
     .cell-types-toolbar {
         background-color: var(--cell-types-background);

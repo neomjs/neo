@@ -16,37 +16,37 @@
 
     .neo-color-blue {
         .neo-checkbox-icon {
-            color: var(--event-blue-color) !important;
+            color: var(--neo-event-blue-color) !important;
         }
     }
 
     .neo-color-green {
         .neo-checkbox-icon {
-            color: var(--event-green-color) !important;
+            color: var(--neo-event-green-color) !important;
         }
     }
 
     .neo-color-orange {
         .neo-checkbox-icon {
-            color: var(--event-orange-color) !important;
+            color: var(--neo-event-orange-color) !important;
         }
     }
 
     .neo-color-pink {
         .neo-checkbox-icon {
-            color: var(--event-pink-color) !important;
+            color: var(--neo-event-pink-color) !important;
         }
     }
 
     .neo-color-red {
         .neo-checkbox-icon {
-            color: var(--event-red-color) !important;
+            color: var(--neo-event-red-color) !important;
         }
     }
 
     .neo-color-yellow {
         .neo-checkbox-icon {
-            color: var(--event-yellow-border-color) !important;
+            color: var(--neo-event-yellow-border-color) !important;
         }
     }
 
@@ -63,7 +63,7 @@
         }
 
         .neo-edit-icon {
-            color       : var(--calendars-list-edit-icon-color);
+            color       : var(--neo-calendars-list-edit-icon-color);
             cursor      : pointer;
             font-size   : 16px;
             font-weight : 600;

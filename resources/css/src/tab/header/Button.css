@@ -1,20 +1,20 @@
 @keyframes delaybgcolor {
       0% {background-color: transparent;}
      99% {background-color: transparent;}
-    100% {background-color: var(--tab-indicator-background-color-active);}
+    100% {background-color: var(--neo-tab-indicator-background-color-active);}
 }
 
 .neo-tab-header-button.neo-button {
     align-self      : end;
-    background-color: var(--tab-button-background-color);
-    background-image: var(--tab-button-background-image);
-    border          : var(--tab-button-border);
-    border-bottom   : var(--tab-button-border-bottom);
-    border-radius   : var(--tab-button-border-radius);
-    height          : var(--tab-button-height);
-    margin          : 0 0 var(--tab-button-margin-bottom);
-    padding         : var(--tab-button-padding);
-    text-transform  : var(--tab-button-text-transform);
+    background-color: var(--neo-tab-button-background-color);
+    background-image: var(--neo-tab-button-background-image);
+    border          : var(--neo-tab-button-border);
+    border-bottom   : var(--neo-tab-button-border-bottom);
+    border-radius   : var(--neo-tab-button-border-radius);
+    height          : var(--neo-tab-button-height);
+    margin          : 0 0 var(--neo-tab-button-margin-bottom);
+    padding         : var(--neo-tab-button-padding);
+    text-transform  : var(--neo-tab-button-text-transform);
 
     .neo-button-badge {
         font-size     : 10px;
@@ -22,25 +22,25 @@
     }
 
     .neo-button-glyph {
-        color: var(--tab-button-glyph-color);
+        color: var(--neo-tab-button-glyph-color);
     }
 
     .neo-button-text {
-        color      : var(--tab-button-text-color);
-        font-size  : var(--tab-button-text-font-size);
+        color      : var(--neo-tab-button-color);
+        font-size  : var(--neo-tab-button-text-font-size);
         /* The title's weight is its own token. Without one it fell through to the button family's
            weight, so every theme with semibold buttons had semibold tab titles by accident — and
            the inline dock header, where width is scarce, had no way to opt out. The fallback IS
            that inheritance, made explicit: a theme that declares no tab tokens at all (cyberpunk)
            keeps the button family's weight, because an undefined token would otherwise make this
            declaration invalid and hand the title the document's inherited weight instead. */
-        font-weight: var(--tab-button-text-font-weight, var(--button-text-font-weight));
+        font-weight: var(--neo-tab-button-text-font-weight, var(--neo-button-text-font-weight));
     }
 
     .neo-tab-close {
         align-items        : center;
         border-radius      : 2px;
-        color              : var(--tab-button-text-color);
+        color              : var(--neo-tab-button-color);
         cursor             : pointer;
         display            : inline-flex;
         flex               : none;
@@ -51,14 +51,14 @@
         min-width          : 1.5em;
 
         &:hover {
-            background-color: var(--tab-button-background-color-hover);
+            background-color: var(--neo-tab-button-background-color-hover);
         }
     }
 
     .neo-tab-button-indicator {
         background-color: transparent;
-        bottom          : calc(var(--tab-strip-height) * -1);
-        height          : var(--tab-strip-height);
+        bottom          : calc(var(--neo-tab-strip-height) * -1);
+        height          : var(--neo-tab-strip-height);
         pointer-events  : none;
         position        : absolute;
         width           : 100%;
@@ -66,41 +66,41 @@
     }
 
     &:active {
-        background-color: var(--tab-button-background-color-active) !important;
+        background-color: var(--neo-tab-button-background-color-active) !important;
 
         .neo-button-glyph {
-            color: var(--tab-button-glyph-color-active);
+            color: var(--neo-tab-button-glyph-color-active);
         }
     }
 
     &:hover {
-        background-color: var(--tab-button-background-color-hover);
+        background-color: var(--neo-tab-button-background-color-hover);
         background-image: none;
 
         .neo-button-glyph {
-            color: var(--tab-button-glyph-color-hover);
+            color: var(--neo-tab-button-glyph-color-hover);
         }
     }
 
     &.pressed {
-        background-image: var(--tab-button-background-image-pressed) !important;
-        border          : var(--tab-button-border-pressed);
-        border-bottom   : var(--tab-button-border-bottom-pressed);
+        background-image: var(--neo-tab-button-background-image-pressed) !important;
+        border          : var(--neo-tab-button-border-pressed);
+        border-bottom   : var(--neo-tab-button-border-bottom-pressed);
         cursor          : default;
-        height          : var(--tab-button-height-pressed);
+        height          : var(--neo-tab-button-height-pressed);
 
         .neo-button-glyph {
-            color: var(--tab-button-glyph-color-pressed);
+            color: var(--neo-tab-button-glyph-color-pressed);
         }
 
         .neo-button-text {
-            color: var(--tab-button-text-color-pressed, var(--tab-button-text-color));
+            color: var(--neo-tab-button-color-pressed, var(--neo-tab-button-color));
         }
 
         .neo-tab-button-indicator {
             animation-duration: 260ms;
             animation-name    : delaybgcolor;
-            background-color  : var(--tab-indicator-background-color-active);
+            background-color  : var(--neo-tab-indicator-background-color-active);
         }
     }
 
@@ -118,13 +118,13 @@
     }
 
     &:not(:last-child) {
-        margin-right: var(--tab-button-gap);
+        margin-right: var(--neo-tab-button-gap);
     }
 }
 
 .neo-disabled {
     .neo-tab-header-button.neo-button,
     &.neo-tab-header-button.neo-button {
-        background-color: var(--tab-button-background-color-disabled);
+        background-color: var(--neo-tab-button-background-color-disabled);
     }
 }

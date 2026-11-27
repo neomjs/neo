@@ -103,7 +103,7 @@ test.describe('Neo.desktop.Launcher', () => {
         expect(launcher.vdom.cn.map(item => item.tag)).toEqual(['dt', 'dd', 'dd', 'dd']);
         expect(header.html).toBe('Work');
         expect(mail.cn[0].cls).toEqual(['neo-desktop-app-icon']);
-        expect(mail.cn[0].style).toEqual({'--desktop-app-color': '#3b82f6'});
+        expect(mail.cn[0].style).toEqual({'--neo-desktop-app-color': '#3b82f6'});
         expect(mail.cn[1].text).toBe('Mail')
     });
 

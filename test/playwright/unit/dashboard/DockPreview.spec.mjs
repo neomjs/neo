@@ -67,7 +67,7 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
         test('shared consumers stay on the declared DockPreview contract', () => {
             const structural = fs.readFileSync(path.join(repoRoot, 'resources/css/src/dashboard/dock/interaction/Preview.css'), 'utf8'),
                   consumers  = [...new Set(
-                      [...structural.matchAll(/var\((--(?:fm|dock-transition)-[\w-]+)/g)].map(match => match[1])
+                      [...structural.matchAll(/var\((--(?:fm|(?:neo-)?dock-transition)-[\w-]+)/g)].map(match => match[1])
                   )].sort();
 
             // The structural (shared-tier) file is where CONSUMPTION happens — it may read the
@@ -75,8 +75,8 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             // invents a pseudo-token or reaches for an --fm-* app palette directly (the shared
             // tier must stay app-neutral; apps project palettes through the domain aliases).
             expect(consumers).toEqual([
-                '--dock-transition-duration',
-                '--dock-transition-easing'
+                '--neo-dock-transition-duration',
+                '--neo-dock-transition-timing-function'
             ])
         })
 
@@ -96,9 +96,9 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             // shared signal consumer (the indicator/chip section + the proxy edge-light in
             // Container.css) consumes the aliases bare.
             [containerScss.slice(signalStart), previewScss].forEach(source => {
-                expect([...source.matchAll(/var\(--agent-dock-preview-signal[\w-]*\s*,/g)]).toEqual([])
+                expect([...source.matchAll(/var\(--neo-dock-preview-signal-color[\w-]*\s*,/g)]).toEqual([])
             });
-            expect([...containerScss.matchAll(/var\(--agent-dock-proxy[\w-]*\s*,/g)]).toEqual([]);
+            expect([...containerScss.matchAll(/var\(--neo-dock-proxy[\w-]*\s*,/g)]).toEqual([]);
 
             // Ownership census: the proxy treatment scopes to the dock-owned embodiment marker
             // (stamped by DockTabSortZone#getDragProxyConfig), NEVER to the generic
@@ -108,13 +108,13 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             const selectors = uncomment(containerScss);
 
             expect(selectors).toContain('body > .neo-dock-dragproxy.neo-tab-header-toolbar {');
-            expect(selectors).toContain('--tab-button-glyph-color: var(--agent-dock-proxy-text)');
-            expect(selectors).toContain('--tab-button-text-color : var(--agent-dock-proxy-text)');
+            expect(selectors).toContain('--neo-tab-button-glyph-color: var(--neo-dock-proxy-color)');
+            expect(selectors).toContain('--neo-tab-button-color : var(--neo-dock-proxy-color)');
             // the Signal ring nests in the ground rule: as a sibling rule it loses the cascade to `body >`
             expect(selectors).toMatch(/body > \.neo-dock-dragproxy\.neo-tab-header-toolbar \{[^}]*&\.neo-preview-lang-signal \{/);
-            expect(selectors).toContain('background   : var(--agent-dock-proxy-ground)');
-            expect(selectors).toContain('border       : 1px solid var(--agent-dock-proxy-border)');
-            expect(selectors).toContain('color        : var(--agent-dock-proxy-text)');
+            expect(selectors).toContain('background   : var(--neo-dock-proxy-background)');
+            expect(selectors).toContain('border       : 1px solid var(--neo-dock-proxy-border-color)');
+            expect(selectors).toContain('color        : var(--neo-dock-proxy-color)');
             expect(selectors).not.toContain(':root:has(');
             expect([...selectors.matchAll(/(?<![\w-])\.neo-dragproxy(?![\w-])/g)]).toEqual([])
         })
@@ -129,17 +129,17 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             // a deleted or forgotten projection row now fails HERE instead of silently rendering
             // another app's chroma — the exact miss the cycle-2 review falsified on the proxy.
             [
-                '--agent-dock-preview-accept',
-                '--agent-dock-preview-accept-fill',
-                '--agent-dock-preview-reject',
-                '--agent-dock-preview-reject-fill',
-                '--agent-dock-preview-signal',
-                '--agent-dock-preview-signal-fill',
-                '--agent-dock-preview-signal-ground',
-                '--agent-dock-proxy-border',
-                '--agent-dock-proxy-ground',
-                '--agent-dock-proxy-shadow',
-                '--agent-dock-proxy-text'
+                '--neo-dock-preview-accept-color',
+                '--neo-dock-preview-accept-background-color',
+                '--neo-dock-preview-reject-color',
+                '--neo-dock-preview-reject-background-color',
+                '--neo-dock-preview-signal-color',
+                '--neo-dock-preview-signal-background-color',
+                '--neo-dock-preview-signal-background',
+                '--neo-dock-proxy-border-color',
+                '--neo-dock-proxy-background',
+                '--neo-dock-proxy-box-shadow',
+                '--neo-dock-proxy-color'
             ].forEach(alias => {
                 const declaration = new RegExp(`${alias}\\s*:`);
 

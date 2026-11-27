@@ -1,14 +1,14 @@
 :where(.neo-theme-light) {
-    --programme-header-bg    : var(--neo-background-color);
-    --programme-border       : var(--grid-container-border-color, #ddd);
+    --programme-header-bg    : var(--neo-global-background-color);
+    --programme-border       : var(--neo-grid-container-border-color, #ddd);
     --programme-title        : #163a5f;
     --programme-muted        : #4d4d4d;
     --programme-badge-bg     : #edf4fc;
     --programme-badge-border : #bed3ea;
     --programme-badge-text   : #163a5f;
-    --programme-control-bg   : var(--button-background-color, #ffffff);
+    --programme-control-bg   : var(--neo-button-background-color, #ffffff);
     --programme-hover-bg     : #eef4fa;
-    --programme-selected-bg  : var(--button-text-color, #1c60a0);
-    --programme-selected-text: var(--button-background-color, #ffffff);
-    --programme-focus        : var(--button-text-color, #1c60a0);
+    --programme-selected-bg  : var(--neo-button-color, #1c60a0);
+    --programme-selected-text: var(--neo-button-background-color, #ffffff);
+    --programme-focus        : var(--neo-button-color, #1c60a0);
 }

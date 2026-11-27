@@ -206,7 +206,7 @@ class MainContainer extends Viewport {
                 ].join(''),
 
                 style: {
-                    border      : '1px solid var(--panel-border-color, rgba(128, 128, 128, 0.3))',
+                    border      : '1px solid var(--neo-panel-border-color, rgba(128, 128, 128, 0.3))',
                     borderRadius: '6px',
                     fontSize    : '13px',
                     margin      : '10px',

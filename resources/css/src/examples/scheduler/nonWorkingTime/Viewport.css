@@ -87,24 +87,24 @@
             padding-left: 10px;
 
             &::before {
-                background: var(--neo-scheduler-bar-emerald-border);
+                background: var(--neo-scheduler-bar-emerald-border-color);
             }
         }
 
         .site-legend-struct::before {
-            background: var(--neo-scheduler-bar-amber-border);
+            background: var(--neo-scheduler-bar-amber-border-color);
         }
 
         .site-legend-mep::before {
-            background: var(--neo-scheduler-bar-violet-border);
+            background: var(--neo-scheduler-bar-violet-border-color);
         }
 
         .site-shading-switch {
-            --button-background-color-hover: var(--site-hover-bg);
-            --button-border-hover          : 1px solid var(--site-border);
-            --button-text-color            : var(--site-muted);
-            --button-text-color-active     : var(--site-title);
-            --button-text-color-hover      : var(--site-title);
+            --neo-button-background-color-hover: var(--site-hover-bg);
+            --neo-button-border-hover          : 1px solid var(--site-border);
+            --neo-button-color            : var(--site-muted);
+            --neo-button-color-active     : var(--site-title);
+            --neo-button-color-hover      : var(--site-title);
             align-items    : center;
             background     : var(--site-control-bg);
             border         : 1px solid var(--site-border);
@@ -127,16 +127,16 @@
                 display      : inline-block;
                 flex-shrink  : 0;
                 height       : 16px;
-                transition   : background-color var(--motion-fast) var(--ease-out-soft), box-shadow var(--motion-fast) var(--ease-out-soft);
+                transition   : background-color var(--neo-duration-fast) var(--neo-ease-out), box-shadow var(--neo-duration-fast) var(--neo-ease-out);
                 width        : 28px;
             }
 
             &.pressed {
-                --button-background-color-hover: var(--site-switch-active-surface);
-                --button-border-hover          : 1px solid var(--site-selected-bg);
-                --button-text-color            : var(--site-title);
-                --button-text-color-active     : var(--site-title);
-                --button-text-color-hover      : var(--site-title);
+                --neo-button-background-color-hover: var(--site-switch-active-surface);
+                --neo-button-border-hover          : 1px solid var(--site-selected-bg);
+                --neo-button-color            : var(--site-title);
+                --neo-button-color-active     : var(--site-title);
+                --neo-button-color-hover      : var(--site-title);
                 background  : var(--site-switch-active-surface);
                 border-color: var(--site-selected-bg);
                 color       : var(--site-title);
@@ -169,11 +169,11 @@
         }
 
         .site-week-btn {
-            --button-background-color-hover: var(--site-hover-bg);
-            --button-border-hover          : 1px solid var(--site-border);
-            --button-text-color            : var(--site-muted);
-            --button-text-color-active     : var(--site-title);
-            --button-text-color-hover      : var(--site-title);
+            --neo-button-background-color-hover: var(--site-hover-bg);
+            --neo-button-border-hover          : 1px solid var(--site-border);
+            --neo-button-color            : var(--site-muted);
+            --neo-button-color-active     : var(--site-title);
+            --neo-button-color-hover      : var(--site-title);
             background   : var(--site-control-bg);
             border       : 1px solid var(--site-border);
             border-radius: 0;
@@ -185,10 +185,10 @@
             padding      : 0 11px;
 
             &.pressed {
-                --button-background-color-hover: var(--site-selected-bg);
-                --button-text-color            : var(--site-selected-text);
-                --button-text-color-active     : var(--site-selected-text);
-                --button-text-color-hover      : var(--site-selected-text);
+                --neo-button-background-color-hover: var(--site-selected-bg);
+                --neo-button-color            : var(--site-selected-text);
+                --neo-button-color-active     : var(--site-selected-text);
+                --neo-button-color-hover      : var(--site-selected-text);
                 background  : var(--site-selected-bg);
                 border-color: var(--site-selected-bg);
                 position    : relative;

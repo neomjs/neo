@@ -34,9 +34,9 @@ test.describe('dock rail tab — the engine paints it, apps only set values', ()
         APP_ROOTS   = ['resources/css/src/apps',      'resources/css/theme-dark/apps',
                        'resources/css/theme-light/apps', 'resources/css/theme-neo-dark/apps',
                        'resources/css/theme-neo-light/apps'],
-        TOKENS      = ['--dock-rail-tab-background', '--dock-rail-tab-background-hover',
-                       '--dock-rail-tab-color',      '--dock-rail-tab-color-hover',
-                       '--dock-rail-tab-font-family'],
+        TOKENS      = ['--neo-dock-rail-tab-background', '--neo-dock-rail-tab-background-hover',
+                       '--neo-dock-rail-tab-color',      '--neo-dock-rail-tab-color-hover',
+                       '--neo-dock-rail-tab-font-family'],
         // Paint the engine owns. `padding` is deliberately absent from the app denylist: rail
         // orientation genuinely differs per app (the workstation's horizontal rails need caption
         // breathing room), so it stays an app concern and this guard must not forbid it.
@@ -263,10 +263,10 @@ test.describe('dock rail tab — the engine paints it, apps only set values', ()
         // whatever ground the host provides — a palette value here would be the engine guessing.
         const engine = readFileSync(ENGINE_FILE, 'utf8');
 
-        expect(engine).toMatch(/--dock-rail-tab-color\s*:\s*inherit/);
-        expect(engine).toMatch(/--dock-rail-tab-font-family\s*:\s*inherit/);
+        expect(engine).toMatch(/--neo-dock-rail-tab-color\s*:\s*inherit/);
+        expect(engine).toMatch(/--neo-dock-rail-tab-font-family\s*:\s*inherit/);
         expect(engine, 'resting ground stays transparent — a rail tab is navigation, not an action')
-            .toMatch(/--dock-rail-tab-background\s*:\s*transparent/)
+            .toMatch(/--neo-dock-rail-tab-background\s*:\s*transparent/)
     });
 
     test('an app token value cannot escape the app that sets it', () => {

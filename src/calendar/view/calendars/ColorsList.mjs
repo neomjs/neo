@@ -69,8 +69,8 @@ class ColorsList extends List {
      */
     createItemContent(record, index) {
         return {style: {
-            backgroundColor: `var(--event-${record.name}-color)`,
-            color          : `var(--event-${record.name}-color)` // needed for the box-shadow (CSS currentColor)
+            backgroundColor: `var(--neo-event-${record.name}-color)`,
+            color          : `var(--neo-event-${record.name}-color)` // needed for the box-shadow (CSS currentColor)
         }}
     }
 

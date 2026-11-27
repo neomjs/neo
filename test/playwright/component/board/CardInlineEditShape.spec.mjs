@@ -46,7 +46,7 @@ test('the name being edited keeps the board\'s focus ring once its field is focu
     await page.goto('/test/playwright/component/apps/board-form-control/index.html');
     await card(page).locator('.neo-board-card-title').dblclick();
 
-    // A focused field sets its input's outline from `--textfield-outline-active`, with `!important`
+    // A focused field sets its input's outline from `--neo-textfield-outline-active`, with `!important`
     const input = card(page).locator('.neo-board-card-inline-editor.neo-focus input');
 
     await expect(input).toBeFocused();

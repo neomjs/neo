@@ -281,7 +281,7 @@ A layout that lives in a function of plain inputs turns a matter of taste into a
 
 Two details are easy to get wrong.
 
-**Stillness is the end state, drawn once.** The engine's motion vocabulary collapses the CSS variable `--motion-base` to `0ms` when the reader prefers reduced motion. The host reads it from its own node on every mount:
+**Stillness is the end state, drawn once.** The engine's motion vocabulary collapses the CSS variable `--neo-duration-base` to `0ms` when the reader prefers reduced motion. The host reads it from its own node on every mount:
 
 ```javascript
 async readMotion() {
@@ -290,9 +290,9 @@ async readMotion() {
     let value = '';
 
     try {
-        const styles = await Neo.main.DomAccess.getComputedStyle({id: me.id, style: '--motion-base', windowId: me.windowId});
+        const styles = await Neo.main.DomAccess.getComputedStyle({id: me.id, style: '--neo-duration-base', windowId: me.windowId});
 
-        value = styles?.['--motion-base']?.trim() ?? ''
+        value = styles?.['--neo-duration-base']?.trim() ?? ''
     } catch {}
 
     if (read === me.motionRead && me.mounted && !me.isDestroyed) {

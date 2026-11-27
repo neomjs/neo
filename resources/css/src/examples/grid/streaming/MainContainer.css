@@ -1,27 +1,27 @@
 /* Keep the example palette on every theme carrier inside the viewport. */
 .neo-examples-grid-streaming,
 .neo-examples-grid-streaming [class*=neo-theme-] {
-    --grid-container-border-color              : var(--grid-streaming-border);
-    --grid-container-cell-background-color     : var(--grid-streaming-surface);
-    --grid-container-cell-background-color-even: var(--grid-streaming-alternate);
-    --grid-container-color                     : var(--grid-streaming-text);
-    --grid-container-font-size                 : 13px;
-    --grid-cell-background-color-hover         : var(--grid-streaming-hover);
-    --grid-footer-toolbar-background-color     : var(--grid-streaming-header);
-    --grid-footer-toolbar-color                : var(--grid-streaming-text);
-    --grid-footer-toolbar-padding              : 10px 24px;
-    --grid-header-button-background-color      : var(--grid-streaming-header);
-    --grid-header-button-background-color-hover: var(--grid-streaming-hover);
-    --grid-header-button-background-image      : none;
-    --grid-header-button-border-right-color    : var(--grid-streaming-border);
-    --grid-header-button-color                 : var(--grid-streaming-text);
-    --grid-header-button-color-hover           : var(--grid-streaming-accent);
-    --grid-header-button-font-size             : 12px;
-    --grid-header-button-font-weight           : 600;
-    --grid-header-button-glyph-color           : var(--grid-streaming-muted);
-    --grid-header-button-glyph-color-hover     : var(--grid-streaming-accent);
-    --grid-rowmodel-selected-cell-background-color: var(--grid-streaming-hover);
-    --grid-rowmodel-selected-cell-color        : var(--grid-streaming-title);
+    --neo-grid-container-border-color              : var(--grid-streaming-border);
+    --neo-grid-container-cell-background-color     : var(--grid-streaming-surface);
+    --neo-grid-container-cell-background-color-even: var(--grid-streaming-alternate);
+    --neo-grid-container-color                     : var(--grid-streaming-text);
+    --neo-grid-container-font-size                 : 13px;
+    --neo-grid-cell-background-color-hover         : var(--grid-streaming-hover);
+    --neo-grid-footer-toolbar-background-color     : var(--grid-streaming-header);
+    --neo-grid-footer-toolbar-color                : var(--grid-streaming-text);
+    --neo-grid-footer-toolbar-padding              : 10px 24px;
+    --neo-grid-header-button-background-color      : var(--grid-streaming-header);
+    --neo-grid-header-button-background-color-hover: var(--grid-streaming-hover);
+    --neo-grid-header-button-background-image      : none;
+    --neo-grid-header-button-border-right-color    : var(--grid-streaming-border);
+    --neo-grid-header-button-color                 : var(--grid-streaming-text);
+    --neo-grid-header-button-color-hover           : var(--grid-streaming-accent);
+    --neo-grid-header-button-font-size             : 12px;
+    --neo-grid-header-button-font-weight           : 600;
+    --neo-grid-header-button-glyph-color           : var(--grid-streaming-muted);
+    --neo-grid-header-button-glyph-color-hover     : var(--grid-streaming-accent);
+    --neo-grid-rowmodel-cell-background-color-selected: var(--grid-streaming-hover);
+    --neo-grid-rowmodel-cell-color-selected        : var(--grid-streaming-title);
 
     .neo-grid-row .neo-grid-cell {
         font-variant-numeric: tabular-nums;
@@ -31,7 +31,7 @@
 .neo-examples-grid-streaming.neo-viewport {
     background-color: var(--grid-streaming-background);
     color           : var(--grid-streaming-text);
-    font-family     : var(--neo-font-family);
+    font-family     : var(--neo-global-font-family);
 
     .streaming-toolbar {
         background-color: var(--grid-streaming-background);
@@ -175,6 +175,6 @@
             width: 100%;
         }
 
-        --grid-footer-toolbar-padding: 10px 16px;
+        --neo-grid-footer-toolbar-padding: 10px 16px;
     }
 }

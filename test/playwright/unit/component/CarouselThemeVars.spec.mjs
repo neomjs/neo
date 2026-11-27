@@ -19,7 +19,7 @@ const
     flat      = file => flattenCss(fs.readFileSync(path.join(repoRoot, 'resources/css', file), 'utf8'));
 
 const extractDefinedTokens = source => new Set(
-    [...source.matchAll(/^\s*(--carousel-[a-z0-9-]+)\s*:/gm)].map(m => m[1])
+    [...source.matchAll(/^\s*(--neo-carousel-[a-z0-9-]+)\s*:/gm)].map(m => m[1])
 );
 
 const extractConsumedTokens = source => new Set(
@@ -27,24 +27,24 @@ const extractConsumedTokens = source => new Set(
 );
 
 test.describe('Neo.component.Carousel theme variable files', () => {
-    test('src/component/Carousel.css consumes only --carousel-* tokens and no foreign component tokens', () => {
+    test('src/component/Carousel.css consumes only --neo-carousel-* tokens and no foreign component tokens', () => {
         const
             src      = fs.readFileSync(srcPath, 'utf8'),
             consumed = [...extractConsumedTokens(src)].sort();
 
         expect(consumed).toEqual([
-            '--carousel-background-color',
-            '--carousel-duration',
-            '--carousel-inner-background-color',
-            '--carousel-inner-color',
-            '--carousel-transition-timing',
-            '--carousel-translate-x',
-            '--carousel-translate-y'
+            '--neo-carousel-background-color',
+            '--neo-carousel-duration',
+            '--neo-carousel-inner-background-color',
+            '--neo-carousel-inner-color',
+            '--neo-carousel-transition-timing',
+            '--neo-carousel-translate-x',
+            '--neo-carousel-translate-y'
         ]);
 
-        expect(src).not.toContain('--neo-carousel-');
-        expect(src).not.toContain('--container-');
-        expect(src).not.toContain('--button-');
+        expect(src).not.toContain('var(--' + 'carousel-');
+        expect(src).not.toContain('--neo-container-');
+        expect(src).not.toContain('--neo-button-');
     });
 
     test('all five theme value sheets declare every consumed --carousel-* token with zero nested selectors', () => {

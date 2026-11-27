@@ -207,7 +207,7 @@ class GridHorizontalScrollSync extends Base {
     }
 
     /**
-     * @summary Registers an auxiliary follower row outside grid.body to receive --grid-scroll-left synchronously.
+     * @summary Registers an auxiliary follower row outside grid.body to receive --neo-grid-scroll-left synchronously.
      * Seeds its initial position if the scroller node is available.
      * @param {Object} data
      * @param {String} data.id
@@ -222,7 +222,7 @@ class GridHorizontalScrollSync extends Base {
 
             let scrollerNode = DomAccess.getElement(registration.scrollerId);
             if (scrollerNode) {
-                DomAccess.getElement(followerId)?.style.setProperty('--grid-scroll-left', scrollerNode.scrollLeft + 'px');
+                DomAccess.getElement(followerId)?.style.setProperty('--neo-grid-scroll-left', scrollerNode.scrollLeft + 'px');
             }
         }
     }
@@ -253,7 +253,7 @@ class GridHorizontalScrollSync extends Base {
             scrollLeft      = scrollerNode.scrollLeft;
 
         // Synchronously update every node in the identical animation frame
-        if (bodyNode)   { bodyNode.style.setProperty('--grid-scroll-left', scrollLeft + 'px'); }
+        if (bodyNode)   { bodyNode.style.setProperty('--neo-grid-scroll-left', scrollLeft + 'px'); }
         if (headerNode) {
             headerNode.scrollLeft         = scrollLeft;
             // What the header actually holds: it may clamp a value past its own range
@@ -264,7 +264,7 @@ class GridHorizontalScrollSync extends Base {
 
         if (registration.followerIds) {
             for (let followerId of registration.followerIds) {
-                DomAccess.getElement(followerId)?.style.setProperty('--grid-scroll-left', scrollLeft + 'px');
+                DomAccess.getElement(followerId)?.style.setProperty('--neo-grid-scroll-left', scrollLeft + 'px');
             }
         }
     }

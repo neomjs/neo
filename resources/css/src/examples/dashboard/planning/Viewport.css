@@ -2,12 +2,12 @@
     --planning-ready : var(--neo-board-badge-color);
     --planning-active: var(--neo-board-accent-color);
     --planning-done  : color-mix(in srgb, var(--neo-board-accent-color) 40%, var(--neo-board-badge-color));
-    background: var(--sem-color-bg-neutral-default);
-    color: var(--sem-color-fg-neutral-default);
+    background: var(--neo-sem-color-bg-neutral-default);
+    color: var(--neo-sem-color-fg-neutral-default);
 }
 
 .planning-header {
-    border-bottom: 1px solid var(--sem-color-border-subtle);
+    border-bottom: 1px solid var(--neo-sem-color-border-subtle);
     gap: 6px 24px;
     padding: 9px 16px;
 }

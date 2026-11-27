@@ -1,48 +1,48 @@
 /* A desktop app window hosted in its own native popup: the app window's glass layered over the desktop's wallpaper,
    with see-through child containers and a glass header bar matching `.neo-desktop-app-window`. */
 .neo-viewport.neo-desktop-popup-viewport {
-    --container-background-color: transparent;
+    --neo-container-background-color: transparent;
 
     /* `Container#afterSetTheme` stamps `.neo-theme-*` onto child containers, which would otherwise
-       re-bind `--container-background-color` from `:where(.neo-theme-*)` over the viewport's value. */
+       re-bind `--neo-container-background-color` from `:where(.neo-theme-*)` over the viewport's value. */
     .neo-container {
-        --container-background-color: transparent;
+        --neo-container-background-color: transparent;
     }
 
     background:
-        linear-gradient(var(--desktop-app-window-background-color), var(--desktop-app-window-background-color)),
-        var(--desktop-wallpaper);
-    color   : var(--desktop-app-window-color);
+        linear-gradient(var(--neo-desktop-app-window-background-color), var(--neo-desktop-app-window-background-color)),
+        var(--neo-desktop-wallpaper);
+    color   : var(--neo-desktop-app-window-color);
     overflow: hidden;
 
     .neo-desktop-popup-toolbar {
-        --desktop-popup-button-border    : color-mix(in srgb, var(--desktop-app-window-color) 18%, var(--desktop-app-window-border-color));
-        --button-background-color        : transparent;
-        --button-background-color-active : var(--desktop-app-window-border-color);
-        --button-background-color-hover  : var(--desktop-app-window-border-color);
-        --button-background-color-pressed: var(--desktop-app-window-border-color);
-        --button-border                  : 1px solid var(--desktop-popup-button-border);
-        --button-border-active           : 1px solid var(--desktop-popup-button-border);
-        --button-border-hover            : 1px solid var(--desktop-popup-button-border);
-        --button-border-pressed          : 1px solid var(--desktop-popup-button-border);
-        --button-glyph-color             : var(--desktop-app-window-icon-color);
-        --button-glyph-color-active      : var(--desktop-app-window-color);
-        --button-glyph-color-hover       : var(--desktop-app-window-color);
-        --button-glyph-color-pressed     : var(--desktop-app-window-color);
-        --button-text-color              : var(--desktop-app-window-color);
-        --button-text-color-active       : var(--desktop-app-window-color);
-        --button-text-color-hover        : var(--desktop-app-window-color);
-        --button-text-color-pressed      : var(--desktop-app-window-color);
-        --toolbar-background-color       : transparent;
+        --neo-desktop-popup-button-border    : color-mix(in srgb, var(--neo-desktop-app-window-color) 18%, var(--neo-desktop-app-window-border-color));
+        --neo-button-background-color        : transparent;
+        --neo-button-background-color-active : var(--neo-desktop-app-window-border-color);
+        --neo-button-background-color-hover  : var(--neo-desktop-app-window-border-color);
+        --neo-button-background-color-pressed: var(--neo-desktop-app-window-border-color);
+        --neo-button-border                  : 1px solid var(--neo-desktop-popup-button-border);
+        --neo-button-border-active           : 1px solid var(--neo-desktop-popup-button-border);
+        --neo-button-border-hover            : 1px solid var(--neo-desktop-popup-button-border);
+        --neo-button-border-pressed          : 1px solid var(--neo-desktop-popup-button-border);
+        --neo-button-glyph-color             : var(--neo-desktop-app-window-icon-color);
+        --neo-button-glyph-color-active      : var(--neo-desktop-app-window-color);
+        --neo-button-glyph-color-hover       : var(--neo-desktop-app-window-color);
+        --neo-button-glyph-color-pressed     : var(--neo-desktop-app-window-color);
+        --neo-button-color              : var(--neo-desktop-app-window-color);
+        --neo-button-color-active       : var(--neo-desktop-app-window-color);
+        --neo-button-color-hover        : var(--neo-desktop-app-window-color);
+        --neo-button-color-pressed      : var(--neo-desktop-app-window-color);
+        --neo-toolbar-background-color       : transparent;
 
         align-items  : center;
-        border-bottom: 1px solid var(--desktop-app-window-border-color);
+        border-bottom: 1px solid var(--neo-desktop-app-window-border-color);
         min-height   : 41px;
         padding      : 6px 12px;
     }
 
     .neo-desktop-popup-title {
-        color        : var(--desktop-app-window-color);
+        color        : var(--neo-desktop-app-window-color);
         font-size    : 16px;
         font-weight  : 600;
         line-height  : 1.25;

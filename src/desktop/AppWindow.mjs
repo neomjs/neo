@@ -314,7 +314,7 @@ class AppWindow extends Dialog {
         icon?.set({
             cellIconCls: record?.iconCls || null,
             hidden     : !record?.iconCls,
-            style      : {'--desktop-app-color': record?.color || null}
+            style      : {'--neo-desktop-app-color': record?.color || null}
         })
     }
 }

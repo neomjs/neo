@@ -112,16 +112,16 @@
             gap: 8px 10px;
 
             .neo-button {
-                --button-margin: 0;
+                --neo-button-margin: 0;
             }
 
             .neo-button-primary {
-                --button-padding: 0 10px;
+                --neo-button-padding: 0 10px;
             }
 
             .neo-button-tertiary {
-                --button-min-width: 0;
-                --button-padding  : 0;
+                --neo-button-min-width: 0;
+                --neo-button-padding  : 0;
             }
         }
 

@@ -1,5 +1,5 @@
 :root .neo-theme-light { /* .neo-box-label */
-    --boxlabel-background-color: #fff;
-    --boxlabel-border          : 1px solid #ddd;
-    --boxlabel-color           : #000;
+    --neo-boxlabel-background-color: #fff;
+    --neo-boxlabel-border          : 1px solid #ddd;
+    --neo-boxlabel-color           : #000;
 }

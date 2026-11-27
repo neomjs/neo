@@ -46,6 +46,6 @@ test.describe('grid cell components load their own styles', () => {
 
     test('IconLink, from its own stylesheet and its theme file', async ({page}) => {
         await expect.poll(() => style(inCell(page, 'topRepo', '.neo-icon-link .neo-link-label'), 'margin-left'), {timeout: 10000}).not.toBe('0px');
-        await expect.poll(() => style(inCell(page, 'topRepo', '.neo-icon-link'), '--icon-link-color')).not.toBe('')
+        await expect.poll(() => style(inCell(page, 'topRepo', '.neo-icon-link'), '--neo-icon-link-color')).not.toBe('')
     })
 });

@@ -1,5 +1,5 @@
 .neo-carousel {
-    background     : var(--carousel-background-color);
+    background     : var(--neo-carousel-background-color);
     display        : flex;
     flex-direction : column;
     height         : 14rem;
@@ -23,9 +23,9 @@
     }
 
     .neo-carousel-inner {
-        background-color: var(--carousel-inner-background-color);
+        background-color: var(--neo-carousel-inner-background-color);
         border-radius   : 5px;
-        color           : var(--carousel-inner-color);
+        color           : var(--neo-carousel-inner-color);
         flex            : 1 1 auto;
         min-height      : 0;
         overflow        : hidden;
@@ -34,7 +34,7 @@
         &:before {
             content   : '';
             position  : absolute;
-            background: linear-gradient(90deg, var(--carousel-inner-background-color) 0%, var(--carousel-inner-background-color) 50%, rgba(0, 0, 0, 0) 100%);
+            background: linear-gradient(90deg, var(--neo-carousel-inner-background-color) 0%, var(--neo-carousel-inner-background-color) 50%, rgba(0, 0, 0, 0) 100%);
             top       : 0;
             bottom    : 0;
             left      : 0;
@@ -45,7 +45,7 @@
         &:after {
             content   : '';
             position  : absolute;
-            background: linear-gradient(270deg, var(--carousel-inner-background-color) 0%, var(--carousel-inner-background-color) 50%, rgba(0, 0, 0, 0) 100%);
+            background: linear-gradient(270deg, var(--neo-carousel-inner-background-color) 0%, var(--neo-carousel-inner-background-color) 50%, rgba(0, 0, 0, 0) 100%);
             top       : 0;
             bottom    : 0;
             right     : 0;
@@ -59,29 +59,29 @@
             padding                   : 15px;
             position                  : absolute;
             text-align                : center;
-            transform                 : translate(var(--carousel-translate-x), var(--carousel-translate-y));
-            transition-duration       : var(--carousel-duration);
+            transform                 : translate(var(--neo-carousel-translate-x), var(--neo-carousel-translate-y));
+            transition-duration       : var(--neo-carousel-duration);
             transition-property       : all;
-            transition-timing-function: var(--carousel-transition-timing);
+            transition-timing-function: var(--neo-carousel-transition-timing);
             z-index                   : 10;
         }
     }
 }
 
 .neo-carousel--translate-x-full {
-    --carousel-translate-x: -100%;
+    --neo-carousel-translate-x: -100%;
 
-    transform: translate(var(--carousel-translate-x), var(--carousel-translate-y));
+    transform: translate(var(--neo-carousel-translate-x), var(--neo-carousel-translate-y));
 }
 
 .neo-carousel-translate-x-0 {
-    --carousel-translate-x: 0;
+    --neo-carousel-translate-x: 0;
 
-    transform: translate(var(--carousel-translate-x), var(--carousel-translate-y));
+    transform: translate(var(--neo-carousel-translate-x), var(--neo-carousel-translate-y));
 }
 
 .neo-carousel-translate-x-full {
-    --carousel-translate-x: 100%;
+    --neo-carousel-translate-x: 100%;
 
-    transform: translate(var(--carousel-translate-x), var(--carousel-translate-y));
+    transform: translate(var(--neo-carousel-translate-x), var(--neo-carousel-translate-y));
 }

@@ -20,18 +20,18 @@
         }
 
         .zoom-level.neo-button {
-            --button-background-color        : transparent;
-            --button-background-color-active : var(--zoom-hover);
-            --button-background-color-hover  : var(--zoom-hover);
-            --button-background-color-pressed: var(--zoom-selected);
-            --button-border                  : 1px solid transparent;
-            --button-border-active           : 1px solid transparent;
-            --button-border-hover            : 1px solid transparent;
-            --button-border-pressed          : 1px solid var(--zoom-selected);
-            --button-text-color              : var(--zoom-muted);
-            --button-text-color-active       : var(--zoom-title);
-            --button-text-color-hover        : var(--zoom-title);
-            --button-text-color-pressed      : var(--zoom-selected-text);
+            --neo-button-background-color        : transparent;
+            --neo-button-background-color-active : var(--zoom-hover);
+            --neo-button-background-color-hover  : var(--zoom-hover);
+            --neo-button-background-color-pressed: var(--zoom-selected);
+            --neo-button-border                  : 1px solid transparent;
+            --neo-button-border-active           : 1px solid transparent;
+            --neo-button-border-hover            : 1px solid transparent;
+            --neo-button-border-pressed          : 1px solid var(--zoom-selected);
+            --neo-button-color              : var(--zoom-muted);
+            --neo-button-color-active       : var(--zoom-title);
+            --neo-button-color-hover        : var(--zoom-title);
+            --neo-button-color-pressed      : var(--zoom-selected-text);
             border-radius: 6px;
             font-size    : 13px;
             font-weight  : 600;

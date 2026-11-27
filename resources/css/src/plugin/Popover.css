@@ -1,9 +1,9 @@
 /* Neo.plugin.Popover names the anchor and the align class picks the side. Every theme defines the page background */
 .neo-popover[popover] {
-    background-color: var(--neo-background-color);
+    background-color: var(--neo-global-background-color);
     border          : none;
     border-radius   : 4px;
-    box-shadow      : var(--popover-box-shadow);
+    box-shadow      : var(--neo-popover-box-shadow);
     color           : inherit;
     inset           : auto;
     margin          : 0;

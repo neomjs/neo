@@ -1,19 +1,19 @@
 .form-form-container.neo-container {
-    background   : var(--neo-background-color);
-    border       : 1px solid var(--sem-color-border-default);
+    background   : var(--neo-global-background-color);
+    border       : 1px solid var(--neo-sem-color-border-default);
     border-radius: 8px;
     margin       : 24px 24px 24px 0;
     min-width    : 0;
 
     .form-header {
         align-items  : baseline;
-        border-bottom: 1px solid var(--sem-color-border-default);
+        border-bottom: 1px solid var(--neo-sem-color-border-default);
         gap          : 12px;
         padding      : 16px 24px;
     }
 
     .form-header-step {
-        color         : var(--sem-color-text-neutral-subdued);
+        color         : var(--neo-sem-color-text-neutral-subdued);
         font-size     : 12px;
         letter-spacing: .05em;
         text-transform: uppercase;
@@ -48,7 +48,7 @@
     }
 
     .form-footer {
-        border-top: 1px solid var(--sem-color-border-default);
+        border-top: 1px solid var(--neo-sem-color-border-default);
         gap       : 12px;
         padding   : 12px 24px;
     }
@@ -86,7 +86,7 @@
     }
 
     .form-step-message {
-        color      : var(--status-badge-state-error-text-color, #e5484d);
+        color      : var(--neo-status-badge-state-error-color, #e5484d);
         flex       : 1 1 auto;
         font-size  : 14px;
         min-width  : 0;
@@ -96,7 +96,7 @@
     .form-review {
         .form-review-done {
             align-items: center;
-            color      : var(--status-badge-state-success-text-color, #3fb950);
+            color      : var(--neo-status-badge-state-success-color, #3fb950);
             display    : flex;
             font-weight: 600;
             gap        : 8px;
@@ -108,7 +108,7 @@
         }
 
         .form-review-values {
-            border       : 1px solid var(--sem-color-border-default);
+            border       : 1px solid var(--neo-sem-color-border-default);
             border-radius: 6px;
             font-size    : 13px;
             margin       : 0;

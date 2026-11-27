@@ -52,9 +52,9 @@
         /* The 80 px basis wraps the input under the chips; a flow narrower than that shrinks it */
         .neo-textfield-input {
             flex      : 1 1 80px;
-            min-height: var(--textfield-input-height);
+            min-height: var(--neo-textfield-input-height);
             min-width : 0;
-            padding   : var(--textfield-input-padding);
+            padding   : var(--neo-textfield-input-padding);
             width     : auto;
         }
     }

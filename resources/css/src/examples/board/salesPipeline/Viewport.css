@@ -42,14 +42,14 @@
     }
 
     .sales-pipeline-advance.neo-button {
-        --button-background-color       : var(--neo-board-accent-color);
-        --button-background-color-hover : var(--neo-board-focus-color);
-        --button-background-image       : none;
-        --button-border                 : 0;
-        --button-glyph-color            : var(--neo-board-background);
-        --button-text-color             : var(--neo-board-background);
-        --button-text-color-hover       : var(--neo-board-background);
-        --button-text-font-weight       : 650;
+        --neo-button-background-color       : var(--neo-board-accent-color);
+        --neo-button-background-color-hover : var(--neo-board-outline-color-focus);
+        --neo-button-background-image       : none;
+        --neo-button-border                 : 0;
+        --neo-button-glyph-color            : var(--neo-board-background);
+        --neo-button-color             : var(--neo-board-background);
+        --neo-button-color-hover       : var(--neo-board-background);
+        --neo-button-text-font-weight       : 650;
     }
 
     .sales-pipeline-board.neo-board {

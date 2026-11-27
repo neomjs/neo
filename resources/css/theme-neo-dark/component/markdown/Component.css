@@ -1,4 +1,4 @@
 :where(.neo-theme-neo-dark) {
-    --markdown-vdom-code-padding: .6em .8em;
-    --markdown-vdom-link-color  : var(--purple-200);
+    --neo-markdown-vdom-code-padding: .6em .8em;
+    --neo-markdown-vdom-link-color  : var(--neo-purple-200);
 }
