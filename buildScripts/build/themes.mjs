@@ -13,6 +13,10 @@ import {
     isCssTargetFolder,
     resolveThemeClassMap
 }                                from '../util/themeCss.mjs';
+import {
+    cascadeLayer,
+    cascadeLayerPlugin
+}                                from '../util/themeCssLayers.mjs';
 import {themeCssRoots}           from '../util/themeCssRoots.mjs';
 
 const
@@ -219,8 +223,9 @@ if (programOpts.info) {
         }
 
         /**
-         * @summary Copies each source sheet to `dist/<mode>/css/<target>`, through autoprefixer, plus cssnano
-         * for esm and production; development output carries a source map back to the source.
+         * @summary Copies each source sheet to `dist/<mode>/css/<target>`, through autoprefixer and into the
+         * cascade layer its folder determines, plus cssnano for esm and production; development output carries
+         * a source map back to the source.
          * @param {Object[]} files
          * @param {String} mode development or production
          * @param {String} target src or a theme
@@ -236,7 +241,9 @@ if (programOpts.info) {
                 let folderPath = path.resolve(cwd, `dist/${mode}/css/${target}/${file.relativePath}`),
                     destPath   = path.resolve(folderPath, `${file.name}.css`);
 
-                const plugins = [autoprefixer];
+                const plugins = [autoprefixer, cascadeLayerPlugin({
+                    layer: cascadeLayer(target, `${file.relativePath}/${file.name}.css`)
+                })];
 
                 if (mode === 'esm' || mode === 'production') {
                     plugins.push(cssnano) // CSSNano works async only

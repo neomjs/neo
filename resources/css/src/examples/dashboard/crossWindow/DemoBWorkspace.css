@@ -6,7 +6,7 @@
     border-bottom: 1px solid var(--dashboard-example-line);
     flex   : 0 0 auto;
     height : 44px;
-    padding: 6px 12px;
+    padding: 6px 8px; /* the docks' gutter, so bar and docks share one edge */
 
     .agentos-dockdemo-switcher-label {
         color         : var(--dashboard-example-ink-dim);

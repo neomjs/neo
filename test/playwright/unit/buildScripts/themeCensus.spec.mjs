@@ -92,10 +92,16 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
             {RUNTIME_PROPERTIES} = await import('../../../../buildScripts/util/themeCss.mjs'),
             census               = collect();
 
-        // Two folders serve each Neo class while its packages move, so the pair is keyed by class
-        expect(Object.keys(census.themes)).toEqual(expect.arrayContaining(['neo-theme-neo-dark', 'neo-theme-neo-light']));
-        expect(census.pairs).toContainEqual(expect.objectContaining({dark: 'neo-theme-neo-dark', light: 'neo-theme-neo-light'}));
+        // Two folders serve each Neo class while its packages move, so that pair is keyed by class
+        expect(census.pairs).toEqual([
+            expect.objectContaining({dark: 'neo-theme-neo-dark', light: 'neo-theme-neo-light'}),
+            expect.objectContaining({dark: 'theme-dark',         light: 'theme-light'})
+        ]);
         expect(Object.values(census.themes).flatMap(theme => Object.values(theme.unresolved).flat()).filter(name => name in RUNTIME_PROPERTIES)).toEqual([]);
+
+        for (const name of census.pairs.flatMap(pair => [pair.dark, pair.light])) {
+            expect(census.themes[name].unresolved.engine, name).toEqual([]);
+        }
     });
 
     test('1: files and unique properties per area and layer; a commented-out declaration is not one, a declaration again with another value is named', () => {

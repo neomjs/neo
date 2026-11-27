@@ -8,6 +8,10 @@ import {
     isCssTargetFolder,
     resolveThemeClassMap
 }                      from '../util/themeCss.mjs';
+import {
+    cascadeLayer,
+    cascadeLayerPlugin
+}                      from '../util/themeCssLayers.mjs';
 import {themeCssRoots} from '../util/themeCssRoots.mjs';
 import {
     DEVELOPMENT_THEME_BUILD_COMMAND,
@@ -337,7 +341,7 @@ export function pruneDevelopmentThemeArtifacts({
 
 /**
  * @summary Copies one effective source entry to its development CSS and source-map targets,
- * through autoprefixer as the full theme build does.
+ * through autoprefixer and into its cascade layer, as the full theme build does.
  * @param {Object} entry Effective source census entry.
  * @param {Object} [options]
  * @param {Object} [options.logger] Console-compatible logger.
@@ -347,7 +351,11 @@ async function buildEntry(entry, {logger = console} = {}) {
     const startTime = Date.now();
 
     try {
-        const postcssResult = await postcss([autoprefixer]).process(fs.readFileSync(entry.sourcePath, 'utf8'), {
+        const plugins = [autoprefixer, cascadeLayerPlugin({
+            layer: cascadeLayer(entry.root, path.relative(entry.root, entry.filename))
+        })];
+
+        const postcssResult = await postcss(plugins).process(fs.readFileSync(entry.sourcePath, 'utf8'), {
             from: entry.sourcePath,
             to  : entry.outputPath,
             map : {inline: false}
