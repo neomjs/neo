@@ -141,10 +141,14 @@ test.describe('Neo.main.addon.EventSimulator — touch contacts', () => {
 
             Object.assign(this, {clientX: 0, clientY: 0, pageX: 0, pageY: 0, screenX: 0, screenY: 0}, init)
         }
+
+        get [Symbol.toStringTag]() {
+            return 'Touch'
+        }
     }
 
     /**
-     * @summary The platform's rule in the unit realm: a contact list accepts `Touch` objects only.
+     * @summary The platform's rule in the unit realm: a contact list accepts `Touch` objects only, of any window.
      */
     class TouchEventStandIn extends Event {
         constructor(type, init = {}) {
@@ -153,7 +157,7 @@ test.describe('Neo.main.addon.EventSimulator — touch contacts', () => {
             ['changedTouches', 'targetTouches', 'touches'].forEach(name => {
                 const list = init[name] || [];
 
-                if (list.some(item => !(item instanceof TouchStandIn))) {
+                if (list.some(item => Object.prototype.toString.call(item) !== '[object Touch]')) {
                     throw new TypeError(`Failed to construct 'TouchEvent': Failed to read the '${name}' property from 'TouchEventInit': Failed to convert value to 'Touch'.`)
                 }
 
@@ -246,6 +250,40 @@ test.describe('Neo.main.addon.EventSimulator — touch contacts', () => {
 
         expect(kept.success).toBe(true);
         expect(kept.event.touches[0]).toBe(touch)
+    });
+
+    test('a node of another document gets that document\'s contacts: its Touch constructor, its ids, its native contacts', () => {
+        const inner = new EventTarget(),
+              named = new EventTarget();
+
+        /** @summary The inner window's own constructor. */
+        class InnerTouch extends TouchStandIn {}
+
+        /** @summary A contact a third window built: no shared constructor, only the brand. */
+        class ForeignTouch {
+            get [Symbol.toStringTag]() {
+                return 'Touch'
+            }
+        }
+
+        inner.nodeType      = named.nodeType = 1;
+        inner.ownerDocument = {
+            defaultView   : {Touch: InnerTouch},
+            getElementById: id => id === 'same-id' ? named : null,
+            querySelector : selector => selector.includes('same-id') ? named : null
+        };
+
+        // The outer document holds the same id
+        documentRef.getElementById = id => id === 'same-id' ? node : null;
+        documentRef.querySelector  = selector => selector.includes('same-id') ? node : null;
+
+        const foreign          = new ForeignTouch(),
+              {event, success} = dispatchNative({id: inner, options: {touches: [{identifier: 3, target: 'same-id'}, foreign]}, type: 'touchstart'});
+
+        expect(success).toBe(true);
+        expect(event.touches[0]).toBeInstanceOf(InnerTouch);
+        expect(event.touches[0].target, 'the id resolves in the node\'s own document').toBe(named);
+        expect(event.touches[1], 'a contact another window built stays the same object').toBe(foreign)
     });
 
     test('a realm without Touch keeps the generic event and leaves the lists alone', () => {

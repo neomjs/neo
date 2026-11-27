@@ -320,32 +320,38 @@ class EventSimulator extends Base {
      * @summary Turns the plain contacts of a touch event's lists into `Touch` instances.
      *
      * The `TouchEvent` constructor accepts `Touch` objects only, and a `Touch` needs an `EventTarget`
-     * of the window that dispatches it, so only Main can build one. Every given field passes through
-     * unchanged, which keeps explicit screen coordinates authoritative. An entry that already is a
-     * `Touch` stays as it is.
+     * of the window that dispatches it, so only Main can build one. The dispatch node names that
+     * window: its `Touch` constructor builds a contact and its document resolves a contact's `target`
+     * id, so a node inside a same-origin iframe gets contacts of that iframe. Every given field passes
+     * through unchanged, which keeps explicit screen coordinates authoritative. An entry that already
+     * is a `Touch` stays as it is, whichever window built it: each window has its own constructor, so
+     * the test is the object's brand.
      * @param {Object} options The event options; they are not modified
-     * @param {HTMLElement|Document} node The dispatch node, a contact's target unless it names its own
+     * @param {HTMLElement|Document|Window} node The dispatch node, a contact's target unless it names its own
      * @returns {Object} The options, with each given contact list holding `Touch` instances
      * @throws {Error} For a contact whose `target` id resolves to no element
      * @protected
      */
     createTouches(options, node) {
-        const result = {...options};
+        const
+            doc    = node.ownerDocument || (node.nodeType === 9 ? node : node.document) || document,
+            view   = doc.defaultView || globalThis,
+            result = {...options};
 
         touchListNames.forEach(name => {
             if (Array.isArray(options[name])) {
                 result[name] = options[name].map(contact => {
-                    if (contact instanceof Touch) {
+                    if (Object.prototype.toString.call(contact) === '[object Touch]') {
                         return contact
                     }
 
-                    const target = contact?.target == null ? node : DomAccess.getElement(contact.target);
+                    const target = contact?.target == null ? node : DomAccess.getElement(contact.target, doc);
 
                     if (!target) {
                         throw new Error(`Touch target with id '${contact.target}' not found.`)
                     }
 
-                    return new Touch({...contact, target})
+                    return new view.Touch({...contact, target})
                 })
             }
         });
