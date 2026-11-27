@@ -1,0 +1,2307 @@
+{
+  "apps/ai/neural-link/view/Viewport.mjs": {
+    "missing-config-jsdoc": ["NeuralLinkViewport.className","NeuralLinkViewport.items","NeuralLinkViewport.layout","NeuralLinkViewport.style"],
+    "static-config-order": ["NeuralLinkViewport.items"]
+  },
+  "apps/colors/view/BarChartComponent.mjs": {
+    "static-config-order": ["BarChartComponent.chartConfig"]
+  },
+  "apps/colors/view/HeaderToolbar.mjs": {
+    "static-config-order": ["HeaderToolbar.items"]
+  },
+  "apps/colors/view/PieChartComponent.mjs": {
+    "static-config-order": ["PieChartComponent.chartConfig"]
+  },
+  "apps/colors/view/Viewport.mjs": {
+    "static-config-order": ["Viewport.items"]
+  },
+  "apps/covid/model/Country.mjs": {
+    "missing-config-jsdoc": ["Country.className","Country.fields"]
+  },
+  "apps/covid/model/HistoricalData.mjs": {
+    "missing-config-jsdoc": ["HistoricalData.className","HistoricalData.fields"]
+  },
+  "apps/covid/store/Countries.mjs": {
+    "missing-config-jsdoc": ["Countries.className","Countries.keyProperty","Countries.model","Countries.sorters"]
+  },
+  "apps/covid/store/HistoricalData.mjs": {
+    "missing-config-jsdoc": ["HistoricalData.className","HistoricalData.keyProperty","HistoricalData.model","HistoricalData.sorters"]
+  },
+  "apps/covid/view/FooterContainer.mjs": {
+    "compact-jsdoc-loss": ["FooterContainer.layout","FooterContainer.style"],
+    "static-config-order": ["FooterContainer.itemDefaults"]
+  },
+  "apps/covid/view/GalleryContainer.mjs": {
+    "compact-jsdoc-loss": ["GalleryContainer.layout"],
+    "static-config-order": ["GalleryContainer.items"]
+  },
+  "apps/covid/view/HeaderContainer.mjs": {
+    "compact-jsdoc-loss": ["HeaderContainer.layout"],
+    "static-config-order": ["HeaderContainer.items"]
+  },
+  "apps/covid/view/HelixContainer.mjs": {
+    "compact-jsdoc-loss": ["HelixContainer.layout"],
+    "static-config-order": ["HelixContainer.items"]
+  },
+  "apps/covid/view/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"]
+  },
+  "apps/covid/view/MainContainerController.mjs": {
+    "compact-jsdoc-loss": ["MainContainerController.mainTabs"]
+  },
+  "apps/covid/view/TableContainer.mjs": {
+    "compact-jsdoc-loss": ["TableContainer.layout"],
+    "static-config-order": ["TableContainer.items","TableContainer.layout"]
+  },
+  "apps/covid/view/WorldMapComponent.mjs": {
+    "static-config-order": ["WorldMapComponent.chartConfig"]
+  },
+  "apps/covid/view/WorldMapContainer.mjs": {
+    "compact-jsdoc-loss": ["WorldMapContainer.layout"],
+    "static-config-order": ["WorldMapContainer.items"]
+  },
+  "apps/covid/view/country/Table.mjs": {
+    "static-config-order": ["Table.columnDefaults"]
+  },
+  "apps/covid/view/mapboxGl/Component.mjs": {
+    "compact-jsdoc-loss": ["Component.center"]
+  },
+  "apps/covid/view/mapboxGl/Container.mjs": {
+    "compact-jsdoc-loss": ["Container.layout"]
+  },
+  "apps/email/store/Emails.mjs": {
+    "static-config-order": ["Emails.data"]
+  },
+  "apps/email/view/ComposeDialog.mjs": {
+    "compact-jsdoc-loss": ["ComposeDialog.cls","ComposeDialog.title"]
+  },
+  "apps/email/view/Viewport.mjs": {
+    "compact-jsdoc-loss": ["Viewport.layout"]
+  },
+  "apps/email/view/WorkspaceContainer.mjs": {
+    "compact-jsdoc-loss": ["WorkspaceContainer.cls"],
+    "static-config-order": ["WorkspaceContainer.items"]
+  },
+  "apps/finance/view/GridContainer.mjs": {
+    "static-config-order": ["GridContainer.columns"]
+  },
+  "apps/finance/view/Viewport.mjs": {
+    "static-config-order": ["Viewport.items"]
+  },
+  "apps/legit/service/Legit.mjs": {
+    "no-private-methods": ["Legit.#seedFileSystem"]
+  },
+  "apps/legit/view/AddFileDialog.mjs": {
+    "compact-jsdoc-loss": ["AddFileDialog.title"],
+    "missing-config-jsdoc": ["AddFileDialog.layout"],
+    "static-config-order": ["AddFileDialog.items","AddFileDialog.layout"]
+  },
+  "apps/legit/view/Viewport.mjs": {
+    "missing-config-jsdoc": ["Viewport.layout"],
+    "static-config-order": ["Viewport.items","Viewport.layout"]
+  },
+  "apps/portal/canvas/ServicesCanvas.mjs": {
+    "compact-jsdoc-loss": ["ServicesCanvas.rotation"]
+  },
+  "apps/portal/service/Seo.mjs": {
+    "compact-jsdoc-loss": ["Seo.windowStates"],
+    "no-private-methods": ["Seo.#getWindowState"]
+  },
+  "apps/portal/store/BlogMedium.mjs": {
+    "compact-jsdoc-loss": ["BlogMedium.sorters"]
+  },
+  "apps/portal/store/Videos.mjs": {
+    "compact-jsdoc-loss": ["Videos.filters","Videos.sorters"]
+  },
+  "apps/portal/view/Viewport.mjs": {
+    "static-config-order": ["Viewport.items"]
+  },
+  "apps/portal/view/about/Container.mjs": {
+    "compact-jsdoc-loss": ["Container.cls"]
+  },
+  "apps/portal/view/about/MemberContainer.mjs": {
+    "compact-jsdoc-loss": ["MemberContainer.cls"],
+    "static-config-order": ["MemberContainer.items"]
+  },
+  "apps/portal/view/content/TimelineCanvas.mjs": {
+    "redundant-vdom-div": ["TimelineCanvas.config._vdom"]
+  },
+  "apps/portal/view/examples/List.mjs": {
+    "static-config-order": ["List.selectionModel","List.sourceBaseUrl"]
+  },
+  "apps/portal/view/examples/ListModel.mjs": {
+    "no-private-methods": ["ListModel.#measure","ListModel.#nearestInRow"]
+  },
+  "apps/portal/view/examples/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.familyDefinitions"]
+  },
+  "apps/portal/view/examples/Overview.mjs": {
+    "static-config-order": ["Overview.actions"]
+  },
+  "apps/portal/view/home/ContentBox.mjs": {
+    "compact-jsdoc-loss": ["ContentBox.baseCls"],
+    "redundant-vdom-div": ["ContentBox.config._vdom"]
+  },
+  "apps/portal/view/home/FeatureSection.mjs": {
+    "compact-jsdoc-loss": ["FeatureSection.learnMoreText_","FeatureSection.linksLabel"],
+    "static-config-order": ["FeatureSection.items","FeatureSection.layout"]
+  },
+  "apps/portal/view/home/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.cls"]
+  },
+  "apps/portal/view/home/parts/AiToolchain.mjs": {
+    "static-config-order": ["AiToolchain.items"]
+  },
+  "apps/portal/view/home/parts/AudienceDoors.mjs": {
+    "redundant-vdom-div": ["AudienceDoors.config.vdom","AudienceDoors.config.vdom","AudienceDoors.config.vdom"],
+    "static-config-order": ["AudienceDoors.items"]
+  },
+  "apps/portal/view/home/parts/Features.mjs": {
+    "static-config-order": ["Features.itemDefaults"]
+  },
+  "apps/portal/view/home/parts/Grid.mjs": {
+    "compact-jsdoc-loss": ["Grid.headline","Grid.learnMoreText","Grid.subHeadline"]
+  },
+  "apps/portal/view/home/parts/How.mjs": {
+    "compact-jsdoc-loss": ["How.subHeadline"]
+  },
+  "apps/portal/view/home/parts/Planning.mjs": {
+    "compact-jsdoc-loss": ["Planning.headline","Planning.learnMoreText","Planning.subHeadline"]
+  },
+  "apps/portal/view/home/parts/References.mjs": {
+    "static-config-order": ["References.items"]
+  },
+  "apps/portal/view/home/parts/hero/Content.mjs": {
+    "missing-config-jsdoc": ["Content.layout"],
+    "static-config-order": ["Content.items"]
+  },
+  "apps/portal/view/learn/CubeLayoutButton.mjs": {
+    "compact-jsdoc-loss": ["CubeLayoutButton.activateText","CubeLayoutButton.deactivateText"]
+  },
+  "apps/portal/view/news/TabContainer.mjs": {
+    "compact-jsdoc-loss": ["NewsTabContainer.cls","NewsTabContainer.unmountConfigs"],
+    "static-config-order": ["NewsTabContainer.className"]
+  },
+  "apps/portal/view/news/medium/List.mjs": {
+    "compact-jsdoc-loss": ["List.baseCls"]
+  },
+  "apps/portal/view/news/videos/List.mjs": {
+    "compact-jsdoc-loss": ["List.baseCls"]
+  },
+  "apps/portal/view/services/Container.mjs": {
+    "compact-jsdoc-loss": ["ServicesContainer.layout"],
+    "static-config-order": ["ServicesContainer.items"]
+  },
+  "apps/realworld/view/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"],
+    "missing-config-jsdoc": ["MainContainer.items"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "apps/realworld/view/article/CreateComponent.mjs": {
+    "static-config-order": ["CreateComponent.description_"]
+  },
+  "apps/realworld2/model/ArticlePreview.mjs": {
+    "missing-config-jsdoc": ["ArticlePreview.className","ArticlePreview.fields"]
+  },
+  "apps/realworld2/store/ArticlePreviews.mjs": {
+    "missing-config-jsdoc": ["ArticlePreviews.className","ArticlePreviews.keyProperty","ArticlePreviews.model"]
+  },
+  "apps/realworld2/view/HeaderToolbar.mjs": {
+    "static-config-order": ["HeaderToolbar.items"]
+  },
+  "apps/realworld2/view/HomeContainer.mjs": {
+    "compact-jsdoc-loss": ["HomeContainer.layout"],
+    "static-config-order": ["HomeContainer.items"]
+  },
+  "apps/realworld2/view/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "apps/realworld2/view/article/Gallery.mjs": {
+    "static-config-order": ["Gallery.items"]
+  },
+  "apps/route/view/ButtonBar.mjs": {
+    "missing-config-jsdoc": ["ButtonBar.baseCls","ButtonBar.cls","ButtonBar.layout"]
+  },
+  "apps/route/view/CenterContainer.mjs": {
+    "compact-jsdoc-loss": ["CenterContainer.layout"],
+    "missing-config-jsdoc": ["CenterContainer.baseCls"]
+  },
+  "apps/route/view/FooterContainer.mjs": {
+    "missing-config-jsdoc": ["FooterContainer.baseCls","FooterContainer.height"]
+  },
+  "apps/route/view/HeaderContainer.mjs": {
+    "missing-config-jsdoc": ["HeaderContainer.baseCls","HeaderContainer.height","HeaderContainer.layout"]
+  },
+  "apps/route/view/MainView.mjs": {
+    "missing-config-jsdoc": ["MainContainer.baseCls","MainContainer.items"]
+  },
+  "apps/route/view/MainViewController.mjs": {
+    "missing-config-jsdoc": ["MainContainerController.data","MainContainerController.routes"],
+    "no-private-methods": ["MainContainerController.#addButtonSelection","MainContainerController.#removeFromButtonSelection","MainContainerController.#removeMetaButtonSelection","MainContainerController.#setUsername"],
+    "static-config-order": ["MainContainerController.data"]
+  },
+  "apps/route/view/MetaContainer.mjs": {
+    "missing-config-jsdoc": ["MetaContainer.baseCls","MetaContainer.height","MetaContainer.layout"]
+  },
+  "apps/route/view/Viewport.mjs": {
+    "missing-config-jsdoc": ["Viewport.className","Viewport.items","Viewport.layout"],
+    "static-config-order": ["Viewport.items"]
+  },
+  "apps/route/view/center/CardAdministration.mjs": {
+    "local-reactive-tag": ["CardAdministration.username_"],
+    "missing-config-jsdoc": ["CardAdministration.baseCls","CardAdministration.username_","CardAdministration.vdom"]
+  },
+  "apps/route/view/center/CardAdministrationDenied.mjs": {
+    "missing-config-jsdoc": ["CardAdministrationDenied.baseCls","CardAdministrationDenied.vdom"]
+  },
+  "apps/route/view/center/CardContact.mjs": {
+    "missing-config-jsdoc": ["CardContact.baseCls","CardContact.items"]
+  },
+  "apps/route/view/center/CardHome.mjs": {
+    "missing-config-jsdoc": ["CardHome.baseCls","CardHome.vdom"]
+  },
+  "apps/route/view/center/CardSection1.mjs": {
+    "missing-config-jsdoc": ["CardSection1.baseCls","CardSection1.vdom"]
+  },
+  "apps/route/view/center/CardSection2.mjs": {
+    "missing-config-jsdoc": ["CardSection2.baseCls","CardSection2.vdom"]
+  },
+  "apps/sharedcovid/model/Country.mjs": {
+    "missing-config-jsdoc": ["Country.className","Country.fields"]
+  },
+  "apps/sharedcovid/model/HistoricalData.mjs": {
+    "missing-config-jsdoc": ["HistoricalData.className","HistoricalData.fields"]
+  },
+  "apps/sharedcovid/store/Countries.mjs": {
+    "missing-config-jsdoc": ["Countries.className","Countries.keyProperty","Countries.model","Countries.sorters"]
+  },
+  "apps/sharedcovid/store/HistoricalData.mjs": {
+    "missing-config-jsdoc": ["HistoricalData.className","HistoricalData.keyProperty","HistoricalData.model","HistoricalData.sorters"]
+  },
+  "apps/sharedcovid/view/FooterContainer.mjs": {
+    "compact-jsdoc-loss": ["FooterContainer.layout","FooterContainer.style"],
+    "static-config-order": ["FooterContainer.itemDefaults"]
+  },
+  "apps/sharedcovid/view/GalleryContainer.mjs": {
+    "compact-jsdoc-loss": ["GalleryContainer.layout"],
+    "static-config-order": ["GalleryContainer.items"]
+  },
+  "apps/sharedcovid/view/HeaderContainer.mjs": {
+    "compact-jsdoc-loss": ["HeaderContainer.layout"],
+    "static-config-order": ["HeaderContainer.items"]
+  },
+  "apps/sharedcovid/view/HelixContainer.mjs": {
+    "compact-jsdoc-loss": ["HelixContainer.layout"],
+    "static-config-order": ["HelixContainer.items"]
+  },
+  "apps/sharedcovid/view/MainContainerController.mjs": {
+    "compact-jsdoc-loss": ["MainContainerController.mainTabs"],
+    "static-config-order": ["MainContainerController.windowChart"]
+  },
+  "apps/sharedcovid/view/TableContainer.mjs": {
+    "compact-jsdoc-loss": ["TableContainer.layout"],
+    "static-config-order": ["TableContainer.items","TableContainer.layout"]
+  },
+  "apps/sharedcovid/view/WorldMapComponent.mjs": {
+    "static-config-order": ["WorldMapComponent.chartConfig"]
+  },
+  "apps/sharedcovid/view/WorldMapContainer.mjs": {
+    "compact-jsdoc-loss": ["WorldMapContainer.layout"],
+    "static-config-order": ["WorldMapContainer.items"]
+  },
+  "apps/sharedcovid/view/country/Table.mjs": {
+    "static-config-order": ["Table.columnDefaults"]
+  },
+  "apps/sharedcovid/view/mapboxGl/Component.mjs": {
+    "compact-jsdoc-loss": ["Component.center"]
+  },
+  "apps/sharedcovid/view/mapboxGl/Container.mjs": {
+    "compact-jsdoc-loss": ["Container.layout"]
+  },
+  "apps/shareddialog/view/DemoDialog.mjs": {
+    "compact-jsdoc-loss": ["DemoDialog.title"],
+    "static-config-order": ["DemoDialog.containerConfig"]
+  },
+  "apps/webdesktop/view/PermissionPanel.mjs": {
+    "static-config-order": ["PermissionPanel.items"]
+  },
+  "apps/webdesktop/view/SignIn.mjs": {
+    "static-config-order": ["SignIn.items"]
+  },
+  "apps/webdesktop/view/Viewport.mjs": {
+    "static-config-order": ["Viewport.items"]
+  },
+  "apps/webdesktop/view/apps/Documents.mjs": {
+    "static-config-order": ["Documents.items"]
+  },
+  "apps/webdesktop/view/apps/Mail.mjs": {
+    "static-config-order": ["Mail.items"]
+  },
+  "apps/webdesktop/view/apps/Messages.mjs": {
+    "static-config-order": ["Messages.items"]
+  },
+  "apps/webdesktop/view/apps/Music.mjs": {
+    "static-config-order": ["Music.items"]
+  },
+  "apps/webdesktop/view/apps/RecycleBin.mjs": {
+    "static-config-order": ["RecycleBin.items"]
+  },
+  "apps/webdesktop/view/apps/Settings.mjs": {
+    "static-config-order": ["Settings.items"]
+  },
+  "apps/workstation/store/Feed.mjs": {
+    "compact-jsdoc-loss": ["Feed.batchCount_","Feed.destroy","Feed.intervalId","Feed.running","Feed.sequence_","Feed.started"],
+    "local-reactive-tag": ["Feed.batchCount_","Feed.sequence_"],
+    "static-config-order": ["Feed.batchCount_"]
+  },
+  "apps/workstation/tour/GestureDriver.mjs": {
+    "compact-jsdoc-loss": ["GestureDriver.construct","GestureDriver.settledPromise"]
+  },
+  "apps/workstation/view/BoardPane.mjs": {
+    "compact-jsdoc-loss": ["BoardPane.ariaLabel"],
+    "no-private-methods": ["BoardPane.#peopleListeners","BoardPane.#renderPeopleCards"]
+  },
+  "apps/workstation/view/PopupWorkspace.mjs": {
+    "compact-jsdoc-loss": ["PopupWorkspace.dockParticipation","PopupWorkspace.getNativeWindowOpenConfig","PopupWorkspace.getNativeWindowOwnerWindowId","PopupWorkspace.getNativeWindowReturnPlacements","PopupWorkspace.onDockWorkspaceReturn"]
+  },
+  "apps/workstation/view/ScalePane.mjs": {
+    "missing-config-jsdoc": ["ScalePane.body"]
+  },
+  "apps/workstation/view/StatusComponent.mjs": {
+    "static-config-order": ["StatusComponent.bind"]
+  },
+  "apps/workstation/view/TourController.mjs": {
+    "compact-jsdoc-loss": ["TourController.activeScript","TourController.cancelTour","TourController.gestureDriver_","TourController.getGestureDriver","TourController.setTourCaption","TourController.settledPromise","TourController.tourRunner_"],
+    "local-reactive-tag": ["TourController.gestureDriver_","TourController.tourRunner_"],
+    "static-config-order": ["TourController.gestureDriver_","TourController.tourRunner_"]
+  },
+  "apps/workstation/view/TourToolbar.mjs": {
+    "static-config-order": ["TourToolbar.items"]
+  },
+  "apps/workstation/view/VesselWorkspace.mjs": {
+    "compact-jsdoc-loss": ["VesselWorkspace.destroy","VesselWorkspace.dockParticipation","VesselWorkspace.getPlacementHints","VesselWorkspace.mixins","VesselWorkspace.popupRefusalGuidance"],
+    "static-config-order": ["VesselWorkspace.dockHistoryDepth","VesselWorkspace.enableDockTearOutLifecycle"]
+  },
+  "apps/workstation/view/Workspace.mjs": {
+    "compact-jsdoc-loss": ["Workspace.perspectives"],
+    "static-config-order": ["Workspace.activePerspective","Workspace.additionalThemeFiles"]
+  },
+  "apps/workstation/view/WorkspaceController.mjs": {
+    "compact-jsdoc-loss": ["WorkspaceController.onShowOperations","WorkspaceController.onShowPlanning","WorkspaceController.onStartTour","WorkspaceController.onToggleWorkspaceTheme"]
+  },
+  "docs/app/view/HeaderContainer.mjs": {
+    "compact-jsdoc-loss": ["HeaderContainer.layout"],
+    "static-config-order": ["HeaderContainer.items"]
+  },
+  "docs/app/view/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"],
+    "static-config-order": ["MainContainer.items","MainContainer.stateProvider"]
+  },
+  "docs/app/view/classdetails/HeaderComponent.mjs": {
+    "static-config-order": ["HeaderComponent.domListeners"]
+  },
+  "docs/app/view/classdetails/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "docs/app/view/classdetails/MembersList.mjs": {
+    "compact-jsdoc-loss": ["MembersList._vdom"]
+  },
+  "docs/app/view/classdetails/SourceViewComponent.mjs": {
+    "compact-jsdoc-loss": ["SourceViewComponent.style"]
+  },
+  "docs/app/view/classdetails/TutorialComponent.mjs": {
+    "compact-jsdoc-loss": ["TutorialComponent.style"]
+  },
+  "examples/ConfigurationViewport.mjs": {
+    "compact-jsdoc-loss": ["ConfigurationViewport.layout","ConfigurationViewport.observedExampleConfigs"]
+  },
+  "examples/board/basic/Viewport.mjs": {
+    "static-config-order": ["BoardViewport.items"]
+  },
+  "examples/board/bigData/Viewport.mjs": {
+    "static-config-order": ["BigDataViewport.items"]
+  },
+  "examples/board/cardDesigns/Viewport.mjs": {
+    "redundant-vdom-div": ["CardDesignsViewport.config.vdom"],
+    "static-config-order": ["CardDesignsViewport.items"]
+  },
+  "examples/board/cardEditor/Viewport.mjs": {
+    "static-config-order": ["CardEditorViewport.items"]
+  },
+  "examples/board/columns/Viewport.mjs": {
+    "redundant-vdom-div": ["ColumnsViewport.config.vdom","ColumnsViewport.config.vdom","ColumnsViewport.config.vdom","ColumnsViewport.config.vdom"],
+    "static-config-order": ["ColumnsViewport.items"]
+  },
+  "examples/board/dueDates/Viewport.mjs": {
+    "no-private-methods": ["DueDatesViewport.#captureBaseline","DueDatesViewport.#getDeliverablesStore","DueDatesViewport.#isStoreDirty"],
+    "redundant-vdom-div": ["DueDatesViewport.config.vdom"],
+    "static-config-order": ["DueDatesViewport.items"]
+  },
+  "examples/board/multiSelect/Viewport.mjs": {
+    "static-config-order": ["MultiSelectViewport.items"]
+  },
+  "examples/board/salesPipeline/DealModel.mjs": {
+    "missing-config-jsdoc": ["DealModel.className","DealModel.fields"]
+  },
+  "examples/board/salesPipeline/DealStore.mjs": {
+    "missing-config-jsdoc": ["DealStore.className","DealStore.keyProperty","DealStore.model"]
+  },
+  "examples/board/salesPipeline/Viewport.mjs": {
+    "missing-config-jsdoc": ["SalesPipelineViewport.className","SalesPipelineViewport.cls","SalesPipelineViewport.items","SalesPipelineViewport.layout","SalesPipelineViewport.stateProvider"],
+    "static-config-order": ["SalesPipelineViewport.items"]
+  },
+  "examples/board/swimlanes/Viewport.mjs": {
+    "static-config-order": ["SwimlanesViewport.items"]
+  },
+  "examples/board/wipLimits/Viewport.mjs": {
+    "redundant-vdom-div": ["WipLimitsViewport.config.vdom","WipLimitsViewport.config.vdom","WipLimitsViewport.config.vdom","WipLimitsViewport.config.vdom"],
+    "static-config-order": ["WipLimitsViewport.items"]
+  },
+  "examples/button/base/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/button/effect/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/button/split/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/calendar/basic/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.cls","MainContainer.controller","MainContainer.items","MainContainer.layout","MainContainer.listeners","MainContainer.monitorSize"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/calendar/birthdays/BirthdayPicker.mjs": {
+    "local-reactive-tag": ["BirthdayPicker.occasionStore_"],
+    "missing-config-jsdoc": ["BirthdayPicker.className","BirthdayPicker.cls"]
+  },
+  "examples/calendar/birthdays/BirthdayRoster.mjs": {
+    "missing-config-jsdoc": ["BirthdayRoster.autoDestroyStore","BirthdayRoster.className","BirthdayRoster.cls","BirthdayRoster.disableSelection","BirthdayRoster.itemsFocusable"]
+  },
+  "examples/calendar/birthdays/DayDetail.mjs": {
+    "local-reactive-tag": ["DayDetail.selection_"],
+    "missing-config-jsdoc": ["DayDetail._vdom","DayDetail.className","DayDetail.cls"]
+  },
+  "examples/calendar/birthdays/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.cls","MainContainer.layout","MainContainer.stateProvider"]
+  },
+  "examples/charts/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/canvas/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/component/carousel/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.layout"]
+  },
+  "examples/component/chip/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/component/circle/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.layout"]
+  },
+  "examples/component/clock/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/component/coronaGallery/Viewport.mjs": {
+    "compact-jsdoc-loss": ["Viewport.layout"],
+    "static-config-order": ["Viewport.items"]
+  },
+  "examples/component/coronaHelix/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/dateSelector/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.className"]
+  },
+  "examples/component/gallery/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/graphScene/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/graphScene/canvas/Renderer.mjs": {
+    "compact-jsdoc-loss": ["Renderer.nearStyle"]
+  },
+  "examples/component/helix/Viewport.mjs": {
+    "compact-jsdoc-loss": ["Viewport.layout"],
+    "static-config-order": ["Viewport.items"]
+  },
+  "examples/component/magicmovetext/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.configPanelMaxWidth","MainContainer.configPanelMinWidth","MainContainer.layout"]
+  },
+  "examples/component/markdown/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/mwc/button/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/component/mwc/buttons/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/mwc/textField/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/component/mwc/textFields/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/process/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.className"]
+  },
+  "examples/component/process/realWorldExample/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.configPanelFlex","MainContainer.configPanelMinWidth","MainContainer.layout"],
+    "static-config-order": ["MainContainer.configPanelFlex"]
+  },
+  "examples/component/progress/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/component/sparkline/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/splitter/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"]
+  },
+  "examples/component/statusbadge/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/component/timer/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.className"]
+  },
+  "examples/component/toast/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.cls","MainContainer.controller","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/wrapper/cesiumJS/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.controller","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/wrapper/googleMaps/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.controller","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/wrapper/googleMaps/MapComponent.mjs": {
+    "compact-jsdoc-loss": ["MapComponent.center"]
+  },
+  "examples/component/wrapper/googleMaps/MarkerDialog.mjs": {
+    "local-reactive-tag": ["MarkerDialog.record_"],
+    "missing-config-jsdoc": ["MarkerDialog.className","MarkerDialog.containerConfig","MarkerDialog.draggable","MarkerDialog.headerConfig","MarkerDialog.itemTpl","MarkerDialog.items","MarkerDialog.offsetConfig","MarkerDialog.record_","MarkerDialog.resizable"],
+    "static-config-order": ["MarkerDialog.containerConfig","MarkerDialog.items","MarkerDialog.record_"]
+  },
+  "examples/component/wrapper/mermaid/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/wrapper/monacoEditor/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/component/wrapper/openStreetMaps/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.controller","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/component/wrapper/openStreetMaps/MapComponent.mjs": {
+    "compact-jsdoc-loss": ["MapComponent.center"]
+  },
+  "examples/component/wrapper/openStreetMaps/MarkerDialog.mjs": {
+    "local-reactive-tag": ["MarkerDialog.record_"],
+    "missing-config-jsdoc": ["MarkerDialog.className","MarkerDialog.containerConfig","MarkerDialog.draggable","MarkerDialog.headerConfig","MarkerDialog.itemTpl","MarkerDialog.items","MarkerDialog.offsetConfig","MarkerDialog.record_","MarkerDialog.resizable"],
+    "static-config-order": ["MarkerDialog.containerConfig","MarkerDialog.items","MarkerDialog.record_"]
+  },
+  "examples/container/base/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/dashboard/base/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.items","MainContainer.layout","MainContainer.style"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/dashboard/choreography/ClockPane.mjs": {
+    "local-reactive-tag": ["ClockPane.frozenTime_"],
+    "no-private-methods": ["ClockPane.#stopClock","ClockPane.#syncClock"]
+  },
+  "examples/dashboard/crossWindow/DemoBWorkspace.mjs": {
+    "compact-jsdoc-loss": ["DemoBWorkspace.getPlacementHints","DemoBWorkspace.mixins"],
+    "static-config-order": ["DemoBWorkspace.additionalThemeFiles"]
+  },
+  "examples/dashboard/crossWindowWitness/Harness.mjs": {
+    "static-config-order": ["Harness.items"]
+  },
+  "examples/dashboard/desk/AgentGrid.mjs": {
+    "local-reactive-tag": ["AgentGrid.agentId_"]
+  },
+  "examples/dashboard/desk/DeskStateProvider.mjs": {
+    "compact-jsdoc-loss": ["DeskStateProvider.data"]
+  },
+  "examples/dashboard/desk/InspectorPane.mjs": {
+    "compact-jsdoc-loss": ["InspectorPane.layout"],
+    "local-reactive-tag": ["InspectorPane.agentId_","InspectorPane.store_"],
+    "static-config-order": ["InspectorPane.baseCls"]
+  },
+  "examples/dashboard/desk/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.stateProvider"]
+  },
+  "examples/dashboard/desk/MetricsPane.mjs": {
+    "local-reactive-tag": ["MetricsPane.store_"],
+    "static-config-order": ["MetricsPane.baseCls"]
+  },
+  "examples/dashboard/dock/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"],
+    "static-config-order": ["MainContainer.dockShellIndex"]
+  },
+  "examples/dashboard/planning/Board.mjs": {
+    "missing-config-jsdoc": ["PlanningBoard.ariaLabel","PlanningBoard.cardEditorConfig","PlanningBoard.cardItems","PlanningBoard.className","PlanningBoard.cls","PlanningBoard.columns","PlanningBoard.columnsResortable"]
+  },
+  "examples/dashboard/planning/Plan.mjs": {
+    "missing-config-jsdoc": ["Plan.className","Plan.data","Plan.stores"]
+  },
+  "examples/dashboard/planning/Scheduler.mjs": {
+    "missing-config-jsdoc": ["PlanningScheduler.className","PlanningScheduler.cls","PlanningScheduler.resourceColumns"]
+  },
+  "examples/dashboard/planning/Viewport.mjs": {
+    "missing-config-jsdoc": ["PlanningViewport.className","PlanningViewport.cls","PlanningViewport.layout"]
+  },
+  "examples/dashboard/planning/Workspace.mjs": {
+    "missing-config-jsdoc": ["Workspace.className","Workspace.cls","Workspace.compactRows","Workspace.enableDockTearOutLifecycle","Workspace.panes","Workspace.stateProvider","Workspace.zones"],
+    "static-config-order": ["Workspace.panes"]
+  },
+  "examples/dashboard/sortable/KpiTile.mjs": {
+    "static-config-order": ["KpiTile.items"]
+  },
+  "examples/dashboard/sortable/Viewport.mjs": {
+    "static-config-order": ["Viewport.items"]
+  },
+  "examples/data/fixtures/pipeline-stage-modules/Connection.mjs": {
+    "compact-jsdoc-loss": ["Connection.read"],
+    "missing-config-jsdoc": ["Connection.className"]
+  },
+  "examples/data/fixtures/pipeline-stage-modules/Normalizer.mjs": {
+    "compact-jsdoc-loss": ["Normalizer.normalize"],
+    "missing-config-jsdoc": ["Normalizer.className"]
+  },
+  "examples/data/fixtures/pipeline-stage-modules/Parser.mjs": {
+    "compact-jsdoc-loss": ["Parser.read"],
+    "missing-config-jsdoc": ["Parser.className"]
+  },
+  "examples/data/pipeline/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/date/selectorContainer/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.className"]
+  },
+  "examples/desktop/basic/Notes.mjs": {
+    "static-config-order": ["Notes.items"]
+  },
+  "examples/desktop/basic/Viewport.mjs": {
+    "static-config-order": ["DesktopViewport.items"]
+  },
+  "examples/dialog/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/fieldWithPrefix/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.cls","MainContainer.componentName","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.description","MainContainer.layout"],
+    "static-config-order": ["MainContainer.cls","MainContainer.configItemLabelWidth"]
+  },
+  "examples/fields/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.activeIndex","MainContainer.autoMount","MainContainer.className","MainContainer.height","MainContainer.itemDefaults","MainContainer.items","MainContainer.layout","MainContainer.style"],
+    "static-config-order": ["MainContainer.itemDefaults","MainContainer.items"]
+  },
+  "examples/fileExplorer/FileTree.mjs": {
+    "compact-jsdoc-loss": ["FileTree.loading"]
+  },
+  "examples/fileExplorer/Viewport.mjs": {
+    "static-config-order": ["Viewport.items"]
+  },
+  "examples/form/checkout/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/form/field/StatesViewport.mjs": {
+    "compact-jsdoc-loss": ["StatesViewport.states"]
+  },
+  "examples/form/field/checkbox/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/chip/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/chip/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields","MainModel.keyProperty"],
+    "static-config-order": ["MainModel.fields"]
+  },
+  "examples/form/field/chip/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.autoLoad","MainStore.className","MainStore.keyProperty","MainStore.model","MainStore.sorters","MainStore.url"],
+    "static-config-order": ["MainStore.sorters"]
+  },
+  "examples/form/field/color/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/combobox/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.componentName","MainContainer.exampleContainerConfig","MainContainer.field","MainContainer.states"]
+  },
+  "examples/form/field/combobox/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields","MainModel.keyProperty"],
+    "static-config-order": ["MainModel.fields"]
+  },
+  "examples/form/field/combobox/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.autoLoad","MainStore.className","MainStore.keyProperty","MainStore.model","MainStore.sorters","MainStore.url"],
+    "static-config-order": ["MainStore.sorters"]
+  },
+  "examples/form/field/country/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/currency/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/date/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/display/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/email/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/fileupload/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.configItemWidth","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/iban/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/number/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/password/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/phone/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/picker/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.layout"]
+  },
+  "examples/form/field/radio/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/range/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/search/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/select/FruitSelect.mjs": {
+    "missing-config-jsdoc": ["FruitSelect.className","FruitSelect.options"]
+  },
+  "examples/form/field/select/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/switch/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/text/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/textarea/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/time/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/trigger/copyToClipboard/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/url/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/field/zipcode/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.field","MainContainer.layout","MainContainer.states"],
+    "static-config-order": ["MainContainer.field"]
+  },
+  "examples/form/fieldset/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.layout"]
+  },
+  "examples/form/validation/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.engagedFields","MainContainer.passwordMismatchText"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/functional/button/base/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/functional/defineComponent/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/functional/hostComponent/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/functional/nestedComponents/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth"]
+  },
+  "examples/functional/nestedComponents/RelayContainer.mjs": {
+    "missing-config-jsdoc": ["RelayContainer.className","RelayContainer.items"],
+    "static-config-order": ["RelayContainer.items"]
+  },
+  "examples/functional/nestedTemplateComponent/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/functional/templateComponent/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/gantt/basic/Viewport.mjs": {
+    "missing-config-jsdoc": ["ProjectViewport.className","ProjectViewport.items","ProjectViewport.layout"],
+    "static-config-order": ["ProjectViewport.items"]
+  },
+  "examples/gantt/bigData/Viewport.mjs": {
+    "static-config-order": ["BigDataViewport.items"]
+  },
+  "examples/gantt/cascade/Viewport.mjs": {
+    "redundant-vdom-div": ["OfficeMoveCascadeViewport.config.vdom"],
+    "static-config-order": ["OfficeMoveCascadeViewport.items"]
+  },
+  "examples/gantt/dependencies/Viewport.mjs": {
+    "static-config-order": ["LaunchViewport.items"]
+  },
+  "examples/gantt/milestones/Viewport.mjs": {
+    "redundant-vdom-div": ["LaunchGatesViewport.config.vdom"],
+    "static-config-order": ["LaunchGatesViewport.items"]
+  },
+  "examples/gantt/taskColumns/Viewport.mjs": {
+    "static-config-order": ["TaskColumnsViewport.items"]
+  },
+  "examples/gantt/taskEditor/Viewport.mjs": {
+    "static-config-order": ["TaskEditorViewport.items"]
+  },
+  "examples/gantt/taskTree/TaskStore.mjs": {
+    "compact-jsdoc-loss": ["TaskStore.buildSeedTasks","TaskStore.construct"],
+    "missing-config-jsdoc": ["TaskStore.className","TaskStore.rollupParents"]
+  },
+  "examples/gantt/taskTree/Viewport.mjs": {
+    "compact-jsdoc-loss": ["TaskTreeViewport.onResize","TaskTreeViewport.syncDensity","TaskTreeViewport.taskColumns"],
+    "missing-config-jsdoc": ["TaskTreeViewport.className","TaskTreeViewport.cls","TaskTreeViewport.items","TaskTreeViewport.layout","TaskTreeViewport.listeners","TaskTreeViewport.monitorSize","TaskTreeViewport.stateProvider"],
+    "static-config-order": ["TaskTreeViewport.items"]
+  },
+  "examples/gantt/workingTime/Viewport.mjs": {
+    "redundant-vdom-div": ["KitchenWorkingTimeViewport.config.vdom"],
+    "static-config-order": ["KitchenWorkingTimeViewport.items"]
+  },
+  "examples/gantt/zoom/Viewport.mjs": {
+    "static-config-order": ["ZoomViewport.items"]
+  },
+  "examples/grid/animatedRowSorting/MainStore.mjs": {
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/grid/animatedRowSorting/Viewport.mjs": {
+    "static-config-order": ["Viewport.items"]
+  },
+  "examples/grid/bigData/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/bigData/NestedCell.mjs": {
+    "no-private-methods": ["NestedCell.#applyLabel"]
+  },
+  "examples/grid/cellEditing/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configPanelFlex","MainContainer.exampleComponentFlex","MainContainer.layout","MainContainer.stateProvider"]
+  },
+  "examples/grid/cellEditing/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields"]
+  },
+  "examples/grid/cellEditing/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/grid/cellTypes/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/container/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.cls","MainContainer.componentName","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.configPanelFlex","MainContainer.configPanelMaxWidth","MainContainer.configPanelMinWidth","MainContainer.description","MainContainer.exampleComponentFlex","MainContainer.exampleContainerConfig","MainContainer.layout"]
+  },
+  "examples/grid/container/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields"]
+  },
+  "examples/grid/container/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/grid/contentSizedRows/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/countries/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/export/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/filtering/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/headerGroups/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/issues/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/issues/MainStore.mjs": {
+    "compact-jsdoc-loss": ["MainStore.sorters"]
+  },
+  "examples/grid/lockedColumns/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/lockedColumns/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields"]
+  },
+  "examples/grid/lockedColumns/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/grid/nestedRecordFields/EditUserDialog.mjs": {
+    "local-reactive-tag": ["EditUserDialog.record_"],
+    "missing-config-jsdoc": ["EditUserDialog.className","EditUserDialog.closeAction","EditUserDialog.cls","EditUserDialog.containerConfig","EditUserDialog.itemDefaults","EditUserDialog.items","EditUserDialog.keys","EditUserDialog.modal","EditUserDialog.record_","EditUserDialog.style","EditUserDialog.title","EditUserDialog.trapFocus"],
+    "static-config-order": ["EditUserDialog.containerConfig","EditUserDialog.style"]
+  },
+  "examples/grid/nestedRecordFields/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields","MainModel.trackModifiedFields"],
+    "static-config-order": ["MainModel.fields"]
+  },
+  "examples/grid/nestedRecordFields/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/grid/nestedRecordFields/Viewport.mjs": {
+    "missing-config-jsdoc": ["Viewport.className","Viewport.cls","Viewport.controller","Viewport.items","Viewport.layout","Viewport.stateProvider"],
+    "static-config-order": ["Viewport.items"]
+  },
+  "examples/grid/nestedRecordFields/ViewportController.mjs": {
+    "missing-config-jsdoc": ["ViewportController.className"]
+  },
+  "examples/grid/orderReviewDesk/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/orderReviewDesk/MainContainerController.mjs": {
+    "compact-jsdoc-loss": ["MainContainerController.exceptionKeys"]
+  },
+  "examples/grid/orderReviewDesk/OrderModel.mjs": {
+    "static-config-order": ["OrderModel.fields"]
+  },
+  "examples/grid/pinnedColumns/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/serverSide/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.cls","MainContainer.items","MainContainer.layout","MainContainer.stateProvider"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/serverSide/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields"]
+  },
+  "examples/grid/serverSide/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.model","MainStore.pageSize","MainStore.pipeline","MainStore.remoteFilter","MainStore.remoteSort","MainStore.sorters"],
+    "static-config-order": ["MainStore.pipeline"]
+  },
+  "examples/grid/serverSide/SimulatedConnection.mjs": {
+    "missing-config-jsdoc": ["SimulatedConnection.className"]
+  },
+  "examples/grid/streaming/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/tree/GridContainer.mjs": {
+    "static-config-order": ["GridContainer.columns"]
+  },
+  "examples/grid/tree/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/tree/MainStore.mjs": {
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/grid/treeBigData/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/grid/valueBanding/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.cls","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.configPanelFlex","MainContainer.configPanelMaxWidth","MainContainer.configPanelMinWidth","MainContainer.exampleComponentFlex","MainContainer.exampleContainerConfig","MainContainer.layout"],
+    "static-config-order": ["MainContainer.configPanelMaxWidth"]
+  },
+  "examples/grid/valueBanding/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields"]
+  },
+  "examples/grid/valueBanding/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.keyProperty","MainStore.model","MainStore.sorters"]
+  },
+  "examples/layout/card/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.componentName"]
+  },
+  "examples/layout/cube/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.cls","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/layout/form/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.componentName","MainContainer.configItemLabelWidth","MainContainer.layout"]
+  },
+  "examples/layout/sideBySide/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/list/animate/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/list/animate/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields","MainModel.keyProperty"],
+    "static-config-order": ["MainModel.fields"]
+  },
+  "examples/list/animate/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.autoLoad","MainStore.className","MainStore.filters","MainStore.model","MainStore.sorters","MainStore.url"],
+    "static-config-order": ["MainStore.filters"]
+  },
+  "examples/list/base/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/list/base/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields","MainModel.keyProperty"],
+    "static-config-order": ["MainModel.fields"]
+  },
+  "examples/list/base/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model","MainStore.sorters"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/list/buffered/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.description","MainContainer.layout"]
+  },
+  "examples/list/buffered/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields","MainModel.keyProperty"],
+    "static-config-order": ["MainModel.fields"]
+  },
+  "examples/list/buffered/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/list/buffered/PooledRow.mjs": {
+    "missing-config-jsdoc": ["PooledRow.baseCls","PooledRow.className"]
+  },
+  "examples/list/chip/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/list/chip/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields","MainModel.keyProperty"],
+    "static-config-order": ["MainModel.fields"]
+  },
+  "examples/list/chip/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model","MainStore.sorters"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/list/circle/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/list/color/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/list/onAir/Monitor.mjs": {
+    "local-reactive-tag": ["Monitor.feed_"],
+    "missing-config-jsdoc": ["Monitor.className","Monitor.cls","Monitor.feed_","Monitor.vdom"]
+  },
+  "examples/list/onAir/Presenter.mjs": {
+    "compact-jsdoc-loss": ["Presenter.className","Presenter.construct","Presenter.destroy","Presenter.disconnectedCue","Presenter.onDirectorDisconnect"]
+  },
+  "examples/list/onAir/Rundown.mjs": {
+    "missing-config-jsdoc": ["Rundown.baseCls","Rundown.className","Rundown.disableSelection","Rundown.dragZoneConfig","Rundown.draggable","Rundown.store"]
+  },
+  "examples/list/onAir/Viewport.mjs": {
+    "missing-config-jsdoc": ["Viewport.className","Viewport.cls","Viewport.items","Viewport.layout","Viewport.stateProvider"],
+    "static-config-order": ["Viewport.items"]
+  },
+  "examples/list/reorder/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/menu/context/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/menu/contextFiles/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/menu/list/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/menu/panel/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/menu/tree/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.createExampleComponent"],
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"]
+  },
+  "examples/menu/tree/MainStore.mjs": {
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/panel/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.controller","MainContainer.headers","MainContainer.itemDefaults","MainContainer.items","MainContainer.style"],
+    "static-config-order": ["MainContainer.headers"]
+  },
+  "examples/panel/MainContainerController.mjs": {
+    "missing-config-jsdoc": ["MainContainerController.className"]
+  },
+  "examples/popover/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.cls","MainContainer.componentName","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.layout"],
+    "static-config-order": ["MainContainer.cls"]
+  },
+  "examples/preloadingAssets/view/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/remotesApi/basic/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.controller","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/scheduler/barRenderer/Viewport.mjs": {
+    "missing-config-jsdoc": ["PressModel.className","PressModel.fields","PrintJobModel.className","PrintJobModel.fields"],
+    "static-config-order": ["PrintShopViewport.items"]
+  },
+  "examples/scheduler/basic/Viewport.mjs": {
+    "missing-config-jsdoc": ["StudioViewport.className","StudioViewport.items","StudioViewport.layout"],
+    "static-config-order": ["StudioViewport.items"]
+  },
+  "examples/scheduler/bigData/Viewport.mjs": {
+    "redundant-vdom-div": ["BigDataViewport.config.vdom"],
+    "static-config-order": ["BigDataViewport.items"]
+  },
+  "examples/scheduler/dragAndResize/Viewport.mjs": {
+    "missing-config-jsdoc": ["StopModel.className","StopModel.fields","VanModel.className","VanModel.fields"],
+    "redundant-vdom-div": ["DepotViewport.config.vdom"],
+    "static-config-order": ["DepotViewport.items"]
+  },
+  "examples/scheduler/eventEditor/AppointmentEditor.mjs": {
+    "compact-jsdoc-loss": ["AppointmentEditor.headerConfig"]
+  },
+  "examples/scheduler/eventEditor/RoomModel.mjs": {
+    "missing-config-jsdoc": ["RoomModel.className","RoomModel.fields"]
+  },
+  "examples/scheduler/eventEditor/Viewport.mjs": {
+    "missing-config-jsdoc": ["PracticeViewport.className","PracticeViewport.cls","PracticeViewport.items","PracticeViewport.layout"],
+    "redundant-vdom-div": ["PracticeViewport.config.vdom"],
+    "static-config-order": ["PracticeViewport.items"]
+  },
+  "examples/scheduler/liveUpdates/FlightModel.mjs": {
+    "missing-config-jsdoc": ["FlightModel.className","FlightModel.fields"]
+  },
+  "examples/scheduler/liveUpdates/FlightStore.mjs": {
+    "missing-config-jsdoc": ["FlightStore.className","FlightStore.data","FlightStore.keyProperty","FlightStore.model"]
+  },
+  "examples/scheduler/liveUpdates/GateModel.mjs": {
+    "missing-config-jsdoc": ["GateModel.className","GateModel.fields"]
+  },
+  "examples/scheduler/liveUpdates/GateStore.mjs": {
+    "missing-config-jsdoc": ["GateStore.className","GateStore.data","GateStore.keyProperty","GateStore.model"]
+  },
+  "examples/scheduler/liveUpdates/Viewport.mjs": {
+    "missing-config-jsdoc": ["GateOperationsViewport.className","GateOperationsViewport.cls","GateOperationsViewport.items","GateOperationsViewport.layout","GateOperationsViewport.stateProvider"],
+    "static-config-order": ["GateOperationsViewport.items"]
+  },
+  "examples/scheduler/meridian/ObservationScheduler.mjs": {
+    "compact-jsdoc-loss": ["ObservationScheduler.className","ObservationScheduler.getTimelineColumnClass"],
+    "static-config-order": ["ObservationScheduler.barRenderer","ObservationScheduler.minorFormatter"]
+  },
+  "examples/scheduler/meridian/ObservationTrack.mjs": {
+    "compact-jsdoc-loss": ["ObservationTrack.className"]
+  },
+  "examples/scheduler/meridian/RequestBoard.mjs": {
+    "compact-jsdoc-loss": ["RequestBoard.className"]
+  },
+  "examples/scheduler/meridian/RequestCard.mjs": {
+    "compact-jsdoc-loss": ["RequestCard.className","RequestCard.startTitleEdit"]
+  },
+  "examples/scheduler/meridian/RequestSortZone.mjs": {
+    "compact-jsdoc-loss": ["RequestSortZone.className","RequestSortZone.destroy","RequestSortZone.onDragStart"],
+    "no-private-methods": ["RequestSortZone.#cancel","RequestSortZone.#caption","RequestSortZone.#insideBoard","RequestSortZone.#returnHome"]
+  },
+  "examples/scheduler/meridian/Sequence.mjs": {
+    "compact-jsdoc-loss": ["Sequence.getTimelineColumnClass","Sequence.moveTask"],
+    "missing-config-jsdoc": ["Sequence.baseline","Sequence.className","Sequence.cls","Sequence.editable","Sequence.planningController","Sequence.resizableBars","Sequence.rowHeight","Sequence.taskColumns","Sequence.useInternalId"],
+    "static-config-order": ["Sequence.baseline","Sequence.taskColumns"]
+  },
+  "examples/scheduler/meridian/SequenceColumn.mjs": {
+    "compact-jsdoc-loss": ["SequenceColumn.cellRenderer"],
+    "missing-config-jsdoc": ["SequenceColumn.className"]
+  },
+  "examples/scheduler/meridian/Signal.mjs": {
+    "compact-jsdoc-loss": ["Signal.className"]
+  },
+  "examples/scheduler/meridian/Viewport.mjs": {
+    "compact-jsdoc-loss": ["Observatory.board","Observatory.hasBooking","Observatory.onDeskKeyDown","Observatory.scheduler","Observatory.sequence","Observatory.step"],
+    "missing-config-jsdoc": ["Observatory.className","Observatory.cls","Observatory.items","Observatory.layout"],
+    "static-config-order": ["Observatory.items"]
+  },
+  "examples/scheduler/nonWorkingTime/Viewport.mjs": {
+    "missing-config-jsdoc": ["CrewModel.className","CrewModel.fields","SitePlanViewport.className","SitePlanViewport.cls","SitePlanViewport.items","SitePlanViewport.layout","WorkPackageModel.className","WorkPackageModel.fields"],
+    "redundant-vdom-div": ["SitePlanViewport.config.vdom"],
+    "static-config-order": ["SitePlanViewport.items"]
+  },
+  "examples/scheduler/resourceColumns/Viewport.mjs": {
+    "missing-config-jsdoc": ["FieldServiceViewport.className","FieldServiceViewport.cls","FieldServiceViewport.items","FieldServiceViewport.layout","JobModel.className","JobModel.fields","TechnicianModel.className","TechnicianModel.fields"],
+    "redundant-vdom-div": ["FieldServiceViewport.config.vdom","FieldServiceViewport.config.vdom"],
+    "static-config-order": ["FieldServiceViewport.items"]
+  },
+  "examples/scheduler/timeZones/Viewport.mjs": {
+    "missing-config-jsdoc": ["AgentModel.className","AgentModel.fields","RotaViewport.className","RotaViewport.cls","RotaViewport.domListeners","RotaViewport.items","RotaViewport.layout","ShiftModel.className","ShiftModel.fields"],
+    "redundant-vdom-div": ["RotaViewport.config.vdom"],
+    "static-config-order": ["RotaViewport.items"]
+  },
+  "examples/scheduler/zoom/Viewport.mjs": {
+    "missing-config-jsdoc": ["RoomModel.className","RoomModel.fields","SessionModel.className","SessionModel.fields","VenueViewport.className","VenueViewport.cls","VenueViewport.items","VenueViewport.layout"],
+    "static-config-order": ["VenueViewport.items"]
+  },
+  "examples/serverside/gridContainer/Viewport.mjs": {
+    "missing-config-jsdoc": ["Viewport.className","Viewport.cls","Viewport.items","Viewport.layout"],
+    "static-config-order": ["Viewport.items"]
+  },
+  "examples/serverside/toolbarItems/Viewport.mjs": {
+    "missing-config-jsdoc": ["Viewport.className","Viewport.cls","Viewport.items","Viewport.layout"],
+    "static-config-order": ["Viewport.items"]
+  },
+  "examples/sitemap/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.cls","MainContainer.componentName","MainContainer.layout"]
+  },
+  "examples/stateProvider/advanced/CompanionSurface.mjs": {
+    "static-config-order": ["CompanionSurface.items"]
+  },
+  "examples/stateProvider/advanced/MemberList.mjs": {
+    "static-config-order": ["MemberList.activeIndex"]
+  },
+  "examples/stateProvider/advanced/ProfileDialog.mjs": {
+    "compact-jsdoc-loss": ["ProfileDialog.title"],
+    "static-config-order": ["ProfileDialog.items"]
+  },
+  "examples/stateProvider/dialog/EditUserDialog.mjs": {
+    "compact-jsdoc-loss": ["EditUserDialog.title"],
+    "static-config-order": ["EditUserDialog.items"]
+  },
+  "examples/stateProvider/dialog/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/stateProvider/extendedClass/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/stateProvider/inline/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/stateProvider/inlineNoStateProvider/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/stateProvider/inlineNoStateProvider/MainContainerController.mjs": {
+    "compact-jsdoc-loss": ["MainContainerController.button1Text_","MainContainerController.button2Text_"]
+  },
+  "examples/stateProvider/multiWindow/EditUserDialog.mjs": {
+    "compact-jsdoc-loss": ["EditUserDialog.title","EditUserDialog.wrapperStyle"],
+    "static-config-order": ["EditUserDialog.items"]
+  },
+  "examples/stateProvider/nestedData/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/stateProvider/table/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/stateProvider/table/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields"]
+  },
+  "examples/stateProvider/table/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/stateProvider/twoWay/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/tab/browser/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/tab/container/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.layout"]
+  },
+  "examples/table/cellEditing/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.configItemLabelWidth","MainContainer.configPanelFlex","MainContainer.exampleComponentFlex","MainContainer.layout","MainContainer.stateProvider"]
+  },
+  "examples/table/cellEditing/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields"]
+  },
+  "examples/table/cellEditing/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/table/container/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.autoMount","MainContainer.className","MainContainer.cls","MainContainer.componentName","MainContainer.configItemLabelWidth","MainContainer.configItemWidth","MainContainer.configPanelFlex","MainContainer.configPanelMaxWidth","MainContainer.configPanelMinWidth","MainContainer.description","MainContainer.exampleComponentFlex","MainContainer.exampleContainerConfig","MainContainer.layout"]
+  },
+  "examples/table/container/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields"]
+  },
+  "examples/table/container/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/table/nestedRecordFields/EditUserDialog.mjs": {
+    "compact-jsdoc-loss": ["EditUserDialog.title"],
+    "static-config-order": ["EditUserDialog.itemDefaults"]
+  },
+  "examples/table/nestedRecordFields/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/table/nestedRecordFields/Viewport.mjs": {
+    "static-config-order": ["Viewport.items"]
+  },
+  "examples/tableFiltering/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.items","MainContainer.layout","MainContainer.style"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/tableFiltering/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields"]
+  },
+  "examples/tableFiltering/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/tablePerformance/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/tablePerformance/MainContainer2.mjs": {
+    "missing-config-jsdoc": ["MainContainer2.autoMount","MainContainer2.className","MainContainer2.items","MainContainer2.layout"],
+    "static-config-order": ["MainContainer2.items"]
+  },
+  "examples/tablePerformance/MainContainer3.mjs": {
+    "missing-config-jsdoc": ["MainContainer3.autoMount","MainContainer3.className","MainContainer3.items","MainContainer3.layout"],
+    "static-config-order": ["MainContainer3.items"]
+  },
+  "examples/tablePerformance/Viewport.mjs": {
+    "missing-config-jsdoc": ["Viewport.className","Viewport.items","Viewport.layout","Viewport.style"],
+    "static-config-order": ["Viewport.items","Viewport.layout"]
+  },
+  "examples/tableStore/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.items","MainContainer.layout","MainContainer.style"],
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/tableStore/MainModel.mjs": {
+    "missing-config-jsdoc": ["MainModel.className","MainModel.fields"]
+  },
+  "examples/tableStore/MainStore.mjs": {
+    "missing-config-jsdoc": ["MainStore.className","MainStore.data","MainStore.keyProperty","MainStore.model"],
+    "static-config-order": ["MainStore.data"]
+  },
+  "examples/tabs/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.activeIndex","MainContainer.autoMount","MainContainer.className","MainContainer.height","MainContainer.itemDefaults","MainContainer.items","MainContainer.layout"],
+    "static-config-order": ["MainContainer.itemDefaults"]
+  },
+  "examples/tabs/MainContainer2.mjs": {
+    "missing-config-jsdoc": ["MainContainer2.autoMount","MainContainer2.className","MainContainer2.height","MainContainer2.items","MainContainer2.layout"],
+    "static-config-order": ["MainContainer2.items"]
+  },
+  "examples/timeline/basic/Viewport.mjs": {
+    "missing-config-jsdoc": ["TimelineViewport.className","TimelineViewport.items","TimelineViewport.layout"],
+    "static-config-order": ["TimelineViewport.items"]
+  },
+  "examples/todoList/version1/MainComponent.mjs": {
+    "missing-config-jsdoc": ["MainComponent.autoMount","MainComponent.className","MainComponent.height","MainComponent.margin","MainComponent.maxWidth","MainComponent.style","MainComponent.vdom","MainComponent.width"],
+    "static-config-order": ["MainComponent.inputValue","MainComponent.items"]
+  },
+  "examples/todoList/version2/TodoListModel.mjs": {
+    "missing-config-jsdoc": ["TodoListModel.className","TodoListModel.fields","TodoListModel.keyProperty"],
+    "static-config-order": ["TodoListModel.fields"]
+  },
+  "examples/toolbar/application/view/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/toolbar/paging/view/AddUserDialog.mjs": {
+    "compact-jsdoc-loss": ["AddUserDialog.title"]
+  },
+  "examples/tooltip/store/Tickets.mjs": {
+    "static-config-order": ["Tickets.data"]
+  },
+  "examples/tooltip/view/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/tree/LibraryStore.mjs": {
+    "static-config-order": ["LibraryStore.data"]
+  },
+  "examples/tree/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.componentName"]
+  },
+  "examples/treeAccordion/MainContainer.mjs": {
+    "compact-jsdoc-loss": ["MainContainer.componentName"]
+  },
+  "examples/treeAccordion/SettingsStore.mjs": {
+    "static-config-order": ["SettingsStore.data"]
+  },
+  "examples/videoMove/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "examples/videoMove/MainContainerController.mjs": {
+    "compact-jsdoc-loss": ["MainContainerController.activePanel"]
+  },
+  "examples/viewport/MainContainer.mjs": {
+    "missing-config-jsdoc": ["MainContainer.className","MainContainer.itemDefaults","MainContainer.items","MainContainer.layout","MainContainer.style"],
+    "static-config-order": ["MainContainer.itemDefaults"]
+  },
+  "examples/worker/task/MainContainer.mjs": {
+    "static-config-order": ["MainContainer.items"]
+  },
+  "src/Main.mjs": {
+    "no-private-methods": ["Main.#focusWindow","Main.#getNativeWindowRoute","Main.#getNativeWindowRouteDocument","Main.#invalidateNativeWindowEntry","Main.#moveWindow","Main.#publishWindowGeometry","Main.#resizeWindow","Main.#stageNativeWindowRoute"]
+  },
+  "src/ai/TransactionService.mjs": {
+    "static-config-order": ["TransactionService.maxLabelChars","TransactionService.maxOpPayloadBytes","TransactionService.maxOpsPerTransaction"]
+  },
+  "src/ai/client/RuntimeService.mjs": {
+    "no-private-methods": ["RuntimeService.#getKnownWindow","RuntimeService.#normalizePopupRect","RuntimeService.#resolveDashboardHost","RuntimeService.#traverseNamespace"]
+  },
+  "src/ai/client/TourRunner.mjs": {
+    "no-private-methods": ["TourRunner.#abort","TourRunner.#preflight","TourRunner.#run"],
+    "static-config-order": ["TourRunner.script"]
+  },
+  "src/app/SharedCanvas.mjs": {
+    "local-reactive-tag": ["SharedCanvas.isCanvasReady_"]
+  },
+  "src/app/content/Component.mjs": {
+    "no-private-methods": ["Component.#applyRouteSection","Component.#isCurrentContentRequest","Component.#observeSections"],
+    "static-config-order": ["Component.replaceTicketIds"]
+  },
+  "src/app/content/TreeList.mjs": {
+    "local-reactive-tag": ["TreeList.currentPageRecord_"],
+    "static-config-order": ["TreeList.lazyChildUrlField"]
+  },
+  "src/app/header/Toolbar.mjs": {
+    "compact-jsdoc-loss": ["Toolbar.style"],
+    "static-config-order": ["Toolbar.activeId_"]
+  },
+  "src/app/roundtable/Canvas.mjs": {
+    "compact-jsdoc-loss": ["Canvas.watched"]
+  },
+  "src/board/Card.mjs": {
+    "local-reactive-tag": ["Card.cardItems_","Card.record_"]
+  },
+  "src/board/CardEditor.mjs": {
+    "compact-jsdoc-loss": ["CardEditor.fieldMap","CardEditor.headerConfig","CardEditor.title"],
+    "local-reactive-tag": ["CardEditor.card_","CardEditor.record_"]
+  },
+  "src/board/Column.mjs": {
+    "compact-jsdoc-loss": ["Column.windowRecords"],
+    "local-reactive-tag": ["Column.collapsed_","Column.color_","Column.count_","Column.locked_","Column.maxRenderedCards_","Column.overscan_","Column.retainOffscreen_","Column.title_","Column.wipLimit_"],
+    "static-config-order": ["Column.layout"]
+  },
+  "src/board/Container.mjs": {
+    "compact-jsdoc-loss": ["Board.ariaLabel_","Board.cardMap","Board.columnSortZoneConfig","Board.retainedCards","Board.sortZoneConfig"],
+    "local-reactive-tag": ["Board.ariaLabel_","Board.cardItems_","Board.columnSummary_","Board.columnsResortable_","Board.columns_","Board.emptyLaneTitle_","Board.laneField_","Board.lanes_","Board.selectionModel_","Board.store_"],
+    "no-private-methods": ["Board.#adopt","Board.#projectionRecords","Board.#recordsForColumn"],
+    "static-config-order": ["Board.ariaLabel_","Board.columns_","Board.emptyLaneTitle_"]
+  },
+  "src/board/LaneRow.mjs": {
+    "local-reactive-tag": ["LaneRow.collapsed_","LaneRow.count_","LaneRow.title_"]
+  },
+  "src/board/SortZone.mjs": {
+    "redundant-vdom-div": ["BoardSortZone.getDragProxyConfig.vdom"]
+  },
+  "src/button/Segmented.mjs": {
+    "compact-jsdoc-loss": ["Segmented.baseCls"]
+  },
+  "src/button/Split.mjs": {
+    "compact-jsdoc-loss": ["Split.triggerButtonIconCls_"]
+  },
+  "src/button/ThemeSwitcher.mjs": {
+    "compact-jsdoc-loss": ["ThemeSwitcher.choices","ThemeSwitcher.host","ThemeSwitcher.releaseTheme","ThemeSwitcher.request"]
+  },
+  "src/calendar/view/EditEventContainer.mjs": {
+    "static-config-order": ["EditEventContainer.allDayFieldConfig"]
+  },
+  "src/calendar/view/SettingsContainer.mjs": {
+    "compact-jsdoc-loss": ["SettingsContainer.baseCls"]
+  },
+  "src/calendar/view/YearComponent.mjs": {
+    "static-config-order": ["YearComponent.weekStartDay_"]
+  },
+  "src/calendar/view/month/Component.mjs": {
+    "static-config-order": ["Component.weekStartDay_"]
+  },
+  "src/calendar/view/week/Component.mjs": {
+    "missing-config-jsdoc": ["Component.updateDepth"],
+    "static-config-order": ["Component.weekStartDay_"]
+  },
+  "src/calendar/view/week/EventDragZone.mjs": {
+    "static-config-order": ["EventDragZone.axisEndTime"]
+  },
+  "src/calendar/view/week/TimeAxisComponent.mjs": {
+    "static-config-order": ["TimeAxisComponent.interval_"]
+  },
+  "src/canvas/GraphScene.mjs": {
+    "compact-jsdoc-loss": ["GraphScene.camera","GraphScene.contextAttributes","GraphScene.flight","GraphScene.labelStyle","GraphScene.lod","GraphScene.nearStyle","GraphScene.sceneStyle","GraphScene.sphere","GraphScene.zoom"]
+  },
+  "src/canvas/RoundTable.mjs": {
+    "compact-jsdoc-loss": ["RoundTable.glows","RoundTable.remote"]
+  },
+  "src/canvas/Sparkline.mjs": {
+    "compact-jsdoc-loss": ["Sparkline.activeItems","Sparkline.items"],
+    "static-config-order": ["Sparkline.maxConcurrentTransitions"]
+  },
+  "src/code/LivePreview.mjs": {
+    "static-config-order": ["LivePreview.items"]
+  },
+  "src/collection/Base.mjs": {
+    "static-config-order": ["Collection.sorters_"]
+  },
+  "src/collection/Filter.mjs": {
+    "no-private-methods": ["Filter.#decide","Filter.#readState"]
+  },
+  "src/collection/Sorter.mjs": {
+    "static-config-order": ["Sorter.direction_"]
+  },
+  "src/component/Abstract.mjs": {
+    "compact-jsdoc-loss": ["Abstract.mixins"]
+  },
+  "src/component/Base.mjs": {
+    "compact-jsdoc-loss": ["Component.align_","Component.style_","Component.tooltipSetupToken","Component.wrapperStyle_"],
+    "local-reactive-tag": ["Component.isLoading_","Component.responsive_","Component.style_"],
+    "static-config-order": ["Component.tag_"]
+  },
+  "src/component/Canvas.mjs": {
+    "compact-jsdoc-loss": ["Canvas._vdom"],
+    "no-private-methods": ["Canvas.#cancelPendingRegistration","Canvas.#transferOffscreenCanvas"]
+  },
+  "src/component/Carousel.mjs": {
+    "local-reactive-tag": ["Carousel.autoRun_","Carousel.itemTpl_","Carousel.store_"],
+    "no-private-methods": ["Carousel.#arrayRotate","Carousel.#getItemRoot"]
+  },
+  "src/component/Circle.mjs": {
+    "compact-jsdoc-loss": ["Circle.title_"],
+    "static-config-order": ["Circle.innerRadius_"]
+  },
+  "src/component/EmptyState.mjs": {
+    "redundant-vdom-div": ["EmptyState.config._vdom"],
+    "static-config-order": ["EmptyState.actionAriaLabel_"]
+  },
+  "src/component/Gallery.mjs": {
+    "compact-jsdoc-loss": ["Gallery.baseCls"],
+    "no-private-methods": ["Gallery.#selectInitialItem"],
+    "static-config-order": ["Gallery.amountRows_"]
+  },
+  "src/component/Helix.mjs": {
+    "static-config-order": ["Helix.backgroundColor_","Helix.selectedItemCls"]
+  },
+  "src/component/Iframe.mjs": {
+    "local-reactive-tag": ["Iframe.src_"],
+    "missing-config-jsdoc": ["Iframe._vdom","Iframe.baseCls","Iframe.className","Iframe.src_"]
+  },
+  "src/component/Legend.mjs": {
+    "compact-jsdoc-loss": ["Legend.iconCls_"]
+  },
+  "src/component/MagicMoveText.mjs": {
+    "compact-jsdoc-loss": ["MagicMoveText.fontFamily_"],
+    "static-config-order": ["MagicMoveText.colorFadeIn","MagicMoveText.renderSeoList_"]
+  },
+  "src/component/Markdown.mjs": {
+    "compact-jsdoc-loss": ["Markdown.headOnlyFrontMatterKeys"],
+    "no-private-methods": ["Markdown.#createRenderComponent","Markdown.#isCurrentRender"]
+  },
+  "src/component/Process.mjs": {
+    "compact-jsdoc-loss": ["Process.itemLayout"],
+    "local-reactive-tag": ["Process.arrowColor_","Process.horizontal_","Process.iconColor_","Process.items_"],
+    "static-config-order": ["Process.arrowColor_"]
+  },
+  "src/component/Progress.mjs": {
+    "redundant-vdom-div": ["Progress.config._vdom"]
+  },
+  "src/component/Sparkline.mjs": {
+    "local-reactive-tag": ["Sparkline.usePulse_","Sparkline.useTransition_","Sparkline.values_"],
+    "static-config-order": ["Sparkline.ntype"]
+  },
+  "src/component/StatusBadge.mjs": {
+    "compact-jsdoc-loss": ["StatusBadge.sideIconAlert_","StatusBadge.sideIconError_","StatusBadge.sideIconInfo_","StatusBadge.sideIconNeutral_","StatusBadge.sideIconSuccess_"],
+    "local-reactive-tag": ["StatusBadge.deactivateSideIcons_","StatusBadge.deactivateStateIcons_","StatusBadge.iconAlert_","StatusBadge.iconError_","StatusBadge.iconInfo_","StatusBadge.iconNeutral_","StatusBadge.iconSuccess_","StatusBadge.sideIconAlert_","StatusBadge.sideIconError_","StatusBadge.sideIconInfo_","StatusBadge.sideIconNeutral_","StatusBadge.sideIconSuccess_"],
+    "static-config-order": ["StatusBadge.currentSideIcon","StatusBadge.deactivateSideIcons_"]
+  },
+  "src/component/Timer.mjs": {
+    "static-config-order": ["Timer.dimensions_"]
+  },
+  "src/component/Toast.mjs": {
+    "compact-jsdoc-loss": ["Toast.positions","Toast.slideDirections"]
+  },
+  "src/component/Video.mjs": {
+    "local-reactive-tag": ["Video.url_"],
+    "missing-config-jsdoc": ["Video.baseCls","Video.className","Video.ntype","Video.url_"],
+    "static-config-order": ["Video.autoPlay"]
+  },
+  "src/component/wrapper/AmChart.mjs": {
+    "missing-config-jsdoc": ["AmChart.style"]
+  },
+  "src/component/wrapper/GoogleMaps.mjs": {
+    "compact-jsdoc-loss": ["GoogleMaps.center_"]
+  },
+  "src/component/wrapper/MapboxGL.mjs": {
+    "compact-jsdoc-loss": ["MapboxGL.center_"],
+    "local-reactive-tag": ["MapboxGL.mapboxStyle_"],
+    "static-config-order": ["MapboxGL.center_","MapboxGL.zoom_"]
+  },
+  "src/component/wrapper/MonacoEditor.mjs": {
+    "compact-jsdoc-loss": ["MonacoEditor.minimap_"],
+    "static-config-order": ["MonacoEditor.useThemeAwareness_"]
+  },
+  "src/component/wrapper/OpenStreetMaps.mjs": {
+    "compact-jsdoc-loss": ["OpenStreetMaps.center_"]
+  },
+  "src/container/Accordion.mjs": {
+    "local-reactive-tag": ["Accordion.expandedItems_","Accordion.initialOpen_","Accordion.title_"]
+  },
+  "src/container/AccordionItem.mjs": {
+    "local-reactive-tag": ["AccordionContainer.expanded_","AccordionContainer.iconCls_","AccordionContainer.title_"],
+    "static-config-order": ["AccordionContainer.arrowCls"]
+  },
+  "src/container/Base.mjs": {
+    "compact-jsdoc-loss": ["Container._vdom","Container.itemDefaults_","Container.layout_"]
+  },
+  "src/container/Panel.mjs": {
+    "compact-jsdoc-loss": ["Panel._layout"],
+    "static-config-order": ["Panel._layout"]
+  },
+  "src/controller/Base.mjs": {
+    "no-private-methods": ["Controller.#sortRoutes"]
+  },
+  "src/core/Base.mjs": {
+    "compact-jsdoc-loss": ["Base.asyncRejects","Base.remote_"]
+  },
+  "src/dashboard/Container.mjs": {
+    "compact-jsdoc-loss": ["Container.detachedItems"]
+  },
+  "src/dashboard/dock/Workspace.mjs": {
+    "compact-jsdoc-loss": ["Workspace.afterSetActivePerspective","Workspace.beforeSetActivePerspective","Workspace.declaredPaneItems","Workspace.dockLockIconCls","Workspace.dockPopOutIconCls","Workspace.dockRecreateInFlight","Workspace.dockReloadInFlight","Workspace.dockUnlockIconCls","Workspace.getNativeWindowOwnerWindowId","Workspace.getNativeWindowReturnPlacements","Workspace.getNativeWindowRoute","Workspace.paneDeclarations","Workspace.resetPerspective","Workspace.stateProvider"],
+    "static-config-order": ["Workspace.activePerspective_","Workspace.className","Workspace.dockActionTooltips_","Workspace.dockHeaderActionPolicy_","Workspace.dockLockIconCls","Workspace.dockParticipation","Workspace.dockPopOutIconCls","Workspace.enableDockHeaderActionsPlugin","Workspace.enableDockMaximizeAction","Workspace.enableDockPopOutAction","Workspace.nativeWindowClosePolicy"]
+  },
+  "src/dashboard/dock/interaction/DockSplitter.mjs": {
+    "static-config-order": ["DockSplitter.applyDockZoneOperation","DockSplitter.liveResize"]
+  },
+  "src/dashboard/dock/interaction/DropIndicators.mjs": {
+    "static-config-order": ["DropIndicators.activeCandidate_","DropIndicators.chipInset","DropIndicators.className"]
+  },
+  "src/dashboard/dock/interaction/PerspectiveSelection.mjs": {
+    "compact-jsdoc-loss": ["PerspectiveSelection.accept","PerspectiveSelection.committedName","PerspectiveSelection.connect","PerspectiveSelection.destroy","PerspectiveSelection.directName","PerspectiveSelection.document","PerspectiveSelection.documents","PerspectiveSelection.entry","PerspectiveSelection.groupId","PerspectiveSelection.identity","PerspectiveSelection.identityKey","PerspectiveSelection.manager","PerspectiveSelection.names","PerspectiveSelection.onIntent","PerspectiveSelection.project","PerspectiveSelection.registration","PerspectiveSelection.rejected","PerspectiveSelection.serial","PerspectiveSelection.sync","PerspectiveSelection.sync","PerspectiveSelection.workspaceKey"]
+  },
+  "src/dashboard/dock/interaction/PreviewProducer.mjs": {
+    "static-config-order": ["PreviewProducer.candidatesSchema","PreviewProducer.rootEdgeBandPx"]
+  },
+  "src/dashboard/dock/interaction/Rail.mjs": {
+    "static-config-order": ["Rail.applyDockZoneOperation","Rail.dockRevealLocked_","Rail.revealDismissGraceMs_"]
+  },
+  "src/dashboard/dock/interaction/RevealOverlay.mjs": {
+    "compact-jsdoc-loss": ["RevealOverlay.popOutIconCls"],
+    "static-config-order": ["RevealOverlay.pinTooltip","RevealOverlay.revealedItem_"]
+  },
+  "src/dashboard/dock/interaction/RevealStateMachine.mjs": {
+    "compact-jsdoc-loss": ["RevealStateMachine.DISMISS_GRACE_MS","RevealStateMachine.DWELL_MS","RevealStateMachine.className","RevealStateMachine.dwellMs_","RevealStateMachine.graceMs_","RevealStateMachine.onChange_","RevealStateMachine.pendingItemId","RevealStateMachine.revealOnHover_","RevealStateMachine.transitionController"],
+    "local-reactive-tag": ["RevealStateMachine.dwellMs_","RevealStateMachine.graceMs_","RevealStateMachine.onChange_","RevealStateMachine.revealOnHover_"]
+  },
+  "src/dashboard/dock/interaction/TabSortZone.mjs": {
+    "static-config-order": ["TabSortZone.className","TabSortZone.dockGroupNodeId","TabSortZone.dockReleaseTolerance","TabSortZone.enableCrossZoneDrag"]
+  },
+  "src/dashboard/dock/model/Authoring.mjs": {
+    "compact-jsdoc-loss": ["Authoring.defaultPerspectiveName"]
+  },
+  "src/dashboard/dock/model/Persistence.mjs": {
+    "compact-jsdoc-loss": ["Persistence.fallbackTargetKeys","Persistence.placementHintKeys","Persistence.topologyCollectionKeys","Persistence.topologyKeys","Persistence.unsafeRecordKeys"]
+  },
+  "src/dashboard/dock/model/PreviewContract.mjs": {
+    "compact-jsdoc-loss": ["PreviewContract.CHIP_EDGES","PreviewContract.VALID_PLACEMENT_KINDS"]
+  },
+  "src/dashboard/dock/model/TopologyReconciler.mjs": {
+    "compact-jsdoc-loss": ["TopologyReconciler.REASON_APPLY_ERROR","TopologyReconciler.REASON_NO_LIVE_WORKSPACE","TopologyReconciler.REASON_VALIDATION_FAILED"]
+  },
+  "src/dashboard/dock/persistence/PerspectiveLibrary.mjs": {
+    "static-config-order": ["PerspectiveLibrary.collection_","PerspectiveLibrary.declaredPerspectives"]
+  },
+  "src/dashboard/dock/persistence/TopologyLibrary.mjs": {
+    "compact-jsdoc-loss": ["TopologyLibrary.lastErrors"],
+    "no-private-methods": ["TopologyLibrary.#clearRetry","TopologyLibrary.#enqueue","TopologyLibrary.#refuse"],
+    "static-config-order": ["TopologyLibrary.declaredPerspectives"]
+  },
+  "src/dashboard/dock/plugin/Maximize.mjs": {
+    "compact-jsdoc-loss": ["Maximize.iconCls","Maximize.restoreIconCls"]
+  },
+  "src/dashboard/dock/projection/HeaderActionPolicy.mjs": {
+    "compact-jsdoc-loss": ["HeaderActionPolicy.lockDragState","HeaderActionPolicy.lockPaneState"]
+  },
+  "src/dashboard/dock/projection/PerspectiveState.mjs": {
+    "compact-jsdoc-loss": ["PerspectiveState.className"]
+  },
+  "src/dashboard/dock/window/DragTarget.mjs": {
+    "static-config-order": ["DragTarget.awaitDragEmbodiment","DragTarget.awaitPreviewable","DragTarget.previewFor"]
+  },
+  "src/dashboard/dock/window/Participation.mjs": {
+    "static-config-order": ["Participation.awaitDragEmbodiment","Participation.awaitPreviewable","Participation.clearPreview","Participation.getDocument","Participation.promoteDragEmbodiment","Participation.workspaceId"]
+  },
+  "src/dashboard/dock/window/Placement.mjs": {
+    "compact-jsdoc-loss": ["Placement.className","Placement.groupListeners","Placement.hints","Placement.listener","Placement.moveWindow","Placement.participant","Placement.pending","Placement.readGeometry","Placement.readScreen","Placement.receipts","Placement.revision"],
+    "no-private-methods": ["Placement.#ingest"],
+    "static-config-order": ["Placement.initialHints"]
+  },
+  "src/dashboard/dock/window/VesselEmbodiment.mjs": {
+    "compact-jsdoc-loss": ["VesselEmbodiment.records"]
+  },
+  "src/dashboard/dock/window/VesselPark.mjs": {
+    "compact-jsdoc-loss": ["VesselPark.className","VesselPark.generation","VesselPark.parked","VesselPark.parking","VesselPark.pendingRetirement","VesselPark.pendingTerminal","VesselPark.reshowing"]
+  },
+  "src/dashboard/dock/window/VesselPlaceholder.mjs": {
+    "compact-jsdoc-loss": ["VesselPlaceholder.isLoading"]
+  },
+  "src/dashboard/dock/window/WorkspaceSet.mjs": {
+    "compact-jsdoc-loss": ["WorkspaceSet.className"]
+  },
+  "src/data/Model.mjs": {
+    "compact-jsdoc-loss": ["Model.calculatedFieldsMap","Model.fieldsMap"]
+  },
+  "src/data/Pipeline.mjs": {
+    "compact-jsdoc-loss": ["Pipeline.globalInterceptorChain","Pipeline.globalInterceptorChange","Pipeline.interceptorChain","Pipeline.interceptorChange","Pipeline.interceptorConfigured","Pipeline.pushTail","Pipeline.readCacheChains","Pipeline.remoteConnectionPromise","Pipeline.remoteInitializationError"],
+    "static-config-order": ["Pipeline.logTelemetry"]
+  },
+  "src/data/RecordFactory.mjs": {
+    "compact-jsdoc-loss": ["RecordFactory.recordClasses","RecordFactory.recordWriteEpochs"],
+    "no-private-methods": ["RecordFactory.#bumpWriteEpoch"]
+  },
+  "src/data/Store.mjs": {
+    "compact-jsdoc-loss": ["Store.keyChanges","Store.resolvedModel","Store.streamingReads"],
+    "no-private-methods": ["Store.#isWritableRowField","Store.#loadRecords","Store.#notifyAs","Store.#reads","Store.#reapply"]
+  },
+  "src/data/TreeStore.mjs": {
+    "no-private-methods": ["TreeStore.#addChild","TreeStore.#rebuildKeysAndCount"]
+  },
+  "src/data/interceptor/Chain.mjs": {
+    "compact-jsdoc-loss": ["Chain.copyData","Chain.dispose","Chain.handlers","Chain.isPlainObject","Chain.registeredClass"],
+    "no-private-methods": ["Chain.#copyData","Chain.#dispose","Chain.#isPlainObject","Chain.#registeredClass"]
+  },
+  "src/desktop/AppWindow.mjs": {
+    "no-private-methods": ["AppWindow.#canPopOut"]
+  },
+  "src/desktop/Container.mjs": {
+    "compact-jsdoc-loss": ["Container.windowClass"]
+  },
+  "src/desktop/NativeReturnTarget.mjs": {
+    "missing-config-jsdoc": ["NativeReturnTarget.className"]
+  },
+  "src/desktop/WindowManager.mjs": {
+    "no-private-methods": ["WindowManager.#admits","WindowManager.#createWindow","WindowManager.#end","WindowManager.#keeps","WindowManager.#loadWindowClass","WindowManager.#loadWindowConfig","WindowManager.#offerMinimize","WindowManager.#onWindowHeaderAction","WindowManager.#onWindowHide","WindowManager.#rebind","WindowManager.#removeTasks","WindowManager.#restack","WindowManager.#syncMinimize","WindowManager.#taskOf","WindowManager.#ticket"]
+  },
+  "src/desktop/WindowTearOut.mjs": {
+    "compact-jsdoc-loss": ["WindowTearOut.destroy","WindowTearOut.detachTarget","WindowTearOut.failedAdmission","WindowTearOut.isClosed","WindowTearOut.releaseNativeReturn","WindowTearOut.restorePane","WindowTearOut.unhookTarget"],
+    "no-private-methods": ["WindowTearOut.#attach","WindowTearOut.#detachTarget","WindowTearOut.#failedAdmission","WindowTearOut.#isClosed","WindowTearOut.#observeClosure","WindowTearOut.#releaseNativeReturn","WindowTearOut.#restorePane","WindowTearOut.#retire","WindowTearOut.#unhookTarget"]
+  },
+  "src/desktop/store/Apps.mjs": {
+    "compact-jsdoc-loss": ["Apps.catalog"],
+    "no-private-methods": ["Apps.#orderOf"]
+  },
+  "src/dialog/Base.mjs": {
+    "compact-jsdoc-loss": ["Dialog.maximizeCls","Dialog.minimizeCls","Dialog.restoreCls"],
+    "no-private-methods": ["Dialog.#afterAnimation","Dialog.#fitToBoundary","Dialog.#geometry","Dialog.#hasArea","Dialog.#isGeometryHeld","Dialog.#releaseBoundaryObservation","Dialog.#syncBoundaryListener"]
+  },
+  "src/dialog/header/Toolbar.mjs": {
+    "local-reactive-tag": ["Toolbar.title_"]
+  },
+  "src/draggable/DragZone.mjs": {
+    "static-config-order": ["DragZone.dragElementRect","DragZone.dragProxyCls","DragZone.resizeConfig"]
+  },
+  "src/draggable/container/SortZone.mjs": {
+    "static-config-order": ["SortZone.dragFocusOwner","SortZone.itemStyles","SortZone.ownerStyle"]
+  },
+  "src/draggable/list/SortZone.mjs": {
+    "no-private-methods": ["SortZone.#place"]
+  },
+  "src/draggable/tab/header/toolbar/SortZone.mjs": {
+    "static-config-order": ["SortZone.dragHandleSelector"]
+  },
+  "src/draggable/tree/SortZone.mjs": {
+    "no-private-methods": ["SortZone.#getRecord","SortZone.#itemId","SortZone.#setItemCls","SortZone.#unmark"]
+  },
+  "src/filter/BooleanContainer.mjs": {
+    "compact-jsdoc-loss": ["BooleanContainer.layout"]
+  },
+  "src/filter/NumberContainer.mjs": {
+    "compact-jsdoc-loss": ["NumberContainer.layout"],
+    "static-config-order": ["NumberContainer.fieldConfig"]
+  },
+  "src/filter/ToggleOperatorsButton.mjs": {
+    "compact-jsdoc-loss": ["ToggleOperatorsButton.operators_"]
+  },
+  "src/form/Container.mjs": {
+    "compact-jsdoc-loss": ["Container.fieldDefaults_","Container.vdom"]
+  },
+  "src/form/Fieldset.mjs": {
+    "compact-jsdoc-loss": ["Fieldset.iconClsChecked_","Fieldset.iconClsUnchecked_"]
+  },
+  "src/form/field/Base.mjs": {
+    "no-private-methods": ["Field.#clearPendingFieldReferences","Field.#flushPendingFieldReferences","Field.#isCreatingItems","Field.#notifyPendingReferences","Field.#releasePendingParent","Field.#syncPendingReferenceObservers"],
+    "static-config-order": ["Field.isTouched_"]
+  },
+  "src/form/field/CheckBox.mjs": {
+    "compact-jsdoc-loss": ["CheckBox.labelIdSeparator_"]
+  },
+  "src/form/field/ComboBox.mjs": {
+    "no-private-methods": ["ComboBox.#destroyOwnedStore"]
+  },
+  "src/form/field/Date.mjs": {
+    "compact-jsdoc-loss": ["DateField.errorTextInvalidDate","DateField.triggers"],
+    "static-config-order": ["DateField.hidePickerOnSelect"]
+  },
+  "src/form/field/Email.mjs": {
+    "compact-jsdoc-loss": ["Email.errorTextValidEmail"]
+  },
+  "src/form/field/FileUpload.mjs": {
+    "local-reactive-tag": ["FileUpload.headers_","FileUpload.maxSize_","FileUpload.types_"],
+    "missing-config-jsdoc": ["FileUpload.chooseFile","FileUpload.documentDeleteError","FileUpload.documentStatusError","FileUpload.documentText","FileUpload.fileIsInAnErrorState","FileUpload.fileSizeMoreThan","FileUpload.fileWasDeleted","FileUpload.invalidFileFormat","FileUpload.isNoLongerAvailable","FileUpload.malwareFoundInFile","FileUpload.pleaseCheck","FileUpload.pleaseUseTheseTypes","FileUpload.scanning","FileUpload.successfullyUploaded","FileUpload.uploadError","FileUpload.uploadFailed","FileUpload.uploading"],
+    "static-config-order": ["FileUpload.chooseFile","FileUpload.documentDeleteError","FileUpload.documentDeleteMethod","FileUpload.documentDeleteUrl_","FileUpload.documentIdParameter","FileUpload.documentStatusError","FileUpload.documentStatusMap","FileUpload.documentStatusUrl_","FileUpload.document_","FileUpload.error_","FileUpload.fileIsInAnErrorState","FileUpload.fileSizeMoreThan","FileUpload.fileWasDeleted","FileUpload.headers_","FileUpload.malwareFoundInFile","FileUpload.maxSize_","FileUpload.scanning","FileUpload.uploadTransport_"]
+  },
+  "src/form/field/Number.mjs": {
+    "compact-jsdoc-loss": ["Number.triggerPositions"],
+    "local-reactive-tag": ["Number.triggerPosition_"]
+  },
+  "src/form/field/Select.mjs": {
+    "compact-jsdoc-loss": ["Select.errorTextMissing"]
+  },
+  "src/form/field/Switch.mjs": {
+    "compact-jsdoc-loss": ["Switch.baseCls"]
+  },
+  "src/form/field/Text.mjs": {
+    "compact-jsdoc-loss": ["Text.labelIdSeparator_","Text.labelOptionalText_"],
+    "local-reactive-tag": ["Text.autoCapitalize_"]
+  },
+  "src/form/field/TextArea.mjs": {
+    "compact-jsdoc-loss": ["TextArea.wrapValues"],
+    "local-reactive-tag": ["TextArea.autoGrow_"]
+  },
+  "src/form/field/Time.mjs": {
+    "compact-jsdoc-loss": ["Time.triggers"]
+  },
+  "src/form/field/ZipCode.mjs": {
+    "no-private-methods": ["ZipCode.#detachCountryField"]
+  },
+  "src/form/field/trigger/Base.mjs": {
+    "compact-jsdoc-loss": ["Base.alignValues"],
+    "local-reactive-tag": ["Base.field_"]
+  },
+  "src/form/field/trigger/Clear.mjs": {
+    "compact-jsdoc-loss": ["Clear.iconCls"]
+  },
+  "src/form/field/trigger/CopyToClipboard.mjs": {
+    "compact-jsdoc-loss": ["CopyToClipboard.iconCls"]
+  },
+  "src/form/field/trigger/Date.mjs": {
+    "compact-jsdoc-loss": ["DateTrigger.iconCls"]
+  },
+  "src/form/field/trigger/Picker.mjs": {
+    "compact-jsdoc-loss": ["Picker.iconCls"]
+  },
+  "src/form/field/trigger/Search.mjs": {
+    "compact-jsdoc-loss": ["Search.iconCls"]
+  },
+  "src/form/field/trigger/SpinDown.mjs": {
+    "compact-jsdoc-loss": ["SpinDown.iconCls"]
+  },
+  "src/form/field/trigger/SpinUp.mjs": {
+    "compact-jsdoc-loss": ["SpinUp.iconCls"]
+  },
+  "src/form/field/trigger/SpinUpDown.mjs": {
+    "compact-jsdoc-loss": ["SpinUpDown.spinButtonDownIconCls","SpinUpDown.spinButtonUpIconCls"]
+  },
+  "src/functional/component/Base.mjs": {
+    "static-config-order": ["FunctionalBase.ntype"]
+  },
+  "src/gantt/Cascade.mjs": {
+    "missing-config-jsdoc": ["Cascade.className"]
+  },
+  "src/gantt/CascadeMotion.mjs": {
+    "compact-jsdoc-loss": ["CascadeMotion.destroy"],
+    "no-private-methods": ["CascadeMotion.#paint","CascadeMotion.#step"]
+  },
+  "src/gantt/Column.mjs": {
+    "missing-config-jsdoc": ["Column.className"]
+  },
+  "src/gantt/Container.mjs": {
+    "compact-jsdoc-loss": ["Container.baseCls","Container.cascadeDependencies_","Container.className","Container.dependencyCreation_","Container.dependencyStore_","Container.motion","Container.ntype","Container.taskColumns_","Container.useWorkingTime_"],
+    "local-reactive-tag": ["Container.cascadeDependencies_","Container.dependencyCreation_","Container.dependencyStore_","Container.taskColumns_","Container.useWorkingTime_"],
+    "no-private-methods": ["Container.#ensureKeyboardLinkStatus","Container.#motion","Container.#moveCascade","Container.#publishServiceResult","Container.#publishTaskChange","Container.#setKeyboardLinkSource","Container.#usesService"],
+    "static-config-order": ["Container.barMarginPct"]
+  },
+  "src/gantt/DependencyLayer.mjs": {
+    "compact-jsdoc-loss": ["DependencyLayer.destroy","DependencyLayer.highlightedDependencySet","DependencyLayer.releaseOwnedInput"],
+    "redundant-vdom-div": ["DependencyLayer.config._vdom"],
+    "static-config-order": ["DependencyLayer.axisLeft_","DependencyLayer.dependencyStore_"]
+  },
+  "src/gantt/DependencyStore.mjs": {
+    "no-private-methods": ["DependencyStore.#clearEndpointIndex","DependencyStore.#ensureEndpointIndex","DependencyStore.#hasValidEndpointIndex","DependencyStore.#lookupEdges"]
+  },
+  "src/gantt/EventDragZone.mjs": {
+    "missing-config-jsdoc": ["GanttEventDragZone.className","GanttEventDragZone.moveInMainThread","GanttEventDragZone.useProxy"],
+    "static-config-order": ["GanttEventDragZone.moveInMainThread"]
+  },
+  "src/gantt/TaskStore.mjs": {
+    "compact-jsdoc-loss": ["TaskStore.getBookingRecords","TaskStore.onBookingMutation","TaskStore.onBookingRecordChange","TaskStore.onBookingRowsChange","TaskStore.onBookingSourceMutate","TaskStore.onBookingUpdateKey","TaskStore.rollupParents_"],
+    "local-reactive-tag": ["TaskStore.rollupParents_"],
+    "no-private-methods": ["TaskStore.#getBookingRecords","TaskStore.#summary"]
+  },
+  "src/grid/Body.mjs": {
+    "static-config-order": ["GridBody.columnPositions_","GridBody.useInternalId","GridBody.useRowRecordIds"]
+  },
+  "src/grid/Container.mjs": {
+    "compact-jsdoc-loss": ["GridContainer.body_","GridContainer.layout","GridContainer.syncSearchToolbar"],
+    "static-config-order": ["GridContainer.cellEditing_","GridContainer.headerToolbar_","GridContainer.responsiveLockPolicy_"]
+  },
+  "src/grid/HorizontalScrollbar.mjs": {
+    "local-reactive-tag": ["HorizontalScrollbar.centerWidth_","HorizontalScrollbar.endWidth_","HorizontalScrollbar.startWidth_"]
+  },
+  "src/grid/Row.mjs": {
+    "compact-jsdoc-loss": ["Row._vdom"]
+  },
+  "src/grid/ScrollManager.mjs": {
+    "compact-jsdoc-loss": ["ScrollManager.horizontalScrollFollowerIds"],
+    "no-private-methods": ["ScrollManager.#setBodyScrolling"]
+  },
+  "src/grid/SearchToolbar.mjs": {
+    "compact-jsdoc-loss": ["SearchToolbar.baseCls","SearchToolbar.className","SearchToolbar.getFieldLabel","SearchToolbar.getScopeKey","SearchToolbar.getScopeLabel","SearchToolbar.gridContainer_","SearchToolbar.ntype","SearchToolbar.refusal","SearchToolbar.store_","SearchToolbar.syncing"],
+    "local-reactive-tag": ["SearchToolbar.gridContainer_","SearchToolbar.store_"],
+    "static-config-order": ["SearchToolbar.fieldText_","SearchToolbar.gridContainer_"]
+  },
+  "src/grid/View.mjs": {
+    "compact-jsdoc-loss": ["View.baseCls","View.layout"],
+    "no-private-methods": ["View.#alignedScrollTop","View.#changeRowHeights","View.#correctScrollTop","View.#isShown","View.#pageScroll","View.#pendingDistance","View.#queueCorrection","View.#showsText"],
+    "static-config-order": ["View.gridContainer","View.selectedRecordField"]
+  },
+  "src/grid/column/AnimatedChange.mjs": {
+    "compact-jsdoc-loss": ["AnimatedChange.marks"]
+  },
+  "src/grid/column/AnimatedCurrency.mjs": {
+    "static-config-order": ["AnimatedCurrency.compareField"]
+  },
+  "src/grid/column/Base.mjs": {
+    "local-reactive-tag": ["Column.hideMode_"]
+  },
+  "src/grid/column/Currency.mjs": {
+    "static-config-order": ["Currency.currency"]
+  },
+  "src/grid/column/Icon.mjs": {
+    "static-config-order": ["Icon.cellIconCls"]
+  },
+  "src/grid/column/IconLink.mjs": {
+    "static-config-order": ["IconLink.cellIconCls"]
+  },
+  "src/grid/column/LinkedIn.mjs": {
+    "compact-jsdoc-loss": ["LinkedIn.cellIconCls"],
+    "static-config-order": ["LinkedIn.cellIconCls"]
+  },
+  "src/grid/column/component/CountryFlag.mjs": {
+    "local-reactive-tag": ["CountryFlag.countryCode_","CountryFlag.location_","CountryFlag.resolveCountryCode_"]
+  },
+  "src/grid/column/component/GitHubOrgs.mjs": {
+    "local-reactive-tag": ["GitHubOrgs.maxItems_","GitHubOrgs.orgs_","GitHubOrgs.renderFullPool_"]
+  },
+  "src/grid/column/component/GitHubUser.mjs": {
+    "local-reactive-tag": ["GitHubUser.avatarUrl_","GitHubUser.fullName_","GitHubUser.username_"]
+  },
+  "src/grid/footer/Toolbar.mjs": {
+    "compact-jsdoc-loss": ["GridFooterToolbar.baseCls"]
+  },
+  "src/grid/header/Button.mjs": {
+    "compact-jsdoc-loss": ["Button.columnMenuSerial","Button.getVdomRoot","Button.getVnodeRoot","Button.headerFilterReady","Button.iconCls","Button.menuRootWrapped"],
+    "redundant-vdom-div": ["Button.wrapColumnMenuRoot._vdom"],
+    "static-config-order": ["Button.columnMenu_"]
+  },
+  "src/grid/header/Toolbar.mjs": {
+    "compact-jsdoc-loss": ["Toolbar.itemDefaults"]
+  },
+  "src/grid/header/plugin/Menu.mjs": {
+    "compact-jsdoc-loss": ["Menu.className","Menu.close","Menu.closeHint","Menu.dateFormatters","Menu.destroy","Menu.domListeners","Menu.generation","Menu.getTriggerGlyph","Menu.getTriggerLabel","Menu.hintTarget","Menu.keyPrefix","Menu.labelCollator","Menu.ntype","Menu.onContextMenu","Menu.onHeaderKeyDown","Menu.onOutsidePointer","Menu.onSurfaceKeyDown","Menu.openHint","Menu.openSerial","Menu.optionsStore","Menu.outsideListener","Menu.outsideOwner","Menu.prepared","Menu.queued","Menu.refused","Menu.releaseField","Menu.releaseFiltered","Menu.releaseFilters","Menu.releaseStore","Menu.showRefusal","Menu.store","Menu.surface","Menu.syncOutsideListener","Menu.trigger","Menu.valuePicker","Menu.values"]
+  },
+  "src/layout/Base.mjs": {
+    "static-config-order": ["Layout.containerCls_"]
+  },
+  "src/layout/Card.mjs": {
+    "compact-jsdoc-loss": ["Card.loadParticipants","Card.loadingModules","Card.loadingModulesById"],
+    "local-reactive-tag": ["Card.activeIndex_","Card.slideDirection_"],
+    "missing-config-jsdoc": ["Card.activeIndex_","Card.removeInactiveCards","Card.slideDirection_"],
+    "no-private-methods": ["Card.#loadModuleOnce"]
+  },
+  "src/list/Base.mjs": {
+    "static-config-order": ["List.itemsFocusable","List.useHeaders_"]
+  },
+  "src/list/ValuePicker.mjs": {
+    "compact-jsdoc-loss": ["ValuePicker.baseCls"],
+    "static-config-order": ["ValuePicker.role"]
+  },
+  "src/list/plugin/Animate.mjs": {
+    "static-config-order": ["Animate.measuredRowHeight"]
+  },
+  "src/list/plugin/ItemEditing.mjs": {
+    "no-private-methods": ["ItemEditing.#endEdit","ItemEditing.#getItemNode"]
+  },
+  "src/main/DomEvents.mjs": {
+    "static-config-order": ["DomEvents.remote"]
+  },
+  "src/main/addon/Base.mjs": {
+    "no-private-methods": ["Base.#executeLoadFiles","Base.#processCachedMethodCalls"]
+  },
+  "src/main/addon/CesiumJS.mjs": {
+    "missing-config-jsdoc": ["CesiumJS.interceptRemotes"]
+  },
+  "src/main/addon/Clipboard.mjs": {
+    "compact-jsdoc-loss": ["Clipboard.handledEvents","Clipboard.nodes","Clipboard.pendingWrites","Clipboard.registrationTokens","Clipboard.targets"]
+  },
+  "src/main/addon/CloneNode.mjs": {
+    "compact-jsdoc-loss": ["CloneNode.remote"]
+  },
+  "src/main/addon/Cookie.mjs": {
+    "compact-jsdoc-loss": ["Cookie.remote"]
+  },
+  "src/main/addon/DockFlip.mjs": {
+    "compact-jsdoc-loss": ["DockFlip.remote"],
+    "no-private-methods": ["DockFlip.#land","DockFlip.#nextFrame"]
+  },
+  "src/main/addon/DragDrop.mjs": {
+    "static-config-order": ["DragDrop.dragCancelled","DragDrop.dragProxyCls","DragDrop.dropZoneIdentifier"]
+  },
+  "src/main/addon/FileDownload.mjs": {
+    "compact-jsdoc-loss": ["FileDownload.remote"]
+  },
+  "src/main/addon/GridDragScroll.mjs": {
+    "compact-jsdoc-loss": ["GridDragScroll.registrations"]
+  },
+  "src/main/addon/GridHorizontalScrollSync.mjs": {
+    "compact-jsdoc-loss": ["GridHorizontalScrollSync.nodes","GridHorizontalScrollSync.registrations"]
+  },
+  "src/main/addon/GridRowHoverSync.mjs": {
+    "compact-jsdoc-loss": ["GridRowHoverSync.registrations"]
+  },
+  "src/main/addon/GridRowScrollPinning.mjs": {
+    "compact-jsdoc-loss": ["GridRowScrollPinning.registrations"]
+  },
+  "src/main/addon/HighlightJS.mjs": {
+    "static-config-order": ["HighlightJS.highlightJsLineNumbersPath"]
+  },
+  "src/main/addon/InputModality.mjs": {
+    "static-config-order": ["InputModality.className"]
+  },
+  "src/main/addon/LocalStorage.mjs": {
+    "compact-jsdoc-loss": ["LocalStorage.remote"]
+  },
+  "src/main/addon/MainThreadBlocker.mjs": {
+    "compact-jsdoc-loss": ["MainThreadBlocker.remote"]
+  },
+  "src/main/addon/Markdown.mjs": {
+    "compact-jsdoc-loss": ["Markdown.remote"]
+  },
+  "src/main/addon/Mermaid.mjs": {
+    "compact-jsdoc-loss": ["Mermaid.pendingRenders"]
+  },
+  "src/main/addon/NativeDragSource.mjs": {
+    "compact-jsdoc-loss": ["NativeDragSource.sources"]
+  },
+  "src/main/addon/Navigator.mjs": {
+    "compact-jsdoc-loss": ["Navigator.remote"]
+  },
+  "src/main/addon/OpenStreetMaps.mjs": {
+    "missing-config-jsdoc": ["OpenStreetMaps.interceptRemotes"]
+  },
+  "src/main/addon/Popover.mjs": {
+    "compact-jsdoc-loss": ["Popover.remote"]
+  },
+  "src/main/addon/PrefixField.mjs": {
+    "compact-jsdoc-loss": ["PrefixField.fields"]
+  },
+  "src/main/addon/ResizeObserver.mjs": {
+    "compact-jsdoc-loss": ["NeoResizeObserver.lastDispatchedSize","NeoResizeObserver.pendingEntries","NeoResizeObserver.targetIds"],
+    "static-config-order": ["NeoResizeObserver.hiddenPollInterval"]
+  },
+  "src/main/addon/ScrollSync.mjs": {
+    "compact-jsdoc-loss": ["ScrollSync.coordinatingNodes","ScrollSync.registrations","ScrollSync.sources"]
+  },
+  "src/main/addon/Stylesheet.mjs": {
+    "compact-jsdoc-loss": ["Stylesheet.remote"]
+  },
+  "src/main/draggable/sensor/Pointer.mjs": {
+    "static-config-order": ["Pointer.pointerDownTime"]
+  },
+  "src/manager/ClassHierarchy.mjs": {
+    "compact-jsdoc-loss": ["ClassHierarchy.isAQueryMap"]
+  },
+  "src/manager/Component.mjs": {
+    "compact-jsdoc-loss": ["Component.childMap","Component.ownerMap","Component.wrapperNodes"]
+  },
+  "src/manager/DomEvent.mjs": {
+    "compact-jsdoc-loss": ["DomEvent.bodyListenerOwners"]
+  },
+  "src/manager/DragCoordinator.mjs": {
+    "compact-jsdoc-loss": ["DragCoordinator.nativeClaimArbiters","DragCoordinator.nativeHoverTargets","DragCoordinator.nativeWindowDropCandidates","DragCoordinator.nativeWindowOrigins","DragCoordinator.sortZones"],
+    "static-config-order": ["DragCoordinator.nativeWindowDispositionRetryMs","DragCoordinator.nativeWindowDropAnchorInset","DragCoordinator.nativeWindowDropDwellMs","DragCoordinator.nativeWindowParkRetryLimit","DragCoordinator.nativeWindowRetireRetryLimit"]
+  },
+  "src/manager/Transaction.mjs": {
+    "compact-jsdoc-loss": ["Transaction.leaseTimers","Transaction.pendingAdmissions"],
+    "static-config-order": ["Transaction.historyDepth_"]
+  },
+  "src/manager/VDomUpdate.mjs": {
+    "compact-jsdoc-loss": ["VDomUpdate.awaitingCollectionSet","VDomUpdate.descendantInFlightMap","VDomUpdate.preUpdateMap","VDomUpdate.watchdogTimerMap"],
+    "no-private-methods": ["VDomUpdate.#armWatchdog","VDomUpdate.#detachClaimedCallbacks","VDomUpdate.#settlePromiseCallbacks"]
+  },
+  "src/menu/List.mjs": {
+    "no-private-methods": ["List.#bindSource","List.#hideOrphanedSubMenu","List.#releaseSource"],
+    "static-config-order": ["List.isRoot"]
+  },
+  "src/menu/Model.mjs": {
+    "static-config-order": ["Model.fields"]
+  },
+  "src/menu/ThemeSwitcher.mjs": {
+    "compact-jsdoc-loss": ["ThemeSwitcher.pointer"]
+  },
+  "src/plugin/HeaderFilter.mjs": {
+    "compact-jsdoc-loss": ["HeaderFilter.className","HeaderFilter.container","HeaderFilter.containerCleanup","HeaderFilter.filtersCleanup","HeaderFilter.ntype","HeaderFilter.ownerCleanups","HeaderFilter.store"],
+    "no-private-methods": ["HeaderFilter.#releaseStore"]
+  },
+  "src/plugin/Popover.mjs": {
+    "local-reactive-tag": ["Popover.align_"]
+  },
+  "src/plugin/PrefixField.mjs": {
+    "static-config-order": ["PrefixField.accept_"]
+  },
+  "src/plugin/Responsive.mjs": {
+    "static-config-order": ["Responsive.defaultResponsiveConfig"]
+  },
+  "src/scheduler/Container.mjs": {
+    "static-config-order": ["Container.barCls_"]
+  },
+  "src/selection/grid/BaseModel.mjs": {
+    "no-private-methods": ["BaseModel.#getItemLookup"]
+  },
+  "src/sitemap/Model.mjs": {
+    "missing-config-jsdoc": ["Model.className","Model.fields"]
+  },
+  "src/sitemap/Store.mjs": {
+    "missing-config-jsdoc": ["Store.className","Store.model"]
+  },
+  "src/state/Provider.mjs": {
+    "compact-jsdoc-loss": ["Provider.bindingEffects","Provider.dataKeyVersion","Provider.formulaEffects","Provider.ownedStores","Provider.recordDataBindings"],
+    "no-private-methods": ["Provider.#bindRecordData","Provider.#clearRecordDataBindings","Provider.#collectTopLevelDataKeys","Provider.#createDataConfig","Provider.#findDataOwner","Provider.#onRecordDataChange","Provider.#setConfigValue","Provider.#syncRecordDataFields","Provider.#syncRecordDataValue","Provider.#syncRecordParentPath","Provider.#unbindRecordData"]
+  },
+  "src/tab/Container.mjs": {
+    "static-config-order": ["Container.activateInsertedTabs","Container.activeIndex_","Container.headerActions_","Container.tabBarPosition_"]
+  },
+  "src/tab/Strip.mjs": {
+    "compact-jsdoc-loss": ["Strip._vdom"]
+  },
+  "src/tab/header/Button.mjs": {
+    "compact-jsdoc-loss": ["Button.closeText_"]
+  },
+  "src/tab/header/EffectButton.mjs": {
+    "compact-jsdoc-loss": ["EffectTabButton.baseCls","EffectTabButton.closeText_"]
+  },
+  "src/tab/header/Toolbar.mjs": {
+    "static-config-order": ["Toolbar.className"]
+  },
+  "src/tab/plugin/Overflow.mjs": {
+    "compact-jsdoc-loss": ["Overflow.buttonCaps"]
+  },
+  "src/table/Body.mjs": {
+    "compact-jsdoc-loss": ["TableBody._vdom"],
+    "static-config-order": ["TableBody.selectedRecordField","TableBody.useInternalId"]
+  },
+  "src/table/Container.mjs": {
+    "compact-jsdoc-loss": ["Container._vdom"],
+    "static-config-order": ["Container.items","Container.store_"]
+  },
+  "src/table/header/Button.mjs": {
+    "compact-jsdoc-loss": ["Button.headerFilterReady","Button.iconCls"]
+  },
+  "src/table/header/Toolbar.mjs": {
+    "compact-jsdoc-loss": ["Toolbar.itemDefaults"],
+    "static-config-order": ["Toolbar.itemDefaults"]
+  },
+  "src/timeline/Column.mjs": {
+    "compact-jsdoc-loss": ["Column.highlightedRecordSet"],
+    "static-config-order": ["Column.barCls_","Column.dataField"]
+  },
+  "src/timeline/EventEditor.mjs": {
+    "compact-jsdoc-loss": ["EventEditor.fieldMap","EventEditor.headerConfig","EventEditor.title"],
+    "no-private-methods": ["EventEditor.#focusBar"]
+  },
+  "src/timeline/TimeAxis.mjs": {
+    "no-private-methods": ["TimeAxis.#instant"]
+  },
+  "src/toolbar/Base.mjs": {
+    "compact-jsdoc-loss": ["Toolbar.actionMap_","Toolbar.dockPositions","Toolbar.layout"],
+    "static-config-order": ["Toolbar.actionDefaults","Toolbar.className"]
+  },
+  "src/toolbar/Breadcrumb.mjs": {
+    "compact-jsdoc-loss": ["Breadcrumb.itemDefaults"]
+  },
+  "src/toolbar/Paging.mjs": {
+    "static-config-order": ["Paging.items"]
+  },
+  "src/tree/Accordion.mjs": {
+    "local-reactive-tag": ["AccordionTree.firstParentIsVisible_","AccordionTree.rootParentsAreCollapsible_","AccordionTree.selection_","AccordionTree.showIcon_"],
+    "static-config-order": ["AccordionTree.showCollapseExpandAllIcons"]
+  },
+  "src/tree/List.mjs": {
+    "no-private-methods": ["Tree.#setFolderOpen"],
+    "static-config-order": ["Tree.saveScrollPosition"]
+  },
+  "src/util/Date.mjs": {
+    "compact-jsdoc-loss": ["DateUtil.dayNameFormats","DateUtil.monthNameFormats","DateUtil.weekStartDays"]
+  },
+  "src/util/Logger.mjs": {
+    "local-reactive-tag": ["Logger.level_"]
+  },
+  "src/util/Performance.mjs": {
+    "compact-jsdoc-loss": ["Performance.data","Performance.remote"]
+  },
+  "src/util/vdom/TreeBuilder.mjs": {
+    "no-private-methods": ["TreeBuilder.#buildTree"]
+  },
+  "src/worker/CanvasGroups.mjs": {
+    "compact-jsdoc-loss": ["CanvasGroups.groups","CanvasGroups.pending","CanvasGroups.retired","CanvasGroups.windows"]
+  },
+  "src/worker/HiddenTick.mjs": {
+    "compact-jsdoc-loss": ["HiddenTick.timers"]
+  },
+  "src/worker/Manager.mjs": {
+    "compact-jsdoc-loss": ["Manager.mixins"],
+    "static-config-order": ["Manager.applicationLoaded","Manager.topologyIdentityStorageKey"]
+  },
+  "src/worker/ServiceBase.mjs": {
+    "compact-jsdoc-loss": ["ServiceBase.remote"]
+  }
+}

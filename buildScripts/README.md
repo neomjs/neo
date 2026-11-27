@@ -145,6 +145,14 @@ development workflow, which loads native ES modules directly from the file serve
 
 Internal shared libraries used by the scripts above.
 
+Run `npm run check-coding-guidelines` to check tracked modules under `src`, `apps`, `examples` and
+`docs/app` against the [coding guidelines](../.github/CODING_GUIDELINES.md). Diagnostics identify
+the source location and rule. New findings fail the check. Remove repaired findings from
+`util/check-coding-guidelines-baseline.json` in the same commit. Staged and PR checks verify that
+any added baseline occurrence already exists in the source at the base revision. Syntax diagnostics
+belong to `check-parse.mjs`. An explicit full remeasurement with `--write-baseline` requires all
+scanned files to parse, so a syntax error cannot erase known findings.
+
 - `copyFile.mjs` / `copyFolder.mjs`: File system operations.
 - `measure-esm-vs-bundled.mjs`: Reproducible HTTP/2 and HTTP/3 `dist/esm`, `dist/production`, and `esbuild --splitting` measurement harness.
 - `minifyFile.mjs` / `minifyHtml.mjs`: Terser/HTMLMinifier wrappers.
