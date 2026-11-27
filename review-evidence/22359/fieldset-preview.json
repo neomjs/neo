@@ -1,0 +1,100 @@
+{
+  "origin": "examples/form/checkout/index.html",
+  "css": "@layer neo.base {\n    [class*=\"neo-theme-\"] {\n        --neo-fieldset-background-color:var(--neo-color-background-surface-raised);\n        --neo-fieldset-border:var(--neo-border-width-thin) solid var(--neo-color-border-default);\n        --neo-fieldset-legend-color:var(--neo-color-text-accent);\n        --neo-fieldset-legend-icon-color:var(--neo-color-text-accent);\n    }\n}",
+  "preview": "In-memory stylesheet on one isolated page",
+  "modes": {
+    "light": {
+      "current": [
+        {
+          "tag": "FIELDSET",
+          "legendTag": "LEGEND",
+          "legend": "Shipping address",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "0px none rgb(0, 0, 0)",
+          "legendColor": "rgb(0, 0, 0)",
+          "iconColor": "rgb(0, 0, 0)",
+          "iconToken": ""
+        },
+        {
+          "tag": "FIELDSET",
+          "legendTag": "LEGEND",
+          "legend": "Payment",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "0px none rgb(0, 0, 0)",
+          "legendColor": "rgb(0, 0, 0)",
+          "iconColor": "rgb(0, 0, 0)",
+          "iconToken": ""
+        }
+      ],
+      "planned": [
+        {
+          "tag": "FIELDSET",
+          "legendTag": "LEGEND",
+          "legend": "Shipping address",
+          "background": "oklch(0.954 0.015 312.6)",
+          "border": "1px solid oklch(0.835 0.012 313.3)",
+          "legendColor": "oklch(0.496 0.13 293.7)",
+          "iconColor": "oklch(0.496 0.13 293.7)",
+          "iconToken": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))"
+        },
+        {
+          "tag": "FIELDSET",
+          "legendTag": "LEGEND",
+          "legend": "Payment",
+          "background": "oklch(0.954 0.015 312.6)",
+          "border": "1px solid oklch(0.835 0.012 313.3)",
+          "legendColor": "oklch(0.496 0.13 293.7)",
+          "iconColor": "oklch(0.496 0.13 293.7)",
+          "iconToken": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))"
+        }
+      ]
+    },
+    "dark": {
+      "current": [
+        {
+          "tag": "FIELDSET",
+          "legendTag": "LEGEND",
+          "legend": "Shipping address",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "0px none rgb(255, 255, 255)",
+          "legendColor": "rgb(255, 255, 255)",
+          "iconColor": "rgb(255, 255, 255)",
+          "iconToken": ""
+        },
+        {
+          "tag": "FIELDSET",
+          "legendTag": "LEGEND",
+          "legend": "Payment",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "0px none rgb(255, 255, 255)",
+          "legendColor": "rgb(255, 255, 255)",
+          "iconColor": "rgb(255, 255, 255)",
+          "iconToken": ""
+        }
+      ],
+      "planned": [
+        {
+          "tag": "FIELDSET",
+          "legendTag": "LEGEND",
+          "legend": "Shipping address",
+          "background": "oklch(0.286 0.013 298.7)",
+          "border": "1px solid oklch(0.405 0.01 301.4)",
+          "legendColor": "oklch(0.835 0.095 298)",
+          "iconColor": "oklch(0.835 0.095 298)",
+          "iconToken": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))"
+        },
+        {
+          "tag": "FIELDSET",
+          "legendTag": "LEGEND",
+          "legend": "Payment",
+          "background": "oklch(0.286 0.013 298.7)",
+          "border": "1px solid oklch(0.405 0.01 301.4)",
+          "legendColor": "oklch(0.835 0.095 298)",
+          "iconColor": "oklch(0.835 0.095 298)",
+          "iconToken": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))"
+        }
+      ]
+    }
+  },
+  "browser": "158.0.8127.38"
+}
