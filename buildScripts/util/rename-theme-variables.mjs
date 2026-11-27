@@ -224,9 +224,98 @@ function skipJsQuoted(source, start) {
 }
 
 /**
+ * @summary Advances past JavaScript whitespace, `//` line comments, and `/* ... *\/` block comments starting at `pos`.
+ * @param {String} source
+ * @param {Number} pos
+ * @returns {Number}
+ */
+function skipWsAndComments(source, pos) {
+    let cursor = pos;
+
+    while (cursor < source.length) {
+        const ch = source[cursor];
+
+        if (/\s/.test(ch)) {
+            cursor++;
+            continue
+        }
+
+        if (ch === '/' && source[cursor + 1] === '/') {
+            cursor += 2;
+            while (cursor < source.length && source[cursor] !== '\n') cursor++;
+            continue
+        }
+
+        if (ch === '/' && source[cursor + 1] === '*') {
+            cursor += 2;
+            while (cursor < source.length && !(source[cursor] === '*' && source[cursor + 1] === '/')) cursor++;
+            cursor = Math.min(source.length, cursor + 2);
+            continue
+        }
+
+        break
+    }
+
+    return cursor
+}
+
+/**
+ * @summary Matches an object-literal `key` property name (`key`, `'key'`, `"key"`, `` `key` ``, or `['key']`) at `pos`,
+ * allowing comments and whitespace before and after `:` (`key: /* note *\/ 'button-background-color'`).
+ * @param {String} source
+ * @param {Number} pos
+ * @returns {Number} Index of the value token after `:`, or `-1` when `pos` does not start a `key:` property.
+ */
+function matchKeyPropertyValueStart(source, pos) {
+    let cursor = pos;
+
+    if (/^key(?![A-Za-z0-9_$])/.test(source.slice(cursor))) {
+        cursor += 3
+    } else if (source[cursor] === "'" || source[cursor] === '"' || source[cursor] === '`') {
+        const {end, hasInterpolation} = skipJsQuoted(source, cursor);
+
+        if (hasInterpolation || source.slice(cursor + 1, end - 1) !== 'key') {
+            return -1
+        }
+
+        cursor = end
+    } else if (source[cursor] === '[') {
+        const inner = skipWsAndComments(source, cursor + 1);
+
+        if (source[inner] !== "'" && source[inner] !== '"' && source[inner] !== '`') {
+            return -1
+        }
+
+        const {end, hasInterpolation} = skipJsQuoted(source, inner);
+
+        if (hasInterpolation || source.slice(inner + 1, end - 1) !== 'key') {
+            return -1
+        }
+
+        const closeBracket = skipWsAndComments(source, end);
+
+        if (source[closeBracket] !== ']') {
+            return -1
+        }
+
+        cursor = closeBracket + 1
+    } else {
+        return -1
+    }
+
+    const colonIdx = skipWsAndComments(source, cursor);
+
+    if (source[colonIdx] !== ':') {
+        return -1
+    }
+
+    return skipWsAndComments(source, colonIdx + 1)
+}
+
+/**
  * @summary Scans `.mjs` source for `setCssVariable({...})` calls using balanced brace/quote/comment tracking,
- * extracting top-level `key:` properties regardless of property order or nested object literals
- * (e.g. `setCssVariable({value: compute({r: 1}), key: 'button-background-color'})`).
+ * extracting top-level `key:` properties regardless of property order, inline comments (`key: /* note *\/ '...'`),
+ * or nested object literals (e.g. `setCssVariable({value: compute({r: 1}), key: 'button-background-color'})`).
  * @param {String} source
  * @returns {Array<{contentEnd?: Number, contentStart?: Number, key?: String, kind: 'literal'|'template'|'expression', line: Number, raw: String}>}
  */
@@ -234,7 +323,7 @@ export function scanSetCssVariableCalls(source) {
     const
         calls  = [],
         lineOf = createLineLocator(source),
-        callRe = /\bsetCssVariable\s*\(\s*\{/y;
+        callRe = /(?<![A-Za-z0-9_$])setCssVariable(?![A-Za-z0-9_$])/y;
 
     let i = 0;
 
@@ -268,65 +357,95 @@ export function scanSetCssVariableCalls(source) {
             continue
         }
 
+        const openParen = skipWsAndComments(source, callRe.lastIndex);
+
+        if (source[openParen] !== '(') {
+            i = callRe.lastIndex;
+            continue
+        }
+
+        const openBrace = skipWsAndComments(source, openParen + 1);
+
+        if (source[openBrace] !== '{') {
+            i = openParen + 1;
+            continue
+        }
+
         // Walk the balanced `{ ... }` config object passed to `setCssVariable(`
-        let cursor       = callRe.lastIndex,
+        let cursor       = openBrace + 1,
             braceDepth   = 1,
             parenDepth   = 0,
             bracketDepth = 0,
             expectProp   = true;
 
         while (cursor < source.length && braceDepth > 0) {
+            const nextToken = skipWsAndComments(source, cursor);
+
+            if (nextToken !== cursor) {
+                cursor = nextToken;
+                continue
+            }
+
             const c = source[cursor];
 
-            if (/\s/.test(c)) {
-                cursor++;
-                continue
-            }
-
-            if (c === '/' && source[cursor + 1] === '/') {
-                while (cursor < source.length && source[cursor] !== '\n') cursor++;
-                continue
-            }
-
-            if (c === '/' && source[cursor + 1] === '*') {
-                cursor += 2;
-                while (cursor < source.length && !(source[cursor] === '*' && source[cursor + 1] === '/')) cursor++;
-                cursor += 2;
-                continue
-            }
-
             if (braceDepth === 1 && parenDepth === 0 && bracketDepth === 0 && expectProp) {
-                const propMatch = /^(?:(['"])key\1|key)\s*:\s*/.exec(source.slice(cursor));
+                const valStart = matchKeyPropertyValueStart(source, cursor);
 
-                if (propMatch) {
+                if (valStart !== -1) {
+                    let litStart      = valStart,
+                        parenWrappers = 0;
+
+                    while (source[litStart] === '(') {
+                        parenWrappers++;
+                        litStart = skipWsAndComments(source, litStart + 1)
+                    }
+
                     const
-                        valStart = cursor + propMatch[0].length,
-                        valLine  = lineOf(valStart),
-                        first    = source[valStart];
+                        valLine = lineOf(litStart < source.length ? litStart : valStart),
+                        first   = source[litStart];
 
                     if (first === "'" || first === '"' || first === '`') {
-                        const {end, hasInterpolation} = skipJsQuoted(source, valStart),
-                              raw                     = source.slice(valStart, end),
-                              inner                   = source.slice(valStart + 1, end - 1);
+                        const {end, hasInterpolation} = skipJsQuoted(source, litStart);
+                        let   afterLit                = end,
+                            unwrapped = true;
 
-                        if (first === '`' && hasInterpolation) {
-                            calls.push({kind: 'template', line: valLine, raw})
-                        } else if (!inner.includes('\\')) {
-                            calls.push({
-                                contentEnd  : end - 1,
-                                contentStart: valStart + 1,
-                                key         : inner,
-                                kind        : 'literal',
-                                line        : valLine,
-                                raw
-                            })
-                        } else {
-                            calls.push({kind: 'expression', line: valLine, raw})
+                        for (let p = 0; p < parenWrappers; p++) {
+                            const closeP = skipWsAndComments(source, afterLit);
+
+                            if (source[closeP] !== ')') {
+                                unwrapped = false;
+                                break
+                            }
+
+                            afterLit = closeP + 1
                         }
 
-                        cursor     = end;
-                        expectProp = false;
-                        continue
+                        const nextDelim = skipWsAndComments(source, afterLit);
+
+                        if (unwrapped && (nextDelim >= source.length || source[nextDelim] === ',' || source[nextDelim] === '}')) {
+                            const
+                                raw   = source.slice(litStart, end),
+                                inner = source.slice(litStart + 1, end - 1);
+
+                            if (first === '`' && hasInterpolation) {
+                                calls.push({kind: 'template', line: valLine, raw})
+                            } else if (!inner.includes('\\')) {
+                                calls.push({
+                                    contentEnd  : end - 1,
+                                    contentStart: litStart + 1,
+                                    key         : inner,
+                                    kind        : 'literal',
+                                    line        : valLine,
+                                    raw
+                                })
+                            } else {
+                                calls.push({kind: 'expression', line: valLine, raw})
+                            }
+
+                            cursor     = afterLit;
+                            expectProp = false;
+                            continue
+                        }
                     }
 
                     // Non-string expression up to top-level `,` or closing `}`
@@ -480,13 +599,31 @@ export function collectTargetFiles(root, resolvedMapPath) {
 export function loadRenameMap(mapPath = defaultMapPath, {root} = {}) {
     const
         resolvedMapPath = assertExistingFile(mapPath),
-        parsed          = JSON.parse(fs.readFileSync(resolvedMapPath, 'utf8')),
-        rules           = parsed?.rules || {},
-        raw             = parsed?.entries || {},
-        entries         = new Map(),
-        targets         = new Map();
+        parsed          = JSON.parse(fs.readFileSync(resolvedMapPath, 'utf8'));
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error(`Invalid rename map JSON in "${resolvedMapPath}": expected a top-level object with non-empty "entries".`)
+    }
+
+    if (parsed.rules !== undefined && (!parsed.rules || typeof parsed.rules !== 'object' || Array.isArray(parsed.rules))) {
+        throw new Error(`Invalid rename map in "${resolvedMapPath}": "rules" must be a plain object when provided.`)
+    }
+
+    if (!parsed.entries || typeof parsed.entries !== 'object' || Array.isArray(parsed.entries)) {
+        throw new Error(`Invalid rename map in "${resolvedMapPath}": "entries" must be a non-empty plain object.`)
+    }
+
+    const
+        rules   = parsed.rules || {},
+        raw     = parsed.entries,
+        entries = new Map(),
+        targets = new Map();
 
     for (const [oldName, spec] of Object.entries(raw)) {
+        if (!spec || (typeof spec !== 'string' && (typeof spec !== 'object' || Array.isArray(spec)))) {
+            throw new Error(`Invalid rename entry "${oldName}" in ${resolvedMapPath}: expected an entry object or target string.`)
+        }
+
         const
             to     = typeof spec === 'string' ? spec : spec?.to,
             rule   = typeof spec === 'object' ? spec?.rule : undefined,
@@ -518,6 +655,10 @@ export function loadRenameMap(mapPath = defaultMapPath, {root} = {}) {
 
         targets.set(to, oldName);
         entries.set(oldName, {to, rule, ...(reason ? {reason} : {})})
+    }
+
+    if (entries.size === 0) {
+        throw new Error(`Invalid rename map in "${resolvedMapPath}": "entries" must contain at least one rename mapping.`)
     }
 
     for (const [oldName, {to}] of entries) {

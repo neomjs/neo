@@ -47,8 +47,8 @@ export const SCAN_SURFACE = Object.freeze([
 const
     CSS_IDENT_CHAR    = String.raw`(?:\\[^\n]|[A-Za-z0-9_\u0080-\uFFFF-])`,
     CSS_DECL_RE       = new RegExp('(?<![A-Za-z0-9_\\u0080-\\uFFFF-])(--' + CSS_IDENT_CHAR + '+)\\s*:', 'g'),
-    CSS_AT_PROP_RE    = new RegExp('@property\\s+(--' + CSS_IDENT_CHAR + '+)', 'g'),
-    CSS_VAR_READ_RE   = new RegExp('var\\(\\s*(--' + CSS_IDENT_CHAR + '+)', 'g'),
+    CSS_AT_PROP_RE    = new RegExp('@[Pp][Rr][Oo][Pp][Ee][Rr][Tt][Yy](?![A-Za-z0-9_\\u0080-\\uFFFF-])\\s*(--' + CSS_IDENT_CHAR + '+)', 'g'),
+    CSS_VAR_READ_RE   = new RegExp('(?<![A-Za-z0-9_\\u0080-\\uFFFF-])[Vv][Aa][Rr]\\(\\s*(--' + CSS_IDENT_CHAR + '+)', 'g'),
     CSS_NEO_PROP_RE   = new RegExp('(?<![A-Za-z0-9_\\u0080-\\uFFFF-])(--neo-' + CSS_IDENT_CHAR + '*)', 'g'),
     JS_NEO_PROP_RE    = /(?<![<!A-Za-z0-9_-])(--neo-[A-Za-z0-9_-]*)/g,
     KEBAB_STEM_RE     = /^[a-z0-9]+(?:-[a-z0-9]+)*$/,

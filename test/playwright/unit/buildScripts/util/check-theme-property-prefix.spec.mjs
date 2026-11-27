@@ -122,7 +122,9 @@ test.describe('check-theme-property-prefix — every engine CSS property carries
             unprefixedDecl     = '--' + 'fixture-unprefixed-bg',
             unprefixedRead     = '--' + 'fixture-unprefixed-fg',
             multilineRead      = '--' + 'foreign-widget-color',
+            upperVarRead       = '--' + 'foreign-MixedCase-Color',
             multilineAtProp    = '--' + 'foreign-widget-width',
+            upperAtProp        = '--' + 'foreign-UpperCase-Width',
             multilineDecl      = '--' + 'foreign-widget-pad',
             doubleDashAtom     = neoProp('demo--atom'),
             badRoleWord        = neoProp('border-color'),
@@ -147,6 +149,12 @@ test.describe('check-theme-property-prefix — every engine CSS property carries
                 '    inherits: false;',
                 '    initial-value: 0px;',
                 '}',
+                '@PROPERTY',
+                `    ${upperAtProp} {`,
+                '    syntax: "<length>";',
+                '    inherits: false;',
+                '    initial-value: 0px;',
+                '}',
                 '.neo-button {',
                 `    ${unprefixedDecl}: #fff;`,
                 `    ${multilineDecl}`,
@@ -154,6 +162,9 @@ test.describe('check-theme-property-prefix — every engine CSS property carries
                 `    color: var(${unprefixedRead});`,
                 '    background-color: var(',
                 `        ${multilineRead}`,
+                '    );',
+                '    outline-color: VAR(',
+                `        ${upperVarRead}`,
                 '    );',
                 `    border-color: var(${badRoleWord});`,
                 `    ${doubleDashAtom}: 1px;`,
@@ -168,17 +179,21 @@ test.describe('check-theme-property-prefix — every engine CSS property carries
         expect(collectThemePropertyPrefixFailures({root})).toEqual([
             `[unprefixed-engine-property] resources/css/src/Button.css:2 uses '${multilineAtProp}'; every engine custom property ` +
             `under resources/css must start with '--neo-' (or be registered in FOREIGN_PROPERTIES)`,
-            `[unprefixed-engine-property] resources/css/src/Button.css:8 uses '${unprefixedDecl}'; every engine custom property ` +
+            `[unprefixed-engine-property] resources/css/src/Button.css:8 uses '${upperAtProp}'; every engine custom property ` +
             `under resources/css must start with '--neo-' (or be registered in FOREIGN_PROPERTIES)`,
-            `[unprefixed-engine-property] resources/css/src/Button.css:9 uses '${multilineDecl}'; every engine custom property ` +
+            `[unprefixed-engine-property] resources/css/src/Button.css:14 uses '${unprefixedDecl}'; every engine custom property ` +
             `under resources/css must start with '--neo-' (or be registered in FOREIGN_PROPERTIES)`,
-            `[unprefixed-engine-property] resources/css/src/Button.css:11 uses '${unprefixedRead}'; every engine custom property ` +
+            `[unprefixed-engine-property] resources/css/src/Button.css:15 uses '${multilineDecl}'; every engine custom property ` +
             `under resources/css must start with '--neo-' (or be registered in FOREIGN_PROPERTIES)`,
-            `[unprefixed-engine-property] resources/css/src/Button.css:13 uses '${multilineRead}'; every engine custom property ` +
+            `[unprefixed-engine-property] resources/css/src/Button.css:17 uses '${unprefixedRead}'; every engine custom property ` +
             `under resources/css must start with '--neo-' (or be registered in FOREIGN_PROPERTIES)`,
-            `[invalid-neo-property] resources/css/src/Button.css:15 uses '${badRoleWord}'; expected '--neo-palette-<slot>-<grade>', ` +
+            `[unprefixed-engine-property] resources/css/src/Button.css:19 uses '${multilineRead}'; every engine custom property ` +
+            `under resources/css must start with '--neo-' (or be registered in FOREIGN_PROPERTIES)`,
+            `[unprefixed-engine-property] resources/css/src/Button.css:22 uses '${upperVarRead}'; every engine custom property ` +
+            `under resources/css must start with '--neo-' (or be registered in FOREIGN_PROPERTIES)`,
+            `[invalid-neo-property] resources/css/src/Button.css:24 uses '${badRoleWord}'; expected '--neo-palette-<slot>-<grade>', ` +
             `a thirteen-category role, a temporary legacy Global.css token, or '--neo-<component>-<property>'`,
-            `[invalid-neo-property] resources/css/src/Button.css:16 uses '${doubleDashAtom}'; expected '--neo-palette-<slot>-<grade>', ` +
+            `[invalid-neo-property] resources/css/src/Button.css:25 uses '${doubleDashAtom}'; expected '--neo-palette-<slot>-<grade>', ` +
             `a thirteen-category role, a temporary legacy Global.css token, or '--neo-<component>-<property>'`,
             `[invalid-neo-property] src/Plugin.mjs:1 uses '${badSingleSeg}'; expected '--neo-palette-<slot>-<grade>', ` +
             `a thirteen-category role, a temporary legacy Global.css token, or '--neo-<component>-<property>'`,

@@ -202,7 +202,7 @@ test.describe('rename-theme-variables — canonical map validation, fail-closed 
 
         expect(() => loadRenameMap(collisionMap, {root: collisionRoot})).toThrow(/already exists in test\/Probe\.spec\.mjs:1/);
 
-        // 2. Dashless `setCssVariable({..., key: 'neo-fixture-button-color'})` target collision while old CSS still exists
+        // 2. Dashless `setCssVariable({..., key: 'neo-fixture-button-color'})` target collision (including inline comments) while old CSS still exists
         const
             dashlessRoot = fs.mkdtempSync(path.join(tmpRoot, 'collision-dashless-')),
             dashlessMap  = path.join(dashlessRoot, 'map.json');
@@ -212,7 +212,7 @@ test.describe('rename-theme-variables — canonical map validation, fail-closed 
         fs.writeFileSync(path.join(dashlessRoot, 'resources/css/src/Button.css'), `.btn { color: var(${oldButtonToken}); }\n`);
         fs.writeFileSync(
             path.join(dashlessRoot, 'src/Consumer.mjs'),
-            `Neo.setCssVariable({value: compute({r: 1}), key: '${newButtonToken.slice(2)}', theme: 'neo-theme-neo-dark'});\n`
+            `Neo.setCssVariable({value: compute({r: 1}), key: /* note */ '${newButtonToken.slice(2)}', theme: 'neo-theme-neo-dark'});\n`
         );
         fs.writeFileSync(dashlessMap, JSON.stringify({
             rules  : {r: 'rule'},
@@ -220,9 +220,49 @@ test.describe('rename-theme-variables — canonical map validation, fail-closed 
         }));
 
         expect(() => loadRenameMap(dashlessMap, {root: dashlessRoot})).toThrow(/already exists as setCssVariable key.*src\/Consumer\.mjs:1/);
+
+        // Inline comment around `key:` is detected in `--check` residuals AND rewritten cleanly in place
+        const
+            commentedKeyRoot = fs.mkdtempSync(path.join(tmpRoot, 'commented-key-')),
+            oldCommentedKey  = 'fixture-old-text-color';
+
+        fs.mkdirSync(path.join(commentedKeyRoot, 'src'), {recursive: true});
+        fs.writeFileSync(
+            path.join(commentedKeyRoot, 'src/Commented.mjs'),
+            `Neo.setCssVariable({key: /* note */ '${oldCommentedKey}', value: 'red'});\n`
+        );
+
+        const commentedCheck = runThemeVariableRename({check: true, mapPath: dashlessMap, root: commentedKeyRoot});
+        expect(commentedCheck.remainingOldCount).toBe(1);
+        expect(commentedCheck.remainingMatches[0].file).toBe('src/Commented.mjs');
+
+        const commentedRewrite = runThemeVariableRename({mapPath: dashlessMap, root: commentedKeyRoot});
+        expect(commentedRewrite.replacements).toBe(1);
+        expect(commentedRewrite.remainingOldCount).toBe(0);
+        expect(fs.readFileSync(path.join(commentedKeyRoot, 'src/Commented.mjs'), 'utf8')).toBe(
+            `Neo.setCssVariable({key: /* note */ '${newButtonToken.slice(2)}', value: 'red'});\n`
+        );
+
         expect(scanSetCssVariableCalls('const msg = "setCssVariable({key: \\"ignored-in-string\\"})";')).toEqual([]);
 
-        // 3. Fail-closed CLI & API validation (`--root /nonexistent`, `--root --check`, unknown flag)
+        // 3. Fail-closed `--map` schema validation (`{}`, `{"entries": {}}`) & CLI operands (`--root /nonexistent`, `--root --check`, unknown flag)
+        const emptyObjMap     = path.join(tmpRoot, 'empty-obj.json'),
+              emptyEntriesMap = path.join(tmpRoot, 'empty-entries.json');
+
+        fs.writeFileSync(emptyObjMap, '{}\n');
+        fs.writeFileSync(emptyEntriesMap, JSON.stringify({rules: {r: 'rule'}, entries: {}}));
+
+        expect(() => loadRenameMap(emptyObjMap)).toThrow(/"entries" must be a non-empty plain object/);
+        expect(() => loadRenameMap(emptyEntriesMap)).toThrow(/must contain at least one rename mapping/);
+
+        const emptyMapProc = spawnSync(
+            process.execPath,
+            [cliPath, '--root', commentedKeyRoot, '--map', emptyObjMap, '--check', '--json'],
+            {cwd: repoRoot, encoding: 'utf8'}
+        );
+        expect(emptyMapProc.status).toBe(1);
+        expect(emptyMapProc.stderr).toMatch(/"entries" must be a non-empty plain object/);
+
         expect(() => runThemeVariableRename({check: true, root: path.join(tmpRoot, 'does-not-exist')})).toThrow(/does not exist/);
         expect(() => parseCliArgs(['--root', '--check'])).toThrow(/Option "--root" requires a path operand/);
         expect(() => parseCliArgs(['--unknown-flag'])).toThrow(/Unknown CLI argument/);
