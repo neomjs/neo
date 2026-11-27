@@ -213,22 +213,16 @@ test('aligns closed chrome, ComboBox-style trigger, and open picker across all f
         expect(invalidBorder).not.toBe(closed.border);
 
         if (theme.startsWith('neo-theme-neo-')) {
-            await expect.poll(() => disabledBox.evaluate(el => {
-                const input = el.querySelector('.neo-selectfield-input'),
-                      ics   = getComputedStyle(input);
+            await expect.poll(() => disabledBox.evaluate((el, closedState) => {
+                const input   = el.querySelector('.neo-selectfield-input'),
+                      ics     = getComputedStyle(input),
+                      opacity = parseFloat(getComputedStyle(el).opacity);
 
-                return {
-                    bg     : ics.backgroundColor,
-                    border : ics.borderTopColor,
-                    color  : ics.color,
-                    opacity: parseFloat(getComputedStyle(el).opacity)
-                }
-            })).toEqual({
-                bg     : expect.not.stringMatching(`^${closed.bg.replace(/[()]/g, '\\$&')}$`),
-                border : expect.not.stringMatching(`^${closed.border.replace(/[()]/g, '\\$&')}$`),
-                color  : expect.not.stringMatching(`^${closed.color.replace(/[()]/g, '\\$&')}$`),
-                opacity: 1
-            })
+                return opacity === 1
+                    && ics.backgroundColor !== closedState.bg
+                    && ics.borderTopColor  !== closedState.border
+                    && ics.color           !== closedState.color
+            }, closed)).toBe(true)
         } else {
             await expect.poll(() => disabledBox.evaluate(el => parseFloat(getComputedStyle(el).opacity))).toBeLessThan(1)
         }
