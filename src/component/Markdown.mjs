@@ -98,6 +98,12 @@ class Markdown extends Component {
     activeComponents = []
 
     /**
+     * @member {Boolean} #mountPassPending=false
+     * @private
+     */
+    #mountPassPending = false
+
+    /**
      * @member {Number} #renderId=0
      * @private
      */
@@ -223,6 +229,8 @@ class Markdown extends Component {
 
     /**
      * @summary Creates a child and adopts it only while its render still owns the content.
+     * The child builds its vnode without inserting it: its placeholder lives in this component's HTML, so
+     * `#mountComponents()` inserts it once that HTML is in the document.
      * @param {Number} renderId
      * @param {Object} config
      * @private
@@ -230,13 +238,45 @@ class Markdown extends Component {
     #createRenderComponent(renderId, config) {
         if (!this.#isCurrentRender(renderId)) return;
 
-        const component = Neo.create(config);
+        const component = Neo.create({...config, autoMount: false});
 
         if (this.#isCurrentRender(renderId)) {
-            this.activeComponents.push(component)
+            this.activeComponents.push(component);
+            this.mounted && this.#mountComponents()
         } else {
             component.destroy()
         }
+    }
+
+    /**
+     * @summary Inserts the unmounted embedded components once this component's own HTML, which holds their
+     * placeholders, is in the document. A fresh update is flushed first: an update requested while this component was
+     * out of the document can settle at the remount before the HTML it carries is sent. One pass waits at a time and
+     * mounts every component active when it lands, so no child receives two inserts.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #mountComponents() {
+        const me = this;
+
+        if (me.#mountPassPending) return;
+
+        me.#mountPassPending = true;
+
+        try {
+            await me.promiseUpdate()
+        } catch (error) {
+            if (error === Neo.isDestroyed) return;
+            throw error
+        } finally {
+            me.#mountPassPending = false
+        }
+
+        if (!me.mounted) return;
+
+        me.activeComponents.forEach(component => {
+            component.mounted || component.initVnode(true)
+        })
     }
 
     /**
@@ -662,7 +702,6 @@ class Markdown extends Component {
             baseConfigs   = {
                 appName        : me.appName,
                 autoInitVnode  : true,
-                autoMount      : true,
                 parentComponent: me.parentComponent,
                 theme          : me.theme,
                 windowId
@@ -765,17 +804,23 @@ class Markdown extends Component {
     }
 
     /**
-     * Updates the mounted state of all tracked components.
+     * @summary Mounts the tracked components with this component, or marks them unmounted when it leaves the document.
+     * A first mount still in flight targets HTML that has left: a newer vnode-only attempt ends it quietly, and the
+     * next mount inserts the child again.
      * @param {Boolean} mounted
      */
     updateComponentState(mounted) {
-        this.activeComponents.forEach(component => {
-            if (mounted) {
-                component.initVnode(true)
-            } else {
-                component.mounted = false
-            }
-        })
+        if (mounted) {
+            this.#mountComponents()
+        } else {
+            this.activeComponents.forEach(component => {
+                if (component.isVnodeInitializing) {
+                    component.initVnode(false)
+                } else {
+                    component.mounted = false
+                }
+            })
+        }
     }
 }
 
