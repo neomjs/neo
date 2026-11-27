@@ -61,7 +61,7 @@ Measured on `dev` at `5ff17dedc8`:
    | `x`, `y` | the focal point, the centroid of the active contacts, relative to the target's border box |
    | `elapsed` | ms since the gesture's first contact went down |
 
-   Every value is finite on every event. When the last contact lifts or cancels, `end` and `cancel` carry an empty `contacts`, the lifted ids in `changed`, and `x`/`y` at the last focal point.
+   Every value is finite on every event. The event at the final lift or cancel (`end`, `cancel`, `tap` or `swipe`) carries an empty `contacts`, the lifted or cancelled ids in `changed`, and `x`/`y` at the last focal point: the centroid of the contacts active just before it, each at its last reported position. A one-finger `tap` or `swipe` reports the point where the finger lifted.
 
    Per family: `tap` adds `count` (repeats) and `contactCount` (the chord). `press:end` adds `duration`. `pan` adds `deltaX`/`deltaY` (total), `stepX`/`stepY` (since the previous event) and `velocityX`/`velocityY` in px/ms. `swipe` adds `direction` (`left`, `right`, `up`, `down`) and both velocities. `pinch` adds `scale`, the distance ratio, starting at 1. `rotate` adds `rotation` in signed degrees, starting at 0, positive clockwise. When the contact count changes, totals keep their values and the focal, distance and angle baselines are taken again, so nothing jumps. `pinch` and `rotate` end when fewer than two contacts remain; a `pan` continues on the survivor.
 
@@ -69,8 +69,16 @@ Measured on `dev` at `5ff17dedc8`:
 
 5. **One recognition owner, logical delivery.**
    - **Recognition is scoped to DOM.** A gesture belongs to the innermost registered node, subscribed to that family, that contains the first contact's start point in the owning window. Only that node's recognizer tracks the contacts, and only its motion owner moves anything. A later contact joins only if it starts inside the owning node. Touch keeps its start target. Pen and mouse take `setPointerCapture` from `start` until the terminal phase.
-   - **Delivery is logical.** The recognized event fires through App's `DomEvent.fire` along `ComponentManager.getParentPath`. A logical ancestor with a listener for the same name receives it too, under the usual `bubble` rules, and neither recognizes nor moves anything.
-   - **A portalled child needs its own registration.** A child rendered under `body` lies outside its logical parent's DOM subtree, so a subscription on the parent alone recognizes nothing on that child.
+   - **Delivery is logical; matching is unchanged.** The recognized event fires through App's `DomEvent.fire` along `ComponentManager.getParentPath`, under the usual `bubble` rules, and each listener on that path passes the usual delegate match (`DomEvent.verifyDelegationPath`): against the event's DOM path first, then through the logical fallback, which accepts a matched node inside the first component of that path. A receiving ancestor neither recognizes nor moves anything.
+   - **A portalled child needs its own registration; its parent receives by delegate.** A child rendered under `body` lies outside its logical parent's DOM subtree, so a subscription on the parent alone recognizes nothing on that child. When the child's own registration recognizes, the parent is visited on the logical path, and its listener fires only if its delegate matches the child's DOM path:
+
+     | Child | Parent listener | Parent callback |
+     |---|---|---|
+     | inline | default delegate, the parent's own id | fires |
+     | portalled under `body` | default delegate | does not fire: the parent's id is not on the child's DOM path |
+     | portalled under `body` | a delegate matching the child, such as `.hit` | fires, through the logical fallback |
+
+     `Delegation.spec.mjs` already pins both portalled rows in the shared matcher; acceptance case 7 carries all three for gestures.
 
 6. **Teardown cancels without commit.** An open gesture ends in `cancel`, once and with nothing after it, when any of these happens:
    - its node is unregistered or removed from the document;
@@ -95,7 +103,7 @@ Measured on `dev` at `5ff17dedc8`:
     ```
 
     - **Trace fields:** the request names its app session and window. `target` is a component or node id, resolved in that window only. `t` counts ms from the first frame. `x` and `y` are target-relative CSS px. `id` is a stable contact label. `state` is `down`, `move`, `up` or `cancel`.
-    - **Frames are snapshots, not deltas.** A frame lists only the contacts that change, each at its absolute position. A contact a frame leaves out keeps its last position.
+    - **Frames carry absolute positions, not deltas.** A frame lists only the contacts that change, each at its absolute position. A contact a frame leaves out keeps its last position.
     - **Sequences and terminals:** a trace may hold several contact sequences, and a sequence ends when no contact is down. The result lists each sequence's terminal (`end`, `cancel` or `none`) in order. The trace-wide `terminal` is the last sequence's.
     - **Presets:** `swipe`, `hold`, `pinch` and `rotate` expand to traces.
     - **Bounds:** limits on frames, duration and contacts are enforced in the schema; the implementing leaf sets them.
@@ -165,4 +173,5 @@ Adaptive components such as the sheet and the floating action button start on to
   4. Messages per contact move on DevIndex, reported for the four subscriber cases.
   5. A staggered lift and a cancel replay through `engine` (MCP and fixture) and `browser` with the same observed transitions. Without a browser driver, the `browser` provider reports `unavailable`.
   6. A tap on a button inside a `tap`-registered node produces exactly one `click`.
+  7. A `pan` recognized on a registered child reaches its parent's default listener while the child is inline. Portalled under `body`, the same child reaches a parent listener whose delegate matches it, and not the parent's default listener.
 - **Revalidation triggers.** A consumer that needs a family not listed here. A measured move-stream cost that matters on DevIndex. A provider that cannot prove what its row claims. WebKit evidence that contradicts decision 7's ownership signals.
