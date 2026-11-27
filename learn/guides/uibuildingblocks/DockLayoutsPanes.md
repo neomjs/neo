@@ -372,7 +372,7 @@ class MainView extends Workspace {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ## Move the work without rebuilding it
@@ -605,7 +605,7 @@ class PerspectiveView extends Workspace {
     }
 }
 
-PerspectiveView = Neo.setupClass(PerspectiveView);
+export default Neo.setupClass(PerspectiveView);
 ```
 
 Nothing in the preview computes the active name, sweeps the toolbar or rebuilds a button. The declarations are the

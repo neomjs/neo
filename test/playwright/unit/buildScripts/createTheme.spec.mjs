@@ -172,7 +172,12 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         for (const name of parsers) expect(manifest.devDependencies[name]).toBeTruthy();
 
         // The generator and the modules it imports, as the installed Engine ships them
-        for (const relative of ['buildScripts/create/theme.mjs', 'buildScripts/util/themeCssRoots.mjs', 'buildScripts/util/declaredPackageRoots.mjs']) {
+        for (const relative of [
+            'buildScripts/create/theme.mjs',
+            'buildScripts/util/themeCss.mjs',
+            'buildScripts/util/themeCssRoots.mjs',
+            'buildScripts/util/declaredPackageRoots.mjs'
+        ]) {
             fs.mkdirSync(path.dirname(path.join(engineRoot, relative)), {recursive: true});
             fs.copyFileSync(path.join(repoRoot, relative), path.join(engineRoot, relative));
         }
@@ -240,15 +245,17 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
                 dependencies: {'neo.mjs': '1.0.0', '@fixture/skin': '1.0.0', 'plain-skin': '1.0.0'}
             }));
             write(path.join(root, 'node_modules/@fixture/skin/package.json'), JSON.stringify({name: '@fixture/skin', neo: {css: 'skin'}}));
-            write(path.join(root, 'node_modules/@fixture/skin/skin/theme-package/Global.css'), ':root { --fixture: package; }');
-            write(path.join(cssRoot, 'theme-workspace/Global.css'), ':root { --fixture: workspace; }');
-            write(path.join(cssRoot, 'theme-neo-dark/Global.css'), ':root { --fixture: duplicate; }');
+            write(path.join(root, 'node_modules/@fixture/skin/skin/theme-package/Global.css'), ':root .neo-theme-package { --fixture: package; }');
+            write(path.join(cssRoot, 'theme-workspace/Global.css'), ':root .neo-theme-workspace { --fixture: workspace; }');
+            write(path.join(cssRoot, 'theme-neo-dark/Global.css'), ':where(.neo-theme-neo-dark) { --fixture: duplicate; }');
+            write(path.join(cssRoot, 'theme-base/button/Base.css'), '[class*="neo-theme-"] { --fixture: shared; }');
+            write(path.join(cssRoot, 'theme-unmapped/Global.css'), ':root { --fixture: no-theme-class; }');
             write(path.join(cssRoot, 'theme-fake'), 'not a folder');
 
             for (const name of ['plain-skin', 'unlisted-skin']) {
                 const pkg = path.join(root, 'node_modules', name);
                 write(path.join(pkg, 'package.json'), JSON.stringify({name, ...(name === 'unlisted-skin' ? {neo: {css: 'skin'}} : {})}));
-                write(path.join(pkg, 'skin/theme-ignored/Global.css'), ':root { --fixture: ignored; }');
+                write(path.join(pkg, 'skin/theme-ignored/Global.css'), ':root .neo-theme-ignored { --fixture: ignored; }');
             }
 
             expect(listThemes(root)).toEqual([...new Set([...shippedThemes, 'theme-package', 'theme-workspace'])].sort());
@@ -258,10 +265,54 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
     test('inside the Engine, named exactly neo.mjs, only its own themes are listed', () => {
         write(path.join(root, 'package.json'), JSON.stringify({name: 'neo.mjs', version: '1.0.0', dependencies: {'@fixture/skin': '1.0.0'}}));
         write(path.join(root, 'node_modules/@fixture/skin/package.json'), JSON.stringify({name: '@fixture/skin', neo: {css: 'skin'}}));
-        write(path.join(root, 'node_modules/@fixture/skin/skin/theme-package/Global.css'), ':root { --fixture: package; }');
-        write(path.join(cssRoot, 'theme-engine/Global.css'), ':root { --fixture: engine; }');
+        write(path.join(root, 'node_modules/@fixture/skin/skin/theme-package/Global.css'), ':root .neo-theme-package { --fixture: package; }');
+        write(path.join(cssRoot, 'theme-engine/Global.css'), ':root .neo-theme-engine { --fixture: engine; }');
+        write(path.join(cssRoot, 'theme-base/button/Base.css'), '[class*="neo-theme-"] { --fixture: base; }');
 
         expect(listThemes(root)).toEqual(['theme-engine']);
+    });
+
+    test('retargets mapped non-theme-* and dual-scheme base folders with one selectable-folder policy and prints the destination\'s actual classes', () => {
+        write(path.join(engineRoot, 'resources/css/brand_v2/Global.css'), ':where(.neo-theme-brand) { --brand: 1; }');
+        write(path.join(engineRoot, 'resources/css/brand_v2/button/Base.css'), ':where(.neo-theme-brand) { --button-gap: 4px; }');
+        write(path.join(engineRoot, 'resources/css/split_widgets/button/Base.css'), ':where(.neo-theme-brand) { --button-pad: 8px; }');
+        write(path.join(engineRoot, 'resources/css/shared-neo/Global.css'), [
+            '.neo-theme-neo-light { --neo-color-scheme: light; }',
+            '.neo-theme-neo-dark  { --neo-color-scheme: dark; }'
+        ].join('\n'));
+        write(path.join(engineRoot, 'resources/css/theme-base/button/Base.css'), '[class*="neo-theme-"] { --shared: 1; }');
+        write(path.join(engineRoot, 'resources/theme-map.json'), JSON.stringify({
+            themes: {
+                'neo-theme-brand'    : ['brand_v2', 'split_widgets'],
+                'neo-theme-neo-dark' : ['shared-neo', 'theme-neo-dark'],
+                'neo-theme-neo-light': ['shared-neo']
+            }
+        }));
+
+        expect(listThemes(root)).toContain('brand_v2');
+        expect(listThemes(root)).toContain('shared-neo');
+        expect(listThemes(root)).not.toContain('split_widgets');
+        expect(listThemes(root)).not.toContain('theme-base');
+
+        refuseWithoutWrites({baseTheme: 'split_widgets'});
+        refuseWithoutWrites({baseTheme: 'theme-base'});
+        refuseWithoutWrites({themeName: 'theme-base'});
+
+        generate({baseTheme: 'brand_v2', themeName: 'theme-acme'});
+        expect(read(path.join(cssRoot, 'theme-acme/Global.css'))).toContain(':where(.neo-theme-acme)');
+        expect(read(path.join(cssRoot, 'theme-acme/button/Base.css'))).toContain(':where(.neo-theme-acme)');
+
+        const dualOut = execFileSync(
+            process.execPath,
+            [createPath, '--name', 'theme-dual', '--base', 'shared-neo', '--noquestions'],
+            {cwd: root, encoding: 'utf8', stdio: 'pipe'}
+        );
+
+        expect(read(path.join(cssRoot, 'theme-dual/Global.css'))).toContain('.neo-theme-dual-light');
+        expect(read(path.join(cssRoot, 'theme-dual/Global.css'))).toContain('.neo-theme-dual-dark');
+        expect(dualOut).toContain('"neo-theme-dual-dark"');
+        expect(dualOut).toContain('"neo-theme-dual-light"');
+        expect(dualOut).not.toContain('"neo-theme-dual"');
     });
 
     test('noninteractive CLI requires both flags and refuses incomplete input without writes or a prompt', () => {

@@ -6,7 +6,7 @@ import {expect, test} from '../../fixtures.mjs';
  * With `localStorage.portalTheme = 'neo-theme-neo-light'` stored, the
  * preference DOES arrive: `div#neo-viewport-1` carries `neo-theme-neo-light`. `document.body` keeps
  * `neo-theme-neo-dark`, because the body class is written ONCE on the main thread by
- * `main.addon.Stylesheet#addGlobalCss` from the static `Neo.config.themes[0]` — before any worker runs —
+ * `main.addon.Stylesheet#construct` from the static `Neo.config.themes[0]` — before any worker runs —
  * and nothing in the theme path ever rewrites it. The only other body-class writer in `src/` is
  * `main.DomAccess#setBodyCls`, whose sole caller repo-wide is `apps/shareddialog`.
  *
@@ -26,7 +26,7 @@ import {expect, test} from '../../fixtures.mjs';
  *
  * ## The liveness arm is load-bearing, not ceremony
  *
- * `addGlobalCss` stamps `themes[0]` from the MAIN thread, and the portal declares
+ * `Stylesheet#construct` stamps `themes[0]` from the MAIN thread, and the portal declares
  * `neo-theme-neo-dark` first. A portal that never boots therefore still shows `neo-theme-neo-dark` on
  * the body and still fails the light arm, for an unrelated reason — a dead page is indistinguishable
  * from the defect at the body class alone. `booted()` separates them and runs before every assertion.

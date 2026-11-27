@@ -49,7 +49,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Try editing the `text` config in the **Source** tab above, or inspect how functional components (`defineComponent`) and `useConfig` reactive state update the DOM without page reloads:

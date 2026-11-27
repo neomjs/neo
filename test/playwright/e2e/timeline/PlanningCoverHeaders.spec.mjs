@@ -27,7 +27,7 @@ const LANDING_HEADER_EXAMPLES = [
 async function readHeaderLayout(page, {groupTexts, titleCls, vw}) {
     return page.evaluate(({groupTexts, titleCls, vw}) => {
         const
-            sw    = document.querySelector('.neo-theme-switcher'),
+            sw    = document.querySelector('.neo-themeswitcher'),
             title = document.querySelector(titleCls),
             bar   = sw?.closest('.neo-toolbar');
 
@@ -140,7 +140,7 @@ test.describe('Planning cover header layout & gantt/zoom Month preset', () => {
 
             // Switch live to Neo Light at cover viewport (960 × 540) without a second boot
             await page.setViewportSize({width: 960, height: 540});
-            await page.locator('.neo-theme-switcher').first().click();
+            await page.locator('.neo-themeswitcher').first().click();
             await page.getByRole('menu').getByRole('menuitemradio', {name: 'Neo Light', exact: true}).click();
             await expect.poll(() => page.evaluate(() => document.body.classList.contains('neo-theme-neo-light'))).toBe(true);
 

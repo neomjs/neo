@@ -24,8 +24,9 @@ class Commit extends Model {
             name: 'author',
             type: 'Object'
         }, {
-            name: 'timestamp',
-            type: 'Integer'
+            name   : 'timestamp',
+            type   : 'Integer',
+            mapping: 'committer.timestamp'
         }]
     }
 }

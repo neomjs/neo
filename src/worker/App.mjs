@@ -250,6 +250,10 @@ class App extends Base {
             delete config.cssMap
         }
 
+        this.themedWindows.forEach(windowId => {
+            this.initWindowThemes(windowId)
+        });
+
         this.resolveThemeFilesCache()
     }
 
@@ -347,6 +351,18 @@ class App extends Base {
      * @protected
      */
     windowAddons = {}
+    /**
+     * Windows whose `Stylesheet` theme map and `Neo.Global` sheets have already been dispatched.
+     * @member {Set<String>} initializedThemeWindows
+     * @protected
+     */
+    initializedThemeWindows = new Set()
+    /**
+     * Windows that have reached `onLoadApplication` and participate in theme loading once `Neo.cssMap` arrives.
+     * @member {Set<String>} themedWindows
+     * @protected
+     */
+    themedWindows = new Set()
 
     /**
      * Created in construct(); synced by onConnect() and onVisibilityChange()
@@ -453,6 +469,38 @@ class App extends Base {
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
         )
+    }
+
+    /**
+     * @summary Syncs the `class → folders` map to a window's `Stylesheet` addon and queues `Neo.Global` ahead of component stylesheets.
+     * @param {String} windowId
+     * @protected
+     */
+    initWindowThemes(windowId) {
+        let me        = this,
+            appConfig = Neo.windowConfigs?.[windowId] || Neo.config,
+            cssMap    = Neo.cssMap;
+
+        if (
+            !cssMap ||
+            me.initializedThemeWindows.has(windowId) ||
+            appConfig.useSSR ||
+            !appConfig.themes?.length ||
+            appConfig.themes[0] === '' ||
+            (appConfig.mainThreadAddons && !appConfig.mainThreadAddons.includes('Stylesheet')) ||
+            !Neo.main?.addon?.Stylesheet
+        ) {
+            return
+        }
+
+        me.initializedThemeWindows.add(windowId);
+
+        Neo.main.addon.Stylesheet.setThemeMap({
+            themes: cssMap.fileInfo?.themes || {},
+            windowId
+        });
+
+        me.insertThemeFiles(windowId, null, 'Neo.Global')
     }
 
     /**
@@ -761,6 +809,9 @@ class App extends Base {
             hasWindowConfig = Boolean(windowId != null && Neo.windowConfigs?.[windowId]),
             appConfig       = hasWindowConfig ? Neo.windowConfigs[windowId] : config,
             appPath         = appConfig.appPath;
+
+        me.themedWindows.add(windowId);
+        me.initWindowThemes(windowId);
 
         if (appConfig.environment !== 'development') {
             appPath = appPath.startsWith('/') ? appPath.substring(1) : appPath
@@ -1127,6 +1178,8 @@ class App extends Base {
             delete Neo.cssMap?.[windowId];
             delete Neo.windowConfigs?.[windowId];
             delete me.windowAddons[windowId];
+            me.initializedThemeWindows.delete(windowId);
+            me.themedWindows.delete(windowId);
             me.hiddenTick.stop(windowId)
         }
     }
@@ -1290,24 +1343,26 @@ class App extends Base {
     }
 
     /**
+     * @summary Resolves `data.theme` to its mapped CSS folders and updates the custom property via `main.addon.Stylesheet`.
      * @param {Object} data
      * @param {String} data.key
      * @param {String} [data.priority] optionally pass 'important'
-     * @param {String} data.theme=Neo.config.themes[0]
+     * @param {String} [data.theme=Neo.config.themes[0]]
      * @param {String} data.value
-     * @param {String} data.windowId
-     * @returns {Promise<any>}
+     * @param {String} [data.windowId]
+     * @returns {Promise<Boolean>}
      */
     async setCssVariable(data) {
         let appConfig  = Neo.windowConfigs?.[data.windowId] || Neo.config,
             Stylesheet = await this.getAddon('Stylesheet', data.windowId),
-            theme      = data.theme || appConfig.themes?.[0];
+            theme      = data.theme || appConfig.themes?.[0],
+            folders    = theme ? Neo.cssMap?.fileInfo?.themes?.[theme] : undefined;
 
-        if (theme?.startsWith('neo-')) {
-            theme = theme.substring(4)
-        }
-
-        return Stylesheet.setCssVariable({theme, ...data})
+        return Stylesheet.setCssVariable({
+            ...data,
+            ...(folders ? {folders} : {}),
+            theme
+        })
     }
 
     /**

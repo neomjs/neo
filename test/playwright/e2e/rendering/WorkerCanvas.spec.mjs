@@ -59,7 +59,7 @@ test.describe('examples/worker/canvas — a canvas keeps moving while the main t
 
         const
             result = page.locator('.neo-examples-worker-canvas-result'),
-            box    = await page.locator('.neo-theme-switcher').first().boundingBox(),
+            box    = await page.locator('.neo-themeswitcher').first().boundingBox(),
             mouse  = {button: 'left', clickCount: 1, x: box.x + box.width / 2, y: box.y + box.height / 2},
             cdp    = await page.context().newCDPSession(page);
 

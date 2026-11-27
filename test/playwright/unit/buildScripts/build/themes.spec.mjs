@@ -118,19 +118,28 @@ test.describe('build-themes theme-map regeneration (#17222)', () => {
         };
 
         writeSource(root, 'apps/demo/Widget.css');
-        writeThemeSource(engineRoot, 'theme-neo-dark',  'button/Base.css');
-        writeThemeSource(engineRoot, 'theme-neo-light', 'button/Base.css');
-        writeThemeSource(root,       'theme-neo-dark',  'apps/demo/Widget.css');
-        writeThemeSource(root,       'theme-workspace', 'apps/demo/Widget.css');
+        writeThemeSource(engineRoot, 'theme-neo-dark',      'Global.css');
+        writeThemeSource(engineRoot, 'theme-neo-light',     'Global.css');
+        fs.writeFileSync(path.join(engineRoot, 'resources/css/theme-neo-dark/Global.css'),  ':where(.neo-theme-neo-dark) { --x: 1; }\n',  'utf8');
+        fs.writeFileSync(path.join(engineRoot, 'resources/css/theme-neo-light/Global.css'), ':where(.neo-theme-neo-light) { --x: 1; }\n', 'utf8');
+        writeThemeSource(engineRoot, 'theme-neo-dark',      'button/Base.css');
+        writeThemeSource(engineRoot, 'theme-neo-light',     'button/Base.css');
+        writeThemeSource(root,       'theme-neo-dark',      'apps/demo/Widget.css');
+        fs.mkdirSync(path.join(root, 'resources/css/theme-workspace'), {recursive: true});
+        fs.writeFileSync(path.join(root, 'resources/css/theme-workspace/Global.css'), ':where(.neo-theme-workspace) { --x: 1; }\n', 'utf8');
+        writeThemeSource(root,       'theme-workspace',     'apps/demo/Widget.css');
+        writeThemeSource(root,       'not-a-theme-helper',  'apps/demo/Ignored.css');
 
         const helpOutput = execFileSync('node', [scriptPath, '--help'], {cwd: root, encoding: 'utf8', stdio: 'pipe'});
         expect(helpOutput).toContain('all, theme-neo-dark, theme-neo-light, theme-workspace');
+        expect(helpOutput).not.toContain('not-a-theme-helper');
 
         runBuild(root);
 
         const map = readMap(root);
         expect(map.Neo.button.Base).toEqual(expect.arrayContaining(['theme-neo-dark', 'theme-neo-light']));
         expect(map.apps.demo.Widget).toEqual(expect.arrayContaining(['src', 'theme-neo-dark', 'theme-workspace']));
+        expect(map.apps.demo.Ignored).toBeUndefined();
     });
 
     test('a workspace builds the sheets of a declaring dependency, ignores non-declaring and unlisted packages, and lets the workspace overlay same-path files (#20260)', () => {
@@ -184,9 +193,11 @@ test.describe('build-themes theme-map regeneration (#17222)', () => {
         };
 
         // Engine supplies theme-neo-light; declaring package adds src + theme-neo-dark; workspace overlays Shared.css
+        writeFile(engineRoot,    'resources/css/theme-neo-light/Global.css',            ':where(.neo-theme-neo-light) { --x: 1; }\n');
         writeFile(engineRoot,    'resources/css/theme-neo-light/button/Base.css',       '.neo-btn { color: white; }\n');
         writeFile(declaringRoot, 'resources/css/src/apps/ext/Row.css',                  '.ext-row { color: green; }\n');
         writeFile(declaringRoot, 'resources/css/src/apps/ext/Shared.css',               '.ext-shared { color: green; }\n');
+        writeFile(declaringRoot, 'resources/css/theme-neo-dark/Global.css',             ':where(.neo-theme-neo-dark) { --x: 1; }\n');
         writeFile(declaringRoot, 'resources/css/theme-neo-dark/apps/ext/Row.css',       '.ext-row { color: cyan; }\n');
         writeFile(plainRoot,     'resources/css/src/apps/plain/Ignored.css',            '.plain { color: red; }\n');
         writeFile(unlistedRoot,  'resources/css/src/apps/unlisted/Ignored.css',         '.unlisted { color: red; }\n');
@@ -218,5 +229,47 @@ test.describe('build-themes theme-map regeneration (#17222)', () => {
         expect(keys).not.toContain('apps.unlisted.Ignored');
         expect(fs.existsSync(path.join(root, 'dist/development/css/src/apps/plain/Ignored.css'))).toBe(false);
         expect(fs.existsSync(path.join(root, 'dist/development/css/src/apps/unlisted/Ignored.css'))).toBe(false);
+    });
+
+    test('derives class-to-folders from Global.css selectors, admitting theme-base and multi-class folders without name derivation', () => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-themes-class-map-'));
+        fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({
+            bugs   : {url: 'https://example.invalid'},
+            name   : 'neo.mjs-fixture',
+            version: '1.0.0'
+        }));
+
+        const writeCss = (relPath, css) => {
+            const filePath = path.join(root, 'resources/css', relPath);
+            fs.mkdirSync(path.dirname(filePath), {recursive: true});
+            fs.writeFileSync(filePath, css, 'utf8');
+        };
+
+        writeCss('src/Global.css', ':where([class^="neo-theme-"]) { --motion-fast: 120ms; } .neo-theme-scope { color-scheme: var(--neo-color-scheme); }\n');
+        writeCss('src/button/Base.css', '.neo-button { color: var(--button-text-color); }\n');
+        writeCss('theme-base/button/Base.css', '[class*="neo-theme-"] { --button-text-color: var(--neo-color-text-default); }\n');
+        // Folder name intentionally differs from both declared classes, while theme-neo-dark coexists during migration
+        writeCss('shared-neo/Global.css', [
+            '/* .neo-theme-commented-out { --ignored: 1; } */',
+            '.neo-theme-neo-light { --neo-color-scheme: light; }',
+            '.neo-theme-neo-dark  { --neo-color-scheme: dark; }',
+            ':where(.neo-theme-neo-light, .neo-theme-neo-dark) { --neo-color-text-default: #111; }'
+        ].join('\n'));
+        writeCss('shared-neo/button/Base.css', ':where(.neo-theme-neo-light, .neo-theme-neo-dark) { --button-gap: 4px; }\n');
+        writeCss('theme-neo-dark/Global.css', ':where(.neo-theme-neo-dark) { --legacy-dark: 1; }\n');
+        writeCss('theme-dark/Global.css', ':root .neo-theme-dark { --neo-color-scheme: dark; }\n');
+
+        runBuild(root);
+
+        const map = readMap(root);
+
+        expect(map.themes).toEqual({
+            'neo-theme-dark'     : ['theme-dark'],
+            'neo-theme-neo-dark' : ['shared-neo', 'theme-neo-dark'],
+            'neo-theme-neo-light': ['shared-neo']
+        });
+        expect(map.Neo.button.Base).toEqual(['src', 'shared-neo', 'theme-base']);
+        expect(fs.existsSync(path.join(root, 'dist/development/css/theme-base/button/Base.css'))).toBe(true);
+        expect(fs.existsSync(path.join(root, 'dist/development/css/shared-neo/Global.css'))).toBe(true);
     });
 });
