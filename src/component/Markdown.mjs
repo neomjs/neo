@@ -229,8 +229,9 @@ class Markdown extends Component {
 
     /**
      * @summary Creates a child and adopts it only while its render still owns the content.
-     * The child builds its vnode without inserting it: its placeholder lives in this component's HTML, so
-     * `#mountComponents()` inserts it once that HTML is in the document.
+     * The child renders nothing yet: its placeholder lives in this component's HTML, so `#mountComponents()` renders
+     * and inserts it in one step once that HTML is in the document. A vnode built earlier would mark the child's own
+     * children mounted while nothing of them is in the DOM.
      * @param {Number} renderId
      * @param {Object} config
      * @private
@@ -238,7 +239,7 @@ class Markdown extends Component {
     #createRenderComponent(renderId, config) {
         if (!this.#isCurrentRender(renderId)) return;
 
-        const component = Neo.create({...config, autoMount: false});
+        const component = Neo.create({...config, autoInitVnode: false, autoMount: false});
 
         if (this.#isCurrentRender(renderId)) {
             this.activeComponents.push(component);
@@ -275,7 +276,7 @@ class Markdown extends Component {
         if (!me.mounted) return;
 
         me.activeComponents.forEach(component => {
-            component.mounted || component.initVnode(true)
+            component.mounted || component.isVnodeInitializing || component.initVnode(true)
         })
     }
 
@@ -701,7 +702,6 @@ class Markdown extends Component {
             mermaidDivs   = {},
             baseConfigs   = {
                 appName        : me.appName,
-                autoInitVnode  : true,
                 parentComponent: me.parentComponent,
                 theme          : me.theme,
                 windowId
@@ -805,8 +805,6 @@ class Markdown extends Component {
 
     /**
      * @summary Mounts the tracked components with this component, or marks them unmounted when it leaves the document.
-     * A first mount still in flight targets HTML that has left: a newer vnode-only attempt ends it quietly, and the
-     * next mount inserts the child again.
      * @param {Boolean} mounted
      */
     updateComponentState(mounted) {
@@ -814,11 +812,7 @@ class Markdown extends Component {
             this.#mountComponents()
         } else {
             this.activeComponents.forEach(component => {
-                if (component.isVnodeInitializing) {
-                    component.initVnode(false)
-                } else {
-                    component.mounted = false
-                }
+                component.mounted = false
             })
         }
     }

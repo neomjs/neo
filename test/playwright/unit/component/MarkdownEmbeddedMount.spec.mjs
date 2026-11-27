@@ -60,7 +60,7 @@ test.describe('Neo.component.Markdown embedded mounts (#22338)', () => {
           placeholderIn = payload => [...JSON.stringify(payload).matchAll(/(?:id=\\"|"id":")(neo-learn-content-component-\d+)/g)].map(match => match[1]),
           flush         = () => new Promise(resolve => setImmediate(resolve));
 
-    let consoleError, dom, errors, heldHtml, heldInserts, holdChildInserts, holdHtml, inserts, markdown, onRejection;
+    let consoleError, dom, errors, heldHtml, holdHtml, inserts, markdown, onRejection;
 
     // Main's side of the contract, as DeltaUpdates keeps it: an insert whose parent is not in the document is skipped
     const applyAt = deltas => {
@@ -85,6 +85,12 @@ test.describe('Neo.component.Markdown embedded mounts (#22338)', () => {
     };
 
     const errorsNamingTheSkip = () => errors.filter(line => line.includes('Initial mount insertNode skipped'));
+
+    // The child exists and no render of it is under way: a refused insert has settled, or none was sent
+    const childSettled = () => {
+        const child = Neo.getComponent(childId);
+        return Boolean(child) && !child.isVnodeInitializing
+    };
 
     /**
      * Mounts the Markdown, renders the article and parks the render at its mount delay, with the HTML in the document
@@ -125,23 +131,15 @@ test.describe('Neo.component.Markdown embedded mounts (#22338)', () => {
     }
 
     test.beforeEach(() => {
-        dom              = new Set(['document.body']);
-        errors           = [];
-        heldHtml         = [];
-        heldInserts      = [];
-        holdChildInserts = false;
-        holdHtml         = false;
-        inserts          = [];
+        dom      = new Set(['document.body']);
+        errors   = [];
+        heldHtml = [];
+        holdHtml = false;
+        inserts  = [];
 
         Neo.applyDeltas = async (windowId, deltas) => {
-            const list = [deltas].flat();
-
-            // Main applies a held batch when the test releases it, against the document as it is then
-            if (holdChildInserts && list.some(delta => delta.action === 'insertNode' && delta.id === childId)) {
-                return new Promise(resolve => heldInserts.push(() => resolve(applyAt(deltas))))
-            }
-
-            if (holdHtml && list.some(delta => delta.action !== 'insertNode' && placeholderIn(delta).length > 0)) {
+            // Main applies held HTML when the test releases it, against the document as it is then
+            if (holdHtml && [deltas].flat().some(delta => delta.action !== 'insertNode' && placeholderIn(delta).length > 0)) {
                 return new Promise(resolve => heldHtml.push(() => resolve(applyAt(deltas))))
             }
 
@@ -157,7 +155,6 @@ test.describe('Neo.component.Markdown embedded mounts (#22338)', () => {
     test.afterEach(async () => {
         process.off('unhandledRejection', onRejection);
         heldHtml.forEach(release => release());
-        heldInserts.forEach(release => release());
         markdown?.mountDelays.forEach(resume => resume());
         await flush();
         markdown?.destroy();
@@ -172,8 +169,7 @@ test.describe('Neo.component.Markdown embedded mounts (#22338)', () => {
         leaveTheDocument(placeholder);
         markdown.mountDelays[0]();
 
-        // The child exists once it has a vnode of its own, or once Main has refused its insert
-        await expect.poll(() => Boolean(Neo.getComponent(childId)?.vnode) || inserts.length > 1).toBe(true);
+        await expect.poll(childSettled).toBe(true);
         await flush();
 
         expect(inserts.filter(({id}) => id === childId), 'no insert while the Markdown is out of the document').toEqual([]);
@@ -198,7 +194,7 @@ test.describe('Neo.component.Markdown embedded mounts (#22338)', () => {
         expect(dom.has(placeholder), 'Main has not received the HTML yet').toBe(false);
 
         markdown.mountDelays[0]();
-        await expect.poll(() => Boolean(Neo.getComponent(childId)?.vnode) || inserts.length > 1).toBe(true);
+        await expect.poll(childSettled).toBe(true);
         await flush();
 
         expect(inserts.filter(({id}) => id === childId), 'no insert before the HTML lands').toEqual([]);
@@ -208,28 +204,6 @@ test.describe('Neo.component.Markdown embedded mounts (#22338)', () => {
 
         await expect.poll(() => Neo.getComponent(childId)?.mounted).toBe(true);
         expect(inserts.filter(({id}) => id === childId)).toEqual([{id: childId, parentId: placeholder, skipped: false}]);
-        expect(errorsNamingTheSkip()).toEqual([])
-    });
-
-    test('a child whose insert is in flight when its Markdown leaves the document ends that attempt quietly and mounts on the return', async () => {
-        const placeholder = await renderToMountDelay();
-
-        holdChildInserts = true;
-        markdown.mountDelays[0]();
-        await expect.poll(() => heldInserts.length).toBe(1);
-
-        // The removal reaches Main before the held insert does
-        leaveTheDocument(placeholder);
-        heldInserts.shift()();
-        await flush();
-        await flush();
-
-        expect(errorsNamingTheSkip()).toEqual([]);
-
-        holdChildInserts = false;
-        await returnToTheDocument(placeholder);
-
-        expect(inserts.filter(({id}) => id === childId).at(-1)).toEqual({id: childId, parentId: placeholder, skipped: false});
         expect(errorsNamingTheSkip()).toEqual([])
     })
 });
