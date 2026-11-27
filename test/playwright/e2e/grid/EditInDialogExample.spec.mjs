@@ -188,13 +188,14 @@ test.describe('Compact floating contact action', () => {
         await runDedicatedWorkerNeuralLink({browser, context, page}, async adapter => {
             await page.goto(URL);
 
-            const action = page.getByRole('button', {name: 'Edit contact', exact: true}),
-                  rows   = page.locator('.neo-grid-row'),
-                  name   = rows.nth(2).locator('.neo-grid-cell[data-field="user.firstname"]'),
-                  dialog = page.locator('.neo-dialog'),
-                  input  = dialog.locator('input.neo-textfield-input').first(),
-                  app    = await adapter.connectToApp('Neo.examples.grid.nestedRecordFields'),
-                  [view] = await app.queryComponent({ntype: 'grid-view'}, ['selectedRows']);
+            const action    = page.getByRole('button', {name: 'Edit contact', exact: true}),
+                  rows      = page.locator('.neo-grid-row'),
+                  firstName = rows.first().locator('.neo-grid-cell[data-field="user.firstname"]'),
+                  name      = rows.nth(2).locator('.neo-grid-cell[data-field="user.firstname"]'),
+                  dialog    = page.locator('.neo-dialog'),
+                  input     = dialog.locator('input.neo-textfield-input').first(),
+                  app       = await adapter.connectToApp('Neo.examples.grid.nestedRecordFields'),
+                  [view]    = await app.queryComponent({ntype: 'grid-view'}, ['selectedRows']);
 
             await expect(name).toHaveText('Mei-Ling');
             await expect(action).toBeVisible();
@@ -247,10 +248,27 @@ test.describe('Compact floating contact action', () => {
             await dialog.getByRole('button', {name: 'Save', exact: true}).click();
             await expect(dialog).toBeHidden();
             await expect(name).toHaveText('Mei');
-            await expect(rows.first().locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveText('Amara');
+            await expect(firstName).toHaveText('Amara');
             await expect(action).toBeFocused();
 
-            await name.tap();
+            await firstName.tap();
+            await action.tap();
+            await expect(input).toBeFocused();
+            await expect(input).toHaveValue('Amara');
+
+            const [reopened] = await app.queryComponent({className: 'Neo.examples.grid.nestedRecordFields.EditUserDialog'},
+                ['animateTargetId', 'record.id']);
+            expect(reopened.id).toBe(editor.id);
+            expect(reopened.properties).toMatchObject({
+                animateTargetId: editor.properties.animateTargetId,
+                'record.id'    : 'p01'
+            });
+
+            await dialog.getByRole('button', {name: 'Cancel', exact: true}).click();
+            await expect(dialog).toBeHidden();
+            await expect(action).toBeFocused();
+
+            await firstName.tap();
             await expect.poll(async () => (await app.getComponent(view.id, ['selectedRows'])).selectedRows).toEqual([]);
             await action.tap();
             await expect(dialog).toBeHidden();
