@@ -223,19 +223,26 @@ test.describe('Workstation — the palette bridge out-ranks the theme', () => {
         const removed = await page.evaluate(() => {
             let count = 0;
 
-            for (const sheet of document.styleSheets) {
-                let rules;
-
-                try {rules = sheet.cssRules} catch (error) {continue}
+            // Every built sheet is one cascade layer block, so the bridge rules sit one level down
+            const prune = parent => {
+                const rules = parent.cssRules;
 
                 for (let i = (rules?.length ?? 0) - 1; i > -1; i--) {
                     const selector = rules[i].selectorText;
 
                     if (selector?.includes('.workstation-viewport') && selector.includes('[class*="neo-theme-"]')) {
-                        sheet.deleteRule(i);
+                        parent.deleteRule(i);
                         count++
+                    } else if (!selector && rules[i].cssRules) {
+                        prune(rules[i])
                     }
                 }
+            };
+
+            for (const sheet of document.styleSheets) {
+                try {sheet.cssRules} catch (error) {continue}
+
+                prune(sheet)
             }
 
             return count
