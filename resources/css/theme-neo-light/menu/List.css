@@ -6,6 +6,7 @@
     --menu-list-item-background-color-hover   : inherit;
     --menu-list-item-background-color-selected: inherit;
     --menu-list-item-color                    : inherit;
+    --menu-list-item-color-disabled           : var(--sem-color-text-disabled);
     --menu-list-item-font-family              : inherit;
     --menu-list-item-font-weight              : inherit;
     --menu-list-item-icon-color               : #1c60a0;
