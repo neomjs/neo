@@ -340,9 +340,10 @@ const SPELLED = /(?<![\w-]|\(\s*)(--[a-zA-Z0-9_-]+)\s*[:{]/g;
 
 /**
  * What a brace, a semicolon or a comment mark can hide in: an escape, a comment, a string, an unquoted `url()`.
+ * A string without its closing quote ends where its line ends, as a browser's tokenizer ends it.
  * @type {RegExp}
  */
-const OPAQUE = /\\[^]|\/\*[^]*?\*\/|"(?:\\[^]|[^"\\\n])*"|'(?:\\[^]|[^'\\\n])*'|url\(\s*(?:\\[^]|[^"'()\\\s])(?:\\[^]|[^()\\])*\)/gi;
+const OPAQUE = /\\[^]|\/\*[^]*?\*\/|"(?:\\[^]|[^"\\\n])*"?|'(?:\\[^]|[^'\\\n])*'?|url\(\s*(?:\\[^]|[^"'()\\\s])(?:\\[^]|[^()\\])*\)/gi;
 
 /**
  * @summary Reads a stylesheet as its syntax alone: no comment, every string and unquoted `url()` emptied, and

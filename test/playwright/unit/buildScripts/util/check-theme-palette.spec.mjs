@@ -303,9 +303,11 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             cascade  = (name, themeClass) => expect.stringMatching(new RegExp(`^\\[cascade\\] ${name} has 2 values for \\.${themeClass} `));
 
         // The declaration sits between two comment marks, or behind a brace: it is the last one, so it is measured too.
+        // In the third rule the first string has no closing quote, and it ends where its line ends.
         for (const rule of [
             `.neo-theme-neo-dark { --probe: "/*"; ${override} --probe2: "*/"; }`,
             `.neo-theme-neo-dark { --probe: url(/*); ${override} --probe2: url(*/); }`,
+            `.neo-theme-neo-dark { --probe: "/*\n; ${override} --probe2: "*/"; }`,
             `.neo-theme-neo-dark { --probe: "}"; ${override} }`
         ]) {
             const {failures} = plant(css => `${css}\n${rule}`);
