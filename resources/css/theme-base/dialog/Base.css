@@ -1,0 +1,13 @@
+/* Shared Dialog bindings for both inline theme scopes and the body's modal mask. */
+[class*="neo-theme-"] {
+    --neo-dialog-border-color                        : var(--neo-color-border-default);
+    --neo-dialog-box-shadow                          : var(--neo-elevation-3);
+    --neo-dialog-footer-button-border-radius         : var(--neo-control-radius);
+    --neo-dialog-footer-button-height                : var(--neo-control-height-small);
+    --neo-dialog-footer-button-margin-left           : var(--neo-control-gap);
+    --neo-dialog-header-button-background-color-hover: var(--neo-color-background-neutral-hover);
+    --neo-dialog-header-color                        : var(--neo-color-text-default);
+    --neo-dialog-icon-color                          : var(--neo-color-text-muted);
+    --neo-dialog-icon-color-hover                    : var(--neo-color-text-default);
+    --neo-dialog-modal-mask-background-color         : var(--neo-color-background-scrim);
+}
