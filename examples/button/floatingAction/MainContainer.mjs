@@ -39,7 +39,7 @@ class MainContainer extends Viewport {
         }, {
             module      : List,
             cls         : ['neo-floating-action-example-tasks'],
-            displayField: 'name',
+            displayField: 'label',
             flex        : 1,
             id          : listId,
             reference   : 'tasks',

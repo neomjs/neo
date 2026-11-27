@@ -12,12 +12,14 @@ class TaskModel extends Model {
          */
         className: 'Neo.examples.button.floatingAction.TaskModel',
         /**
+         * `label` marks done tasks, so the list shows what the open-tasks filter will hide
          * @member {Object[]} fields
          */
         fields: [
-            {name: 'done', type: 'Boolean'},
-            {name: 'id',   type: 'Integer'},
-            {name: 'name', type: 'String'}
+            {name: 'done',  type: 'Boolean'},
+            {name: 'id',    type: 'Integer'},
+            {name: 'label', type: 'String', calculate: data => data.done ? `${data.name} · done` : data.name},
+            {name: 'name',  type: 'String'}
         ]
     }
 }
