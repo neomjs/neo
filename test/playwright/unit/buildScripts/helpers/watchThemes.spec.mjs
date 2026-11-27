@@ -14,6 +14,7 @@ import {
     startThemeWatcher
 } from '../../../../../buildScripts/helpers/watchThemes.mjs';
 
+const BUILD_SCRIPT = fileURLToPath(new URL('../../../../../buildScripts/build/themes.mjs', import.meta.url));
 const WATCH_SCRIPT = fileURLToPath(new URL('../../../../../buildScripts/helpers/watchThemes.mjs', import.meta.url));
 
 /**
@@ -131,6 +132,26 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         expect(output).toContain('.panel {\n    .child {');
         expect(output).toContain('/*# sourceMappingURL=Panel.css.map */');
         expect(map.sources).toEqual(['../../../../resources/css/src/Panel.css'])
+    });
+
+    test('a watched save writes the layered sheet the full build writes (#22297)', async () => {
+        const
+            root     = createRoot(),
+            {logger} = createLogger(),
+            output   = path.join(root, 'dist/development/css/theme-fixture/button/Base.css');
+
+        writeSource(root, 'src/button/Base.css', '.neo-button {\n    color: var(--button-color);\n}\n');
+        writeSource(root, 'theme-fixture/Global.css', '.neo-theme-fixture {\n    --fixture-color: red;\n}\n');
+        writeSource(root, 'theme-fixture/button/Base.css', '.neo-theme-fixture .neo-button {\n    --button-color: var(--fixture-color);\n}\n');
+
+        expect(spawnSync(process.execPath, [BUILD_SCRIPT, '-n', '-e', 'dev', '-t', 'all'], {cwd: root, encoding: 'utf8'}).status).toBe(0);
+
+        const built = fs.readFileSync(output, 'utf8');
+
+        await handleThemeWatchEvent('change', 'theme-fixture/button/Base.css', {logger, repoRoot: root});
+
+        expect(fs.readFileSync(output, 'utf8')).toBe(built);
+        expect(built).toMatch(/^@layer neo\.vendor, neo\.roles, neo\.base, neo\.theme, neo\.rules, neo\.apps;\s*@layer neo\.theme \{/)
     });
 
     test('one structural event reconciles add, rename, delete, source maps, and the exact map', async () => {
