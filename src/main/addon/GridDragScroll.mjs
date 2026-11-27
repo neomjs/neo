@@ -9,9 +9,14 @@ import DomEvents from '../DomEvents.mjs';
  * and overhead of passing high-frequency messages between workers, resulting in
  * smoother, native-like scrolling performance for both mouse and touch users.
  *
- * It listens for `mousedown` or `touchstart` on the grid body, then attaches global `mousemove` / `touchmove` and
- * `mouseup` / `touchend` listeners to handle the drag operation, supporting "over-drag" (scrolling
- * continues even if the mouse / finger leaves the grid bounds).
+ * It listens for `mousedown` or `touchstart` on the grid body, then attaches global `mousemove` / `mouseup` or
+ * `touchmove`, `touchend`, `touchcancel`, and touch `pointercancel` listeners to handle the drag operation,
+ * supporting "over-drag" (scrolling continues even if the mouse or finger leaves the grid bounds).
+ *
+ * **Multi-Contact Touch Policy:**
+ * One contact owns a touch gesture by `Touch.identifier`; a secondary `touchstart` never rearms monitoring or
+ * replaces active drag state, and a `touchcancel`, touch `pointercancel`, uncancelable `touchmove` (compositor
+ * scroll takeover), or lift while another contact remains pressed ends tracking immediately without momentum.
  *
  * **Kinetic Scrolling:**
  * The addon implements physics-based inertial scrolling. When a user releases a drag with sufficient velocity,
@@ -122,16 +127,55 @@ class GridDragScroll extends Base {
     }
 
     /**
-     * @param {MouseEvent|TouchEvent} event
-     * @returns {Object} {x, y}
+     * @summary Finds the touch entry matching `identifier` in a `TouchList` or array.
+     * @param {TouchList|Object[]} [touches]
+     * @param {Number|null} [identifier]
+     * @returns {Touch|Object|null}
      */
-    getEventCoordinates(event) {
-        if (event.type.startsWith('touch')) {
-            let touch = event.touches[0] || event.changedTouches[0];
-            return {x: touch.clientX, y: touch.clientY}
+    findTouch(touches, identifier) {
+        if (touches && identifier !== null && identifier !== undefined) {
+            for (let i = 0, len = touches.length; i < len; i++) {
+                if (touches[i].identifier === identifier) {
+                    return touches[i]
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Extracts client coordinates for mouse, tracked touch, or delay-timeout events.
+     * @param {MouseEvent|TouchEvent|Object} event
+     * @param {Number|null} [touchId=null]
+     * @returns {{x: Number, y: Number}|null}
+     */
+    getEventCoordinates(event, touchId=null) {
+        if (event.type === 'timeout') {
+            return {x: event.x, y: event.y}
+        }
+
+        if (event.type?.startsWith('touch')) {
+            let touch = touchId !== null
+                ? (this.findTouch(event.touches, touchId) || this.findTouch(event.changedTouches, touchId))
+                : (event.touches?.[0] || event.changedTouches?.[0]);
+
+            return touch ? {x: touch.clientX, y: touch.clientY} : null
         }
 
         return {x: event.clientX, y: event.clientY}
+    }
+
+    /**
+     * @summary Cancels an active touch drag without momentum when the browser cancels the contact or pointer stream.
+     * @param {PointerEvent|TouchEvent} event
+     */
+    onDragCancel(event) {
+        if (event?.type === 'pointercancel' && event.pointerType && event.pointerType !== 'touch') {
+            return
+        }
+
+        this.activeDrag?.listeners && this.cancelActiveDrag()
     }
 
     /**
@@ -141,17 +185,24 @@ class GridDragScroll extends Base {
     onDragEnd(event) {
         let me = this;
 
-        if (me.activeDrag) {
+        if (me.activeDrag?.listeners) {
             if (event.type === 'mouseup') {
                 document.body.style.removeProperty('cursor');
                 document.removeEventListener('mousemove', me.activeDrag.listeners.move, {capture: true});
                 document.removeEventListener('mouseup', me.activeDrag.listeners.end, {capture: true})
             } else {
+                if ((event.touches?.length ?? 0) > 0 || (me.activeDrag.touchId !== null && !me.findTouch(event.changedTouches, me.activeDrag.touchId))) {
+                    me.cancelActiveDrag();
+                    return
+                }
+
                 document.removeEventListener('touchmove', me.activeDrag.listeners.move, {
                     capture: true,
                     passive: false
                 });
-                document.removeEventListener('touchend', me.activeDrag.listeners.end, {capture: true})
+                document.removeEventListener('touchend',      me.activeDrag.listeners.end,    {capture: true});
+                document.removeEventListener('touchcancel',   me.activeDrag.listeners.cancel, {capture: true});
+                document.removeEventListener('pointercancel', me.activeDrag.listeners.cancel, {capture: true})
             }
 
             const {history, id, registration} = me.activeDrag,
@@ -181,22 +232,34 @@ class GridDragScroll extends Base {
     }
 
     /**
+     * @summary Updates horizontal and vertical scroll positions from the active pointer or tracked touch contact, aborting without momentum if a touch stream becomes uncancelable.
      * @param {MouseEvent|TouchEvent} event
      */
     onDragMove(event) {
         let me   = this,
             drag = me.activeDrag;
 
-        if (!drag) {
+        if (!drag?.registration) {
             return
         }
 
-        if (event.type === 'touchmove' && event.cancelable !== false) {
+        let coords = me.getEventCoordinates(event, drag.touchId ?? null);
+
+        if (!coords) {
+            return
+        }
+
+        if (event.type === 'touchmove') {
+            if (event.cancelable === false) {
+                me.cancelActiveDrag();
+                return
+            }
+
             event.preventDefault() // Disable native scrolling
         }
 
         let {registration} = drag,
-            {x, y}         = me.getEventCoordinates(event),
+            {x, y}         = coords,
             deltaX         = drag.lastX - x,
             deltaY         = drag.lastY - y;
 
@@ -218,6 +281,7 @@ class GridDragScroll extends Base {
     }
 
     /**
+     * @summary Validates a primary press on a registered grid body and arms drag-threshold monitoring for the mouse or single owning touch contact.
      * @param {MouseEvent|TouchEvent} event
      */
     onDragStart(event) {
@@ -226,8 +290,20 @@ class GridDragScroll extends Base {
             return
         }
 
-        let me   = this,
-            path = event.composedPath(),
+        let me = this;
+
+        if (event.type === 'touchstart') {
+            if ((event.touches?.length ?? 0) > 1) {
+                me.monitorDrag && me.onMonitorEnd(event);
+                return
+            }
+
+            if (me.activeDrag?.listeners) {
+                return
+            }
+        }
+
+        let path = event.composedPath(),
             id, registration;
 
         // Stop any active animation
@@ -289,13 +365,28 @@ class GridDragScroll extends Base {
         // focus wherever it was before every grid click. Selection suppression belongs to CSS and
         // already lives there: `.neo-grid-body.neo-mouse-drag-scroll {user-select: none}`.
 
-        let {x, y} = me.getEventCoordinates(event);
+        let touch   = event.type === 'touchstart' ? (event.changedTouches?.[0] || event.touches?.[0] || null) : null,
+            touchId = touch?.identifier ?? null,
+            coords  = me.getEventCoordinates(event, touchId);
+
+        if (!coords) {
+            return
+        }
+
+        me.monitorDrag && me.onMonitorEnd(event);
+        me.activeDrag  && me.cancelActiveDrag();
+
+        let {x, y} = coords;
 
         me.monitorDrag = {
             id,
+            inputType: event.type === 'mousedown' ? 'mouse' : 'touch',
+            lastX    : x,
+            lastY    : y,
             registration,
-            startX: x,
-            startY: y
+            startX   : x,
+            startY   : y,
+            touchId
         };
 
         me.mouseDownTime = Date.now();
@@ -304,48 +395,83 @@ class GridDragScroll extends Base {
             document.addEventListener('mousemove', me.onMonitorMove, {capture: true});
             document.addEventListener('mouseup',   me.onMonitorEnd,  {capture: true})
         } else {
-            document.addEventListener('touchmove', me.onMonitorMove, {capture: true, passive: false});
-            document.addEventListener('touchend',  me.onMonitorEnd,  {capture: true})
+            document.addEventListener('touchmove',     me.onMonitorMove, {capture: true, passive: false});
+            document.addEventListener('touchend',      me.onMonitorEnd,  {capture: true});
+            document.addEventListener('touchcancel',   me.onMonitorEnd,  {capture: true});
+            document.addEventListener('pointercancel', me.onMonitorEnd,  {capture: true})
         }
 
         me.mouseDownTimeout = setTimeout(() => {
-            me.onMonitorMove({
-                type: 'timeout',
-                ...me.getEventCoordinates(event) // use original event coords as fallback
-            })
+            if (me.monitorDrag) {
+                me.onMonitorMove({
+                    type: 'timeout',
+                    x   : me.monitorDrag.lastX,
+                    y   : me.monitorDrag.lastY
+                })
+            }
         }, me.delay)
     }
 
     /**
-     * Detect change in distance, starting drag when both delay and distance requirements are met
+     * @summary Measures elapsed time and travel distance for the monitored contact, promoting into an active drag once both thresholds pass or releasing on multi-touch and uncancelable touch moves.
      * @param {MouseEvent|TouchEvent|Object} event - Object in case it does get trigger via the mouseDownTimeout
      */
     onMonitorMove(event) {
-        let me          = this,
-            monitor     = me.monitorDrag,
-            {x, y}      = me.getEventCoordinates(event),
+        let me      = this,
+            monitor = me.monitorDrag;
+
+        if (!monitor) {
+            return
+        }
+
+        if (event.type === 'touchmove' && ((event.touches?.length ?? 0) > 1 || event.cancelable === false)) {
+            me.onMonitorEnd(event);
+            return
+        }
+
+        let coords = me.getEventCoordinates(event, monitor.touchId);
+
+        if (!coords) {
+            return
+        }
+
+        let {x, y}      = coords,
             timeElapsed = Date.now() - me.mouseDownTime,
             dist        = DomEvents.getDistance(monitor.startX, monitor.startY, x, y) || 0;
 
+        monitor.lastX = x;
+        monitor.lastY = y;
+
         if (timeElapsed >= me.delay && dist >= me.minDistance) {
+            if (event.type === 'touchmove' && event.cancelable !== false) {
+                event.preventDefault()
+            }
+
             me.onMonitorEnd(event);
-            me.startDrag(monitor, x, y, event.type.startsWith('touch') ? 'touch' : 'mouse')
+            me.startDrag(monitor, x, y, monitor.inputType || (event.type.startsWith('touch') ? 'touch' : 'mouse'))
         }
     }
 
     /**
-     * @param {MouseEvent|TouchEvent} event
+     * @summary Clears the delay timer and removes all monitoring-phase document listeners.
+     * @param {MouseEvent|PointerEvent|TouchEvent} [event]
      */
     onMonitorEnd(event) {
         let me = this;
 
+        if (me.monitorDrag?.inputType === 'touch' && event?.type === 'pointercancel' && event.pointerType && event.pointerType !== 'touch') {
+            return
+        }
+
         clearTimeout(me.mouseDownTimeout);
         me.monitorDrag = null;
 
-        document.removeEventListener('mousemove', me.onMonitorMove, {capture: true});
-        document.removeEventListener('mouseup',   me.onMonitorEnd,  {capture: true});
-        document.removeEventListener('touchmove', me.onMonitorMove, {capture: true, passive: false});
-        document.removeEventListener('touchend',  me.onMonitorEnd,  {capture: true})
+        document.removeEventListener('mousemove',     me.onMonitorMove, {capture: true});
+        document.removeEventListener('mouseup',       me.onMonitorEnd,  {capture: true});
+        document.removeEventListener('touchmove',     me.onMonitorMove, {capture: true, passive: false});
+        document.removeEventListener('touchend',      me.onMonitorEnd,  {capture: true});
+        document.removeEventListener('touchcancel',   me.onMonitorEnd,  {capture: true});
+        document.removeEventListener('pointercancel', me.onMonitorEnd,  {capture: true})
     }
 
     /**
@@ -378,14 +504,33 @@ class GridDragScroll extends Base {
         animation && cancelAnimationFrame(animation);
 
         if (listeners) {
-            document.removeEventListener('mousemove', listeners.move, {capture: true});
-            document.removeEventListener('mouseup',   listeners.end,  {capture: true});
-            document.removeEventListener('touchmove', listeners.move, {capture: true, passive: false});
-            document.removeEventListener('touchend',  listeners.end,  {capture: true})
+            document.removeEventListener('mousemove',   listeners.move, {capture: true});
+            document.removeEventListener('mouseup',     listeners.end,  {capture: true});
+            document.removeEventListener('touchmove',   listeners.move, {capture: true, passive: false});
+            document.removeEventListener('touchend',    listeners.end,  {capture: true});
+
+            if (listeners.cancel) {
+                document.removeEventListener('touchcancel',   listeners.cancel, {capture: true});
+                document.removeEventListener('pointercancel', listeners.cancel, {capture: true})
+            }
         }
 
         document.body.style.removeProperty('cursor');
         me.activeDrag = null
+    }
+
+    /**
+     * @summary Releases any live gesture or monitor and removes the document `dragstart` listener.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.monitorDrag && me.onMonitorEnd();
+        me.activeDrag  && me.cancelActiveDrag();
+        document.removeEventListener('dragstart', me.onNativeDragStart, {capture: true});
+
+        super.destroy(...args)
     }
 
     /**
@@ -426,6 +571,7 @@ class GridDragScroll extends Base {
     }
 
     /**
+     * @summary Promotes a qualified monitor into an active mouse or touch drag and attaches document-level move, end, and cancel listeners.
      * @param {Object} monitor
      * @param {Number} x
      * @param {Number} y
@@ -434,9 +580,8 @@ class GridDragScroll extends Base {
     startDrag(monitor, x, y, inputType) {
         let me = this;
 
-        // A press during a kinetic tail takes the grid over: the tail's frame must not keep scrolling
-        // the registration underneath the new gesture.
-        me.activeDrag?.animation && cancelAnimationFrame(me.activeDrag.animation);
+        // A press during a kinetic tail or stale gesture takes the grid over cleanly.
+        me.activeDrag && me.cancelActiveDrag();
 
         me.activeDrag = {
             id          : monitor.id,
@@ -444,9 +589,11 @@ class GridDragScroll extends Base {
             history     : [{time: Date.now(), x, y}],
             lastX       : x,
             lastY       : y,
+            touchId     : inputType === 'touch' ? (monitor.touchId ?? null) : null,
             listeners   : {
-                move: me.onDragMove.bind(me),
-                end : me.onDragEnd.bind(me)
+                cancel: me.onDragCancel.bind(me),
+                end   : me.onDragEnd.bind(me),
+                move  : me.onDragMove.bind(me)
             }
         };
 
@@ -455,8 +602,10 @@ class GridDragScroll extends Base {
             document.addEventListener('mousemove', me.activeDrag.listeners.move, {capture: true});
             document.addEventListener('mouseup',   me.activeDrag.listeners.end,  {capture: true})
         } else {
-            document.addEventListener('touchmove', me.activeDrag.listeners.move, {capture: true, passive: false});
-            document.addEventListener('touchend',  me.activeDrag.listeners.end,  {capture: true})
+            document.addEventListener('touchmove',     me.activeDrag.listeners.move,   {capture: true, passive: false});
+            document.addEventListener('touchend',      me.activeDrag.listeners.end,    {capture: true});
+            document.addEventListener('touchcancel',   me.activeDrag.listeners.cancel, {capture: true});
+            document.addEventListener('pointercancel', me.activeDrag.listeners.cancel, {capture: true})
         }
     }
 
