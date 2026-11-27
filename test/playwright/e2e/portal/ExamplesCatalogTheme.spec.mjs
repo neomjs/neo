@@ -358,7 +358,7 @@ const CUSTOM_TOGGLE_EXAMPLES = [{
     url          : '/examples/dialog/index.html',
     assertControl: async (page, app, expectedTheme, {expectOpenDialog = false} = {}) => {
         const expectedLabel = expectedTheme === DARK ? 'Neo Dark' : 'Neo Light',
-              switcher      = await queryProps(app, {ntype: 'theme-switcher'}, ['ariaLabel', 'text']);
+              switcher      = await queryProps(app, {ntype: 'themeswitcher'}, ['ariaLabel', 'text']);
 
         expect(switcher.text).toBe(expectedLabel);
         expect(switcher.ariaLabel).toBe(`Theme: ${expectedLabel}`);

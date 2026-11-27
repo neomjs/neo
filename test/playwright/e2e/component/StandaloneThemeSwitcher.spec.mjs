@@ -21,7 +21,7 @@ test.describe('Standalone examples ThemeSwitcher', () => {
         await expect(switcher).toBeVisible({timeout: 30000});
         await expect(viewport).toHaveClass(/neo-theme-neo-light/);
 
-        const [swNode] = await app.queryComponent({ntype: 'theme-switcher'}, ['id']);
+        const [swNode] = await app.queryComponent({ntype: 'themeswitcher'}, ['id']);
         expect(swNode?.id).toBeTruthy();
 
         await switcher.click();

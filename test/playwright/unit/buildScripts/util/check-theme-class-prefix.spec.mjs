@@ -103,29 +103,33 @@ test.describe('check-theme-class-prefix — neo-theme- reserved for themes and n
         ])
     });
 
-    test('FIRES: ntype starting with theme emits neo-theme-<rest>-<ui> unless afterSetUi avoids super.afterSetUi', () => {
+    test('FIRES on reserved theme/theme-* ntype and PASSES on themeswitcher class and consumer usage', () => {
         const unsafeRoot = makeTree({
             'src/button/BadSwitcher.mjs': [
                 'class BadSwitcher {',
                 "    static config = { ntype: 'theme-switcher', ui: 'ghost' }",
-                '    afterSetUi(v, ov) { super.afterSetUi(v, ov) }',
                 '}'
-            ].join('\n')
+            ].join('\n'),
+            'examples/demo/BadConsumer.mjs': "export const items = [{ntype: 'theme-switcher'}];\n"
         });
 
         expect(collectThemeClassPrefixFailures({root: unsafeRoot})).toEqual([
-            "[reserved-prefix] src/button/BadSwitcher.mjs:2 declares ntype 'theme-switcher', whose " +
-            "component.Base#afterSetUi emits 'neo-theme-switcher-<ui>'; rename ntype or override " +
-            'afterSetUi without super.afterSetUi'
+            "[reserved-prefix] src/button/BadSwitcher.mjs:2 uses reserved ntype 'theme-switcher', whose " +
+            "component.Base#afterSetUi emits 'neo-theme-switcher-<ui>'; rename ntype so it is neither " +
+            "'theme' nor 'theme-*'",
+            "[reserved-prefix] examples/demo/BadConsumer.mjs:1 uses reserved ntype 'theme-switcher', whose " +
+            "component.Base#afterSetUi emits 'neo-theme-switcher-<ui>'; rename ntype so it is neither " +
+            "'theme' nor 'theme-*'"
         ]);
 
         const safeRoot = makeTree({
-            'src/button/SafeSwitcher.mjs': [
-                'class SafeSwitcher {',
-                "    static config = { ntype: 'theme-switcher', ui: 'ghost' }",
-                "    afterSetUi(v, ov) { this.removeAddCls(ov && 'neo-button-' + ov, v && 'neo-button-' + v) }",
+            'src/button/ThemeSwitcher.mjs': [
+                'class ThemeSwitcher {',
+                "    static config = { ntype: 'themeswitcher', ui: 'ghost' }",
+                '    afterSetUi(v, ov) { super.afterSetUi(v, ov) }',
                 '}'
-            ].join('\n')
+            ].join('\n'),
+            'examples/demo/Consumer.mjs': "export const items = [{ntype: 'themeswitcher'}];\n"
         });
 
         expect(collectThemeClassPrefixFailures({root: safeRoot})).toEqual([])

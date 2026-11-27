@@ -18,10 +18,10 @@ class ThemeSwitcher extends Button {
          */
         className: 'Neo.button.ThemeSwitcher',
         /**
-         * @member {String} ntype='theme-switcher'
+         * @member {String} ntype='themeswitcher'
          * @protected
          */
-        ntype: 'theme-switcher',
+        ntype: 'themeswitcher',
         /**
          * @member {String[]} baseCls=['neo-button','neo-themeswitcher']
          * @protected
@@ -151,13 +151,13 @@ class ThemeSwitcher extends Button {
     }
 
     /**
-     * @summary Reuses the Button skin corresponding to this subclass's configured UI without emitting
-     * `component.Base#afterSetUi`'s `neo-${ntype}-${ui}` class, which would collide with `neo-theme-`.
+     * @summary Reuses the Button skin corresponding to this subclass's configured UI.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetUi(value, oldValue) {
+        super.afterSetUi(value, oldValue);
         this.removeAddCls(oldValue && 'neo-button-' + oldValue, value && 'neo-button-' + value)
     }
 

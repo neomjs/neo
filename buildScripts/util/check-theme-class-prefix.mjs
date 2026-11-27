@@ -213,19 +213,15 @@ export function collectThemeClassPrefixFailures({root = repoRoot} = {}) {
 
             scanStrippedText(stripped, relPath, allowed, failures);
 
-            const
-                overridesUiSafely = /\bafterSetUi\s*\(/.test(stripped) && !/\bsuper\.afterSetUi\s*\(/.test(stripped),
-                lines             = stripped.split('\n');
+            const lines = stripped.split('\n');
 
-            if (!overridesUiSafely) {
-                for (let index = 0; index < lines.length; index++) {
-                    for (const match of lines[index].matchAll(RESERVED_NTYPE_RE)) {
-                        failures.push(
-                            `[reserved-prefix] ${relPath}:${index + 1} declares ntype '${match[1]}', whose ` +
-                            `component.Base#afterSetUi emits 'neo-${match[1]}-<ui>'; rename ntype or override ` +
-                            `afterSetUi without super.afterSetUi`
-                        )
-                    }
+            for (let index = 0; index < lines.length; index++) {
+                for (const match of lines[index].matchAll(RESERVED_NTYPE_RE)) {
+                    failures.push(
+                        `[reserved-prefix] ${relPath}:${index + 1} uses reserved ntype '${match[1]}', whose ` +
+                        `component.Base#afterSetUi emits 'neo-${match[1]}-<ui>'; rename ntype so it is neither ` +
+                        `'theme' nor 'theme-*'`
+                    )
                 }
             }
         }
