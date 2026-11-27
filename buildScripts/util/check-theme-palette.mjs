@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * @module buildScripts/util/check-theme-palette
- * @summary Holds every theme palette to its three measurable rules: a grade has one lightness in every
- * slot, a slot's grades descend in lightness, and the text, border and focus-ring pairs meet their contrast
- * floors in each scheme the theme declares.
+ * @summary Holds every theme palette to its measurable rules: a grade has one lightness in every slot, a
+ * slot's grades descend in lightness, the text, border and focus-ring pairs meet their contrast floors in each
+ * scheme the theme declares, and every palette declares the same `--neo-` names as every other.
  *
  * A palette is a theme class whose `Global.css` declares a `--neo-palette-*` name. A theme without one is
  * not written against the roles yet and is skipped. The lightness numbers are each theme's own, so a palette
@@ -455,19 +455,50 @@ function checkPalette({declarations, failures, relPath, themeClass}) {
 }
 
 /**
- * @summary Walks every theme folder's `Global.css` and checks each palette it declares.
+ * @summary Holds every palette to one set of names: a `--neo-` name that one theme class declares and
+ * another lacks fails once, so an override written against one theme reaches every theme.
+ * @param {Object} data
+ * @param {Object[]} data.declared Each `{names: String[], relPath: String, themeClass: String}`
+ * @param {Set<String>} data.failures
+ * @returns {Number} How many distinct names the palettes declare
+ */
+function checkNames({declared, failures}) {
+    const
+        names = new Set(declared.flatMap(entry => entry.names)),
+        where = entries => [...new Set(entries.map(entry => entry.relPath))].map(relPath =>
+            `${relPath} (${entries.filter(entry => entry.relPath === relPath).map(entry => '.' + entry.themeClass).join(', ')})`
+        ).join(', ');
+
+    for (const name of names) {
+        const lacking = declared.filter(entry => !entry.names.includes(name));
+
+        if (lacking.length) {
+            failures.add(
+                `[names] ${name} is declared in ${where(declared.filter(entry => entry.names.includes(name)))} and ` +
+                `missing in ${where(lacking)}; every theme declares the same palette and role names`
+            )
+        }
+    }
+
+    return names.size
+}
+
+/**
+ * @summary Walks every theme folder's `Global.css`, checks each palette it declares, and compares their names.
  * @param {Object} [options={}]
  * @param {String} [options.root=repoRoot]
- * @returns {{failures: String[], palettes: String[]}} `palettes` names each checked theme class with its scheme
+ * @returns {{failures: String[], names: Number, palettes: String[]}} `palettes` names each checked theme class
+ * with its scheme; `names` counts the distinct `--neo-` names they declare
  */
 export function inspectThemePalettes({root = repoRoot} = {}) {
     const
         cssRoot  = path.join(root, 'resources/css'),
+        declared = [],
         failures = new Set(),
         palettes = [];
 
     if (!fs.existsSync(cssRoot)) {
-        return {failures: [`[surface] missing resources/css under ${root}`], palettes}
+        return {failures: [`[surface] missing resources/css under ${root}`], names: 0, palettes}
     }
 
     const folders = [...new Set(Object.values(collectThemeClassMap([cssRoot])).flat())].sort();
@@ -483,11 +514,14 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
             }
 
             palettes.push(`${themeClass} (${declarations.get(SCHEME) ?? 'no scheme'})`);
+            declared.push({names: [...declarations.keys()].filter(name => name.startsWith('--neo-')), relPath, themeClass});
             checkPalette({declarations, failures, relPath, themeClass})
         }
     }
 
-    return {failures: [...failures], palettes}
+    const names = checkNames({declared, failures});
+
+    return {failures: [...failures], names, palettes}
 }
 
 /**
@@ -502,7 +536,7 @@ export function collectThemePaletteFailures(options) {
 }
 
 if (isEntryModule(import.meta.url)) {
-    const {failures, palettes} = inspectThemePalettes();
+    const {failures, names, palettes} = inspectThemePalettes();
 
     if (failures.length) {
         console.error('✗ theme palette FAILED:\n');
@@ -511,7 +545,8 @@ if (isEntryModule(import.meta.url)) {
     }
 
     console.log(
-        `✓ theme palette — ${palettes.length} palette(s): ${palettes.join(', ') || 'none'}; every grade at one ` +
-        `lightness across its slots, every slot descending, ${CONTRAST_PAIRS.length} pairs at their floors.`
+        `✓ theme palette — ${palettes.length} palette(s): ${palettes.join(', ') || 'none'}; the same ${names} names ` +
+        `in each, every grade at one lightness across its slots, every slot descending, ${CONTRAST_PAIRS.length} ` +
+        `pairs at their floors.`
     )
 }

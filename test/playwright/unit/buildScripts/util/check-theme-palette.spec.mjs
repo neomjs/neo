@@ -32,13 +32,8 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
 
     const
         setRole = (css, name, value) => css.replace(new RegExp(`(${name}\\s*:\\s*)[^;]+;`), `$1${value};`),
-        plant   = (change, extraFiles = {}) => {
-            const planted = change(source);
-
-            // A change that matched nothing would turn its arm into a second control.
-            expect(planted).not.toBe(source);
-
-            for (const [rel, body] of Object.entries({'theme-neo/Global.css': planted, ...extraFiles})) {
+        inspect = files => {
+            for (const [rel, body] of Object.entries(files)) {
                 const target = path.join(tmpRoot, 'resources/css', rel);
 
                 fs.mkdirSync(path.dirname(target), {recursive: true});
@@ -46,6 +41,20 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             }
 
             return inspectThemePalettes({root: tmpRoot})
+        },
+        plant   = (change, extraFiles = {}) => {
+            const planted = change(source);
+
+            // A change that matched nothing would turn its arm into a second control.
+            expect(planted).not.toBe(source);
+
+            return inspect({'theme-neo/Global.css': planted, ...extraFiles})
+        },
+        // Theme Neo's file as it stands, beside a second theme: its copy under two other classes, plus one change.
+        plantSecond = (change = css => css) => {
+            const copy = source.replaceAll('neo-theme-neo-', 'neo-theme-second-');
+
+            return inspect({'theme-neo/Global.css': source, 'theme-second/Global.css': change(copy)})
         };
 
     test('CONTROL: the live repository passes, and theme Neo is measured in both schemes', () => {
@@ -147,6 +156,38 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
 
         expect(palettes).toEqual(['neo-theme-neo-dark (dark)']);
         expect(failures).toEqual([])
+    });
+
+    test('CONTROL: a second theme with the same names passes, and the live file declares 194', () => {
+        const {failures, names, palettes} = plantSecond();
+
+        expect(failures).toEqual([]);
+        expect(palettes).toHaveLength(4);
+        expect(names).toBe(194);
+        expect(inspectThemePalettes().names).toBe(194)
+    });
+
+    test('a name a second theme lacks fails once, with both sides named', () => {
+        const {failures} = plantSecond(css => css.replace(/\n\s*--neo-radius-large\s*:[^\n]*/, ''));
+
+        expect(failures).toEqual([
+            '[names] --neo-radius-large is declared in resources/css/theme-neo/Global.css (.neo-theme-neo-light, ' +
+            '.neo-theme-neo-dark) and missing in resources/css/theme-second/Global.css (.neo-theme-second-light, ' +
+            '.neo-theme-second-dark); every theme declares the same palette and role names'
+        ])
+    });
+
+    test('a name a second theme adds fails once, and a component variable is not compared', () => {
+        const {failures} = plantSecond(css => css.replace(
+            '--neo-radius-large',
+            '--button-border-radius: 4px;\n    --neo-radius-pill: 999px;\n    --neo-radius-large'
+        ));
+
+        expect(failures).toEqual([
+            '[names] --neo-radius-pill is declared in resources/css/theme-second/Global.css (.neo-theme-second-light, ' +
+            '.neo-theme-second-dark) and missing in resources/css/theme-neo/Global.css (.neo-theme-neo-light, ' +
+            '.neo-theme-neo-dark); every theme declares the same palette and role names'
+        ])
     });
 
     test('resolveValue follows var() reads and picks the light-dark() side of the scheme', () => {
