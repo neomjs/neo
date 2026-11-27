@@ -14,6 +14,7 @@ import {
     startThemeWatcher
 } from '../../../../../buildScripts/helpers/watchThemes.mjs';
 
+const BUILD_SCRIPT = fileURLToPath(new URL('../../../../../buildScripts/build/themes.mjs', import.meta.url));
 const WATCH_SCRIPT = fileURLToPath(new URL('../../../../../buildScripts/helpers/watchThemes.mjs', import.meta.url));
 
 /**
@@ -131,6 +132,26 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         expect(output).toContain('.panel {\n    .child {');
         expect(output).toContain('/*# sourceMappingURL=Panel.css.map */');
         expect(map.sources).toEqual(['../../../../resources/css/src/Panel.css'])
+    });
+
+    test('a watched save writes the layered sheet the full build writes (#22297)', async () => {
+        const
+            root     = createRoot(),
+            {logger} = createLogger(),
+            output   = path.join(root, 'dist/development/css/theme-fixture/button/Base.css');
+
+        writeSource(root, 'src/button/Base.css', '.neo-button {\n    color: var(--button-color);\n}\n');
+        writeSource(root, 'theme-fixture/Global.css', '.neo-theme-fixture {\n    --fixture-color: red;\n}\n');
+        writeSource(root, 'theme-fixture/button/Base.css', '.neo-theme-fixture .neo-button {\n    --button-color: var(--fixture-color);\n}\n');
+
+        expect(spawnSync(process.execPath, [BUILD_SCRIPT, '-n', '-e', 'dev', '-t', 'all'], {cwd: root, encoding: 'utf8'}).status).toBe(0);
+
+        const built = fs.readFileSync(output, 'utf8');
+
+        await handleThemeWatchEvent('change', 'theme-fixture/button/Base.css', {logger, repoRoot: root});
+
+        expect(fs.readFileSync(output, 'utf8')).toBe(built);
+        expect(built).toMatch(/^@layer neo\.vendor, neo\.roles, neo\.base, neo\.theme, neo\.rules, neo\.apps;\s*@layer neo\.theme \{/)
     });
 
     test('one structural event reconciles add, rename, delete, source maps, and the exact map', async () => {
@@ -263,6 +284,45 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         await handleThemeWatchEvent('rename', 'src/apps/ext/Shared.css', {logger, reconcile: reconcileFixture, repoRoot: root});
 
         expect(fs.readFileSync(output('src/apps/ext/Shared.css'), 'utf8')).toContain('green')
+    });
+
+    test('retires a deleted workspace theme in one reconciliation without stale theme-map resurrection while preserving valid overlays', async () => {
+        const
+            root     = createRoot('theme-workspace'),
+            {logger} = createLogger(),
+            engine   = path.join(root, 'node_modules/neo.mjs'),
+            output   = filename => path.join(root, 'dist/development/css', filename);
+
+        writeSource(engine, 'src/Base.css');
+        writeSource(engine, 'theme-neo-dark/Global.css', ':where(.neo-theme-neo-dark) { --x: 1; }');
+        writeSource(engine, 'theme-neo-dark/button/Base.css', ':where(.neo-theme-neo-dark) { --btn: 1; }');
+        // Valid workspace component overlay on the Engine's theme-neo-dark (no local Global.css)
+        writeSource(root, 'theme-neo-dark/apps/demo/Overlay.css', ':where(.neo-theme-neo-dark) { --overlay: 1; }');
+        // Custom workspace theme with Global.css + component sheet
+        writeSource(root, 'theme-custom/Global.css', ':where(.neo-theme-custom) { --custom: 1; }');
+        writeSource(root, 'theme-custom/button/Base.css', ':where(.neo-theme-custom) { --btn: 2; }');
+
+        await reconcileFixture({logger, repoRoot: root});
+
+        expect(fs.existsSync(output('theme-custom/button/Base.css'))).toBe(true);
+        expect(mapLeaf(root, 'Neo.button.Base')).toEqual(['theme-custom', 'theme-neo-dark']);
+
+        // Delete only Global.css, leaving theme-custom/button/Base.css and the generated workspace theme-map on disk
+        fs.rmSync(path.join(root, 'resources/css/theme-custom/Global.css'));
+        await handleThemeWatchEvent('rename', 'theme-custom/Global.css', {
+            logger,
+            reconcile: reconcileFixture,
+            repoRoot : root
+        });
+
+        const regenerated = JSON.parse(fs.readFileSync(path.join(root, 'resources/theme-map.json'), 'utf8'));
+
+        expect(fs.existsSync(output('theme-custom/Global.css'))).toBe(false);
+        expect(fs.existsSync(output('theme-custom/button/Base.css'))).toBe(false);
+        expect(regenerated.themes).toEqual({'neo-theme-neo-dark': ['theme-neo-dark']});
+        expect(mapLeaf(root, 'Neo.button.Base')).toEqual(['theme-neo-dark']);
+        expect(mapLeaf(root, 'apps.demo.Overlay')).toEqual(['theme-neo-dark']);
+        expect(fs.existsSync(output('theme-neo-dark/apps/demo/Overlay.css'))).toBe(true)
     });
 
     test('startup freshness preserves a prior valid one-file rebuild', async () => {

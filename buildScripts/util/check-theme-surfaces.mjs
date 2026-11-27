@@ -10,44 +10,78 @@
  * 2. Token-only color consumption throughout the Workstation stylesheet tree.
  * 3. Completeness for every consumed, non-local token in both skins.
  */
-import fs              from 'node:fs';
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
-import isEntryModule   from './isEntryModule.mjs';
-import {stripVarCalls} from './themeCss.mjs';
+import fs                                    from 'node:fs';
+import path                                  from 'node:path';
+import {fileURLToPath}                       from 'node:url';
+import isEntryModule                         from './isEntryModule.mjs';
+import {resolveThemeClassMap, stripVarCalls} from './themeCss.mjs';
 
 const
     dirname              = path.dirname(fileURLToPath(import.meta.url)),
     repoRoot             = path.resolve(dirname, '../..'),
+    cssRoot              = path.join(repoRoot, 'resources/css'),
     COLOR_LITERAL_RE     = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/,
     NAMED_COLOR_RE       = /\b(?:aqua|aquamarine|beige|black|blue|brown|chartreuse|chocolate|coral|crimson|cyan|fuchsia|gold|goldenrod|gray|grey|green|indigo|ivory|khaki|lavender|lime|magenta|maroon|navy|olive|orange|orchid|pink|plum|purple|rebeccapurple|red|salmon|silver|tan|teal|tomato|turquoise|violet|wheat|white|yellow|(?:light|dark)(?:blue|gray|grey|green|red|pink|orange|salmon|violet|cyan|khaki))\b/,
     DECLARATION_RE       = /(?:^|[{;])\s*([-a-zA-Z]+|--[a-zA-Z0-9-]+)\s*:\s*([^;}]*)/g,
     TOKEN_DECLARATION_RE = /^\s*(--(?:workstation|agent-dock)-[a-z0-9-]+)\s*:\s*(.+?);\s*$/,
     TOKEN_DEFINITION_RE  = /(--(?:workstation|agent-dock)-[a-z0-9-]+)\s*:/g,
     TOKEN_REFERENCE_RE   = /var\(\s*(--(?:workstation|agent-dock)-[a-z0-9-]+)/g,
-    WORKSTATION_SURFACE  = Object.freeze({
-        darkPath : path.join(repoRoot, 'resources/css/theme-neo-dark/apps/workstation/Viewport.css'),
-        lightPath: path.join(repoRoot, 'resources/css/theme-neo-light/apps/workstation/Viewport.css'),
-        // The recording pointer keeps its annotation color when the application's skin changes.
-        modeInvariant: new Set([
-            '--workstation-film-cursor-background', '--workstation-film-cursor-shadow',
-            '--workstation-font-mono', '--workstation-font-sans'
-        ]),
-        viewDir      : path.join(repoRoot, 'resources/css/src/apps/workstation')
-    });
+    MODE_INVARIANT       = new Set([
+        '--workstation-film-cursor-background', '--workstation-film-cursor-shadow',
+        '--workstation-font-mono', '--workstation-font-sans'
+    ]);
 
 /**
- * @summary Reads the surface token declarations from one skin.
- * @param {String} file
+ * @summary Resolves the Workstation theme surface paths across all folders mapped to
+ * `neo-theme-neo-dark` and `neo-theme-neo-light` via `theme-map.json` and `Global.css` declarations.
+ * @param {String} [root=cssRoot] CSS root directory.
+ * @param {String} [themeMapPath] Optional `theme-map.json` path override.
+ * @returns {{darkPath: String|null, darkPaths: String[], lightPath: String|null, lightPaths: String[],
+ *            modeInvariant: Set<String>, viewDir: String}}
+ */
+export function resolveWorkstationSurface(root = cssRoot, themeMapPath) {
+    const classMap  = resolveThemeClassMap({root, themeMapPath}),
+          skinPaths = themeClass => {
+              const folders    = classMap[themeClass] || [],
+                    candidates = folders.map(folder => path.join(root, folder, 'apps/workstation/Viewport.css')),
+                    existing   = candidates.filter(candidate => fs.existsSync(candidate));
+
+              return {
+                  all    : existing,
+                  primary: existing.at(-1) || candidates[0] || null
+              }
+          },
+          dark      = skinPaths('neo-theme-neo-dark'),
+          light     = skinPaths('neo-theme-neo-light');
+
+    return {
+        darkPath  : dark.primary,
+        darkPaths : dark.all,
+        lightPath : light.primary,
+        lightPaths: light.all,
+        // The recording pointer keeps its annotation color when the application's skin changes.
+        modeInvariant: MODE_INVARIANT,
+        viewDir      : path.join(root, 'src/apps/workstation')
+    }
+}
+
+const WORKSTATION_SURFACE = Object.freeze(resolveWorkstationSurface());
+
+/**
+ * @summary Reads the surface token declarations across every folder loaded for one skin in cascade order.
+ * @param {String|String[]} files
  * @returns {Map<String,String>}
  */
-function extractTokens(file) {
-    const tokens = new Map();
+function extractTokens(files) {
+    const tokens = new Map(),
+          list   = Array.isArray(files) ? files : [files];
 
-    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-        const match = line.match(TOKEN_DECLARATION_RE);
+    for (const file of list) {
+        for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+            const match = line.match(TOKEN_DECLARATION_RE);
 
-        match && tokens.set(match[1], match[2].trim())
+            match && tokens.set(match[1], match[2].trim())
+        }
     }
 
     return tokens
@@ -120,12 +154,25 @@ function* walkCss(dir) {
  * @returns {String[]}
  */
 export function collectThemeSurfaceFailures(surface = WORKSTATION_SURFACE) {
+    const resolved   = surface.root ? {...resolveWorkstationSurface(surface.root, surface.themeMapPath), ...surface} : surface,
+          darkFiles  = (surface.darkPath && !surface.darkPaths ? [surface.darkPath] : resolved.darkPaths) ?? (resolved.darkPath ? [resolved.darkPath] : []),
+          lightFiles = (surface.lightPath && !surface.lightPaths ? [surface.lightPath] : resolved.lightPaths) ?? (resolved.lightPath ? [resolved.lightPath] : []);
+
+    if (
+        !darkFiles.length ||
+        !lightFiles.length ||
+        darkFiles.some(file => !fs.existsSync(file)) ||
+        lightFiles.some(file => !fs.existsSync(file))
+    ) {
+        return ['[surface] Workstation dark or light skin could not be resolved from the theme map']
+    }
+
     const
         failures       = [],
         consumed       = new Set(),
         locallyDefined = new Set(),
-        dark           = extractTokens(surface.darkPath),
-        light          = extractTokens(surface.lightPath);
+        dark           = extractTokens(darkFiles),
+        light          = extractTokens(lightFiles);
 
     if (dark.size === 0 && light.size === 0) {
         failures.push('[surface] extracted no Workstation tokens from either skin')
@@ -135,7 +182,7 @@ export function collectThemeSurfaceFailures(surface = WORKSTATION_SURFACE) {
         if (!light.has(name)) {
             failures.push('[parity] ' + name + ' present in dark skin, missing in light skin')
         } else if (
-            !surface.modeInvariant.has(name) &&
+            !resolved.modeInvariant.has(name) &&
             light.get(name) === darkValue &&
             !resolvesDifferently({dark, light, name, value: darkValue})
         ) {
@@ -147,7 +194,7 @@ export function collectThemeSurfaceFailures(surface = WORKSTATION_SURFACE) {
         if (!dark.has(name)) failures.push('[parity] ' + name + ' present in light skin, missing in dark skin')
     }
 
-    for (const file of walkCss(surface.viewDir)) {
+    for (const file of walkCss(resolved.viewDir)) {
         const lines = stripBlockComments(fs.readFileSync(file, 'utf8')).split('\n');
 
         lines.forEach((line, index) => {

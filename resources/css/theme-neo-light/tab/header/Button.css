@@ -1,8 +1,8 @@
 :where(.neo-theme-neo-light) { /* .neo-tab-header-button */
-    --tab-button-background-color               : var(--cmp-tab-unselected-bg-default);
-    --tab-button-background-color-active        : var(--cmp-tab-unselected-bg-active);
+    --tab-button-background-color               : transparent;
+    --tab-button-background-color-active        : var(--sem-color-surface-neutral-active);
     --tab-button-background-color-disabled      : transparent;
-    --tab-button-background-color-hover         : var(--cmp-tab-unselected-bg-hover);
+    --tab-button-background-color-hover         : var(--sem-color-surface-neutral-hover);
     --tab-button-background-image               : none;
     --tab-button-background-image-bottom        : none;
     --tab-button-background-image-left          : none;
@@ -15,16 +15,16 @@
     --tab-button-border-bottom                  : none;
     --tab-button-border-bottom-pressed          : none;
     --tab-button-border-pressed                 : none;
-    --tab-button-border-radius                  : var(--cmp-tab-borderradius);
+    --tab-button-border-radius                  : var(--sem-borderradius-large);
     --tab-button-gap                            : 0;
     --tab-button-glyph-color                    : var(--sem-color-fg-neutral-subdued);
     --tab-button-glyph-color-active             : inherit;
     --tab-button-glyph-color-hover              : inherit;
     --tab-button-glyph-color-pressed            : var(--sem-color-fg-neutral-contrast);
-    --tab-button-height                         : var(--cmp-tab-height);
-    --tab-button-height-pressed                 : var(--cmp-tab-height);
+    --tab-button-height                         : var(--sem-height-xlarge);
+    --tab-button-height-pressed                 : var(--sem-height-xlarge);
     --tab-button-margin-bottom                  : 0;
-    --tab-button-padding                        : 7px var(--cmp-tab-spacinghorizontal) 6px;
+    --tab-button-padding                        : 7px var(--sem-spacing-medium) 6px;
     --tab-button-text-color                     : var(--sem-color-fg-neutral-subdued);
     --tab-button-text-color-pressed             : var(--sem-color-fg-neutral-contrast);
     --tab-button-text-font-size                 : var(--sem-typo-label-regular-fontSize);

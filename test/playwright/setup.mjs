@@ -1,9 +1,46 @@
 globalThis.Neo ??= {};
 
-globalThis.Neo.config = {
+// Engine singletons (`vdom/Helper`, `main/DeltaUpdates`, `worker/Manager`) cache `const NeoConfig = Neo.config`
+// at module evaluation time. Lock `Neo.config` to one object identity across the worker lifetime so specs
+// mutate in place (`setup({neoConfig})` / `Object.assign`) rather than detaching cached references;
+// self-assignment (`Neo.config = Neo.config || {}` in `src/DefaultConfig.mjs`) remains a no-op.
+const canonicalNeoConfig = Object.assign(globalThis.Neo.config || {}, {
     environment : 'development',
     unitTestMode: true
-};
+});
+
+/**
+ * Installs a reference-locking accessor for `Neo.config` on the active `Neo` namespace (`src/Neo.mjs`
+ * re-creates `globalThis.Neo` via `Object.assign`, so `setup()` re-applies the accessor after import).
+ * @param {Object} [neoNamespace=globalThis.Neo]
+ */
+function lockNeoConfigIdentity(neoNamespace = globalThis.Neo) {
+    if (!neoNamespace || Object.getOwnPropertyDescriptor(neoNamespace, 'config')?.set) {
+        return
+    }
+
+    if (neoNamespace.config && neoNamespace.config !== canonicalNeoConfig) {
+        Object.assign(canonicalNeoConfig, neoNamespace.config)
+    }
+
+    Object.defineProperty(neoNamespace, 'config', {
+        configurable: true,
+        enumerable  : true,
+        get() {
+            return canonicalNeoConfig
+        },
+        set(value) {
+            if (value !== canonicalNeoConfig) {
+                throw new TypeError(
+                    'test/playwright/setup.mjs: mutate Neo.config in place or via setup({neoConfig}); ' +
+                    'reassigning Neo.config detaches cached engine references (e.g. VdomHelper).'
+                )
+            }
+        }
+    })
+}
+
+lockNeoConfigIdentity();
 
 globalThis.DOMRect = class DOMRect {
     constructor(x, y, width, height) {
@@ -90,6 +127,8 @@ Neo.currentWorker ??= {
 };
 
 export function setup(options = {}) {
+    lockNeoConfigIdentity();
+
     const {
         appConfig        = {},
         mockLocalStorage = true,

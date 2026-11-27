@@ -10,9 +10,13 @@ import postcss                   from 'postcss';
 import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
 import {sanitizeInput}           from '../util/sanitizer.mjs';
 import {
-    collectThemeClassMap,
-    isCssTargetFolder
+    isCssTargetFolder,
+    resolveThemeClassMap
 }                                from '../util/themeCss.mjs';
+import {
+    cascadeLayer,
+    cascadeLayerPlugin
+}                                from '../util/themeCssLayers.mjs';
 import {themeCssRoots}           from '../util/themeCssRoots.mjs';
 
 const
@@ -32,7 +36,7 @@ const
         if (!fs.existsSync(root)) return [];
 
         return fs.readdirSync(root, {withFileTypes: true})
-            .filter(entry => entry.isDirectory() && !entry.isSymbolicLink() && entry.name !== 'src' && isCssTargetFolder(root, entry.name))
+            .filter(entry => entry.isDirectory() && !entry.isSymbolicLink() && entry.name !== 'src' && isCssTargetFolder(cssRoots, entry.name))
             .map(entry => entry.name)
     }))],
     questions        = [];
@@ -219,8 +223,9 @@ if (programOpts.info) {
         }
 
         /**
-         * @summary Copies each source sheet to `dist/<mode>/css/<target>`, through autoprefixer, plus cssnano
-         * for esm and production; development output carries a source map back to the source.
+         * @summary Copies each source sheet to `dist/<mode>/css/<target>`, through autoprefixer and into the
+         * cascade layer its folder determines, plus cssnano for esm and production; development output carries
+         * a source map back to the source.
          * @param {Object[]} files
          * @param {String} mode development or production
          * @param {String} target src or a theme
@@ -236,7 +241,9 @@ if (programOpts.info) {
                 let folderPath = path.resolve(cwd, `dist/${mode}/css/${target}/${file.relativePath}`),
                     destPath   = path.resolve(folderPath, `${file.name}.css`);
 
-                const plugins = [autoprefixer];
+                const plugins = [autoprefixer, cascadeLayerPlugin({
+                    layer: cascadeLayer(target, `${file.relativePath}/${file.name}.css`)
+                })];
 
                 if (mode === 'esm' || mode === 'production') {
                     plugins.push(cssnano) // CSSNano works async only
@@ -288,7 +295,11 @@ if (programOpts.info) {
             : null;
 
         themeMap        = engineSeedMap ? structuredClone(engineSeedMap) : {};
-        themeMap.themes = collectThemeClassMap(activeRoots, engineSeedMap?.themes);
+        themeMap.themes = resolveThemeClassMap({
+            cssRoots           : activeRoots,
+            includeWorkspaceMap: false,
+            seedThemes         : engineSeedMap?.themes
+        });
 
         // dist/development
         if (env === 'all' || env === 'dev') {

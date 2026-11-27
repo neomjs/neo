@@ -102,7 +102,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 Notice the "Change First Name" button. It calls `setState` with an object that only contains `firstName`. The v10 provider is smart enough to perform a deep merge, updating `firstName` while leaving `lastName` untouched. This prevents accidental data loss and makes state updates safe and predictable by default.
 
@@ -151,7 +151,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 When you edit the text fields, the `setState` call updates the base `user` data. The `Effect` system detects this, automatically re-runs the `fullName` formula, and updates the welcome label.
 
@@ -216,7 +216,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 In this example, the child provider's `totalPrice` formula depends on its own local `price` and the parent's `taxRate`. Clicking either button triggers the correct reactive update, and the total price is always in sync. This demonstrates the effortless composition of state across different parts of your application.
 
@@ -253,7 +253,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 The nested component can access both `user` from its local provider and `theme` from the parent provider without any extra configuration.
 

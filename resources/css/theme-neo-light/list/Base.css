@@ -5,10 +5,10 @@
     --list-container-list-color          : var(--sem-color-fg-neutral-contrast);
 
     /* Background Color */
-    --list-item-background-color         : var(--cmp-list-item-surface-default);
-    --list-item-background-color-hover   : var(--cmp-list-item-surface-hover);
-    --list-item-background-color-active  : var(--cmp-list-item-surface-active);
-    --list-item-background-color-selected: var(--cmp-list-item-surface-selected);
+    --list-item-background-color         : #fff;
+    --list-item-background-color-hover   : var(--sem-color-surface-neutral-hover);
+    --list-item-background-color-active  : var(--sem-color-surface-primary-background);
+    --list-item-background-color-selected: var(--sem-color-surface-primary-background);
 
     /* Text Color */
     --list-item-color-selected           : var(--sem-color-text-primary-default);

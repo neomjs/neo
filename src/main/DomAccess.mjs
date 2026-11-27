@@ -226,9 +226,8 @@ class DomAccess extends Base {
 
     /**
      * Shared DOM-element factory: creates an element of the given tag, assigns the props onto it via
-     * Object.assign, and appends it to document.head. The common primitive behind addScript() and
-     * loadScript() (loadStylesheet() can adopt it in a follow-up). Returns the element for any
-     * post-append work the caller needs.
+     * Object.assign, and appends it to document.head. The common primitive behind addScript(),
+     * loadScript() and loadStylesheet(). Returns the element for any post-append work the caller needs.
      * @param {String} tag The element tag, e.g. 'script'.
      * @param {Object} props Properties assigned onto the element.
      * @returns {Element} The created + appended element.
@@ -856,26 +855,27 @@ class DomAccess extends Base {
 
     /**
      * @param {String|HTMLElement|Window|Document} nodeId
+     * @param {Document} [doc=document] The document an id resolves in: an iframe's own, for a node inside it
      * @returns {HTMLElement|Window|Document|null}
      * @protected
      */
-    getElement(nodeId) {
+    getElement(nodeId, doc=document) {
         if (nodeId === 'window') {
-            return globalThis
+            return doc.defaultView || globalThis
         }
 
         if (nodeId === 'document') {
-            return document
+            return doc
         }
 
         if (nodeId === 'document.body' || nodeId === 'body') {
-            return document.body
+            return doc.body
         }
 
         let node = nodeId?.nodeType ?
             nodeId : Neo.config.useDomIds ?
-                document.getElementById(nodeId) :
-                document.querySelector(`[data-neo-id='${nodeId}']`);
+                doc.getElementById(nodeId) :
+                doc.querySelector(`[data-neo-id='${nodeId}']`);
 
         return node || null
     }
@@ -966,30 +966,67 @@ class DomAccess extends Base {
     }
 
     /**
-     * Include a link into the document.head
+     * @summary Loads a sheet from outside the theme build into the `neo.vendor` cascade layer.
+     * @description Every built theme sheet starts with the layer order statement, and `neo.vendor` comes first in it
+     * (`LAYER_ORDER` in `buildScripts/util/themeCssLayers.mjs`). So every engine and app layer outranks a vendor rule,
+     * whatever its selector weighs: Font Awesome's, Highlight.js's, an editor's or a map's own. A `<link>` cannot name
+     * a layer, and a strict `style-src` refuses an inline `<style>`. So the sheet loads by `<link>`, then its rules move
+     * into a constructed stylesheet inside `@layer neo.vendor` that the document adopts, and the link's sheet is
+     * disabled. A swapped `href` refills that one stylesheet, so the old sheet's rules leave with it: the Docs source
+     * view swaps it, and so does a second load under the same `id`, as `HighlightJS#switchTheme` makes. A cross-origin
+     * sheet hides its rules and stays unlayered, and so does one with an `@import`, which a constructed stylesheet drops.
      * @param {String} href
      * @param {Object} dataset=null
-     * @returns {Promise<unknown>}
+     * @param {String} id=null
+     * @returns {Promise<void>} Rejects with an Error naming `href` when the sheet fails to load
      */
-    loadStylesheet(href, dataset=null) {
-        let link;
+    loadStylesheet(href, dataset=null, id=null) {
+        let existing = id && document.getElementById(id),
+            layered  = null; // Every load of this link, the first and each swapped href, fills this one sheet
+
+        // A second load under the same id swaps that link's href, so it keeps one link and one vendor sheet
+        if (existing) {
+            return existing.getAttribute('href') === href ? Promise.resolve() : new Promise((resolve, reject) => {
+                existing.addEventListener('error', () => reject(new Error(`Stylesheet failed to load: ${href}`)), {once: true});
+                existing.addEventListener('load',  () => resolve(), {once: true});
+                existing.setAttribute('href', href)
+            })
+        }
 
         return new Promise((resolve, reject) => {
-            link = document.createElement('link');
-
-            Object.assign(link, {
+            const link = this.createAndAppendElement('link', {
                 href,
-                onerror: reject,
-                onload : resolve,
-                rel    : 'stylesheet',
-                type   : 'text/css'
+                onerror: () => reject(new Error(`Stylesheet failed to load: ${href}`)),
+                onload : () => {
+                    let text = '';
+
+                    try {
+                        const rules = [...link.sheet.cssRules]; // throws for a cross-origin sheet
+
+                        if (!rules.some(rule => rule instanceof CSSImportRule)) {
+                            // An adopted sheet resolves a relative url() against the document: a font 404s
+                            text = rules.map(rule => rule.cssText).join('\n').replace(
+                                /url\("(?![a-z][a-z\d+.-]*:|\/|#)([^"]*)"\)/gi,
+                                (match, url) => `url("${new URL(url, link.href)}")`
+                            )
+                        }
+                    } catch {}
+
+                    if (text && !layered) {
+                        layered = new CSSStyleSheet();
+                        document.adoptedStyleSheets = [...document.adoptedStyleSheets, layered]
+                    }
+
+                    layered?.replaceSync(text && `@layer neo.vendor {${text}}`);
+                    // The sheet, not the link: a disabled link drops its sheet, which callers wait on
+                    link.sheet.disabled = Boolean(text);
+                    resolve()
+                },
+                rel    : 'stylesheet'
             });
 
-            if (dataset) {
-                Object.assign(link.dataset, dataset)
-            }
-
-            document.head.appendChild(link)
+            id      && (link.id = id);
+            dataset && Object.assign(link.dataset, dataset)
         })
     }
 

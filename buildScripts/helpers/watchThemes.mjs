@@ -5,9 +5,13 @@ import path            from 'node:path';
 import postcss         from 'postcss';
 import isEntryModule   from '../util/isEntryModule.mjs';
 import {
-    collectThemeClassMap,
-    isCssTargetFolder
+    isCssTargetFolder,
+    resolveThemeClassMap
 }                      from '../util/themeCss.mjs';
+import {
+    cascadeLayer,
+    cascadeLayerPlugin
+}                      from '../util/themeCssLayers.mjs';
 import {themeCssRoots} from '../util/themeCssRoots.mjs';
 import {
     DEVELOPMENT_THEME_BUILD_COMMAND,
@@ -95,12 +99,14 @@ export function getThemeSourceCensus({repoRoot = REPO_ROOT} = {}) {
             })
     }
 
-    getThemeSourceRoots(repoRoot).forEach(cssRoot => {
+    const roots = getThemeSourceRoots(repoRoot);
+
+    roots.forEach(cssRoot => {
         fs.readdirSync(cssRoot, {withFileTypes: true})
             .filter(entry => (
                 entry.isDirectory() &&
                 !entry.isSymbolicLink() &&
-                isCssTargetFolder(cssRoot, entry.name)
+                isCssTargetFolder(roots, entry.name)
             ))
             .sort((a, b) => a.name.localeCompare(b.name))
             .forEach(entry => visit(path.join(cssRoot, entry.name), entry.name))
@@ -134,7 +140,10 @@ function addToThemeMap(themeMap, entry) {
  */
 function createDevelopmentThemeMap(census, {repoRoot = REPO_ROOT} = {}) {
     const themeMap = {
-        themes: collectThemeClassMap(getThemeSourceRoots(repoRoot))
+        themes: resolveThemeClassMap({
+            cssRoots           : getThemeSourceRoots(repoRoot),
+            includeWorkspaceMap: false
+        })
     };
 
     census.forEach(entry => addToThemeMap(themeMap, entry));
@@ -234,7 +243,10 @@ export function inspectThemeWatcherAssets({repoRoot = REPO_ROOT} = {}) {
             continue
         }
 
-        const expectedThemes = collectThemeClassMap(getThemeSourceRoots(repoRoot));
+        const expectedThemes = resolveThemeClassMap({
+            cssRoots           : getThemeSourceRoots(repoRoot),
+            includeWorkspaceMap: false
+        });
 
         census.forEach(entry => {
             if (!themeMapHasEntry(themeMap, entry)) {
@@ -329,7 +341,7 @@ export function pruneDevelopmentThemeArtifacts({
 
 /**
  * @summary Copies one effective source entry to its development CSS and source-map targets,
- * through autoprefixer as the full theme build does.
+ * through autoprefixer and into its cascade layer, as the full theme build does.
  * @param {Object} entry Effective source census entry.
  * @param {Object} [options]
  * @param {Object} [options.logger] Console-compatible logger.
@@ -339,7 +351,11 @@ async function buildEntry(entry, {logger = console} = {}) {
     const startTime = Date.now();
 
     try {
-        const postcssResult = await postcss([autoprefixer]).process(fs.readFileSync(entry.sourcePath, 'utf8'), {
+        const plugins = [autoprefixer, cascadeLayerPlugin({
+            layer: cascadeLayer(entry.root, path.relative(entry.root, entry.filename))
+        })];
+
+        const postcssResult = await postcss(plugins).process(fs.readFileSync(entry.sourcePath, 'utf8'), {
             from: entry.sourcePath,
             to  : entry.outputPath,
             map : {inline: false}

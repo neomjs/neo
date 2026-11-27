@@ -61,14 +61,14 @@ test('two themes toggle from the URL-selected boot theme with a wave from the cl
         };
 
         document.addEventListener('click', event => {
-            if (event.target.closest('.neo-theme-switcher')) {
+            if (event.target.closest('.neo-themeswitcher')) {
                 window.themeSwitcherOrigin = [event.clientX / innerWidth * 100, event.clientY / innerHeight * 100]
             }
         })
     });
     await page.goto(`${APP}?mode=two&theme=${DARK}`);
 
-    const switcher = page.locator('.neo-theme-switcher');
+    const switcher = page.locator('.neo-themeswitcher');
 
     await expect(switcher).toHaveAccessibleName('Switch to Neo Light');
     await expectTheme(page, DARK);
@@ -94,7 +94,7 @@ test('the five-theme menu switches by pointer and keyboard and restores trigger 
     await page.addInitScript(() => { document.startViewTransition = undefined });
     await page.goto(`${APP}?theme=${THEMES.Light}`);
 
-    const switcher  = page.locator('.neo-theme-switcher'),
+    const switcher  = page.locator('.neo-themeswitcher'),
           menu      = page.getByRole('menu'),
           cyberpunk = menu.getByRole('menuitemradio', {name: 'Cyberpunk', exact: true}),
           neoLight  = menu.getByRole('menuitemradio', {name: 'Neo Light', exact: true}),
@@ -107,6 +107,9 @@ test('the five-theme menu switches by pointer and keyboard and restores trigger 
     await switcher.click();
     await expectChoices(menu, 'Light');
     await expect(switcher).toHaveAttribute('aria-expanded', 'true');
+    await expect(switcher).not.toHaveClass(/\bneo-theme-/);
+    await expect(switcher.locator('.neo-button-glyph')).not.toHaveClass(/\bneo-theme-/);
+    expect(await menu.evaluate(el => [...el.classList].filter(c => c.startsWith('neo-theme-')))).toEqual([THEMES.Light]);
     await cyberpunk.click();
     await expectTheme(page, THEMES.Cyberpunk);
     await expect(switcher).toHaveAccessibleName('Theme: Cyberpunk');
@@ -163,7 +166,7 @@ test('the phone toolbar keeps a visible glyph, an accessible name, and room for 
 test('a theme change from the viewport refreshes the trigger and selected menu row', async ({page}) => {
     await page.goto(APP);
 
-    const switcher = page.locator('.neo-theme-switcher');
+    const switcher = page.locator('.neo-themeswitcher');
 
     await expect(switcher).toHaveAccessibleName('Theme: Neo Light');
 

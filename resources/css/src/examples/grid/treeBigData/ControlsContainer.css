@@ -1,7 +1,6 @@
 .neo-examples-treebigdata-controls-container {
     border     : none; /* reset the default 1px */
     bottom     : .5em;
-    display    : block;
     flex-shrink: 0;
     min-width  : 235px;
     overflow   : visible;

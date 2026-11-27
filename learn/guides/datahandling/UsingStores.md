@@ -53,10 +53,9 @@ class StatesStore extends Store {
         sorters: [{property: 'name', direction: 'ASC'}]
     }
 }
-StatesStore = Neo.setupClass(StatesStore);
 
 export {StateModel};
-export default StatesStore;
+export default Neo.setupClass(StatesStore);
 ```
 
 The Model defines the fields and their conversions; the Store defines the population and its initial

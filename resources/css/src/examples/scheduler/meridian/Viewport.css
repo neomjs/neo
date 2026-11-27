@@ -444,7 +444,7 @@
 .meridian-gantt.neo-gantt {height: 259px;}
 
 /* The source Board keeps the gesture. This Scheduler's real track is the only foreign hit target. */
-body:has(.meridian-board.neo-is-dragging) .meridian-scheduler .neo-grid-row .neo-timeline-track {pointer-events: auto !important;}
+body:has(.meridian-board.neo-is-dragging) .meridian-scheduler .neo-grid-row .neo-timeline-track {--drop-target-pointer-events: auto;}
 body:has(.meridian-request-proxy:is([data-verdict="accepted"], [data-verdict="denied"])) .meridian-board .neo-board-card-slot {
     opacity   : .45;
     visibility: visible !important;

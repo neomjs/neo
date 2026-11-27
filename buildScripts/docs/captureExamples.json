@@ -558,7 +558,7 @@
         {"kind": "click", "selector": ".venue-level", "text": "Week"}
       ],
       "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-themeswitcher, .neo-themeswitcher.neo-theme-neo-dark"},
         {"selector": ".venue-level[aria-pressed=\"true\"]", "text": "Week", "inRegion": true},
         {"selector": ".neo-timeline-tick-major", "text": "Dec 7"},
         {"selector": ".neo-timeline-bar"}
@@ -579,7 +579,7 @@
         {"kind": "click", "selector": ".neo-grid-header-button", "text": "Booked"}
       ],
       "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-themeswitcher, .neo-themeswitcher.neo-theme-neo-dark"},
         {"selector": ".neo-grid-header-button.neo-sort-desc", "text": "Booked", "inRegion": true},
         {"selector": ".neo-grid-cell[data-field=\"hours\"]", "text": "40 h", "inRegion": true},
         {"selector": ".neo-timeline-bar"}
@@ -598,7 +598,7 @@
         {"kind": "click", "selector": ".tz-zone:not(:first-child)", "text": "Tokyo"}
       ],
       "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-themeswitcher, .neo-themeswitcher.neo-theme-neo-dark"},
         {"selector": ".neo-timeline-tick-major", "text": "Tokyo"},
         {"selector": ".tz-clock-axis .tz-clock-city", "text": "Tokyo"},
         {"selector": ".neo-timeline-bar"}
@@ -618,7 +618,7 @@
         {"kind": "click", "selector": ".gate-pause-btn"}
       ],
       "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-themeswitcher, .neo-themeswitcher.neo-theme-neo-dark"},
         {"selector": ".gate-viewport.is-paused"},
         {"selector": ".gate-sim-badge", "text": "Simulated feed", "inRegion": true},
         {"selector": ".neo-timeline-bar.is-feed-fresh .gate-bar-delta", "inRegion": true}
@@ -638,7 +638,7 @@
         {"kind": "click", "selector": ".cascade-delay-btn"}
       ],
       "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-themeswitcher, .neo-themeswitcher.neo-theme-neo-dark"},
         {"selector": ".cascade-viewport.is-slipped:not(.is-cascading)"},
         {"selector": ".cascade-move-pill.is-slipped", "text": "Mon 16 Nov to Mon 23 Nov", "inRegion": true},
         {"selector": ".cascade-readout-text", "text": "8 tasks moved", "inRegion": true},
@@ -659,7 +659,7 @@
         {"kind": "click", "selector": "[id$=\"__card__c-02\"] .neo-board-card-menu-button"}
       ],
       "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-themeswitcher, .neo-themeswitcher.neo-theme-neo-dark"},
         {"selector": ".neo-board-card-editor:not(.animated-hiding-showing):not([style*=\"height:\"])", "inRegion": true},
         {"selector": ".neo-board-card-editor input[name=\"title\"]", "value": "Bruno Okafor", "inRegion": true},
         {"selector": ".neo-board-card-editor button", "text": "Save", "inRegion": true},
@@ -683,7 +683,7 @@
         {"kind": "press", "selector": "[id$=\"__card__1045\"]", "key": "Shift+ArrowDown"}
       ],
       "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-themeswitcher, .neo-themeswitcher.neo-theme-neo-dark"},
         {"selector": ".triage-selection-count", "text": "5 selected", "inRegion": true},
         {"selector": ".neo-board-card.neo-selected", "count": 5}
       ],

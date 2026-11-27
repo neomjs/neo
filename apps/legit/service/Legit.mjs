@@ -10,7 +10,7 @@ import Base from '../../../src/core/Base.mjs';
  * Key responsibilities include:
  * - **Initialization:** Dynamically loading external dependencies (`memfs`, `@legit-sdk/core`) to ensure the app remains lightweight until needed.
  * - **File System Seeding:** Populating the in-memory file system with initial demo content.
- * - **Git Operations:** Providing methods to load file trees (`loadTree`) and calculate deltas between commits (`loadTreeDelta`).
+ * - **Git Operations:** Reading commit history and comparing file paths and blob IDs between committed trees.
  * - **File I/O:** Exposing standard file system methods (`readFile`, `writeFile`, `readdir`, `stat`) that automatically await the service's ready state.
  *
  * This service is designed to be robust against initialization failures and provides a safe, asynchronous API for the `ViewportController` to consume.
@@ -94,122 +94,59 @@ class Legit extends Base {
     }
 
     /**
-     * Recursively loads the file tree structure from a given path.
-     * @param {String} treePath The path to start loading the tree from.
-     * @returns {Promise<{hash: string, subEntries: {}}>} The tree structure with hashes.
-     */
-    async loadTree(treePath) {
-        await this.ready();
-
-        const
-            me         = this,
-            subEntries = {},
-            pathEntries = await me.readdir(treePath);
-
-        for (const entryName of pathEntries) {
-            const stat = await me.stat(treePath + entryName);
-
-            if (stat.isDirectory()) {
-                subEntries[entryName] = await me.loadTree(treePath + entryName + '/');
-            } else {
-                const contenHash = await crypto.subtle.digest("SHA-1", await me.readFile(treePath + entryName));
-
-                subEntries[entryName] = {
-                    // for now its the content instead of the hash
-                    hash: contenHash,
-                    name: entryName,
-                };
-            }
-        }
-
-        return {
-            hash: '',
-            subEntries
-        }
-    }
-
-    /**
-     * Calculates the difference between two tree states (commits).
-     * Useful for identifying added, deleted, and modified files.
-     * @param {String} currentState The hash or path of the current state.
-     * @param {String} newState The hash or path of the new state.
-     * @returns {Promise<{deleted: String[], added: String[], modified: String[]}>} An object containing arrays of changed file paths.
+     * @summary Compares the files in two committed snapshots using the same Git storage as Legit.
+     * Equal object IDs prune unchanged trees. The SDK's `.keep` files represent empty directories
+     * and do not appear in the editor. Without an earlier head, every file is an addition.
+     * @param {String|null} currentState Previous commit ID.
+     * @param {String} newState New commit ID.
+     * @returns {Promise<{added: String[], modified: String[], deleted: String[]}>}
      */
     async loadTreeDelta(currentState, newState) {
+        if (!newState) {
+            throw new Error('A destination commit is required to compare file trees')
+        }
+
         await this.ready();
 
-        const me = this;
-
-        const prefixNewState = newState.slice(0, 2);
-        const suffixNewState = newState.slice(2);
-
-        let currentstateTree = {}
+        const {TREE, walk} = await import(/* webpackIgnore: true */ 'https://esm.sh/@legit-sdk/isomorphic-git@1.34.2?exports=TREE,walk'),
+              delta        = {added: [], modified: [], deleted: []},
+              trees        = [TREE({ref: newState})];
 
         if (currentState) {
-            const prefixCurrentState = currentState.slice(0, 2);
-            const suffixCurrentState = currentState.slice(2);
-
-            currentstateTree = await me.loadTree('/.legit/commits/' + prefixCurrentState + '/' + suffixCurrentState + '/');
+            trees.push(TREE({ref: currentState}))
         }
-        const newStateTree = await me.loadTree('/.legit/commits/' + prefixNewState + '/' + suffixNewState + '/');
 
-        const deleted  = [];
-        const added    = [];
-        const modified = [];
+        const changes = await walk({
+            dir: '/',
+            fs : this.fs,
+            trees,
+            async map(path, [next, previous]) {
+                if (path === '.') {
+                    return
+                }
 
-        function flattenTree(tree, path = '') {
-            const result = {};
+                if (path === '.keep' || path.endsWith('/.keep') || (next && previous && await next.oid() === await previous.oid())) {
+                    return null
+                }
 
-            if (tree.subEntries) {
-                for (const [key, value] of Object.entries(tree.subEntries)) {
-                    const currentPath = path ? `${path}/${key}` : key;
+                const isFile  = await next?.type() === 'blob',
+                      wasFile = await previous?.type() === 'blob';
 
-                    if (value.subEntries) {
-                        Object.assign(result, flattenTree(value, currentPath));
-                    } else {
-                        result[currentPath] = value.hash;
-                    }
+                if (isFile) {
+                    return {path, kind: wasFile ? 'modified' : 'added'}
+                }
+
+                if (wasFile) {
+                    return {path, kind: 'deleted'}
                 }
             }
+        });
 
-            return result;
+        for (const {kind, path} of changes) {
+            delta[kind].push(path)
         }
 
-        const currentStateFlat = currentState !== '' ? flattenTree(currentstateTree) : {};
-        const newStateFlat     = flattenTree(newStateTree);
-
-        // Find deleted (in current but not in new)
-        for (const path in currentStateFlat) {
-            if (!(path in newStateFlat)) {
-                deleted.push(path);
-            }
-        }
-
-        // Find added (in new but not in current)
-        for (const path in newStateFlat) {
-            if (!(path in currentStateFlat)) {
-                added.push(path);
-            }
-        }
-
-        // Find modified (in both but hash differs)
-        for (const path in newStateFlat) {
-            if (path in currentStateFlat) {
-                const currentHash = new Uint8Array(currentStateFlat[path]);
-                const newHash     = new Uint8Array(newStateFlat[path]);
-
-                if (currentHash.length !== newHash.length ||
-                    !currentHash.every((byte, i) => byte === newHash[i])) {
-                    modified.push(path);
-                }
-            }
-        }
-
-        return {
-            deleted,
-            added,
-            modified
-        }
+        return delta
     }
 
     /**
@@ -271,7 +208,7 @@ class Legit extends Base {
                 "    }",
                 "}",
                 "",
-                "MainView = Neo.setupClass(MainView);"
+                "export default Neo.setupClass(MainView);"
             ].join('\n'),
             path     : `${me.path}/Helix.mjs`,
             skipReady: true
@@ -283,12 +220,12 @@ class Legit extends Base {
                 "",
                 "class MainView extends Viewport {",
                 "    static config = {",
-                "        className: 'Portal.view.MultiWindowHelix',",
+                "        className: 'Portal.view.MultiWindowCoronaGallery',",
                 "        theme    : 'neo-theme-dark'",
                 "    }",
                 "}",
                 "",
-                "MainView = Neo.setupClass(MainView);"
+                "export default Neo.setupClass(MainView);"
             ].join('\n'),
             path     : `${me.path}/Gallery.mjs`,
             skipReady: true

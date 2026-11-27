@@ -16,7 +16,7 @@
     --button-border-disabled                    : 1px solid var(--cyber-border);
     --button-border-hover                       : 1px solid var(--cyber-cyan);
     --button-border-pressed                     : 1px solid var(--cyber-cyan);
-    --button-border-radius                      : 0;
+    --button-border-radius                      : 0px;
     --button-border-width                       : 1px;
     --button-glyph-color                        : var(--cyber-cyan);
     --button-glyph-color-active                 : var(--cyber-cyan);

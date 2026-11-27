@@ -134,7 +134,7 @@
             grid-template-columns: max-content auto minmax(0, 1fr);
             padding-top          : 16px;
 
-            .neo-theme-switcher {
+            .neo-themeswitcher {
                 grid-area   : 1 / 3;
                 justify-self: end;
             }

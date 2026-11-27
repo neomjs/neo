@@ -1,10 +1,17 @@
+/* A drop target outside the dragged component keeps the pointer by setting this on itself. It does not inherit, so the
+   target's descendants stay shielded. The shield is !important, which a later layer's !important cannot beat. */
+@property --drop-target-pointer-events {
+    syntax  : '*';
+    inherits: false;
+}
+
 body:has(.neo-is-dragging) {
     cursor     : move !important;
     user-select: none !important;
 
     /* We can not put pointer-events: none on the same level as cursor, since it prevents cursor changes */
     * {
-        pointer-events: none !important;
+        pointer-events: var(--drop-target-pointer-events, none) !important;
         user-select   : none !important;
     }
 }

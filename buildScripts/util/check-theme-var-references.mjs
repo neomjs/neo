@@ -12,23 +12,36 @@
  * wherever they appear: the guard catches names that nothing defines, not scoping mistakes.
  * The runtime list and the stylesheet reading are shared with `theme-census` through `themeCss.mjs`.
  */
-import fs                                      from 'node:fs';
-import path                                    from 'node:path';
-import {fileURLToPath}                         from 'node:url';
-import isEntryModule                           from './isEntryModule.mjs';
-import {RUNTIME_PROPERTIES, cssFiles, readCss} from './themeCss.mjs';
+import fs                                                           from 'node:fs';
+import path                                                         from 'node:path';
+import {fileURLToPath}                                              from 'node:url';
+import isEntryModule                                                from './isEntryModule.mjs';
+import {
+    RUNTIME_PROPERTIES,
+    cssFiles,
+    readCss,
+    resolveThemeClassMap,
+    resolveThemeFolders
+}                                                                   from './themeCss.mjs';
 
 const
-    repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'),
-    cssRoot  = path.join(repoRoot, 'resources/css');
+    repoRoot   = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'),
+    cssRoot    = path.join(repoRoot, 'resources/css'),
+    relCssRoot = path.relative(repoRoot, cssRoot).replaceAll('\\', '/'),
+    varDirs    = [
+        'src',
+        ...(fs.existsSync(path.join(cssRoot, 'theme-base')) ? ['theme-base'] : []),
+        ...resolveThemeFolders({root: cssRoot})
+    ];
 
 /**
  * The trees this guard reads, as repo-relative globs (the form a workflow `paths:` filter takes).
  * @type {String[]}
  */
-export const SCAN_SURFACE = Object.freeze(
-    ['src', 'theme-*'].map(dir => `${path.relative(repoRoot, cssRoot).replaceAll('\\', '/')}/${dir}/**/*.css`)
-);
+export const SCAN_SURFACE = Object.freeze([
+    ...varDirs.map(dir => `${relCssRoot}/${dir}/**/*.css`),
+    `${relCssRoot}/*/Global.css`
+]);
 
 /**
  * @param {String[]} files
@@ -50,36 +63,57 @@ function readsIn(files) {
  * @summary Collects every fallback-free reference a theme cannot resolve. Pure over the filesystem:
  * no exit, no logging.
  * @param {Object} [options]
- * @param {String} [options.root=resources/css] Holds `src/` and the `theme-*` directories.
+ * @param {String} [options.root=resources/css] Holds `src/`, optional `theme-base/`, and mapped theme directories.
  * @param {Object<String,String>} [options.runtimeProperties=RUNTIME_PROPERTIES]
+ * @param {String} [options.themeMapPath] Optional `theme-map.json` path override.
  * @returns {String[]} Failure messages, empty when every reference resolves.
  */
-export function collectThemeVarReferenceFailures({root = cssRoot, runtimeProperties = RUNTIME_PROPERTIES} = {}) {
+export function collectThemeVarReferenceFailures({root = cssRoot, runtimeProperties = RUNTIME_PROPERTIES, themeMapPath} = {}) {
     const
-        srcDir = path.join(root, 'src'),
-        themes = fs.existsSync(root) ? fs.readdirSync(root).filter(name => name.startsWith('theme-')).sort() : [];
+        srcDir   = path.join(root, 'src'),
+        baseDir  = path.join(root, 'theme-base'),
+        classMap = resolveThemeClassMap({root, themeMapPath}),
+        groups   = new Map();
+
+    for (const [themeClass, mappedFolders] of Object.entries(classMap)) {
+        const folders = mappedFolders.filter(folder => (
+            folder !== 'src' &&
+            folder !== 'theme-base' &&
+            fs.existsSync(path.join(root, folder))
+        ));
+
+        if (!folders.length) continue;
+
+        const key   = folders.join('\0'),
+              entry = groups.get(key) ?? {classes: [], folders};
+
+        entry.classes.push(themeClass);
+        groups.set(key, entry)
+    }
 
     // Reading nothing must never look like a clean tree.
-    if (!themes.length || !fs.existsSync(srcDir)) {
-        return [`[surface] ${root} needs src/ and at least one theme-* directory, so references cannot be verified`]
+    if (!groups.size || !fs.existsSync(srcDir)) {
+        return [`[surface] ${root} needs src/ and at least one mapped theme directory, so references cannot be verified`]
     }
 
     const
-        srcFiles = cssFiles(srcDir),
-        shared   = definitionsIn(srcFiles),
-        // a runtime row stays alive while any stylesheet reads it, structural rules included
-        read     = readsIn(srcFiles),
-        failures = [];
+        srcFiles  = cssFiles(srcDir),
+        baseFiles = fs.existsSync(baseDir) ? cssFiles(baseDir) : [],
+        shared    = definitionsIn([...srcFiles, ...baseFiles]),
+        // a runtime row stays alive while any stylesheet reads it, structural and base files included
+        read      = readsIn([...srcFiles, ...baseFiles]),
+        failures  = [];
 
-    for (const theme of themes) {
+    for (const {classes, folders} of groups.values()) {
         const
-            files   = cssFiles(path.join(root, theme)),
+            label   = folders.length === 1 ? folders[0] : classes.join(' / '),
+            files   = folders.flatMap(folder => cssFiles(path.join(root, folder))),
             defined = definitionsIn(files),
             missing = new Map();
 
         readsIn(files).forEach(name => read.add(name));
 
-        for (const file of files) {
+        for (const file of [...baseFiles, ...files]) {
             const css = readCss(file);
 
             for (const match of css.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)) {
@@ -94,7 +128,7 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
             }
         }
 
-        missing.forEach((sites, name) => failures.push(`[undefined] ${theme} reads ${name}, which nothing defines: ${sites.join(', ')}`))
+        missing.forEach((sites, name) => failures.push(`[undefined] ${label} reads ${name}, which nothing defines: ${sites.join(', ')}`))
     }
 
     for (const name of Object.keys(runtimeProperties)) {
