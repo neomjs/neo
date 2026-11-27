@@ -53,7 +53,7 @@ function prepareWorkspace(workspace) {
         useSharedWorkers: false, useAiClient: true, useServiceWorker: false
     });
 
-    for (const folder of ['src', 'theme-light']) {
+    for (const folder of ['src', 'theme-base', 'theme-light']) {
         fs.cpSync(path.join(engineRoot, 'dist/development/css', folder),
             path.join(workspace, 'dist/development/css', folder), {recursive: true})
     }
