@@ -1,0 +1,19 @@
+/* Timeline event editor, every theme: each variable bound to a role or a listed literal (ADR 0044). The editor is a
+   dialog: raised, with the extra-large radius and elevation 3. The rules in src/timeline/EventEditor.css read these. */
+[class*="neo-theme-"] {
+    /* .neo-timeline-event-editor */
+    --neo-timeline-editor-width                : 440px;
+    --neo-timeline-editor-background           : var(--neo-color-background-surface-raised);
+    --neo-timeline-editor-border-color         : var(--neo-color-border-default);
+    --neo-timeline-editor-color                : var(--neo-color-text-default);
+    --neo-timeline-editor-border-radius        : var(--neo-radius-extra-large);
+    --neo-timeline-editor-box-shadow           : var(--neo-elevation-3);
+    --neo-timeline-editor-font-family          : var(--neo-font-family-sans);
+    --neo-timeline-editor-font-size            : var(--neo-font-size-small);
+
+    /* Save fills and outlines in the accent; Cancel is the button package's secondary at rest */
+    --neo-timeline-editor-accent-color         : var(--neo-color-background-accent);
+    --neo-timeline-editor-accent-contrast-color: var(--neo-color-text-on-accent);
+    --neo-timeline-editor-cancel-background    : transparent;
+    --neo-timeline-editor-button-border-radius : var(--neo-control-radius);
+}

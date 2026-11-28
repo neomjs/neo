@@ -69,7 +69,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
 
         expect(failures).toEqual([]);
         expect(palettes).toEqual(expect.arrayContaining(['neo-theme-neo-light (light)', 'neo-theme-neo-dark (dark)']));
-        expect(CONTRAST_PAIRS).toHaveLength(45);
+        expect(CONTRAST_PAIRS).toHaveLength(46);
         expect(GRADES).toEqual([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]);
         expect(SCAN_SURFACE).toEqual(['resources/css/**/*.css'])
     });
@@ -276,7 +276,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             '\n.neo-theme-neo-light { @media print { --button-color: red; } }');
 
         expect(failures).toEqual([]);
-        expect(names).toBe(200)
+        expect(names).toBe(201)
     });
 
     test('a measured name with a second value fails across companion Global.css sheets, and any role or palette name outside Global.css fails as [scope]', () => {
@@ -373,9 +373,9 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             block                = '.neo-theme-neo-light, .neo-theme-neo-dark {',
             {failures, palettes} = plant(css => css.replace(block, '.neo-theme-neo-light, .neo-theme-neo-dark, * {'));
 
-        // The block holds 86 palette entries and 48 colour roles. The scheme has a rule of its own.
+        // The block holds 86 palette entries and 49 colour roles. The scheme has a rule of its own.
         expect(palettes).toEqual([]);
-        expect(failures).toHaveLength(134);
+        expect(failures).toHaveLength(135);
         expect(failures.every(failure => failure.startsWith('[scope] resources/css/theme-neo/Global.css declares or registers --neo-'))).toBe(true)
     });
 
@@ -432,7 +432,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             });
 
         expect(failures).toEqual([]);
-        expect(names).toBe(200)
+        expect(names).toBe(201)
     });
 
     test('the four planted role/condition escapes fail with sheet and name, and src/Global.css refuses every selector arm that reaches a bare theme', () => {
@@ -629,8 +629,8 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
 
         expect(failures).toEqual([]);
         expect(palettes).toHaveLength(4);
-        expect(names).toBe(200);
-        expect(inspectThemePalettes().names).toBe(200)
+        expect(names).toBe(201);
+        expect(inspectThemePalettes().names).toBe(201)
     });
 
     test('a name a second theme lacks fails once, with both sides named', () => {
@@ -671,7 +671,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         const {failures, names} = added('font-Demo', '1px');
 
         expect(failures).toEqual([]);
-        expect(names).toBe(200)
+        expect(names).toBe(201)
     });
 
     // A product palette: an app's Global.css that re-values theme Neo's names on its classes.

@@ -111,6 +111,7 @@ export const CONTRAST_PAIRS = Object.freeze([
         [BORDER + status,      CANVAS,                         3]
     ]),
     [BORDER + 'accent',        CANVAS,                         3],
+    [BORDER + 'accent-hover',  CANVAS,                         3],
     [BORDER + 'strong',        CANVAS,                         3],
     [BORDER + 'strong',        BACKGROUND + 'field',           3],
     [BORDER + 'strong-hover',  CANVAS,                         3],
