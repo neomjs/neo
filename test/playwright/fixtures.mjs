@@ -391,6 +391,8 @@ export const test = base.extend({
         await routeConfig(context);
         assertUnnavigatedBeforeNeuralLinkRoute(page);
 
+        const ownedContexts = new Set([context]);
+
         // 2. Define the Neural Link Fixture object
         const nl = {
             /**
@@ -411,6 +413,8 @@ export const test = base.extend({
                 const created = await browser.newContext(options);
 
                 await routeConfig(created);
+                ownedContexts.add(created);
+                created.once('close', () => ownedContexts.delete(created));
 
                 return created
             },
@@ -457,7 +461,10 @@ export const test = base.extend({
                     NeuralLink_InstanceService,
                     NeuralLink_InteractionService,
                     NeuralLink_RuntimeService
-                }, sessionId)
+                }, sessionId, {
+                    pages: () => [...ownedContexts].flatMap(owner => owner.pages()),
+                    workerId
+                })
             }
         };
 

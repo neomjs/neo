@@ -1,0 +1,11 @@
+/* Accordion item, every theme: raised header card, surface body, active arrow chip, elevation-1, and large control height. */
+[class*="neo-theme-"] {
+    --neo-accordion-item-arrow-background-color  : var(--neo-color-background-neutral-active);
+    --neo-accordion-item-arrow-box-shadow        : var(--neo-elevation-1);
+    --neo-accordion-item-background-color        : var(--neo-color-background-surface-raised);
+    --neo-accordion-item-border-color            : var(--neo-color-border-default);
+    --neo-accordion-item-border-radius           : var(--neo-radius-small);
+    --neo-accordion-item-box-shadow              : var(--neo-elevation-1);
+    --neo-accordion-item-content-background-color: var(--neo-color-background-surface);
+    --neo-accordion-item-header-height           : var(--neo-control-height-large);
+}

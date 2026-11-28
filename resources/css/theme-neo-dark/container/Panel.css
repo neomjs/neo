@@ -1,5 +1,0 @@
-:where(.neo-theme-neo-dark) { /* .neo-panel */
-    --neo-panel-border-color       : var(--neo-sem-color-border-default);
-    --neo-panel-header-border-color: var(--neo-sem-color-border-default);
-    --neo-panel-header-color  : var(--neo-sem-color-text-neutral-subdued);
-}
