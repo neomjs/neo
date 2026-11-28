@@ -433,4 +433,122 @@ test.describe('Neo.timeline.draggable.EventDragZone', () => {
         store.destroy();
         axis.destroy();
     });
+
+    test('buffers onDragMove during async dragStart keeping press grabOffset and flushes latest proxy style when mountedPromise settles', async () => {
+        const axis = Neo.create(TimeAxis, {
+            start      : new Date(2026, 10, 9, 8, 0, 0, 0),
+            end        : new Date(2026, 10, 9, 18, 0, 0, 0),
+            pxPerMinute: 2,
+            snapMinutes: 15
+        });
+
+        const store = Neo.create(EventStore, {
+            data: [{
+                id        : 'ev-buffer',
+                title     : 'Startup Sweep',
+                resourceId: 'res-a',
+                startDate : new Date(2026, 10, 9, 9, 0, 0, 0),  // 120px
+                endDate   : new Date(2026, 10, 9, 10, 0, 0, 0)  // 240px
+            }]
+        });
+
+        const record          = store.get('ev-buffer'),
+              appliedDeltas   = [],
+              origApplyDeltas = Neo.applyDeltas;
+
+        let resolveSetConfigs, resolveProxyMount;
+
+        Neo.applyDeltas = (windowId, deltas) => {
+            appliedDeltas.push(deltas);
+            return Promise.resolve()
+        };
+
+        Neo.main.addon.DragDrop.setConfigs = () => new Promise(resolve => {
+            resolveSetConfigs = resolve
+        });
+
+        const owner = {cls: [], removeCls: Component.prototype.removeCls};
+        const zone  = Neo.create(EventDragZone, {
+            appName,
+            axis,
+            dragElement     : {id: 'bar-buffer', cls: ['neo-timeline-bar'], rect: {left: 120, top: 40, x: 120, y: 40, width: 120, height: 24}},
+            eventRecord     : record,
+            moveInMainThread: false,
+            owner,
+            store,
+            useProxy        : true
+        });
+
+        zone.createDragProxy = async () => {
+            const proxy = {
+                id            : 'proxy-buffer-1',
+                isDestroyed   : false,
+                mounted       : false,
+                mountedPromise: new Promise(resolve => { resolveProxyMount = resolve }),
+                destroy() { this.isDestroyed = true }
+            };
+            zone.dragProxy = proxy;
+            return proxy
+        };
+
+        try {
+            // Press 20px inside the bar (140px) and sweep to 380px (+240px = +2h -> 11:00) while setConfigs is in flight
+            const starting = zone.dragStart({
+                axisOffset: 140,
+                targetPath: [{id: 'row-a', cls: ['neo-timeline-row'], resourceId: 'res-a'}]
+            });
+
+            zone.onDragMove({
+                axisOffset: 380,
+                targetPath: [{id: 'row-b', cls: ['neo-timeline-row'], resourceId: 'res-b'}]
+            });
+
+            expect(zone.initialSnapshot).toBeNull();
+            expect(zone.pendingDrop).toBeNull();
+
+            resolveSetConfigs({});
+            await starting;
+
+            // grabOffset comes from drag:start (140 - 120 = 20), while pendingDrop reflects the buffered 380px move
+            expect(zone.grabOffset).toBe(20);
+            expect(zone.pendingDrop.startDate.getTime()).toBe(new Date(2026, 10, 9, 11, 0, 0, 0).getTime());
+            expect(zone.pendingDrop.resourceId).toBe('res-b');
+            expect(appliedDeltas).toEqual([[{id: 'proxy-buffer-1', style: {left: '360px', width: '120px'}}]]);
+
+            // Move again to 440px (bar start -> 420px = 11:30) before proxy finishes mounting, then resolve mountedPromise
+            zone.onDragMove({
+                axisOffset: 440,
+                targetPath: [{id: 'row-b', cls: ['neo-timeline-row'], resourceId: 'res-b'}]
+            });
+            expect(appliedDeltas).toHaveLength(2);
+
+            resolveProxyMount();
+            await Promise.resolve();
+
+            // Post-mount continuation flushes the latest style (420px) once so async insertNode cannot leave left at start
+            expect(appliedDeltas).toHaveLength(3);
+            expect(appliedDeltas[2]).toEqual([{id: 'proxy-buffer-1', style: {left: '420px', width: '120px'}}]);
+
+            zone.dragEnd({});
+            expect(record.startDate.getTime()).toBe(new Date(2026, 10, 9, 11, 30, 0, 0).getTime());
+            expect(record.resourceId).toBe('res-b');
+
+            // Cancelling before mountedPromise settles emits no late delta after teardown
+            appliedDeltas.length = 0;
+            const secondStart = zone.dragStart({axisOffset: 420});
+            zone.onDragMove({axisOffset: 540});
+            resolveSetConfigs({});
+            await secondStart;
+            const countBeforeCancel = appliedDeltas.length;
+            zone.onDragCancel({});
+            resolveProxyMount();
+            await Promise.resolve();
+            expect(appliedDeltas).toHaveLength(countBeforeCancel)
+        } finally {
+            Neo.applyDeltas = origApplyDeltas;
+            zone.destroy();
+            store.destroy();
+            axis.destroy()
+        }
+    });
 });
