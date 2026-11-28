@@ -87,7 +87,6 @@ class DomAccess extends Base {
                 'measure',
                 'monitorAutoGrow',
                 'monitorAutoGrowHandler',
-                'nextAnimationFrame',
                 'scrollBy',
                 'scrollIntoView',
                 'scrollTo',
@@ -1216,14 +1215,6 @@ class DomAccess extends Base {
         } catch (e) {
             return {transferred: true}
         }
-    }
-
-    /**
-     * @summary Waits for the next animation frame in the Main window that received the request.
-     * @returns {Promise<Number>} The browser's animation frame timestamp.
-     */
-    nextAnimationFrame() {
-        return new Promise(resolve => requestAnimationFrame(resolve))
     }
 
     /**

@@ -116,13 +116,13 @@ async function observeMotion(page, appWorker, helixId) {
     }, helixId);
     await appWorker.evaluate(id => {
         const helix     = Neo.getComponent(id),
-              domAccess = Neo.main.DomAccess,
-              nextFrame = domAccess.nextAnimationFrame,
+              main      = Neo.Main,
+              nextFrame = main.nextAnimationFrame,
               refresh   = helix.refresh;
         let frame;
 
         helix.touchRefreshes = [];
-        domAccess.nextAnimationFrame = async function(data) {
+        main.nextAnimationFrame = async function(data) {
             const timestamp = await nextFrame.call(this, data);
 
             if (data.windowId === helix.windowId) frame = timestamp;

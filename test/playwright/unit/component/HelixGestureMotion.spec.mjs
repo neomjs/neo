@@ -12,14 +12,14 @@ import Helix          from '../../../../src/component/Helix.mjs';
 
 test.describe('Helix gesture motion', () => {
     let helix, frame, frameRequests, applied;
-    const originalFrame = Neo.main.DomAccess.nextAnimationFrame;
+    const originalFrame = Neo.Main.nextAnimationFrame;
 
     test.beforeEach(() => {
         frame         = Promise.withResolvers();
         frameRequests = 0;
         applied       = [];
 
-        Neo.main.DomAccess.nextAnimationFrame = () => {
+        Neo.Main.nextAnimationFrame = () => {
             frameRequests++;
             return frame.promise
         };
@@ -39,7 +39,7 @@ test.describe('Helix gesture motion', () => {
     });
 
     test.afterEach(() => {
-        Neo.main.DomAccess.nextAnimationFrame = originalFrame;
+        Neo.Main.nextAnimationFrame = originalFrame;
         helix._mounted = false;
         helix.destroy()
     });

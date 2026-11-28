@@ -150,6 +150,7 @@ class Main extends core.Base {
                 'getWindowData',
                 'importAddon',
                 'log',
+                'nextAnimationFrame',
                 'redirectTo',
                 'reloadWindow',
                 'setNeoConfig',
@@ -697,6 +698,14 @@ class Main extends core.Base {
             me.running = true;
             me.scheduleRenderQueueDrain()
         }
+    }
+
+    /**
+     * @summary Waits for the next animation frame in the Main window that received the request.
+     * @returns {Promise<Number>} The browser's animation frame timestamp.
+     */
+    nextAnimationFrame() {
+        return new Promise(resolve => requestAnimationFrame(resolve))
     }
 
     /**

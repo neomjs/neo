@@ -1097,7 +1097,7 @@ class Helix extends Component {
               frame      = this.#gestureFrame = {windowId};
 
         try {
-            await Neo.main.DomAccess.nextAnimationFrame({windowId});
+            await Neo.Main.nextAnimationFrame({windowId});
 
             if (this.#gestureFrame !== frame || !this.mounted || this.isDestroying || this.isDestroyed) return;
             this.#gestureFrame = null;
