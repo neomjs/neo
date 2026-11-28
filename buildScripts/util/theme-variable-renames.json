@@ -1370,8 +1370,11 @@
             "rule": "neo-prefix"
         },
         "--dateselector-cell-today-border-color": {
-            "to": "--neo-dateselector-cell-today-border-color",
-            "rule": "neo-prefix"
+            "split": [
+                "--neo-dateselector-cell-background-color-selected",
+                "--neo-dateselector-cell-today-border-color"
+            ],
+            "reason": "The selected day's fill reads its own name, and the today outline and the selected day's border keep this one."
         },
         "--dateselector-color": {
             "to": "--neo-dateselector-color",
