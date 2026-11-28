@@ -1,0 +1,5 @@
+[class*="neo-theme-"] {
+    --neo-live-preview-border-color           : var(--neo-color-border-default);
+    --neo-live-preview-container-box-shadow   : var(--neo-elevation-2);
+    --neo-live-preview-header-background-color: var(--neo-color-background-surface-raised);
+}

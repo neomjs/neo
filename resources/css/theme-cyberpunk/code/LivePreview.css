@@ -1,0 +1,5 @@
+:where(.neo-theme-cyberpunk) {
+    --neo-live-preview-border-color           : inherit;
+    --neo-live-preview-container-box-shadow   : inherit;
+    --neo-live-preview-header-background-color: inherit;
+}
