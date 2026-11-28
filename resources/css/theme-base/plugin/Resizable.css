@@ -1,0 +1,6 @@
+/* Resizable plugin, every theme: chrome grip glyph bound to text-muted (ADR 0044 decision 4, epic #22295 rules 1 & 17).
+   A theme re-values it in its own plugin/Resizable.css only where its design language deviates.
+   The rules in src/plugin/Resizable.css read this. */
+[class*="neo-theme-"] {
+    --neo-resizable-color: var(--neo-color-text-muted);
+}
