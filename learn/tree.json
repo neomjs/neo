@@ -50,6 +50,7 @@
             {"name": "0037 — Fleet Manager Outward Door",              "parentId": "AgentInterfaces/Decisions",                          "id": "agentos/decisions/0037-fleet-manager-outward-door-topology", "hidden": true},
             {"name": "0038 — Fleet Manager Client Topology",           "parentId": "AgentInterfaces/Decisions",                          "id": "agentos/decisions/0038-fm-client-topology", "hidden": true},
             {"name": "0043 — VDOM Diff Placement",                     "parentId": "AgentInterfaces/Decisions",                          "id": "agentos/decisions/0043-vdom-diff-placement"},
+            {"name": "0045 — Touch Gesture Events",                    "parentId": "AgentInterfaces/Decisions",                          "id": "agentos/decisions/0045-touch-gesture-events"},
     {"name": "Guides",                                                 "parentId": null,                                 "isLeaf": false, "id": "guides", "collapsed": true},
         {"name": "Fundamentals & Core Concepts",                       "parentId": "guides",                             "isLeaf": false, "id": "guides/fundamentals", "collapsed": true},
             {"name": "Codebase Overview",                              "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/CodebaseOverview"},

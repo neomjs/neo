@@ -59,9 +59,11 @@ class Gesture extends Base {
     #observer = null
     /** @member {Number} #nextGestureId */
     #nextGestureId = 0
+    /** @member {WeakMap} #transformClaims */
+    #transformClaims = new WeakMap()
 
     /**
-     * @summary Installs the local pan and swipe recognizer on the owning addon's contact stream.
+     * @summary Installs the local recognizers on the owning addon's contact stream.
      * @param {Object} config
      */
     construct(config) {
@@ -69,6 +71,7 @@ class Gesture extends Base {
 
         const translation = new Translation(this.#document, this.publish.bind(this), this);
 
+        this.on('contact', this.trackTransform, this);
         this.on('contact', translation.track.bind(translation), this)
     }
 
@@ -194,6 +197,150 @@ class Gesture extends Base {
         });
 
         return true
+    }
+
+    /**
+     * @summary Tracks one transform on its admitted Main claim. A survivor can seed a fresh pair,
+     * with a new gesture id and contact labels, while keeping its original contact-down time.
+     * @param {Object} frame
+     * @protected
+     */
+    trackTransform({claim, kind, contacts, changed, elapsed}) {
+        const {family} = claim;
+
+        if (family !== 'pinch' && family !== 'rotate') {
+            return
+        }
+
+        let cohort = this.#transformClaims.get(claim);
+
+        if (!cohort) {
+            if (!contacts.length) return;
+
+            cohort = {down: new Map(), gesture: null};
+            this.#transformClaims.set(claim, cohort)
+        }
+
+        for (const {id} of contacts) {
+            if (!cohort.down.has(id)) cohort.down.set(id, elapsed)
+        }
+
+        const {gesture} = cohort;
+
+        if (kind === 'cancel' || contacts.length < 2) {
+            if (gesture) {
+                this.cancelTransformFrame(gesture);
+                cohort.gesture = null;
+                this.publish(claim, `${family}:${kind === 'cancel' ? 'cancel' : 'end'}`, {
+                    ...gesture.latest,
+                    changed : changed.flatMap(id => gesture.ids.has(id) ? [gesture.ids.get(id)] : []),
+                    contacts: [],
+                    elapsed : elapsed - gesture.startedAt
+                })
+            }
+
+            if (kind === 'cancel' || !contacts.length) {
+                this.#transformClaims.delete(claim)
+            } else {
+                for (const id of cohort.down.keys()) {
+                    if (!contacts.some(contact => contact.id === id)) cohort.down.delete(id)
+                }
+            }
+
+            return
+        }
+
+        const ordered  = [...contacts].sort((left, right) => left.id - right.id),
+              members  = ordered.map(({id}) => id),
+              [a, b]   = ordered,
+              dx       = b.x - a.x,
+              dy       = b.y - a.y,
+              distance = Math.hypot(dx, dy),
+              angle    = Math.atan2(dy, dx),
+              // Close contacts have no stable bearing. A new valid vector becomes the baseline.
+              basis    = Number.isFinite(distance) && distance >= 0.01 ? {angle, distance, members} : null;
+
+        if (!gesture && !basis) {
+            return
+        }
+
+        const current = gesture ?? {
+            basis    : null,
+            ids      : new Map(),
+            pending  : new Set(),
+            raf      : null,
+            rotation : 0,
+            scale    : 1,
+            startedAt: Math.min(cohort.down.get(a.id), cohort.down.get(b.id))
+        };
+
+        if (basis && current.basis && members.length === current.basis.members.length &&
+            members.every((id, index) => current.basis.members[index] === id)) {
+            const scale = current.scale * (distance / current.basis.distance),
+                  delta = (angle - current.basis.angle) * 180 / Math.PI;
+
+            if (Number.isFinite(scale) && scale > 0) current.scale = scale;
+            current.rotation += delta > 180 ? delta - 360 : delta < -180 ? delta + 360 : delta
+        }
+
+        current.basis = basis;
+
+        const mapped = ordered.map(point => {
+            if (!current.ids.has(point.id)) current.ids.set(point.id, current.ids.size);
+
+            return {...point, id: current.ids.get(point.id)}
+        });
+
+        current.latest = {
+            contacts: mapped,
+            elapsed : elapsed - current.startedAt,
+            x       : mapped.reduce((total, point) => total + point.x / mapped.length, 0),
+            y       : mapped.reduce((total, point) => total + point.y / mapped.length, 0),
+            ...(family === 'pinch' ? {scale: current.scale} : {rotation: current.rotation})
+        };
+
+        const labels = changed.flatMap(id => current.ids.has(id) ? [current.ids.get(id)] : []);
+
+        if (!gesture) {
+            if (this.publish(claim, `${family}:start`, {...current.latest, changed: labels})) {
+                cohort.gesture = current
+            }
+        } else {
+            labels.forEach(id => current.pending.add(id));
+            this.queueTransformFrame(claim, current)
+        }
+    }
+
+    /**
+     * @summary Publishes the latest geometry once per frame and holds changed identities across samples.
+     * @param {Object} claim
+     * @param {Object} gesture
+     * @protected
+     */
+    queueTransformFrame(claim, gesture) {
+        if (gesture.raf !== null) return;
+
+        gesture.raf = this.#document.defaultView.requestAnimationFrame(() => {
+            gesture.raf = null;
+            if (this.#transformClaims.get(claim)?.gesture !== gesture) return;
+
+            const changed = [...gesture.pending];
+
+            gesture.pending.clear();
+            this.publish(claim, `${claim.family}:move`, {...gesture.latest, changed})
+        })
+    }
+
+    /**
+     * @summary Prevents a queued motion frame from crossing the terminal of its gesture.
+     * @param {Object} gesture
+     * @protected
+     */
+    cancelTransformFrame(gesture) {
+        if (gesture.raf !== null) {
+            this.#document.defaultView.cancelAnimationFrame(gesture.raf);
+            gesture.raf = null
+        }
     }
 
     /**

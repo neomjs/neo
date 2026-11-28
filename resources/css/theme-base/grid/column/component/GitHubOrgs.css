@@ -1,0 +1,4 @@
+/* Grid GitHub organizations cell component, every theme. */
+[class*="neo-theme-"] {
+    --neo-github-orgs-avatar-border-radius: var(--neo-radius-small);
+}

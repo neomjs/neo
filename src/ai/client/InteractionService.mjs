@@ -1,5 +1,6 @@
-import Service       from './Service.mjs';
-import WindowManager from '../../manager/Window.mjs';
+import Service                   from './Service.mjs';
+import WindowManager             from '../../manager/Window.mjs';
+import {normalizeGestureRequest} from './gestureTrace.mjs';
 
 const
     defaultAnchor     = Object.freeze({x: 0.5, y: 0.5}),
@@ -43,6 +44,7 @@ function driveFailure(phase, code, message, source=null, destination=null) {
 export function registerInteractionServiceMethods(serviceMap, service) {
     return Object.assign(serviceMap, {
         drive_drag    : service,
+        drive_gesture : service,
         simulate_event: service
     })
 }
@@ -340,6 +342,70 @@ class InteractionService extends Service {
                 error?.message || String(error),
                 resolvedSource,
                 resolvedDestination
+            )
+        }
+    }
+
+    /**
+     * @summary Validates and routes one atomic, target-relative replay to its owning Main window.
+     * @param {Object} request An explicit contact trace or preset with an owning window and target.
+     * @returns {Promise<Object>} An observed Engine receipt or an explicit provider refusal.
+     */
+    async driveGesture(request) {
+        const provider = request?.provider,
+              fail     = (status, code, message, observationAvailable=true) => ({
+                  error    : {code, message},
+                  observed : [],
+                  observationAvailable,
+                  phases   : [],
+                  provider,
+                  sequences: [],
+                  status,
+                  success  : false,
+                  terminal : 'none',
+                  trusted  : null
+              });
+
+        let plan;
+
+        try {
+            plan = normalizeGestureRequest(request)
+        } catch (error) {
+            return fail('invalid', 'INVALID_GESTURE_TRACE', error.message)
+        }
+
+        if (provider === 'browser') {
+            return fail('unavailable', 'BROWSER_PROVIDER_UNAVAILABLE', 'Engine Main has no attached browser-input driver')
+        }
+
+        const {target, windowId} = plan;
+        let   dispatched         = false;
+
+        if (Neo.currentWorker?.isSharedWorker === false && Neo.config.windowId && Neo.config.windowId !== windowId) {
+            return fail('unavailable', 'GESTURE_WINDOW_MISMATCH', 'the named window does not own this dedicated App worker')
+        }
+
+        try {
+            await this.resolveDomRect(target, windowId);
+            await Neo.Main.importAddon({name: 'EventSimulator', windowId});
+            dispatched = true;
+
+            const receipt = await Neo.main.addon.EventSimulator.driveGesture(plan);
+
+            return Neo.isObject(receipt) && receipt.provider === 'engine' && typeof receipt.success === 'boolean' &&
+                Array.isArray(receipt.observed) && Array.isArray(receipt.phases) && Array.isArray(receipt.sequences) &&
+                ['none', 'end', 'cancel'].includes(receipt.terminal) && (receipt.trusted === null || typeof receipt.trusted === 'boolean')
+                ? receipt : fail('interrupted', 'INVALID_GESTURE_RESPONSE', 'Main returned no complete gesture receipt', false)
+        } catch (error) {
+            if (Neo.currentWorker?.isDeparture?.(error, windowId)) {
+                return fail('interrupted', 'GESTURE_WINDOW_DEPARTED', 'the owning window departed before its receipt was available', !dispatched)
+            }
+
+            return fail(
+                dispatched ? 'interrupted' : 'unavailable',
+                dispatched ? 'GESTURE_RPC_FAILED' : 'GESTURE_TARGET_UNAVAILABLE',
+                error?.message || String(error),
+                !dispatched
             )
         }
     }

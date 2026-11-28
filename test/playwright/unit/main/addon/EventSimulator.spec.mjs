@@ -7,9 +7,10 @@ setup({
     neoConfig       : {unitTestMode: true}
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
+import {test, expect}            from '@playwright/test';
+import Neo                       from '../../../../../src/Neo.mjs';
+import * as core                 from '../../../../../src/core/_export.mjs';
+import {normalizeGestureRequest} from '../../../../../src/ai/client/gestureTrace.mjs';
 
 const
     originalDocument  = globalThis.document,
@@ -179,6 +180,146 @@ test.describe('Neo.main.addon.EventSimulator — touch contacts', () => {
         delete globalThis.TouchEvent;
 
         Object.assign(documentRef, lookups)
+    });
+
+    /**
+     * @summary Creates a browser-like document observer while the single-thread fixture has no event bubbling.
+     * @param {Function} run
+     */
+    async function withReplayHost(run) {
+        const originalManager = Neo.worker.Manager,
+              originalView    = documentRef.defaultView,
+              originalBody    = documentRef.body,
+              events          = [],
+              source          = node;
+
+        Neo.worker.Manager = {windowId: 'source-window'};
+        documentRef.defaultView = Object.assign(new EventTarget(), {Touch: TouchStandIn, TouchEvent: TouchEventStandIn});
+        documentRef.body = Object.assign(new EventTarget(), {nodeType: 1, ownerDocument: documentRef});
+        Object.assign(source, {
+            dataset              : {neoId: 'chart'}, id: 'chart', ownerDocument: documentRef, isConnected: true,
+            getBoundingClientRect: () => ({left: 120, top: 210, width: 80, height: 70})
+        });
+        documentRef.getElementById = id => id === 'chart' ? node : null;
+        documentRef.querySelector  = selector => selector.includes('chart') ? node : null;
+
+        const host = createHost({
+            dispatchNative({id, options, type}, onCreate) {
+                const event = new TouchEventStandIn(type, this.createTouches(options, id));
+
+                onCreate(event);
+                events.push({id, event});
+                documentRef.dispatchEvent(event);
+                return {event, success: true}
+            }
+        });
+
+        try {
+            await run(host, events, source)
+        } finally {
+            Neo.worker.Manager = originalManager;
+            documentRef.defaultView = originalView;
+            documentRef.body = originalBody
+        }
+    }
+
+    /**
+     * @param {Object} options
+     * @returns {Object} A default held, valid replay plan for the source document.
+     */
+    function heldGesture(options={}) {
+        return normalizeGestureRequest({
+            provider: 'engine', target: 'chart', windowId: 'source-window',
+            preset  : {kind: 'hold', at: {x: 15, y: 20}, durationMs: 500}, ...options
+        })
+    }
+
+    test('driveGesture observes the eight actual events in their owning document', async () => {
+        await withReplayHost(async (host, events) => {
+            const contact = (id, state, x=15) => ({id, state, x, y: 20}),
+                  frames  = [
+                      [contact('A', 'down')], [contact('B', 'down', 35)], [contact('B', 'up', 35)],
+                      [contact('A', 'move', 33)], [contact('A', 'cancel', 33)], [contact('C', 'down')],
+                      [contact('C', 'move', 47)], [contact('C', 'up', 47)]
+                  ].map((contacts, index) => ({t: index * 10, contacts})),
+                  result = await host.driveGesture(heldGesture({preset: undefined, frames}));
+
+            expect(result).toMatchObject({provider: 'engine', phases: [], trusted: false, sequences: ['cancel', 'end'], terminal: 'end', success: true});
+            expect(result.observed.map(({active, changed}) => [active.join(''), changed.join('')])).toEqual([
+                ['A', 'A'], ['AB', 'B'], ['A', 'B'], ['A', 'A'], ['', 'A'], ['C', 'C'], ['C', 'C'], ['', 'C']
+            ]);
+            expect(result.observed[1].events[0].active).toEqual([
+                {id: 'A', clientX: 135, clientY: 230}, {id: 'B', clientX: 155, clientY: 230}
+            ]);
+            expect(events).toHaveLength(8);
+            expect(host.driveActive).toBe(false)
+        })
+    });
+
+    test('driveGesture refuses another window and shares the drag lock while waiting', async () => {
+        await withReplayHost(async (host, events) => {
+            await expect(host.driveGesture(heldGesture({windowId: 'another-window'})))
+                .resolves.toMatchObject({success: false, error: {code: 'GESTURE_WINDOW_MISMATCH'}});
+            expect(events).toEqual([]);
+
+            let release;
+            host.timeout = () => new Promise(resolve => {release = resolve});
+            const inFlight = host.driveGesture(heldGesture());
+
+            expect(events.map(({event}) => event.type)).toEqual(['touchstart']);
+            await expect(host.driveDrag({})).resolves.toMatchObject({error: {code: 'DRAG_BUSY'}});
+            await expect(host.driveGesture(heldGesture())).resolves.toMatchObject({error: {code: 'GESTURE_BUSY'}});
+            release();
+            await expect(inFlight).resolves.toMatchObject({success: true, terminal: 'end'});
+            expect(host.driveActive).toBe(false)
+        })
+    });
+
+    test('retains the old target when a same-ID replacement interrupts replay', async () => {
+        await withReplayHost(async (host, events, source) => {
+            host.timeout = async () => {
+                source.isConnected = false;
+                node = Object.assign(new EventTarget(), {nodeType: 1, isConnected: true, id: 'chart', ownerDocument: documentRef})
+            };
+
+            const result = await host.driveGesture(heldGesture());
+
+            expect(result).toMatchObject({success: false, terminal: 'none', sequences: ['none'],
+                error: {code: 'GESTURE_TARGET_REMOVED'}, cleanup: {attempted: true, succeeded: true}});
+            expect(result.observed).toHaveLength(1);
+            expect(events.map(({event}) => event.type)).toEqual(['touchstart', 'touchcancel']);
+            expect(events[1].id).toBe(documentRef.body);
+            expect(events[1].event.changedTouches[0].target).toBe(source);
+            expect(host.driveActive).toBe(false)
+        })
+    });
+
+    test('an unobserved terminal does not pass and a failed cleanup releases the input lock', async () => {
+        await withReplayHost(async (host, events) => {
+            const original = host.dispatchNative;
+
+            host.dispatchNative = function(data, onCreate) {
+                if (data.type === 'touchend') {
+                    onCreate(new TouchEventStandIn(data.type));
+                    documentRef.dispatchEvent(new TouchEventStandIn(data.type));
+                    return {success: true}
+                }
+
+                if (data.type === 'touchcancel') {
+                    throw new Error('cleanup transport failed')
+                }
+
+                return original.call(this, data, onCreate)
+            };
+
+            await expect(host.driveGesture(heldGesture())).resolves.toMatchObject({success: false, terminal: 'none',
+                error: {code: 'GESTURE_EVENT_NOT_OBSERVED'}, cleanup: {attempted: true, succeeded: false}});
+            expect(host.driveActive).toBe(false);
+            expect(events).toHaveLength(1);
+
+            host.dispatchNative = original;
+            await expect(host.driveGesture(heldGesture())).resolves.toMatchObject({success: true, terminal: 'end'})
+        })
     });
 
     test('JSON contacts of every touch type arrive as Touch objects with their identifiers and coordinates', () => {

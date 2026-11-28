@@ -1,0 +1,11 @@
+/* Grid container, every theme: cell surfaces, value bands, lattice border, scheme, and body typography. */
+[class*="neo-theme-"] {
+    --neo-grid-container-border-color              : var(--neo-color-border-default);
+    --neo-grid-container-cell-background-color     : var(--neo-color-background-surface);
+    --neo-grid-container-cell-background-color-even: var(--neo-color-background-surface);
+    --neo-grid-cell-value-band-1-background-color  : var(--neo-color-background-info-subtle);
+    --neo-grid-cell-value-band-2-background-color  : var(--neo-color-background-surface);
+    --neo-grid-container-color                     : var(--neo-color-text-default);
+    --neo-grid-container-color-scheme              : var(--neo-color-scheme);
+    --neo-grid-container-font-size                 : var(--neo-control-font-size-medium);
+}

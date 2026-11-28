@@ -2,8 +2,7 @@ import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 
 /**
- * Internal typed abort. It never crosses a worker boundary; {@link EventSimulator#driveDrag}
- * catches it and returns the public structured failure receipt.
+ * Internal typed abort. The atomic input drivers convert it to a structured failure receipt.
  */
 class DriveAbort extends Error {
     constructor(phase, code, message) {
@@ -122,7 +121,7 @@ class EventSimulator extends Base {
          * @protected
          */
         remote: {
-            app: ['dispatch', 'driveDrag']
+            app: ['dispatch', 'driveDrag', 'driveGesture']
         },
         /**
          * @member {Boolean} singleton=true
@@ -132,8 +131,8 @@ class EventSimulator extends Base {
     }
 
     /**
-     * One Pointer sensor owns the source document. Overlapping automation transactions would both
-     * observe the same physical lifecycle, so a second caller is refused rather than queued.
+     * Drag and touch replay share one input lock per owning Main document. An overlapping
+     * automation transaction is refused rather than queued.
      * @member {Boolean} driveActive=false
      * @protected
      */
@@ -376,6 +375,244 @@ class EventSimulator extends Base {
      */
     getDriveDocument() {
         return document
+    }
+
+    /**
+     * @summary Executes a validated contact plan in this document and receipts actual TouchEvents.
+     * The initial border box anchors client coordinates, and target identity is checked through the
+     * last dispatch. Interruptions cancel the open contacts while this drive still owns the lock.
+     * @param {Object} plan
+     * @param {Object[]} plan.frames Normalized timed dispatch groups from InteractionService.
+     * @param {String} plan.target Exact node id in this window.
+     * @param {Number} plan.timeoutMs Whole replay execution deadline.
+     * @param {String} plan.windowId Window selected by App routing.
+     * @returns {Promise<Object>}
+     */
+    async driveGesture({frames, target, timeoutMs, windowId}) {
+        const receipt = {
+            cleanup             : {attempted: false, succeeded: true},
+            observed            : [],
+            observationAvailable: true,
+            phases              : [],
+            provider            : 'engine',
+            sequences           : [],
+            status              : 'busy',
+            success             : false,
+            terminal            : 'none',
+            trusted             : null
+        };
+
+        if (this.driveActive) {
+            return {...receipt, error: {code: 'GESTURE_BUSY', message: 'another atomic input drive owns this window'}}
+        }
+
+        this.driveActive = true;
+
+        const controller = new AbortController(),
+              {signal}   = controller,
+              events     = ['touchstart', 'touchmove', 'touchend', 'touchcancel'];
+
+        let documentRef, node, observer, deadline, expected, observed, start,
+            active = new Map(),
+            sequenceOpen = false;
+
+        const onTouch = event => {
+            if (event === expected) {
+                observed = event
+            }
+        };
+
+        const interrupt   = (code, message) => controller.abort(new DriveAbort('interrupted', code, message)),
+              onPageHide  = () => interrupt('GESTURE_WINDOW_DEPARTED', 'the owning document is departing'),
+              isLive      = () => node.isConnected && node.ownerDocument === documentRef && DomAccess.getElement(target, documentRef) === node,
+              checkTarget = () => {
+                  signal.throwIfAborted();
+
+                  if (performance.now() - start >= timeoutMs) {
+                      interrupt('GESTURE_TIMEOUT', 'the contact trace exceeded its execution deadline')
+                  }
+
+                  if (!isLive()) {
+                      interrupt('GESTURE_TARGET_REMOVED', 'the original target was removed or replaced during replay')
+                  }
+
+                  signal.throwIfAborted()
+              };
+
+        // Keep the original target in each contact even if a cancellation has to travel through
+        // the stable document body after the node detaches.
+        const dispatch = (carrier, type, touches, changedTouches) => {
+            expected = observed = null;
+            const result = this.dispatchNative({
+                id     : carrier,
+                options: {changedTouches, composed: true, targetTouches: carrier === node ? touches : [], touches},
+                type
+            }, event => {expected = event});
+
+            return result.success && observed instanceof documentRef.defaultView.TouchEvent ? observed : null
+        };
+
+        try {
+            if (windowId !== Neo.worker.Manager?.windowId) {
+                throw new DriveAbort('unavailable', 'GESTURE_WINDOW_MISMATCH', 'the request did not reach its named Main window')
+            }
+
+            documentRef = this.getDriveDocument();
+            const view = documentRef.defaultView;
+
+            if (typeof view?.Touch !== 'function' || typeof view.TouchEvent !== 'function') {
+                throw new DriveAbort('unavailable', 'TOUCH_UNAVAILABLE', 'the owning window cannot construct TouchEvents')
+            }
+
+            node = DomAccess.getElement(target, documentRef);
+
+            const bodyAlias = target === 'body' || target === 'document.body';
+
+            if (!node?.isConnected || node.ownerDocument !== documentRef ||
+                (bodyAlias ? node !== documentRef.body : DomAccess.getNodeId(node) !== target)) {
+                throw new DriveAbort('unavailable', 'GESTURE_TARGET_UNAVAILABLE', 'the target is not live in the owning document')
+            }
+
+            const initialRect = node.getBoundingClientRect();
+
+            if (!Number.isFinite(initialRect.left) || !Number.isFinite(initialRect.top) || !(initialRect.width > 0 && initialRect.height > 0)) {
+                throw new DriveAbort('unavailable', 'GESTURE_TARGET_UNAVAILABLE', 'the target has no rendered border box')
+            }
+
+            const toTouch = ({id, identifier, x, y}) => {
+                const clientX = initialRect.left + x,
+                      clientY = initialRect.top  + y;
+
+                if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+                    throw new DriveAbort('invalid', 'GESTURE_COORDINATE_OVERFLOW', 'a contact does not resolve to finite client coordinates')
+                }
+
+                return {clientX, clientY, id, identifier, target: node}
+            },
+            plan = frames.map(({t, events}) => ({
+                t,
+                events: events.map(({active, changed, terminal, type}) => ({
+                    touches: active.map(toTouch), changed: changed.map(toTouch), terminal, type
+                }))
+            }));
+
+            events.forEach(type => documentRef.addEventListener(type, onTouch, {capture: true, passive: true, signal}));
+            view.addEventListener('pagehide', onPageHide, {signal});
+
+            if (view.MutationObserver) {
+                observer = new view.MutationObserver(() => {
+                    if (!isLive()) interrupt('GESTURE_TARGET_REMOVED', 'the original target was removed or replaced during replay')
+                });
+                observer.observe(documentRef, {childList: true, subtree: true})
+            }
+
+            const verify = (list, expectedList) => Array.from(list, (touch, index) => {
+                      const point = expectedList[index];
+
+                      if (touch.identifier !== point?.identifier || touch.target !== node) {
+                          throw new DriveAbort('interrupted', 'GESTURE_OBSERVATION_MISMATCH', 'the observed contacts do not match the dispatched identities')
+                      }
+
+                      return {clientX: touch.clientX, clientY: touch.clientY, id: point.id}
+                  });
+
+            receipt.status = 'interrupted';
+            start = performance.now();
+            deadline = setTimeout(() => interrupt('GESTURE_TIMEOUT', 'the contact trace exceeded its execution deadline'), timeoutMs);
+
+            for (const [index, frame] of plan.entries()) {
+                const wait = start + frame.t - performance.now();
+
+                if (wait > 0) {
+                    await this.timeout(wait, {signal})
+                }
+
+                checkTarget();
+
+                const sample = {active: [], changed: [], events: [], frame: index, t: frame.t};
+
+                for (const step of frame.events) {
+                    checkTarget();
+
+                    const {touches, changed} = step;
+
+                    // A missing observation cannot prove a release. Keep previous contacts and
+                    // remember every attempted down until a correlated event confirms the snapshot.
+                    sequenceOpen = true;
+                    touches.forEach(point => active.set(point.identifier, point));
+
+                    const event = dispatch(node, step.type, touches, changed);
+
+                    if (!event) {
+                        throw new DriveAbort('interrupted', 'GESTURE_EVENT_NOT_OBSERVED', `no correlated ${step.type} was observed`)
+                    }
+
+                    if (event.touches.length !== touches.length || event.changedTouches.length !== changed.length) {
+                        throw new DriveAbort('interrupted', 'GESTURE_OBSERVATION_MISMATCH', 'the observed contact counts differ from the dispatched frame')
+                    }
+
+                    const activePoints = verify(event.touches, touches), changedPoints = verify(event.changedTouches, changed);
+
+                    active = new Map(touches.map(point => [point.identifier, point]));
+                    if (!sample.events.length) receipt.observed.push(sample);
+
+                    sample.active = activePoints.map(point => point.id);
+                    sample.changed.push(...changedPoints.map(point => point.id));
+                    sample.events.push({active: activePoints, changed: changedPoints, elapsedMs: performance.now() - start, type: event.type});
+                    receipt.trusted = event.isTrusted;
+
+                    if (step.terminal) {
+                        sequenceOpen = false;
+                        receipt.sequences.push(step.terminal);
+                        receipt.terminal = step.terminal
+                    }
+                }
+            }
+
+            receipt.status  = 'complete';
+            receipt.success = true
+        } catch (error) {
+            const cause = signal.reason ?? error,
+                  code  = cause?.code ?? 'GESTURE_DISPATCH_FAILED';
+
+            receipt.error = {code, message: cause?.message || String(cause)};
+            receipt.status = cause?.phase ?? 'interrupted';
+
+            if (sequenceOpen) {
+                receipt.sequences.push('none');
+                receipt.terminal = 'none'
+            }
+        } finally {
+            clearTimeout(deadline);
+            observer?.disconnect();
+
+            try {
+                if (active.size) {
+                    receipt.cleanup.attempted = true;
+                    const carrier = node.isConnected ? node : documentRef.body || documentRef,
+                          changed = [...active.values()];
+
+                    // The deadline may have aborted the regular capture listeners. Install one
+                    // cleanup observer independently, then always remove it before releasing the lock.
+                    documentRef.addEventListener('touchcancel', onTouch, true);
+                    try {
+                        const cancellation = dispatch(carrier, 'touchcancel', [], changed);
+                        receipt.cleanup.succeeded = cancellation?.touches.length === 0 &&
+                            cancellation.changedTouches.length === changed.length && Array.from(cancellation.changedTouches)
+                                .every((touch, index) => touch.identifier === changed[index].identifier && touch.target === node)
+                    } finally {
+                        documentRef.removeEventListener('touchcancel', onTouch, true)
+                    }
+                }
+            } catch {
+                receipt.cleanup.succeeded = false
+            } finally {
+                controller.abort();
+                this.driveActive = false
+            }
+        }
+
+        return receipt
     }
 
     /**

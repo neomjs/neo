@@ -1,6 +1,0 @@
-:where(.neo-theme-neo-light) {
-    --neo-icon-link-color          : var(--neo-sem-color-text-primary-default);
-    --neo-icon-link-font-size      : inherit;
-    --neo-icon-link-color-hover    : var(--neo-sem-color-fg-primary-highlighted);
-    --neo-icon-link-text-decoration: none;
-}

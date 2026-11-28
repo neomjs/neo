@@ -69,6 +69,9 @@ test('cancels on hide and final popup port loss while the sibling can still reco
     expect(sourceWorker).toBeTruthy();
     expect(await page.evaluate(() => Neo.config.useSharedWorkers)).toBe(true);
 
+    const openSecondWindow = page.getByRole('button', {name: 'Open second window'});
+    await expect(openSecondWindow).toBeVisible();
+
     const sourceWindow = await page.evaluate(() => Neo.worker.Manager.windowId),
           getReceipt   = () => page.evaluate(async id => {
               const reply = await Neo.worker.App.getConfigs({id, keys: 'gestureReceipt'});
@@ -83,7 +86,7 @@ test('cancels on hide and final popup port loss while the sibling can still reco
 
     const [popup] = await Promise.all([
         context.waitForEvent('page'),
-        page.getByRole('button', {name: 'Open second window'}).click()
+        openSecondWindow.click()
     ]);
 
     try {
