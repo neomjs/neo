@@ -1,0 +1,279 @@
+{
+  "head": "aa5e9d3bad78d8f132cb887b6d1148f6834aa157",
+  "tree": "838638b3fc46dbfbebddc56641e905aed3b9519d",
+  "integratedGrid": "274f001aaf",
+  "method": "Clean git archive and isolated development build from the Material head including the merged grid. Only the example boot config opts into each Material scheme. The example radio selects the actual CellColumnRowModel or RowModel. Screenshot pixels inside each cell are compared to its computed sRGB color; no CSS or DOM styles are injected.",
+  "route": "/examples/grid/container/index.html",
+  "browser": "158.0.8127.38",
+  "samples": [
+    {
+      "theme": "neo-theme-material-dark",
+      "model": "CellColumnRowModel",
+      "frame": "material-dark-grid.png",
+      "sha256": "8ef70e63b2f07f8db2cfb04a74271fbf0843a44614b18c7f86941f7b7c1aca6a",
+      "beforeHover": {
+        "x": 280,
+        "y": 264.6875,
+        "width": 96,
+        "height": 32,
+        "rgb": "#4e358a",
+        "alpha": 255,
+        "resolved": "oklch(0.405 0.134 292.6)",
+        "classes": "neo-grid-cell selected-column-cell",
+        "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap"
+      },
+      "cells": {
+        "rest": {
+          "x": 472,
+          "y": 296.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#211f26",
+          "alpha": 255,
+          "resolved": "oklch(0.245 0.013 298.5)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#211f26"
+        },
+        "hover": {
+          "x": 376,
+          "y": 264.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#392073",
+          "alpha": 255,
+          "resolved": "oklch(0.33 0.135 291.2)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#392073"
+        },
+        "rowMate": {
+          "x": 376,
+          "y": 200.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#4e358a",
+          "alpha": 255,
+          "resolved": "oklch(0.405 0.134 292.6)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#4e358a"
+        },
+        "columnMateOnHover": {
+          "x": 280,
+          "y": 264.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#4e358a",
+          "alpha": 255,
+          "resolved": "oklch(0.405 0.134 292.6)",
+          "classes": "neo-grid-cell selected-column-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#4e358a"
+        },
+        "active": {
+          "x": 280,
+          "y": 200.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#6750a4",
+          "alpha": 255,
+          "resolved": "oklch(0.496 0.13 293.7)",
+          "classes": "neo-grid-cell neo-selected selected-column-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#6750a4"
+        }
+      }
+    },
+    {
+      "theme": "neo-theme-material-dark",
+      "model": "RowModel",
+      "frame": "material-dark-row.png",
+      "sha256": "173b9115f288de0ff8fee595597217b922428e8b8cb98b375de7a1c61d2b1eac",
+      "selectedWhileHovered": {
+        "x": 376,
+        "y": 200.6875,
+        "width": 96,
+        "height": 32,
+        "rgb": "#4e358a",
+        "alpha": 255,
+        "resolved": "oklch(0.405 0.134 292.6)",
+        "classes": "neo-grid-cell",
+        "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap"
+      },
+      "cells": {
+        "selected": {
+          "x": 376,
+          "y": 200.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#4e358a",
+          "alpha": 255,
+          "resolved": "oklch(0.405 0.134 292.6)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#4e358a"
+        },
+        "hover": {
+          "x": 376,
+          "y": 264.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#392073",
+          "alpha": 255,
+          "resolved": "oklch(0.33 0.135 291.2)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#392073"
+        },
+        "rest": {
+          "x": 472,
+          "y": 296.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#211f26",
+          "alpha": 255,
+          "resolved": "oklch(0.245 0.013 298.5)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#211f26"
+        }
+      }
+    },
+    {
+      "theme": "neo-theme-material-light",
+      "model": "CellColumnRowModel",
+      "frame": "material-light-grid.png",
+      "sha256": "694a1f6dc4d1f2e775e8653586afe5f8a5f113ed5cc4687661e7c2e2fdeae3be",
+      "beforeHover": {
+        "x": 280,
+        "y": 264.6875,
+        "width": 96,
+        "height": 32,
+        "rgb": "#d0bcff",
+        "alpha": 255,
+        "resolved": "oklch(0.835 0.095 298)",
+        "classes": "neo-grid-cell selected-column-cell",
+        "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-light neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap"
+      },
+      "cells": {
+        "rest": {
+          "x": 472,
+          "y": 296.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#f3edf7",
+          "alpha": 255,
+          "resolved": "oklch(0.954 0.015 312.6)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-light neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#f3edf7"
+        },
+        "hover": {
+          "x": 376,
+          "y": 264.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#e9dcff",
+          "alpha": 255,
+          "resolved": "oklch(0.916 0.049 302.7)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-light neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#e9dcff"
+        },
+        "rowMate": {
+          "x": 376,
+          "y": 200.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#d0bcff",
+          "alpha": 255,
+          "resolved": "oklch(0.835 0.095 298)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-light neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#d0bcff"
+        },
+        "columnMateOnHover": {
+          "x": 280,
+          "y": 264.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#d0bcff",
+          "alpha": 255,
+          "resolved": "oklch(0.835 0.095 298)",
+          "classes": "neo-grid-cell selected-column-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-light neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#d0bcff"
+        },
+        "active": {
+          "x": 280,
+          "y": 200.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#b39bf5",
+          "alpha": 255,
+          "resolved": "oklch(0.745 0.13 295.7)",
+          "classes": "neo-grid-cell neo-selected selected-column-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-light neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#b39bf5"
+        }
+      }
+    },
+    {
+      "theme": "neo-theme-material-light",
+      "model": "RowModel",
+      "frame": "material-light-row.png",
+      "sha256": "eff20923e579240ac0b9f2ce20a8c0a3109a61f4640b431c70a14d769dfe2948",
+      "selectedWhileHovered": {
+        "x": 376,
+        "y": 200.6875,
+        "width": 96,
+        "height": 32,
+        "rgb": "#d0bcff",
+        "alpha": 255,
+        "resolved": "oklch(0.835 0.095 298)",
+        "classes": "neo-grid-cell",
+        "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-light neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap"
+      },
+      "cells": {
+        "selected": {
+          "x": 376,
+          "y": 200.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#d0bcff",
+          "alpha": 255,
+          "resolved": "oklch(0.835 0.095 298)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-light neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#d0bcff"
+        },
+        "hover": {
+          "x": 376,
+          "y": 264.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#e9dcff",
+          "alpha": 255,
+          "resolved": "oklch(0.916 0.049 302.7)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-light neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#e9dcff"
+        },
+        "rest": {
+          "x": 472,
+          "y": 296.6875,
+          "width": 96,
+          "height": 32,
+          "rgb": "#f3edf7",
+          "alpha": 255,
+          "resolved": "oklch(0.954 0.015 312.6)",
+          "classes": "neo-grid-cell",
+          "theme": "neo-examples-grid-container neo-examples-configuration-viewport neo-viewport neo-workbench neo-theme-material-light neo-flex-container neo-flex-align-stretch neo-flex-direction-row neo-flex-wrap-nowrap",
+          "pixel": "#f3edf7"
+        }
+      }
+    }
+  ],
+  "errors": []
+}
