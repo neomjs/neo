@@ -283,8 +283,9 @@ class Component extends Abstract {
             value         : null
         },
         /**
-         * You can pass a used theme directly to any component,
-         * to style specific component trees differently from your main view.
+         * Assigning a theme to a container item gives its subtree its own theme, even when the value matches the container's current theme.
+         * Assigning `null` to the item resumes inheritance from its container.
+         * When the container switches themes, only inheriting items follow the switch.
          * @member {String|null} theme_=null
          * @reactive
          */

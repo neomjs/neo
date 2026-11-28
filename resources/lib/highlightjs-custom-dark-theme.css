@@ -53,7 +53,7 @@ code,
 .hljs-attribute,
 .hljs-name,
 .hljs-variable {
-    color: #cc7832;
+    color: #d58a4a;
 }
 
 .hljs-params {
@@ -61,7 +61,7 @@ code,
 }
 
 .hljs-string {
-    color: #6a8759;
+    color: #86a875;
 }
 
 .hljs-subst,
@@ -81,7 +81,7 @@ code,
 .hljs-comment,
 .hljs-deletion,
 .hljs-meta {
-    color: #808080;
+    color: #999999;
 }
 
 .hljs-comment {
@@ -103,7 +103,7 @@ code,
 
     background-color: #303335;
     text-align: right;
-    color: #606366;
+    color: #9b9fa3;
     border-right: 1px solid #555;
     vertical-align: top;
     padding-left: 5px !important;

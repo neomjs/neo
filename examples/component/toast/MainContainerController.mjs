@@ -56,7 +56,7 @@ class MainContainerController extends ComponentController {
         button.disabled = !isValid;
 
         if (isValid) {
-            oVdom.html = output.itemTpl(values);
+            oVdom.text = output.itemTpl(values);
             await output.promiseUpdate();
             me.syntaxHighlight()
         }
