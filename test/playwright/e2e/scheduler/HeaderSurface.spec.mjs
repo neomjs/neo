@@ -1,27 +1,19 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test}              from '../../fixtures.mjs';
+import {contrastRatio, parseColor} from '../../../../buildScripts/util/check-theme-palette.mjs';
 
 const
     PAGES  = ['/examples/scheduler/basic/index.html', '/examples/scheduler/resourceColumns/index.html', '/examples/gantt/basic/index.html'],
     THEMES = ['neo-theme-neo-light', 'neo-theme-neo-dark', 'neo-theme-light', 'neo-theme-dark', 'neo-theme-cyberpunk'];
 
 /**
- * @summary Returns the WCAG contrast ratio of two computed `rgb()` colours.
+ * @summary Returns the WCAG contrast ratio of two computed colours, measured by the palette check. A role of theme Neo
+ * computes as `oklch()`, so the colours are not read as `rgb()` channels.
  * @param {String} a
  * @param {String} b
  * @returns {Number}
  */
 function contrast(a, b) {
-    const luminance = value => {
-        const [r, g, bl] = value.match(/[\d.]+/g).slice(0, 3).map(Number).map(c => {
-            c /= 255;
-            return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-        });
-
-        return 0.2126 * r + 0.7152 * g + 0.0722 * bl
-    };
-
-    const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-    return (light + 0.05) / (dark + 0.05)
+    return contrastRatio(parseColor(a).rgba.slice(0, 3), parseColor(b).rgba.slice(0, 3))
 }
 
 /**
@@ -36,7 +28,7 @@ function readHeaders(page) {
         const
             read    = el => {
                 const {backgroundColor, backgroundImage} = getComputedStyle(el), opaque = !/rgba\(.*,\s*0\)$/.test(backgroundColor);
-                return {color: backgroundColor, ground: opaque ? backgroundColor : backgroundImage.match(/rgba?\([^)]+\)/)?.[0], image: backgroundImage}
+                return {color: backgroundColor, ground: opaque ? backgroundColor : backgroundImage.match(/(?:rgba?|oklch)\([^)]+\)/)?.[0], image: backgroundImage}
             },
             buttons = [...document.querySelectorAll('.neo-grid-header-toolbar .neo-grid-header-button:not(.neo-timeline-header)')];
 
