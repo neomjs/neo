@@ -693,7 +693,8 @@ function buildNormalizedMatrix() {
  * @returns {Promise<Object>} Captured snapshot map.
  */
 async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
-    const normalizedEntries = buildNormalizedMatrix();
+    const normalizedEntries = buildNormalizedMatrix(),
+          allThemes         = [...new Set([...THEMES, ...themes])];
 
     await page.goto(`http://127.0.0.1:${port}/test/playwright/component/apps/theme-equality/index.html`, {
         waitUntil: 'domcontentloaded'
@@ -705,40 +706,42 @@ async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
     await cdp.send('DOM.enable');
     await cdp.send('CSS.enable');
 
-    // Mount the first theme's stylesheets before validating pseudo-element `content` so structural `::before`/`::after` rules are active
-    const initialTheme = themes[0];
-    await page.evaluate(async ({themeClass, sheetUrls, allThemes}) => {
-        const viewport = document.getElementById('theme-equality-viewport');
+    const mountTheme = theme => page.evaluate(async ({themeClass, sheetUrls, allThemes}) => {
+        const viewport = document.getElementById('theme-equality-viewport'),
+              existing = [...document.head.querySelectorAll('link[data-equality-sheet]')];
 
-        for (const t of allThemes) {
-            document.body.classList.remove(t);
-            viewport?.classList.remove(t)
+        document.body.classList.remove(...allThemes);
+        viewport.classList.remove(...allThemes);
+        document.body.classList.add(themeClass);
+        viewport.classList.add(themeClass);
+
+        // Keep only the common prefix: a sheet after the first mismatch can have a different cascade position.
+        let shared = 0;
+        while (shared < existing.length && existing[shared].dataset.equalitySheet === sheetUrls[shared]) {
+            shared++
         }
 
-        document.body.classList.add(themeClass);
-        viewport?.classList.add(themeClass);
-
-        const existing = [...document.querySelectorAll('link[data-equality-sheet="true"]')];
-        const loaded   = await Promise.all(sheetUrls.map(href => new Promise((resolve, reject) => {
+        await Promise.all(sheetUrls.slice(shared).map(href => new Promise((resolve, reject) => {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
             link.href = `${href}?t=${encodeURIComponent(themeClass)}`;
-            link.dataset.equalitySheet = 'true';
-            link.onload = () => resolve(link);
+            link.dataset.equalitySheet = href;
+            link.onload = () => resolve();
             link.onerror = () => reject(new Error(`Failed to load stylesheet: ${href}`));
             document.head.appendChild(link)
         })));
 
-        existing.forEach(link => link.remove());
-        void loaded;
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+        existing.slice(shared).forEach(link => link.remove())
     }, {
-        themeClass: initialTheme,
-        sheetUrls : urlsByTheme.get(initialTheme),
-        allThemes : THEMES
+        themeClass: theme,
+        sheetUrls : urlsByTheme.get(theme),
+        allThemes
     });
 
-    const missingSelectors = await page.evaluate(entries => {
+    // Structural pseudo-elements must render before we validate their content.
+    await mountTheme(themes[0]);
+    const missingSelectors = await page.evaluate(async entries => {
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         let freeze = document.getElementById('neo-theme-equality-freeze');
 
         if (!freeze) {
@@ -880,56 +883,28 @@ async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
           hoverEntries  = normalizedEntries.filter(e => e.states.includes('hover')),
           activeEntries = normalizedEntries.filter(e => e.states.includes('active')),
           focusEntries  = normalizedEntries.filter(e => e.states.includes('focus')),
-          DOM_STATES    = ['default', 'selected', 'pressed', 'disabled', 'invalid', 'readonly'];
+          DOM_STATES    = ['selected', 'pressed', 'disabled', 'invalid', 'readonly'];
 
     for (const entry of normalizedEntries) {
         snapshot[entry.id] = {}
     }
 
     for (let themeIdx = 0; themeIdx < themes.length; themeIdx++) {
-        const theme = themes[themeIdx],
-              urls  = urlsByTheme.get(theme);
+        const theme = themes[themeIdx];
 
         for (const entry of normalizedEntries) {
             snapshot[entry.id][theme] = {}
         }
 
-        await page.evaluate(async ({themeClass, sheetUrls, allThemes, skipReload}) => {
-            const viewport = document.getElementById('theme-equality-viewport');
+        if (themeIdx > 0) {
+            await mountTheme(theme)
+        }
 
-            if (!skipReload) {
-                for (const t of allThemes) {
-                    document.body.classList.remove(t);
-                    viewport?.classList.remove(t)
-                }
-
-                document.body.classList.add(themeClass);
-                viewport?.classList.add(themeClass);
-
-                const existing = [...document.querySelectorAll('link[data-equality-sheet="true"]')];
-                const loaded   = await Promise.all(sheetUrls.map(href => new Promise((resolve, reject) => {
-                    const link = document.createElement('link');
-                    link.rel = 'stylesheet';
-                    link.href = `${href}?t=${encodeURIComponent(themeClass)}`;
-                    link.dataset.equalitySheet = 'true';
-                    link.onload = () => resolve(link);
-                    link.onerror = () => reject(new Error(`Failed to load stylesheet: ${href}`));
-                    document.head.appendChild(link)
-                })));
-
-                existing.forEach(link => link.remove());
-                void loaded
-            }
-
+        await page.evaluate(async () => {
             const scheme = getComputedStyle(document.body).getPropertyValue('--neo-color-scheme').trim();
             document.documentElement.style.colorScheme = scheme === 'dark' || scheme === 'light' ? scheme : '';
 
             await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
-        }, {
-            themeClass: theme,
-            sheetUrls : urls,
-            allThemes : THEMES,
-            skipReload: themeIdx === 0
         });
 
         for (const scope of SCOPES) {
@@ -967,11 +942,19 @@ async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
 
                     const batchOut = {};
 
+                    // Read the untouched stage once. Interleaving these reads with mutations forces
+                    // Chromium to recalculate restored styles before it can measure the next default.
+                    for (const entry of entries) {
+                        batchOut[entry.id] = {};
+                        if (entry.states.includes('default')) {
+                            const cell = document.getElementById(`eq-cell-${entry.cellId}`);
+                            batchOut[entry.id].default = readParts(cell, entry.normalizedParts)
+                        }
+                    }
+
                     for (const entry of entries) {
                         const cell  = document.getElementById(`eq-cell-${entry.cellId}`),
                               input = entry.inputSelector ? cell?.querySelector(entry.inputSelector) : null;
-
-                        batchOut[entry.id] = {};
 
                         for (const stateName of domStates) {
                             if (!entry.states.includes(stateName)) continue;
