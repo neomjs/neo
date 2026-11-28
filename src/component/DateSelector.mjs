@@ -529,7 +529,7 @@ class DateSelector extends Component {
      */
     beforeSetValue(value, oldValue) {
         if (value === defaultToday) {
-            value = new Date()
+            return DateUtil.convertToyyyymmdd(new Date())
         }
 
         if (Neo.typeOf(value) === 'Date') {

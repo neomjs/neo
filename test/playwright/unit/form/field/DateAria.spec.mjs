@@ -196,7 +196,7 @@ test.describe('Neo.form.field.Date and Neo.component.DateSelector WAI-ARIA seman
 
         let now = new NativeDate(2041, 0, 19, 23, 59, 59).getTime();
 
-        globalThis.Date = class Date extends NativeDate {
+        globalThis.Date = class FixedDate extends NativeDate {
             static now() {
                 return now
             }
@@ -227,6 +227,8 @@ test.describe('Neo.form.field.Date and Neo.component.DateSelector WAI-ARIA seman
             expect(cell(dayAfter)['aria-current']).toBe('date');
             expect(cell(dayAfter).cn[0].cls).toContain('neo-today');
             expect(create({}).value).toBe(dayAfter);
+
+            globalThis.Date = NativeDate;
             expect(create({value: new Date(2041, 0, 15, 12)}).value).toBe('2041-01-15')
         } finally {
             globalThis.Date = NativeDate;
