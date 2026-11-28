@@ -1,0 +1,31 @@
+/* List, every theme: each variable bound to a role (ADR 0044 decision 4, epic #22295 rules 1-23).
+   A theme re-values one in its own list/Base.css only where its design language deviates.
+   The rules in src/list/Base.css, src/list/Chip.css, src/list/ValuePicker.css, src/tree/, and src/app/content/ read these. */
+[class*="neo-theme-"] {
+    --neo-list-scrollbar-color-scheme        : var(--neo-color-scheme);
+    --neo-list-container-background-color    : var(--neo-color-background-surface);
+    --neo-list-container-border              : none;
+    --neo-list-container-list-color          : var(--neo-color-text-default);
+
+    /* Background Color */
+    --neo-list-item-background-color         : var(--neo-color-background-surface);
+    --neo-list-item-background-color-hover   : var(--neo-color-background-neutral-hover);
+    --neo-list-item-background-color-active  : var(--neo-color-background-neutral-active);
+    --neo-list-item-background-color-selected: var(--neo-color-background-selected);
+
+    /* Text Color */
+    --neo-list-item-color-selected           : var(--neo-color-text-default);
+
+    /* Border Color */
+    --neo-list-border-color                  : var(--neo-color-border-default);
+    --neo-list-item-border-color-active      : var(--neo-color-border-accent);
+
+    --neo-list-item-outline-focus            : var(--neo-focus-ring-width) solid var(--neo-color-focus-ring);
+    --neo-list-item-outline-offset-focus     : var(--neo-focus-ring-offset); /* inside the row, which the list clips */
+    --neo-list-item-glyph-color              : var(--neo-color-text-muted);
+
+    /* Matched-substring highlight clears 4.5:1 on both surface and background-selected (epic #22295 form ruling #6) */
+    --neo-list-item-highlight-search-color   : var(--neo-color-text-warning);
+    /* Listed literal (rule 5 & rule 16): off the 4px space scale, coupled to ValuePicker.css; moves with density */
+    --neo-list-item-padding                  : 5px;
+}
