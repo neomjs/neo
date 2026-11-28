@@ -1,8 +1,0 @@
-:where(.neo-theme-neo-dark) { /* .neo-splitter */
-    --neo-splitter-background-color : var(--neo-gray-800);
-    --neo-splitter-border           : none;
-    --neo-splitter-border-radius    : 5px;
-    --neo-splitter-background-color-hover      : var(--neo-purple-500);
-    --neo-splitter-margin-horizontal: 2px 8px;
-    --neo-splitter-margin-vertical  : 8px 2px;
-}

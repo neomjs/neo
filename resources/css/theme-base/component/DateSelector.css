@@ -1,0 +1,32 @@
+/* Date selector, every theme: chrome on the surface. The selected day fills with the accent and today keeps an accent
+   outline, two names split by reader (ADR 0044 decision 4, rules 1, 6 and 17 of #22295). */
+[class*="neo-theme-"] { /* .neo-dateselector */
+    --neo-dateselector-background-color              : var(--neo-color-background-surface);
+    --neo-dateselector-border-color                  : var(--neo-color-border-default);
+    --neo-dateselector-color                         : var(--neo-color-text-default);
+
+    --neo-dateselector-cell-background-color         : var(--neo-color-background-surface);
+    --neo-dateselector-cell-background-color-disabled: var(--neo-color-background-surface);
+    --neo-dateselector-cell-background-color-selected: var(--neo-color-background-accent);
+    --neo-dateselector-cell-color                    : var(--neo-color-text-default);
+    --neo-dateselector-cell-color-disabled           : var(--neo-color-text-disabled);
+    --neo-dateselector-cell-color-selected           : var(--neo-color-text-on-accent);
+    --neo-dateselector-cell-today-border-color       : var(--neo-color-border-accent);
+
+    --neo-dateselector-header-background-color       : var(--neo-color-background-surface);
+    --neo-dateselector-header-cell-background-color  : var(--neo-color-background-surface);
+    --neo-dateselector-header-cell-color             : var(--neo-color-text-muted);
+    --neo-dateselector-header-month-color            : var(--neo-color-text-default);
+    --neo-dateselector-header-year-color             : var(--neo-color-text-accent);
+
+    --neo-dateselector-nav-button-background-color   : var(--neo-color-background-surface);
+    --neo-dateselector-nav-button-color              : var(--neo-color-text-muted);
+    --neo-dateselector-nav-button-color-hover        : var(--neo-color-text-default);
+
+    /* The disabled day is painted by its text alone, and keywords */
+    --neo-dateselector-cell-opacity-disabled         : 1;
+    --neo-dateselector-content-border-top            : none;
+    --neo-dateselector-header-border-bottom          : none;
+    --neo-dateselector-header-cell-border-bottom     : none;
+    --neo-dateselector-nav-button-inner-border       : none;
+}

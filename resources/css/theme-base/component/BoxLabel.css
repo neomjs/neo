@@ -1,0 +1,6 @@
+/* Box label, every theme: masks the line of the region it labels (ADR 0044 decision 4, rules 4 and 17 of #22295). */
+[class*="neo-theme-"] { /* .neo-box-label */
+    --neo-boxlabel-background-color: var(--neo-color-background-surface);
+    --neo-boxlabel-border          : var(--neo-border-width-thin) solid var(--neo-color-border-default);
+    --neo-boxlabel-color           : var(--neo-color-text-muted);
+}

@@ -1,0 +1,24 @@
+/* Markdown, every theme: neutral text with acting links, a strong quote bar, raised table headers and card labs
+   (ADR 0044 decision 4, rules 3, 17, 18 and 23 of #22295). */
+[class*="neo-theme-"] {
+    --neo-markdown-background-color             : var(--neo-color-background-surface);
+    --neo-markdown-blockquote-background-color  : var(--neo-color-background-neutral-hover);
+    --neo-markdown-blockquote-border            : var(--neo-color-border-strong);
+    --neo-markdown-border-radius                : var(--neo-radius-large);
+    --neo-markdown-code-background-color        : var(--neo-color-background-accent-subtle);
+    --neo-markdown-code-block-border-radius     : var(--neo-radius-small);
+    --neo-markdown-code-border                  : var(--neo-color-border-default);
+    --neo-markdown-color                        : var(--neo-color-text-default);
+    --neo-markdown-details-icon-color           : var(--neo-color-text-muted);
+    --neo-markdown-details-summary-color        : var(--neo-color-text-default);
+    --neo-markdown-h1-color                     : var(--neo-color-text-default);
+    --neo-markdown-hr-border                    : var(--neo-color-border-default);
+    --neo-markdown-lab-box-shadow               : var(--neo-elevation-1);
+    --neo-markdown-lab-box-shadow-hover         : var(--neo-elevation-2);
+    --neo-markdown-link-color                   : var(--neo-color-text-accent);
+    --neo-markdown-list-marker-color            : var(--neo-color-text-muted);
+    --neo-markdown-pre-border                   : var(--neo-color-border-default);
+    --neo-markdown-table-border                 : var(--neo-color-border-default);
+    --neo-markdown-table-border-radius          : var(--neo-radius-small);
+    --neo-markdown-table-header-background-color: var(--neo-color-background-surface-raised);
+}

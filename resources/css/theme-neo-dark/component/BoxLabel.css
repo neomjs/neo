@@ -1,5 +1,0 @@
-:where(.neo-theme-neo-dark) { /* .neo-box-label */
-    --neo-boxlabel-background-color: var(--neo-sem-color-surface-neutral-default);
-    --neo-boxlabel-border          : 1px solid var(--neo-sem-color-border-default);
-    --neo-boxlabel-color           : var(--neo-sem-color-text-neutral-default);
-}

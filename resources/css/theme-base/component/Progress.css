@@ -1,0 +1,4 @@
+/* Progress, every theme: a strong label (ADR 0044 decision 4). */
+[class*="neo-theme-"] {
+    --neo-progress-label-color: var(--neo-color-text-strong);
+}

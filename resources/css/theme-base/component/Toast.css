@@ -1,0 +1,12 @@
+/* Toast, every theme: a raised card. Each text colour also paints the toast's stripe, so it reads a text role
+   (ADR 0044 decision 4, rules 1, 3 and 8 and A3 of #22295). */
+[class*="neo-theme-"] { /* .neo-toast */
+    --neo-toast-background-color        : var(--neo-color-background-surface-raised);
+    --neo-toast-border-radius           : var(--neo-radius-large);
+    --neo-toast-color                   : var(--neo-color-text-default);
+    --neo-toast-danger-background-color : var(--neo-color-background-danger-subtle);
+    --neo-toast-danger-color            : var(--neo-color-text-danger);
+    --neo-toast-shadow-color            : var(--neo-color-shadow);
+    --neo-toast-success-background-color: var(--neo-color-background-success-subtle);
+    --neo-toast-success-color           : var(--neo-color-text-success);
+}

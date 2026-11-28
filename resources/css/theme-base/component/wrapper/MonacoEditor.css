@@ -1,0 +1,5 @@
+/* Monaco editor wrapper, every theme: Monaco's own vs and vs-dark canvas, so the wrapper meets the editor without a
+   seam. A listed vendor value (rule 26 of #22295). */
+[class*="neo-theme-"] {
+    --neo-monaco-editor-background-color: light-dark(#fffffe, #1e1e1e);
+}

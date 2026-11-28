@@ -1,0 +1,5 @@
+/* Month and year selector, every theme: small corners on its cells and navigation (ADR 0044 decision 4). */
+[class*="neo-theme-"] { /* .neo-monthyearselector */
+    --neo-dateselector-cell-border-radius: var(--neo-radius-small);
+    --neo-dateselector-nav-border-radius : var(--neo-radius-small);
+}

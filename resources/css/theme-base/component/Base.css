@@ -1,0 +1,8 @@
+/* Aligned floating components, every theme: the menu's elevation on every side (ADR 0044 decision 4, rule 18 of
+   #22295). */
+[class*="neo-theme-"] {
+    --neo-aligned-bottom-box-shadow: var(--neo-elevation-2);
+    --neo-aligned-left-box-shadow  : var(--neo-elevation-2);
+    --neo-aligned-right-box-shadow : var(--neo-elevation-2);
+    --neo-aligned-top-box-shadow   : var(--neo-elevation-2);
+}

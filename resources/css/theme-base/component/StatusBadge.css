@@ -1,0 +1,23 @@
+/* Status badge, every theme: subtle status fills under their status text, no solid fills (ADR 0044 decision 4, rule
+   16 and A3 of #22295). */
+[class*="neo-theme-"] {
+    --neo-status-badge-font-family                   : var(--neo-font-family-sans);
+    --neo-status-badge-font-weight                   : var(--neo-font-weight-semibold);
+    --neo-status-badge-state-alert-background-color  : var(--neo-color-background-warning-subtle);
+    --neo-status-badge-state-alert-color             : var(--neo-color-text-warning);
+    --neo-status-badge-state-error-background-color  : var(--neo-color-background-danger-subtle);
+    --neo-status-badge-state-error-color             : var(--neo-color-text-danger);
+    --neo-status-badge-state-info-background-color   : var(--neo-color-background-info-subtle);
+    --neo-status-badge-state-info-color              : var(--neo-color-text-info);
+    --neo-status-badge-state-neutral-background-color: var(--neo-color-background-neutral-active);
+    --neo-status-badge-state-neutral-color           : var(--neo-color-text-default);
+    --neo-status-badge-state-success-background-color: var(--neo-color-background-success-subtle);
+    --neo-status-badge-state-success-color           : var(--neo-color-text-success);
+
+    /* Off the type and space scales, and keywords */
+    --neo-status-badge-align-items                   : center;
+    --neo-status-badge-font-size                     : 11px;
+    --neo-status-badge-line-height                   : 11px;
+    --neo-status-badge-padding                       : 0 5px;
+    --neo-status-badge-transform                     : none;
+}

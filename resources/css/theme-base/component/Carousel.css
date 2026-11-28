@@ -1,0 +1,13 @@
+/* Carousel, every theme: each slide is a card on the surface (ADR 0044 decision 4, rules 3, 5 and 11 of #22295). */
+[class*="neo-theme-"] { /* .neo-carousel */
+    --neo-carousel-background-color      : var(--neo-color-background-surface);
+    --neo-carousel-inner-background-color: var(--neo-color-background-surface-raised);
+    --neo-carousel-inner-border-radius   : var(--neo-radius-large);
+    --neo-carousel-inner-color           : var(--neo-color-text-default);
+
+    /* One motion no motion role holds, and the inputs the slide's rules compute with */
+    --neo-carousel-duration              : .7s;
+    --neo-carousel-transition-timing     : cubic-bezier(.4, 0, .2, 1);
+    --neo-carousel-translate-x           : 0;
+    --neo-carousel-translate-y           : 0;
+}

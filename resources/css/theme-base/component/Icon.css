@@ -1,0 +1,5 @@
+/* Icon, every theme: inherits its colour and size from its host (ADR 0044 decision 4). */
+[class*="neo-theme-"] {
+    --neo-icon-color    : inherit;
+    --neo-icon-font-size: inherit;
+}

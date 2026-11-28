@@ -1,0 +1,18 @@
+/* Chip, every theme: a resting pill whose glyphs rest muted (ADR 0044 decision 4, rules 4, 16 and 17 of #22295). */
+[class*="neo-theme-"] { /* .neo-chip */
+    --neo-chip-background-color        : var(--neo-color-background-neutral-active);
+    --neo-chip-border                  : var(--neo-border-width-thin) solid var(--neo-color-border-default);
+    --neo-chip-border-color-focus      : var(--neo-color-focus-ring);
+    --neo-chip-border-radius           : var(--neo-radius-full);
+    --neo-chip-close-button-color      : var(--neo-color-text-muted);
+    --neo-chip-close-button-color-hover: var(--neo-color-text-default);
+    --neo-chip-color                   : var(--neo-color-text-default);
+    --neo-chip-glyph-color             : var(--neo-color-text-muted);
+    --neo-chip-text-font-size          : var(--neo-font-size-caption);
+
+    /* Off the control scale, and keywords */
+    --neo-chip-height                  : 30px;
+    --neo-chip-align-items             : center;
+    --neo-chip-justify-content         : center;
+    --neo-chip-text-align              : left;
+}

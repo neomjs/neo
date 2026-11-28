@@ -1,0 +1,6 @@
+/* Markdown component, every theme: an acting link, and the code's padding coupled with its font size (ADR 0044
+   decision 4, rule 17 of #22295). */
+[class*="neo-theme-"] {
+    --neo-markdown-vdom-code-padding: .6em .8em;
+    --neo-markdown-vdom-link-color  : var(--neo-color-text-accent);
+}

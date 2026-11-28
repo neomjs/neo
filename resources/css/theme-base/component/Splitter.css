@@ -1,0 +1,10 @@
+/* Splitter, every theme: a neutral bar whose fill and hover border turn accent together (ADR 0044 decision 4, rules 1
+   and 16 of #22295). */
+[class*="neo-theme-"] { /* .neo-splitter */
+    --neo-splitter-background-color      : var(--neo-color-background-neutral-hover);
+    --neo-splitter-background-color-hover: var(--neo-color-background-accent);
+    --neo-splitter-border                : none;
+    --neo-splitter-border-radius         : var(--neo-radius-small);
+    --neo-splitter-margin-horizontal     : var(--neo-space-0-5) var(--neo-space-2);
+    --neo-splitter-margin-vertical       : var(--neo-space-2) var(--neo-space-0-5);
+}

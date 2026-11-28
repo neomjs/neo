@@ -1,0 +1,33 @@
+/* Empty state, every theme: a panel on the surface with a quiet action (ADR 0044 decision 4, rules 3, 4, 16, 17 and
+   18 of #22295). */
+[class*="neo-theme-"] { /* .neo-empty-state */
+    --neo-empty-state-background-color              : var(--neo-color-background-surface);
+    --neo-empty-state-border                        : var(--neo-border-width-thin) solid var(--neo-color-border-subtle);
+    --neo-empty-state-border-radius                 : var(--neo-radius-large);
+    --neo-empty-state-description-color             : var(--neo-color-text-muted);
+    --neo-empty-state-description-font-size         : var(--neo-font-size-small);
+    --neo-empty-state-glyph-color                   : var(--neo-color-text-muted);
+    --neo-empty-state-padding                       : var(--neo-space-6);
+    --neo-empty-state-padding-narrow                : var(--neo-space-4);
+    --neo-empty-state-title-color                   : var(--neo-color-text-default);
+    --neo-empty-state-title-font-size               : var(--neo-font-size-body);
+    --neo-empty-state-title-font-weight             : var(--neo-font-weight-semibold);
+
+    --neo-empty-state-action-background-color-active: var(--neo-color-background-neutral-active);
+    --neo-empty-state-action-background-color-hover : var(--neo-color-background-neutral-hover);
+    --neo-empty-state-action-border                 : var(--neo-border-width-thin) solid var(--neo-color-border-default);
+    --neo-empty-state-action-border-radius          : var(--neo-control-radius);
+    --neo-empty-state-action-color                  : var(--neo-color-text-default);
+    --neo-empty-state-action-color-hover            : var(--neo-color-text-strong);
+    --neo-empty-state-action-font-size              : var(--neo-control-font-size-medium);
+    --neo-empty-state-action-font-weight            : var(--neo-font-weight-semibold);
+    --neo-empty-state-action-min-height             : var(--neo-control-height-medium);
+    --neo-empty-state-action-outline-focus          : var(--neo-color-focus-ring);
+    --neo-empty-state-action-padding                : 6px var(--neo-control-padding-inline-medium);
+
+    /* Off the space scale, glyph geometry, and keywords */
+    --neo-empty-state-action-background-color       : transparent;
+    --neo-empty-state-align-items                   : flex-start;
+    --neo-empty-state-gap                           : 6px;
+    --neo-empty-state-glyph-size                    : 20px;
+}
