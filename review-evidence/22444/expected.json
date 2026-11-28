@@ -1,0 +1,222 @@
+[
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-light",
+        "scope": "inherited",
+        "state": "default",
+        "part": "code",
+        "property": "background-color",
+        "base": "rgb(230, 237, 247)",
+        "head": "oklch(0.96 0.019 267)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-light",
+        "scope": "inherited",
+        "state": "default",
+        "part": "code",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-light",
+        "scope": "inherited",
+        "state": "default",
+        "part": "code",
+        "property": "border-color",
+        "base": "rgb(240, 242, 240)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-light",
+        "scope": "inherited",
+        "state": "default",
+        "part": "code",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-light",
+        "scope": "inherited",
+        "state": "default",
+        "part": "code",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-light",
+        "scope": "scoped",
+        "state": "default",
+        "part": "code",
+        "property": "background-color",
+        "base": "rgb(230, 237, 247)",
+        "head": "oklch(0.96 0.019 267)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-light",
+        "scope": "scoped",
+        "state": "default",
+        "part": "code",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-light",
+        "scope": "scoped",
+        "state": "default",
+        "part": "code",
+        "property": "border-color",
+        "base": "rgb(240, 242, 240)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-light",
+        "scope": "scoped",
+        "state": "default",
+        "part": "code",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-light",
+        "scope": "scoped",
+        "state": "default",
+        "part": "code",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-dark",
+        "scope": "inherited",
+        "state": "default",
+        "part": "code",
+        "property": "background-color",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.28 0.095 267)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-dark",
+        "scope": "inherited",
+        "state": "default",
+        "part": "code",
+        "property": "color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-dark",
+        "scope": "inherited",
+        "state": "default",
+        "part": "code",
+        "property": "border-color",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-dark",
+        "scope": "inherited",
+        "state": "default",
+        "part": "code",
+        "property": "outline",
+        "base": "3px none rgb(255, 255, 255)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-dark",
+        "scope": "inherited",
+        "state": "default",
+        "part": "code",
+        "property": "text-decoration-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-dark",
+        "scope": "scoped",
+        "state": "default",
+        "part": "code",
+        "property": "background-color",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.28 0.095 267)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-dark",
+        "scope": "scoped",
+        "state": "default",
+        "part": "code",
+        "property": "color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-dark",
+        "scope": "scoped",
+        "state": "default",
+        "part": "code",
+        "property": "border-color",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-dark",
+        "scope": "scoped",
+        "state": "default",
+        "part": "code",
+        "property": "outline",
+        "base": "3px none rgb(255, 255, 255)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    },
+    {
+        "component": "markdown",
+        "theme": "neo-theme-neo-dark",
+        "scope": "scoped",
+        "state": "default",
+        "part": "code",
+        "property": "text-decoration-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "Global.css moves to theme-base/Global.css in neo.roles bound to Theme Neo roles (#22444)"
+    }
+]
