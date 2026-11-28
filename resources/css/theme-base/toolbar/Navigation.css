@@ -1,0 +1,8 @@
+[class*="neo-theme-"] {
+    --neo-navigation-toolbar-background-color                : var(--neo-color-background-surface-raised, Canvas);
+    --neo-navigation-toolbar-border-color                    : var(--neo-color-border-default, GrayText);
+    --neo-navigation-toolbar-button-background-color-selected: var(--neo-color-background-selected, Highlight);
+    --neo-navigation-toolbar-button-border-radius            : var(--neo-radius-medium, .5rem);
+    --neo-navigation-toolbar-button-color-selected           : var(--neo-color-text-default, HighlightText);
+    --neo-navigation-toolbar-button-min-height               : var(--neo-control-height-large, 48px);
+}
