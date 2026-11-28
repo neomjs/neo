@@ -47,6 +47,7 @@ export const ELEMENT_SET = [
     ['tab',           '.neo-tab-header-button'],
     ['grid-header',   '.neo-grid-header-button'],
     ['grid-row',      '.neo-grid-row'],
+    ['list-item',     '.neo-list-item'],
     ['dialog',        '.neo-dialog'],
     ['dialog-header', '.neo-dialog .neo-header-toolbar'],
     ['panel',         '.neo-panel'],
@@ -100,6 +101,22 @@ export function discoverSurfaces(tree) {
 }
 
 /**
+ * @summary Whether two normalized `rgba()` values differ by no more than a palette re-tint no reader sees:
+ * at most 6 per channel and 0.02 in alpha. The neutral ramps moved hue between releases (`#0e0f0d` → `#0e0f13`),
+ * and reporting each such pair would bury the moves that change what a reader sees.
+ * @param {String} a
+ * @param {String} b
+ * @returns {Boolean}
+ */
+export function nearSameColor(a, b) {
+    const parse = value => value?.match(/^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/)?.slice(1).map(Number),
+          x     = parse(a),
+          y     = parse(b);
+
+    return Boolean(x && y) && x.slice(0, 3).every((channel, i) => Math.abs(channel - y[i]) <= 6) && Math.abs(x[3] - y[3]) <= 0.02
+}
+
+/**
  * @summary Whether a snapshot draws no top border, so its border color cannot be seen.
  * @param {Object} values
  * @returns {Boolean}
@@ -146,7 +163,7 @@ export function diffSnapshots(released, dev) {
         }
 
         for (const property of PROPERTIES) {
-            if (item.values[property] === match.values[property]) continue;
+            if (item.values[property] === match.values[property] || nearSameColor(item.values[property], match.values[property])) continue;
             if (property === 'border-top-color' && drawsNoBorder(item.values) && drawsNoBorder(match.values)) continue;
 
             const names = (match.vars || []).filter(entry => entry.value === match.values[property]).map(entry => entry.name);
@@ -270,8 +287,13 @@ function readElements({elementSet, properties, perGroup}) {
                   values = {},
                   vars   = [];
 
+            // The color a reader sees is the one its text paints in. A button's label child can override the
+            // button's own `color`, so `color` is read where the first text node paints.
+            const walker   = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {acceptNode: node => node.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP}),
+                  textHost = walker.nextNode()?.parentElement || el;
+
             for (const property of properties) {
-                const value = style.getPropertyValue(property);
+                const value = (property === 'color' ? getComputedStyle(textHost) : style).getPropertyValue(property);
                 values[property] = isColor(property) ? toSrgb(value) : value
             }
 

@@ -8,6 +8,7 @@ import {
     diffSnapshots,
     discoverSurfaces,
     formatReport,
+    nearSameColor,
     rankCandidates
 } from '../../../../../buildScripts/util/theme-release-compare.mjs';
 
@@ -79,6 +80,18 @@ test.describe('theme-release-compare — surfaces, differences and the report', 
             {key: 'tab#0 One', group: 'tab', property: '(element)', released: 'present', dev: 'missing', candidates: []},
             {key: 'tab#1 Two', group: 'tab', property: '(element)', released: 'missing', dev: 'present', candidates: []}
         ])
+    });
+
+    test('treats a palette re-tint no reader sees as equal, and a visible move as a difference', () => {
+        expect(nearSameColor('rgba(14, 15, 13, 1)', 'rgba(14, 15, 19, 1)'), 'a neutral hue shift').toBe(true);
+        expect(nearSameColor('rgba(211, 215, 210, 1)', 'rgba(122, 131, 156, 1)'), 'the plain-button border').toBe(false);
+        expect(nearSameColor('rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.1)'), 'a translucent press layer').toBe(false);
+        expect(nearSameColor('8px', '9px'), 'not a color').toBe(false);
+
+        const released = [snapshot('button#0 Save', {color: 'rgba(14, 15, 13, 1)'})],
+              dev      = [snapshot('button#0 Save', {color: 'rgba(14, 15, 19, 1)'})];
+
+        expect(diffSnapshots(released, dev)).toEqual([])
     });
 
     test('ranks roles, then the component, then palette grades', () => {
