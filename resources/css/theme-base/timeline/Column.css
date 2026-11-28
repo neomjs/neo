@@ -9,12 +9,12 @@
     --neo-timeline-non-working-border-color: var(--neo-color-border-subtle);
     --neo-timeline-now-color               : var(--neo-color-text-danger);
 
-    /* .neo-timeline-bar: an event acts, so it speaks in the accent. Hovered, its border moves a fifth of the way
-       toward the text, about one grade in each scheme of theme Neo: no role holds that state, and the focus ring
-       can share the rest border's value */
+    /* .neo-timeline-bar: an event acts, so it speaks in the accent. No border role holds its hover, so the hovered
+       border steps toward the text by hand: the accent's hover grade in light, the focus ring in dark, which in
+       light shares the resting border's grade */
     --neo-timeline-bar-background          : var(--neo-color-background-accent-subtle);
     --neo-timeline-bar-border-color        : var(--neo-color-border-accent);
-    --neo-timeline-bar-border-color-hover  : color-mix(in oklch, var(--neo-color-border-accent), var(--neo-color-text-default) 20%);
+    --neo-timeline-bar-border-color-hover  : light-dark(var(--neo-color-background-accent-hover), var(--neo-color-focus-ring));
     --neo-timeline-bar-border-radius       : var(--neo-radius-small);
     --neo-timeline-bar-box-shadow          : var(--neo-elevation-1);
     --neo-timeline-bar-color               : var(--neo-color-text-default);
