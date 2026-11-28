@@ -1,0 +1,8 @@
+[class*="neo-theme-"] {
+    --neo-checkboxfield-color           : var(--neo-color-text-muted);
+    --neo-checkboxfield-color-selected  : var(--neo-color-text-accent);
+    --neo-checkboxfield-icon-font-family: var(--fa-style-family-classic);
+    --neo-checkboxfield-icon-font-size  : var(--neo-control-font-size-medium);
+    --neo-checkboxfield-icon-margin     : 0;
+    --neo-checkboxfield-label-top-margin: 0 0 3px;
+}

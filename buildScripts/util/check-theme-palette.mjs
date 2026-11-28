@@ -102,6 +102,11 @@ export const CONTRAST_PAIRS = Object.freeze([
     [BORDER + 'accent',        CANVAS,                         3],
     [BORDER + 'strong',        CANVAS,                         3],
     [BORDER + 'strong',        BACKGROUND + 'field',           3],
+    [BORDER + 'strong-hover',  CANVAS,                         3],
+    [BORDER + 'strong-hover',  BACKGROUND + 'field',           3],
+    [BACKGROUND + 'track',     CANVAS,                         3],
+    [BACKGROUND + 'handle',    BACKGROUND + 'track',           3],
+    [BACKGROUND + 'handle',    BACKGROUND + 'accent',          3],
     ['--neo-color-focus-ring', CANVAS,                         3]
 ]);
 

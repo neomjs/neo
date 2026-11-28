@@ -211,7 +211,21 @@ test('aligns closed chrome, ComboBox-style trigger, and open picker across all f
 
         const invalidBorder = await invalidEl.evaluate(el => getComputedStyle(el).borderTopColor);
         expect(invalidBorder).not.toBe(closed.border);
-        await expect.poll(() => disabledBox.evaluate(el => parseFloat(getComputedStyle(el).opacity))).toBeLessThan(1);
+
+        if (theme.startsWith('neo-theme-neo-')) {
+            await expect.poll(() => disabledBox.evaluate((el, closedState) => {
+                const input   = el.querySelector('.neo-selectfield-input'),
+                      ics     = getComputedStyle(input),
+                      opacity = parseFloat(getComputedStyle(el).opacity);
+
+                return opacity === 1
+                    && ics.backgroundColor !== closedState.bg
+                    && ics.borderTopColor  !== closedState.border
+                    && ics.color           !== closedState.color
+            }, closed)).toBe(true)
+        } else {
+            await expect.poll(() => disabledBox.evaluate(el => parseFloat(getComputedStyle(el).opacity))).toBeLessThan(1)
+        }
 
         // Open customizable picker follows active theme surface, text, and selected option
         await selectEl.click();
