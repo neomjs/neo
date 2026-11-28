@@ -1,0 +1,79 @@
+[
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "active tab indicator -> background-inverse: the extreme neutral instead of pure white (design read point 2)"
+    },
+    {
+        "component": "tab-container[inline]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "inline header fill -> background-surface-raised"
+    },
+    {
+        "component": "tab-container[inline]",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(67, 73, 92) 0px -1px 0px 0px inset",
+        "head": "oklch(0.39 0.034 270) 0px -1px 0px 0px inset",
+        "reason": "inline header hairline -> border-default (rule 18: a separator on a raised region)"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(240, 241, 244) rgb(67, 73, 92) rgb(67, 73, 92)",
+        "head": "rgb(240, 241, 244) oklch(0.39 0.034 270) oklch(0.39 0.034 270)",
+        "reason": "tab body border -> border-default at border-width-thin (the top edge under a top header stays 0 wide)"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-dark",
+        "base": "rgb(152, 159, 180)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "tab label and glyph at rest -> text-muted: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-dark",
+        "base": "3px none rgb(152, 159, 180)",
+        "head": "3px none oklch(0.7 0.031 270)",
+        "reason": "tab label and glyph at rest -> text-muted: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "active tab indicator -> background-inverse: the extreme neutral instead of pure black (design read point 2)"
+    },
+    {
+        "component": "tab-container[inline]",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(211, 215, 210) 0px -1px 0px 0px inset",
+        "head": "oklch(0.875 0.012 270) 0px -1px 0px 0px inset",
+        "reason": "inline header hairline -> border-default (rule 18: a separator on a raised region)"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(0, 0, 0) rgb(221, 221, 221) rgb(221, 221, 221)",
+        "head": "rgb(0, 0, 0) oklch(0.875 0.012 270) oklch(0.875 0.012 270)",
+        "reason": "tab body border -> border-default at border-width-thin (the top edge under a top header stays 0 wide)"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-light",
+        "base": "rgb(69, 75, 66)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "tab label and glyph at rest -> text-muted: the cool neutral replaces the green-tinted one (ADR 0044)"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-light",
+        "base": "3px none rgb(69, 75, 66)",
+        "head": "3px none oklch(0.39 0.034 270)",
+        "reason": "tab label and glyph at rest -> text-muted: the cool neutral replaces the green-tinted one (ADR 0044)"
+    }
+]
