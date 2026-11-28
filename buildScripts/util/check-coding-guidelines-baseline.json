@@ -1664,6 +1664,9 @@
     "missing-config-jsdoc": ["Video.baseCls","Video.className","Video.ntype","Video.url_"],
     "static-config-order": ["Video.autoPlay"]
   },
+  "src/component/markdown/Parser.mjs": {
+    "neo-class-setup": ["MarkdownParser"]
+  },
   "src/component/wrapper/AmChart.mjs": {
     "missing-config-jsdoc": ["AmChart.style"]
   },
@@ -1701,6 +1704,18 @@
   },
   "src/core/Base.mjs": {
     "compact-jsdoc-loss": ["Base.asyncRejects","Base.remote_"]
+  },
+  "src/core/Compare.mjs": {
+    "neo-class-setup": ["Compare"]
+  },
+  "src/core/Config.mjs": {
+    "neo-class-setup": ["Config"]
+  },
+  "src/core/Effect.mjs": {
+    "neo-class-setup": ["Effect"]
+  },
+  "src/core/Util.mjs": {
+    "neo-class-setup": ["Util"]
   },
   "src/dashboard/Container.mjs": {
     "compact-jsdoc-loss": ["Container.detachedItems"]
@@ -1796,6 +1811,7 @@
   },
   "src/data/RecordFactory.mjs": {
     "compact-jsdoc-loss": ["RecordFactory.recordClasses","RecordFactory.recordWriteEpochs"],
+    "neo-class-setup": ["Record"],
     "no-private-methods": ["RecordFactory.#bumpWriteEpoch"]
   },
   "src/data/Store.mjs": {
@@ -1944,6 +1960,9 @@
   "src/functional/component/Base.mjs": {
     "static-config-order": ["FunctionalBase.ntype"]
   },
+  "src/functional/util/html.mjs": {
+    "neo-class-setup": ["HtmlTemplate"]
+  },
   "src/gantt/CascadeMotion.mjs": {
     "no-private-methods": ["CascadeMotion.#paint","CascadeMotion.#step"]
   },
@@ -2072,6 +2091,9 @@
   "src/main/addon/DragDrop.mjs": {
     "static-config-order": ["DragDrop.dragCancelled","DragDrop.dragProxyCls","DragDrop.dropZoneIdentifier"]
   },
+  "src/main/addon/EventSimulator.mjs": {
+    "neo-class-setup": ["DriveAbort"]
+  },
   "src/main/addon/FileDownload.mjs": {
     "compact-jsdoc-loss": ["FileDownload.remote"]
   },
@@ -2126,6 +2148,12 @@
   },
   "src/main/addon/Stylesheet.mjs": {
     "compact-jsdoc-loss": ["Stylesheet.remote"]
+  },
+  "src/main/addon/WebComponent.mjs": {
+    "neo-class-setup": ["<anonymous>"]
+  },
+  "src/main/draggable/Resize.mjs": {
+    "neo-class-setup": ["Resize"]
   },
   "src/main/draggable/sensor/Pointer.mjs": {
     "static-config-order": ["Pointer.pointerDownTime"]
@@ -2261,8 +2289,14 @@
   "src/util/Performance.mjs": {
     "compact-jsdoc-loss": ["Performance.data","Performance.remote"]
   },
+  "src/util/Rectangle.mjs": {
+    "neo-class-setup": ["Rectangle"]
+  },
   "src/util/vdom/TreeBuilder.mjs": {
     "no-private-methods": ["TreeBuilder.#buildTree"]
+  },
+  "src/vdom/VNode.mjs": {
+    "neo-class-setup": ["VNode"]
   },
   "src/worker/CanvasGroups.mjs": {
     "compact-jsdoc-loss": ["CanvasGroups.groups","CanvasGroups.pending","CanvasGroups.retired","CanvasGroups.windows"]
@@ -2273,6 +2307,9 @@
   "src/worker/Manager.mjs": {
     "compact-jsdoc-loss": ["Manager.mixins"],
     "static-config-order": ["Manager.applicationLoaded","Manager.topologyIdentityStorageKey"]
+  },
+  "src/worker/Message.mjs": {
+    "neo-class-setup": ["Message"]
   },
   "src/worker/ServiceBase.mjs": {
     "compact-jsdoc-loss": ["ServiceBase.remote"]
