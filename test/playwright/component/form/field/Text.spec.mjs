@@ -847,4 +847,178 @@ test.describe('Neo.form.field.Text', () => {
             }
         })
     });
+
+    test('inline label top-border notch tracks floated label across late CSS, state transitions, and narrow mount/resize', async ({page}) => {
+        await expect.poll(() => page.workers().some(w => w.url().includes('/worker/App'))).toBe(true);
+        const appWorker = page.workers().find(w => w.url().includes('/worker/App'));
+
+        const readInlineGeometry = field => field.evaluate(el => {
+            const wrapper = el.querySelector('.neo-label-wrapper'),
+                  left    = el.querySelector('.neo-left-border'),
+                  center  = el.querySelector('.neo-center-border'),
+                  right   = el.querySelector('.neo-right-border'),
+                  label   = el.querySelector('.neo-textfield-label'),
+                  wBox    = wrapper.getBoundingClientRect(),
+                  lBox    = left.getBoundingClientRect(),
+                  cBox    = center.getBoundingClientRect(),
+                  rBox    = right.getBoundingClientRect(),
+                  lblBox  = label.getBoundingClientRect(),
+                  cStyle  = getComputedStyle(center),
+                  lStyle  = getComputedStyle(label);
+
+            return {
+                centerInlineWidth: center.style.width,
+                centerTopColor   : cStyle.borderTopColor,
+                centerWidth      : cBox.width,
+                labelMidYDelta   : (lblBox.top + lblBox.height / 2) - wBox.top,
+                labelOverflowed  : label.scrollWidth > label.clientWidth,
+                labelTextOverflow: lStyle.textOverflow,
+                labelWidth       : lblBox.width,
+                leftWidth        : lBox.width,
+                rightEdgeDelta   : (rBox.left + rBox.width) - (wBox.left + wBox.width),
+                rightWidth       : rBox.width,
+                segmentsSum      : lBox.width + cBox.width + rBox.width,
+                wrapperWidth     : wBox.width
+            }
+        });
+
+        // 1. Late-arriving stylesheets on themes: [] (#eq-cell-textfield-inline) never leave an oversized block-width notch
+        await page.goto('/test/playwright/component/apps/theme-equality/index.html');
+        await page.waitForSelector('#theme-equality-viewport[data-ready="true"]', {timeout: 30000});
+
+        await page.evaluate(async () => {
+            const sheets = [
+                '/dist/development/css/src/Global.css',
+                '/dist/development/css/src/form/field/Text.css',
+                '/dist/development/css/src/form/field/trigger/Base.css',
+                '/dist/development/css/theme-base/form/field/Text.css',
+                '/dist/development/css/theme-base/form/field/trigger/Base.css',
+                '/dist/development/css/theme-neo/Global.css',
+                '/dist/development/css/theme-neo-dark/Global.css'
+            ];
+
+            await Promise.all(sheets.map(href =>
+                Neo.main.addon.Stylesheet.hasStyleSheet(href)
+                    ? Promise.resolve()
+                    : Neo.main.addon.Stylesheet.createStyleSheet({href})
+            ));
+
+            document.body.className = 'neo-body neo-theme-neo-dark'
+        });
+
+        const eqInlineField = page.locator('#eq-cell-textfield-inline .neo-textfield');
+        await expect(eqInlineField).toBeVisible();
+        await expect.poll(async () => {
+            const g = await readInlineGeometry(eqInlineField);
+            return Math.abs(g.centerWidth - g.labelWidth) <= 2 &&
+                   g.centerWidth < 60 &&
+                   g.rightWidth > 180 &&
+                   Math.abs(g.labelMidYDelta) <= 2.5
+        }).toBe(true);
+
+        await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
+        await page.waitForSelector('#component-test-viewport', {state: 'attached'});
+        await expect.poll(() => page.workers().some(w => w.url().includes('/worker/App'))).toBe(true);
+        const emptyWorker = page.workers().find(w => w.url().includes('/worker/App'));
+
+        // 2. Empty mount -> focus -> blur -> programmatic value -> clear -> placeholderText opens/closes notch cleanly
+        componentId = await createTextField(page, {
+            labelPosition: 'inline',
+            labelText    : 'Inline',
+            width        : 260
+        });
+        const field = page.locator(`#${componentId}`),
+              input = field.locator('input.neo-textfield-input');
+
+        let geom = await readInlineGeometry(field);
+        expect(geom.centerTopColor).not.toBe('rgba(0, 0, 0, 0)');
+        expect(Math.abs(geom.segmentsSum - geom.wrapperWidth)).toBeLessThanOrEqual(1);
+
+        await input.focus();
+        await expect(field).toHaveClass(/neo-focus/);
+        await expect.poll(async () => (await readInlineGeometry(field)).centerTopColor).toBe('rgba(0, 0, 0, 0)');
+        await expect.poll(async () => {
+            const g = await readInlineGeometry(field);
+            return Math.abs(g.centerWidth - g.labelWidth) <= 2 && g.centerWidth < 60 && Math.abs(g.labelMidYDelta) <= 2.5
+        }).toBe(true);
+
+        await input.blur();
+        await expect(field).not.toHaveClass(/neo-focus/);
+        await expect.poll(async () => (await readInlineGeometry(field)).centerTopColor).not.toBe('rgba(0, 0, 0, 0)');
+
+        await emptyWorker.evaluate(id => {
+            Neo.getComponent(id).value = 'Neo'
+        }, componentId);
+        await expect(field).toHaveClass(/neo-has-content/);
+        await expect.poll(async () => {
+            const g = await readInlineGeometry(field);
+            return g.centerTopColor === 'rgba(0, 0, 0, 0)' &&
+                   Math.abs(g.centerWidth - g.labelWidth) <= 2 &&
+                   g.centerWidth < 60 &&
+                   Math.abs(g.labelMidYDelta) <= 2.5
+        }).toBe(true);
+
+        await emptyWorker.evaluate(id => {
+            Neo.getComponent(id).clear()
+        }, componentId);
+        await expect(field).not.toHaveClass(/neo-has-content/);
+        await expect.poll(async () => (await readInlineGeometry(field)).centerTopColor).not.toBe('rgba(0, 0, 0, 0)');
+
+        await emptyWorker.evaluate(id => {
+            Neo.getComponent(id).placeholderText = 'Hint'
+        }, componentId);
+        await expect(field).toHaveClass(/neo-has-content/);
+        await expect.poll(async () => {
+            const g = await readInlineGeometry(field);
+            return g.centerTopColor === 'rgba(0, 0, 0, 0)' &&
+                   Math.abs(g.centerWidth - g.labelWidth) <= 2 &&
+                   Math.abs(g.labelMidYDelta) <= 2.5
+        }).toBe(true);
+
+        await page.evaluate(id => Neo.worker.App.destroyNeoInstance(id), componentId);
+        componentId = null;
+
+        // 3. Narrow fresh mount (115px) and dynamic resize with a long label stay inside wrapper without overflow
+        componentId = await createTextField(page, {
+            clearable    : false,
+            labelPosition: 'inline',
+            labelText    : 'A much longer invoice reference',
+            value        : 'INV-42',
+            width        : 115
+        });
+        const narrowField = page.locator(`#${componentId}`);
+        await expect(narrowField).toHaveClass(/neo-has-content/);
+
+        geom = await readInlineGeometry(narrowField);
+        expect(geom.wrapperWidth).toBeCloseTo(115, 0);
+        expect(Math.abs(geom.segmentsSum - geom.wrapperWidth)).toBeLessThanOrEqual(1);
+        expect(Math.abs(geom.rightEdgeDelta)).toBeLessThanOrEqual(1);
+        expect(geom.rightWidth).toBeGreaterThanOrEqual(10);
+        expect(geom.labelOverflowed).toBe(true);
+        expect(geom.labelTextOverflow).toBe('ellipsis');
+
+        await emptyWorker.evaluate(id => {
+            Neo.getComponent(id).width = 260
+        }, componentId);
+        await expect.poll(async () => (await readInlineGeometry(narrowField)).wrapperWidth).toBeCloseTo(260, 0);
+        geom = await readInlineGeometry(narrowField);
+        expect(Math.abs(geom.centerWidth - geom.labelWidth)).toBeLessThanOrEqual(2);
+        expect(Math.abs(geom.segmentsSum - geom.wrapperWidth)).toBeLessThanOrEqual(1);
+
+        await emptyWorker.evaluate(id => {
+            Neo.getComponent(id).width = 115
+        }, componentId);
+        await expect.poll(async () => (await readInlineGeometry(narrowField)).wrapperWidth).toBeCloseTo(115, 0);
+        geom = await readInlineGeometry(narrowField);
+        expect(Math.abs(geom.segmentsSum - geom.wrapperWidth)).toBeLessThanOrEqual(1);
+        expect(Math.abs(geom.rightEdgeDelta)).toBeLessThanOrEqual(1);
+        expect(geom.rightWidth).toBeGreaterThanOrEqual(10);
+
+        await emptyWorker.evaluate(id => {
+            Neo.getComponent(id).set({labelText: 'Inline', width: 260})
+        }, componentId);
+        await expect.poll(async () => (await readInlineGeometry(narrowField)).centerWidth).toBeLessThan(60);
+        geom = await readInlineGeometry(narrowField);
+        expect(Math.abs(geom.centerWidth - geom.labelWidth)).toBeLessThanOrEqual(2)
+    });
 });

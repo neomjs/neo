@@ -55,14 +55,6 @@ class Text extends Field {
          */
         baseCls: ['neo-textfield'],
         /**
-         * Internal variable to store the actual width for the label centerBorderEl
-         * (only needed for labelPosition: 'inline')
-         * @member {Number|null} centerBorderElWidth_=null
-         * @protected
-         * @reactive
-         */
-        centerBorderElWidth_: null,
-        /**
          * Formats the visible and accessible character count. data passes length and maxLength (null without a limit).
          * @member {Function} characterCountText
          */
@@ -312,8 +304,6 @@ class Text extends Field {
         ]}
     }
 
-    #centerBorderRequestId = 0
-
     /**
      * Set this value to false, in case a field should display errors up front.
      * Otherwise, errors will stay hidden on mounting, unless you trigger validate(false).
@@ -437,12 +427,7 @@ class Text extends Field {
         super.afterSetDisabled(value, oldValue);
 
         if (isDisabled && oldValue !== undefined) {
-            me.removeCls(['neo-focus', 'neo-hovered']);
-
-            if (me.labelPosition === 'inline' && me.isEmpty()) {
-                me.#centerBorderRequestId++;
-                delete me.getCenterBorderEl()?.width
-            }
+            me.removeCls(['neo-focus', 'neo-hovered'])
         }
 
         me.changeInputElKey('disabled', isDisabled ? true : null, true);
@@ -624,7 +609,7 @@ class Text extends Field {
     }
 
     /**
-     * Triggered after the labelPosition config got changed
+     * @summary Rewires the label wrapper VDOM structure and input width when `labelPosition` changes.
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -632,7 +617,7 @@ class Text extends Field {
     afterSetLabelPosition(value, oldValue) {
         let me          = this,
             {cls, vdom} = me,
-            centerBorderElCls, isEmpty;
+            centerBorderElCls;
 
         vdom.cn[1].removeDom = value !== 'top' ? true : !Boolean(me.subLabelText);
 
@@ -641,17 +626,15 @@ class Text extends Field {
         me.cls = cls; // todo: silent update if needed
 
         if (oldValue === 'inline') {
-            me.#centerBorderRequestId++;
             vdom.cn[0]           = me.getLabelEl(); // remove the wrapper
             vdom.cn[0].removeDom = me.hideLabel;
             vdom.cn[0].width     = me.labelWidth;
             me.updateInputWidth()
         } else if (value === 'inline') {
             centerBorderElCls = ['neo-center-border'];
-            isEmpty           = me.isEmpty();
             vdom              = me.vdom;
 
-            !isEmpty && centerBorderElCls.push('neo-float-above');
+            !me.isEmpty() && centerBorderElCls.push('neo-float-above');
 
             delete vdom.cn[0].width;
 
@@ -668,12 +651,7 @@ class Text extends Field {
                 }]
             };
 
-            me.updateInputWidth();
-
-            if (!isEmpty && me.mounted) {
-                const requestId = ++me.#centerBorderRequestId;
-                me.timeout(20).then(() => me.updateCenterBorderElWidth(false, requestId))
-            }
+            me.updateInputWidth()
         } else {
             // changes from e.g. left to top
             me.updateInputWidth()
@@ -681,14 +659,13 @@ class Text extends Field {
     }
 
     /**
-     * Triggered after the labelText config got changed
+     * @summary Updates the rendered label text or child VDOM nodes when `labelText` changes.
      * @param {Object|Object[]|String} value
      * @param {Object|Object[]|String} oldValue
      * @protected
      */
     afterSetLabelText(value, oldValue) {
         let me      = this,
-            isEmpty = me.isEmpty(),
             labelEl = me.getLabelEl();
 
         if (me.labelId) {
@@ -713,18 +690,7 @@ class Text extends Field {
             }
         }
 
-        if (!me.hideLabel) {
-            if (me.labelPosition === 'inline') {
-                if (!isEmpty) {
-                    delete me.getCenterBorderEl()?.width
-                }
-
-                const requestId = ++me.#centerBorderRequestId;
-                me.promiseUpdate().then(() => me.updateCenterBorderElWidth(isEmpty, requestId))
-            } else {
-                me.update()
-            }
-        }
+        !me.hideLabel && me.update()
     }
 
     /**
@@ -767,7 +733,7 @@ class Text extends Field {
     }
 
     /**
-     * Triggered after the mounted config got changed
+     * @summary Propagates mount state to visible triggers and clears cached native input spelling on unmount.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -788,15 +754,6 @@ class Text extends Field {
             for (; i < len; i++) {
                 if (!triggers[i].vdom.removeDom) {
                     triggers[i].mounted = value
-                }
-            }
-
-            if (me.labelPosition === 'inline') {
-                if (value) {
-                    me.updateCenterBorderElWidth()
-                } else {
-                    me.#centerBorderRequestId++;
-                    delete me.getCenterBorderEl().width
                 }
             }
         }
@@ -1102,18 +1059,6 @@ class Text extends Field {
      */
     beforeSetAutoCapitalize(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'autoCapitalize', 'autoCapitalizeValues')
-    }
-
-    /**
-     * @summary Invalidates older scheduled or in-flight inline border measurements when `centerBorderElWidth` changes.
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
-     * @protected
-     * @returns {Number|null}
-     */
-    beforeSetCenterBorderElWidth(value, oldValue) {
-        this.#centerBorderRequestId++;
-        return value
     }
 
     /**
@@ -1517,6 +1462,7 @@ class Text extends Field {
     }
 
     /**
+     * @summary Marks the field focused when editable or non-readOnly.
      * @param {Object} data
      * @param {Object[]} data.path
      * @protected
@@ -1529,16 +1475,7 @@ class Text extends Field {
 
         if (!me.readOnly) {
             NeoArray.add(cls, 'neo-focus');
-            me.cls = cls;
-
-            if (me.labelPosition === 'inline') {
-                if (me.centerBorderElWidth) {
-                    me.getCenterBorderEl().width = me.centerBorderElWidth;
-                    me.update()
-                } else {
-                    me.updateCenterBorderElWidth(false)
-                }
-            }
+            me.cls = cls
         }
     }
 
@@ -1549,19 +1486,13 @@ class Text extends Field {
      * @protected
      */
     onFocusLeave(data) {
-        let me             = this,
-            centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
-            inputEl        = me.getInputEl();
+        let me      = this,
+            inputEl = me.getInputEl();
 
         if (!me.readOnly) {
             me.validate(false);
 
-            me.removeCls('neo-focus');
-
-            if (centerBorderEl && me.isEmpty()) {
-                me.#centerBorderRequestId++;
-                delete centerBorderEl.width
-            }
+            me.removeCls('neo-focus')
         }
 
         if (Neo.isString(me.value)) {
@@ -1737,36 +1668,6 @@ class Text extends Field {
 
         if (descriptions.length) input['aria-describedby'] = descriptions.join(' ');
         else delete input['aria-describedby']
-    }
-
-    /**
-     * @summary Measures the inline label element and updates `centerBorderElWidth` unless superseded by newer state.
-     * @param {Boolean} [silent=false] true to cache the width without applying it to VDOM
-     * @param {Number} [requestId=++this.#centerBorderRequestId]
-     * @protected
-     */
-    updateCenterBorderElWidth(silent = false, requestId = ++this.#centerBorderRequestId) {
-        let me             = this,
-            centerBorderEl = me.getCenterBorderEl();
-
-        if (me.mounted && centerBorderEl && requestId === me.#centerBorderRequestId) {
-            me.getDomRect(centerBorderEl.id).then(data => {
-                if (requestId !== me.#centerBorderRequestId || me.isDestroyed || !me.mounted || me.labelPosition !== 'inline') {
-                    return
-                }
-
-                let borderEl = me.getCenterBorderEl();
-
-                if (borderEl) {
-                    me.centerBorderElWidth = Math.round(data.width * .7) + 8;
-
-                    if (!silent && !(me.disabled && me.isEmpty())) {
-                        borderEl.width = me.centerBorderElWidth;
-                        me.update()
-                    }
-                }
-            })
-        }
     }
 
     /**
