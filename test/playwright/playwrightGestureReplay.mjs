@@ -1,8 +1,33 @@
 import {setTimeout as delay}                    from 'node:timers/promises';
 import {gestureLimits, normalizeGestureRequest} from '../../src/ai/client/gestureTrace.mjs';
 
-const busyPages = new WeakSet(),
-      eventType = {touchcancel: 'touchCancel', touchend: 'touchEnd', touchmove: 'touchMove', touchstart: 'touchStart'};
+const busyPages        = new WeakSet(),
+      deliveryClockKey = 'neo.playwright.gestureDeliveryTime',
+      eventType        = {touchcancel: 'touchCancel', touchend: 'touchEnd', touchmove: 'touchMove', touchstart: 'touchStart'};
+
+/**
+ * @summary Records trusted delivery in each fixture window before app listeners can delay observation.
+ * CDP may set the native timestamp to the planned recognizer clock.
+ * @param {import('@playwright/test').BrowserContext} context
+ * @returns {Promise<void>}
+ */
+export function installBrowserGestureDeliveryClock(context) {
+    return context.addInitScript(({deliveryClockKey, types}) => {
+        const key = Symbol.for(deliveryClockKey);
+
+        if (globalThis[key]) return;
+
+        const times = new WeakMap();
+
+        for (const type of types) {
+            window.addEventListener(type, event => {
+                if (event.isTrusted) times.set(event, performance.now())
+            }, {capture: true, passive: true})
+        }
+
+        Object.defineProperty(globalThis, key, {value: event => times.get(event)})
+    }, {deliveryClockKey, types: Object.keys(eventType)})
+}
 
 /**
  * @summary Finds one test-owned page by both App Worker and Main window identity.
@@ -37,7 +62,7 @@ async function findPage(pages, workerId, windowId) {
  * @returns {Promise<import('@playwright/test').JSHandle>}
  */
 function observeTarget(page, request) {
-    return page.evaluateHandle(async ({target, types, windowId, workerId}) => {
+    return page.evaluateHandle(async ({deliveryClockKey, target, types, windowId, workerId}) => {
         const worker = globalThis.Neo?.worker,
               id     = await worker?.App?.getWorkerId?.();
 
@@ -51,6 +76,10 @@ function observeTarget(page, request) {
 
         if (!rect?.width || !rect.height) return null;
 
+        const deliveryTime = globalThis[Symbol.for(deliveryClockKey)];
+
+        if (typeof deliveryTime !== 'function') return {clockAvailable: false};
+
         const controller = new AbortController(),
               events     = [],
               read       = list => Array.from(list, touch => ({
@@ -60,18 +89,20 @@ function observeTarget(page, request) {
 
         for (const type of types) {
             document.addEventListener(type, event => {
-                if (event.isTrusted) events.push({
-                    active: read(event.touches), changed: read(event.changedTouches), time: performance.now(), type
+                const time = deliveryTime(event);
+
+                if (Number.isFinite(time)) events.push({
+                    active: read(event.touches), changed: read(event.changedTouches), time, type
                 })
             }, {capture: true, passive: true, signal: controller.signal})
         }
 
         return {
-            events, left: rect.left, top: rect.top, start: performance.now(),
+            events, clockAvailable: true, left: rect.left, top: rect.top, start: performance.now(),
             isLive : () => node.isConnected && find() === node,
             dispose: () => controller.abort()
         }
-    }, {...request, types: Object.keys(eventType)})
+    }, {...request, deliveryClockKey, types: Object.keys(eventType)})
 }
 
 /**
@@ -164,9 +195,16 @@ export async function driveBrowserGesture(request, {pages, workerId}) {
         }
 
         observer = await observeTarget(page, {target: plan.target, windowId: plan.windowId, workerId});
-        const origin = await observer.evaluate(state => state && {left: state.left, top: state.top, start: state.start});
+        const origin = await observer.evaluate(state => state && {
+            clockAvailable: state.clockAvailable, left: state.left, top: state.top, start: state.start
+        });
 
         if (!origin) return fail('unavailable', 'GESTURE_TARGET_UNAVAILABLE', 'the target has no rendered border box');
+
+        if (!origin.clockAvailable) {
+            receipt.observationAvailable = false;
+            return fail('unavailable', 'BROWSER_PROVIDER_UNAVAILABLE', 'the owning page has no early delivery clock')
+        }
 
         // The Engine dispatches in-process. Browser IPC can spend more time between delivered frames.
         const labels    = new Map(),
@@ -193,6 +231,11 @@ export async function driveBrowserGesture(request, {pages, workerId}) {
                 }
 
                 const points = step.type === 'touchend' ? step.changed : step.active;
+
+                // Target liveness is an async round trip and can settle after the frame deadline check.
+                if (performance.now() >= deadline) {
+                    return fail('interrupted', 'GESTURE_TIMEOUT', 'the browser trace exceeded its deadline')
+                }
 
                 active ||= step.type === 'touchstart';
                 await cdp.send('Input.dispatchTouchEvent', {
@@ -245,7 +288,7 @@ export async function driveBrowserGesture(request, {pages, workerId}) {
         }
 
         if (observer) {
-            await observer.evaluate(state => state?.dispose()).catch(() => {});
+            await observer.evaluate(state => state?.dispose?.()).catch(() => {});
             await observer.dispose().catch(() => {})
         }
 

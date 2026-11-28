@@ -764,12 +764,13 @@ test.describe('Neo.ai.Client — off-socket dispatch refusal, regression, confli
         };
 
         const makeFixtures = () => {
-            const context = {async route() {}};
+            const createContext = () => ({async addInitScript() {}, async route() {}}),
+                  context       = createContext();
 
             return {
                 browser: {
                     async newContext() {
-                        return {async route() {}}
+                        return createContext()
                     }
                 },
                 context,

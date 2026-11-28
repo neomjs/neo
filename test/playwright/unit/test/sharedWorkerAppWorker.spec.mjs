@@ -286,7 +286,7 @@ test.describe('test/playwright/dedicatedWorkerNeuralLink — the fixture on a Sh
      * @param {Object} page
      * @returns {Object} The fixtures `runDedicatedWorkerNeuralLink` receives
      */
-    const fixtures = (browser, page) => ({browser, context: {async route() {}}, page});
+    const fixtures = (browser, page) => ({browser, context: {async addInitScript() {}, async route() {}}, page});
 
     test('an id-bound second context releases before navigation and on its last window closing', async () => {
         const workerId        = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
