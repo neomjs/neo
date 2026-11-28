@@ -184,31 +184,5 @@
 }
 
 :where(.neo-theme-neo-light) {
-    --neo-global-background-color: #fafafa;
-    --neo-global-color           : #000;
-    --neo-global-opacity-disabled: 0.5;
-    --neo-global-font-family     : 'Source Sans 3', sans-serif;
-    --neo-font-smoothing  : antialiased;
-
-    /* Global element typography — the VALUES for the structural rules in resources/css/src/Global.css
-       (#18232). One token per property, deliberately: a shared token would compute to `unset` on the
-       property whose type it does not match. The contract lives at the top of that file. */
-    --neo-global-heading-letter-spacing: -0.02em;
-    --neo-global-paragraph-color       : var(--neo-sem-color-fg-neutral-contrast);
-    --neo-global-code-background-color : #E6EDF7;
-    --neo-global-code-border           : 1px solid var(--neo-sem-color-border-subtle);
-    --neo-global-code-font-family      : var(--neo-core-fontfamily-mono);
-    --neo-global-code-border-radius    : 4px;
-    --neo-global-code-font-size        : 14px;
-    --neo-global-code-padding          : 2px 0.3em;
-    /* Declared, although the old block left heading-code colour to the general `code` rule: the
-       structural `h1..h6 code` selector (0,1,2) now OUTWEIGHS `code:not(.hljs)` (0,1,1), so leaving
-       this undeclared would `revert` heading code to the UA colour instead of inheriting the
-       contrast token it renders with today. The old cascade is reproduced by stating it. */
-    --neo-global-heading-code-color    : var(--neo-sem-color-fg-neutral-contrast);
-    --neo-global-heading-code-margin   : 0 0.15em;
-    --neo-global-heading-code-padding  : 0 0.3em;
-    --neo-global-mark-background-color : var(--neo-green-50);
-    --neo-global-mark-color            : black;
-    --neo-global-mark-padding          : 0.1em 0.2em;
+    --neo-font-smoothing: antialiased;
 }

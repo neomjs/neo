@@ -1,4 +1,5 @@
 import {expect, test} from '../../fixtures.mjs';
+import {toRgb}        from '../../util/srgb.mjs';
 
 /**
  * A stored `portalTheme` preference must reach the whole page, not one half of it.
@@ -101,7 +102,7 @@ function readSurfaces(page) {
 }
 
 /**
- * WCAG relative-luminance contrast ratio between two `rgb(r, g, b)` strings.
+ * WCAG relative-luminance contrast ratio between two computed colour strings (`rgb()` or `oklch()`).
  *
  * Asserting the ratio rather than an exact colour keeps the arm from pinning the palette: a theme
  * may restyle freely, and only a pairing drawn from two DIFFERENT themes collapses toward 1:1.
@@ -111,7 +112,7 @@ function readSurfaces(page) {
  */
 function contrastRatio(a, b) {
     const luminance = value => {
-        const [r, g, b] = value.match(/\d+/g).slice(0, 3).map(channel => {
+        const [r, g, b] = toRgb(value).match(/[\d.]+/g).slice(0, 3).map(channel => {
             const part = Number(channel) / 255;
 
             return part <= 0.03928 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4

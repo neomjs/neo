@@ -351,12 +351,13 @@ function isPaletteOrRole(name) {
 }
 
 /**
- * @summary Whether a `resources/css`-relative path is a theme folder's `Global.css`.
+ * @summary Whether a `resources/css`-relative path is a theme folder's `Global.css` (excluding `theme-base/Global.css`,
+ * which is a component-variable base sheet).
  * @param {String} cssRelPath
  * @returns {Boolean}
  */
 function isThemeGlobal(cssRelPath) {
-    return /^theme-[a-z0-9-]+\/Global\.css$/.test(cssRelPath)
+    return cssRelPath !== 'theme-base/Global.css' && /^theme-[a-z0-9-]+\/Global\.css$/.test(cssRelPath)
 }
 
 /**
@@ -1139,8 +1140,9 @@ export function inspectThemePalettes({root = repoRoot, cssRoots = [path.join(roo
             const checkOutsideGlobal = name => {
                 if (isPaletteOrRole(name)) {
                     failures.add(
-                        `[scope] ${relPath} declares or registers ${name} outside Global.css; ` +
-                        `palette and role names are declared in Global.css only`
+                        cssRelPath === 'theme-base/Global.css'
+                            ? `[scope] ${relPath} declares or registers ${name} outside a theme Global.css; theme-base/Global.css declares component variables only`
+                            : `[scope] ${relPath} declares or registers ${name} outside Global.css; palette and role names are declared in Global.css only`
                     )
                 }
             };

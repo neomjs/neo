@@ -1,0 +1,34 @@
+:where([class*="neo-theme-"]) {
+    --neo-global-background-color       : var(--neo-color-background-canvas);
+    --neo-global-code-background-color  : var(--neo-color-background-accent-subtle);
+    --neo-global-code-border            : var(--neo-border-width-thin) solid var(--neo-color-border-subtle);
+    --neo-global-code-border-radius     : var(--neo-radius-small);
+    --neo-global-code-color             : var(--neo-color-text-default);
+    --neo-global-code-font-family       : var(--neo-font-family-mono);
+    --neo-global-code-font-size         : var(--neo-font-size-code);
+    --neo-global-code-font-weight       : var(--neo-font-weight-regular);
+    --neo-global-code-line-height       : var(--neo-line-height-tight);
+    --neo-global-code-padding           : var(--neo-space-0-5) 0.3em;
+    --neo-global-color                  : var(--neo-color-text-default);
+    --neo-global-font-family            : var(--neo-font-family-sans);
+    --neo-global-heading-1-font-size    : var(--neo-font-size-heading-1);
+    --neo-global-heading-2-font-size    : var(--neo-font-size-heading-2);
+    --neo-global-heading-3-font-size    : var(--neo-font-size-heading-3);
+    --neo-global-heading-code-color     : var(--neo-color-text-strong);
+    --neo-global-heading-code-margin    : 0 0.15em;
+    --neo-global-heading-code-padding   : 0 0.3em;
+    --neo-global-heading-color          : var(--neo-color-text-strong);
+    --neo-global-heading-font-family    : var(--neo-font-family-sans);
+    --neo-global-heading-font-weight    : var(--neo-font-weight-semibold);
+    --neo-global-heading-letter-spacing : var(--neo-letter-spacing-heading);
+    --neo-global-heading-line-height    : var(--neo-line-height-tight);
+    --neo-global-mark-background-color  : var(--neo-color-background-brand-subtle);
+    --neo-global-mark-color             : var(--neo-color-text-strong);
+    --neo-global-mark-padding           : 0.1em 0.2em;
+    --neo-global-opacity-disabled       : var(--neo-opacity-disabled);
+    --neo-global-paragraph-color        : var(--neo-color-text-default);
+    --neo-global-paragraph-font-family  : var(--neo-font-family-sans);
+    --neo-global-paragraph-font-size    : var(--neo-font-size-body);
+    --neo-global-paragraph-font-weight  : var(--neo-font-weight-regular);
+    --neo-global-paragraph-line-height  : var(--neo-line-height-normal);
+}

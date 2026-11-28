@@ -14,7 +14,12 @@ const repoRoot      = fileURLToPath(new URL('../../../../', import.meta.url)),
       buildPath     = path.join(repoRoot, 'buildScripts/build/themes.mjs'),
       // A theme is a folder whose Global.css declares a theme class, so theme-base is none
       shippedThemes = fs.readdirSync(path.join(repoRoot, 'resources/css'), {withFileTypes: true})
-          .filter(entry => entry.isDirectory() && entry.name.startsWith('theme-') && fs.existsSync(path.join(repoRoot, 'resources/css', entry.name, 'Global.css')))
+          .filter(entry => {
+              const globalFile = path.join(repoRoot, 'resources/css', entry.name, 'Global.css');
+
+              return entry.isDirectory() && entry.name.startsWith('theme-') && fs.existsSync(globalFile) &&
+                  extractThemeClasses(fs.readFileSync(globalFile, 'utf8')).length > 0;
+          })
           .map(entry => entry.name).sort();
 
 test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', () => {

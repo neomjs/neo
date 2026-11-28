@@ -32,8 +32,8 @@ const
     // fallback is `revert` and not `inherit`. An `inherit` fallback computes 16px here, so this
     // constant is also what separates the two fallback keywords.
     UA_H1_SIZE    = '32px',
-    // neo-dark maps `--neo-global-mark-background-color` to `--neo-green-900`, which resolves to black.
-    NEO_MARK_BG   = 'rgb(0, 0, 0)',
+    // neo-dark binds `--neo-global-mark-background-color` to `--neo-color-background-brand-subtle` (`--neo-palette-brand-900`).
+    NEO_MARK_BG   = 'oklch(0.28 0.06 161)',
     UA_MARK_BG    = 'rgb(255, 255, 0)',
     // From the composed `resources/css/src/util/HighlightJs.css` — an AUTHOR rule, not the UA's.
     // The user agent's own `code` font is bare `monospace`; landing there means the author origin was

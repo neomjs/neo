@@ -68,34 +68,34 @@
    its decline as `--token: initial` at its own scope. This is not hypothetical: the portal's
    Helix and Colors previews are `neo-theme-dark` inside a neo-themed document. */
 h1, h2, h3 {
-    color         : var(--neo-sem-color-fg-neutral-contrast, revert);
-    font-family   : var(--neo-core-fontfamily-sans, revert);
-    font-weight   : var(--neo-core-fontweight-semibold, revert);
+    color         : var(--neo-global-heading-color, revert);
+    font-family   : var(--neo-global-heading-font-family, revert);
+    font-weight   : var(--neo-global-heading-font-weight, revert);
     letter-spacing: var(--neo-global-heading-letter-spacing, revert);
-    line-height   : var(--neo-core-lineheight-headline, revert);
+    line-height   : var(--neo-global-heading-line-height, revert);
 }
 
-h1 {font-size: var(--neo-core-fontsize-h1, revert)}
-h2 {font-size: var(--neo-core-fontsize-h2, revert)}
-h3 {font-size: var(--neo-core-fontsize-h3, revert)}
+h1 {font-size: var(--neo-global-heading-1-font-size, revert)}
+h2 {font-size: var(--neo-global-heading-2-font-size, revert)}
+h3 {font-size: var(--neo-global-heading-3-font-size, revert)}
 
 p {
     color      : var(--neo-global-paragraph-color, revert);
-    font-family: var(--neo-core-fontfamily-sans, revert);
-    font-size  : var(--neo-core-fontsize-body, revert);
-    font-weight: var(--neo-core-fontweight-regular, revert);
-    line-height: var(--neo-core-lineheight-paragraph, revert);
+    font-family: var(--neo-global-paragraph-font-family, revert);
+    font-size  : var(--neo-global-paragraph-font-size, revert);
+    font-weight: var(--neo-global-paragraph-font-weight, revert);
+    line-height: var(--neo-global-paragraph-line-height, revert);
 }
 
 code:not(.hljs) {
     background-color: var(--neo-global-code-background-color, revert);
     border          : var(--neo-global-code-border, revert);
     border-radius   : var(--neo-global-code-border-radius, revert);
-    color           : var(--neo-sem-color-fg-neutral-contrast, revert);
+    color           : var(--neo-global-code-color, revert);
     /* `font-family` is absent HERE and declared at zero weight below — see that rule for why. */
     font-size       : var(--neo-global-code-font-size, revert);
-    font-weight     : var(--neo-core-fontweight-regular, revert);
-    line-height     : var(--neo-core-lineheight-headline, revert);
+    font-weight     : var(--neo-global-code-font-weight, revert);
+    line-height     : var(--neo-global-code-line-height, revert);
     padding         : var(--neo-global-code-padding, revert);
 }
 

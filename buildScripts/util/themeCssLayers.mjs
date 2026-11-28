@@ -26,7 +26,9 @@ export const LAYER_ORDER = Object.freeze([
 /**
  * @summary Returns the cascade layer of a built sheet from its folder.
  * @description An app's and an example's sheets sit in `neo.apps` whichever top folder holds them, so an
- * app's theme projection outranks the engine's theme values by layer, not by selector weight.
+ * app's theme projection outranks the engine's theme values by layer, not by selector weight. Inside
+ * `theme-base`, `Global.css` enters `neo.roles` beside each theme's `Global.css` so per-theme `--neo-global-*`
+ * values and classic `initial` declines outrank the zero-weight base bindings regardless of arrival order.
  * @param {String} root The sheet's top folder under `resources/css`: `src`, `theme-base` or a theme folder.
  * @param {String} relativeFile The sheet's path inside that folder, e.g. `component/Base.css`.
  * @returns {String} One of {@link LAYER_ORDER}.
@@ -43,7 +45,7 @@ export function cascadeLayer(root, relativeFile) {
     }
 
     if (root === 'theme-base') {
-        return 'neo.base'
+        return parts.length === 1 && parts[0] === 'Global.css' ? 'neo.roles' : 'neo.base'
     }
 
     return parts.length === 1 && parts[0] === 'Global.css' ? 'neo.roles' : 'neo.theme'
