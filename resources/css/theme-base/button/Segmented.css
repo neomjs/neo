@@ -1,0 +1,6 @@
+/* Segmented button, every theme: pill radius bound to the scale token (ADR 0044 decision 4, epic #22295 rule 3).
+   A theme re-values it in its own button/Segmented.css only where its design language deviates.
+   The rules in src/button/Segmented.css read this. */
+[class*="neo-theme-"] {
+    --neo-segmented-button-border-radius: var(--neo-radius-full);
+}

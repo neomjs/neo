@@ -317,7 +317,7 @@ test.describe('Board cardDesigns example', () => {
                         segRadius: seg   ? getComputedStyle(seg).borderRadius      : null
                     }
                 });
-                expect(styleMetrics.segRadius).toBe('999px');
+                expect(styleMetrics.segRadius).toBe(theme.startsWith('neo-theme-neo-') ? '9999px' : '999px');
                 expect(styleMetrics.lineClamp).toBe('2')
             }
         }
