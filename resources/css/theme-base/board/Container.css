@@ -10,7 +10,7 @@
     --neo-board-outline-color-focus       : var(--neo-color-focus-ring);
     --neo-board-column-width              : 280px;
     --neo-board-column-collapsed-width    : 44px;
-    --neo-board-column-background         : color-mix(in oklab, var(--neo-color-background-surface), var(--neo-color-background-inverse) 5%);
+    --neo-board-column-background         : var(--neo-color-background-surface);
     --neo-board-column-border-color       : var(--neo-color-border-default);
     --neo-board-column-color              : var(--neo-color-text-default);
     --neo-board-badge-background          : var(--neo-color-background-neutral-active);
@@ -33,8 +33,8 @@
     --neo-board-card-drag-border-color    : var(--neo-color-border-accent);
     --neo-board-slot-background           : color-mix(in srgb, var(--neo-color-background-accent) 10%, transparent);
     --neo-board-track-background          : var(--neo-color-background-neutral-active);
-    --neo-board-avatar-background         : var(--neo-color-background-accent-subtle);
-    --neo-board-avatar-color              : var(--neo-color-text-accent);
+    --neo-board-avatar-background         : var(--neo-color-background-brand-subtle);
+    --neo-board-avatar-color              : var(--neo-color-text-brand);
     --neo-board-editor-width              : 440px;
     --neo-board-editor-background         : var(--neo-color-background-surface-raised);
     --neo-board-editor-border-color       : var(--neo-color-border-default);
