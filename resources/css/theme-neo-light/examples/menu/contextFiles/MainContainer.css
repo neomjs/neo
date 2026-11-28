@@ -1,8 +1,0 @@
-:where(.neo-theme-neo-light) {
-    --context-files-accent: #1c60a8;
-    --context-files-background: #f1f5f8;
-    --context-files-chip: #e1edf2;
-    --context-files-muted: #526777;
-    --context-files-rule: #d3dee5;
-    --context-files-text: #182e3b;
-}
