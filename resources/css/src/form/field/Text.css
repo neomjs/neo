@@ -6,9 +6,17 @@
     margin-top   : 5px;
     white-space  : nowrap;
 
-    /* Grid rows need room for both the top label and the input. */
-    &:where(.label-top) {
+    /* Grid rows and column stacks need room for both the top/bottom label and the input. */
+    &:where(.label-top, .label-bottom) {
         height: auto;
+    }
+
+    &:not(.neo-chipfield) > :is(.neo-input-wrapper, .neo-textfield-input) {
+        align-self: stretch;
+    }
+
+    &:is(.label-top, .label-bottom) > .neo-textfield-input {
+        flex: 1 1 1px;
     }
 
     /* A counter or an in-flow error gets a row of its own under the input; inside a flex row it would take the
@@ -50,7 +58,6 @@
 
             > .neo-label-wrapper {
                 grid-area: input;
-                height   : 100%;
             }
         }
     }
@@ -345,9 +352,13 @@
             border-color: transparent !important;
         }
 
+        > :is(.neo-input-wrapper, .neo-textfield-input) {
+            height: 100%;
+        }
+
         .neo-label-wrapper {
             display : flex;
-            height  : calc(var(--neo-textfield-input-height) + var(--neo-textfield-border-top-width) + var(--neo-textfield-border-bottom-width));
+            height  : 100%;
             position: absolute;
             width   : 100%;
 

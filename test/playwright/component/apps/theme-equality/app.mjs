@@ -72,10 +72,11 @@ import Viewport              from '../../../../../src/container/Viewport.mjs';
  * @returns {Object} Container blueprint.
  */
 const cell = (cellId, item) => ({
-    module: Container,
-    id    : `eq-cell-${cellId}`,
-    cls   : ['neo-eq-cell'],
-    items : [item]
+    module      : Container,
+    id          : `eq-cell-${cellId}`,
+    cls         : ['neo-eq-cell'],
+    itemDefaults: {flex: 'none'},
+    items       : [item]
 });
 
 const listData = [
