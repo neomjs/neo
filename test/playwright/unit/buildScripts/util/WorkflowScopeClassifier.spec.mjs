@@ -1373,7 +1373,11 @@ test.describe('Tests scope classifier — version-only release stamps vs foundat
         expect(selected.reasons).toEqual([]);
         expect(selectOut).toContain('e2e_selection=selected\n');
         expect(selectOut).toContain('run_e2e=true\n');
-        expect(selectOut).toContain('e2e_engine_shards=[5]\n');
+        // The count follows the live inventory and durations; E2eCiSelection.spec.mjs pins the sizing rule on fixtures
+        const [shards] = JSON.parse(/^e2e_engine_shards=(.+)$/m.exec(selectOut)?.[1] || '[0]');
+        expect(shards).toBeGreaterThanOrEqual(1);
+        expect(shards).toBeLessThan(FULL_SHARDS.engine);
+        expect(JSON.parse(/^e2e_engine_matrix=(.+)$/m.exec(selectOut)?.[1] || '[]')).toEqual(Array.from({length: shards}, (_, index) => index + 1));
         expect(selectOut).not.toContain(`e2e_engine_shards=[${FULL_SHARDS.engine}]`);
 
         const selectedPaths = (/^e2e_engine_paths=(.+)$/m.exec(selectOut)?.[1] || '').split(' ').filter(Boolean);
