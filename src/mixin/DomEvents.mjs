@@ -21,8 +21,9 @@ class DomEvents extends Base {
          * `count` and `contactCount` options filter the repeat index and simultaneous contact count.
          * Use `click` for button and link activation, including keyboard activation.
          *
-         * A `press:start` listener can set `holdMs` (default 500) and `moveTolerance` in CSS pixels
-         * (default 8). The highest-priority `press:start` on the node supplies those settings.
+         * A `press:start` listener can override Main's `Gesture.pressHoldMs` and
+         * `Gesture.pressMoveTolerance` with `holdMs` in milliseconds and `moveTolerance` in CSS pixels.
+         * The highest-priority `press:start` on the node supplies those overrides.
          * The gesture terminates in `press:end` (whose `duration` includes the full hold) or `press:cancel`.
          * @member {Object[]|null} domListeners_=null
          * @example

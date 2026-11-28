@@ -27,11 +27,23 @@ class Gesture extends Base {
         mixins: [Observable],
         /** @member {Boolean} preloadFilesDelay=false */
         preloadFilesDelay: false,
+        /** @member {Number} pressHoldMs=500 Hold time in milliseconds before a press starts. */
+        pressHoldMs: 500,
+        /** @member {Number} pressMoveTolerance=8 Maximum contact movement in CSS px during a press. */
+        pressMoveTolerance: 8,
         /**
          * @member {Object} remote
          * @protected
          */
-        remote: {app: ['register', 'unregister']}
+        remote: {app: ['register', 'unregister']},
+        /** @member {Number} repeatDistance=24 Maximum distance in CSS px between repeated tap lifts. */
+        repeatDistance: 24,
+        /** @member {Number} repeatInterval=350 Maximum time in milliseconds between repeated tap lifts. */
+        repeatInterval: 350,
+        /** @member {Number} tapDuration=250 Maximum time in milliseconds from first contact to final lift. */
+        tapDuration: 250,
+        /** @member {Number} tapTolerance=8 Maximum movement in CSS px from a tap contact's start. */
+        tapTolerance: 8
     }
 
     /** @member {Document} #document */
@@ -45,7 +57,7 @@ class Gesture extends Base {
     /** @member {Map<Number,PointerEvent>} #touchPointers */
     #touchPointers = new Map()
     /** @member {TapPress} #tapPress */
-    #tapPress = new TapPress(this.#document, this.publish.bind(this), claim => {
+    #tapPress = new TapPress(this.#document, this.publish.bind(this), this, claim => {
         this.cancelClaim(claim, [...new Set([...claim.ids.values(), ...claim.frame.changed])])
     })
     /** @member {Map<Number,Object>} #releasedPressMenus */

@@ -158,6 +158,36 @@ test('observes a trusted button tap at its lift point and leaves one click for t
     }
 });
 
+test('a configured Main tolerance recognizes the same trusted contact that the default rejects', async ({page}) => {
+    const {cdp, point, read, send} = await bootTarget(page, {tap: true});
+
+    const stroke = async id => {
+        await send('touchStart', point(id));
+        await send('touchMove', point(id, 12));
+        await send('touchEnd', point(id, 12))
+    };
+
+    try {
+        await stroke(17);
+        expect(await page.evaluate(() => window.gestureSpec.tapMessages)).toEqual([]);
+
+        await page.evaluate(() => {Neo.main.addon.Gesture.tapTolerance = 16});
+        await stroke(27);
+        await expect.poll(async () => (await read()).taps).toMatchObject([{contactCount: 1, count: 1, trusted: true}]);
+
+        const {lifts, starts, tapMessages} = await page.evaluate(() => {
+            const {lifts, starts, tapMessages} = window.gestureSpec;
+
+            return {lifts, starts, tapMessages}
+        });
+
+        expect(lifts.map((lift, index) => [lift.x - starts[index].x, lift.trusted])).toEqual([[12, true], [12, true]]);
+        expect(tapMessages).toEqual(['tap'])
+    } finally {
+        await cdp.detach()
+    }
+});
+
 test('publishes each tap immediately and applies exact repeat and chord listener filters', async ({page}) => {
     const {cdp, point, read, send} = await bootTarget(page, {tap: true});
 

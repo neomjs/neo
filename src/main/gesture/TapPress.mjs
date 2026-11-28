@@ -1,8 +1,3 @@
-const tapDuration    = 250,
-      tapTolerance   = 8,
-      repeatInterval = 350,
-      repeatDistance = 24;
-
 /**
  * @summary Recognizes terminal taps and timed presses from the Main contact owner's normalized frames.
  */
@@ -17,12 +12,14 @@ export default class TapPress {
     /**
      * @param {Document} doc
      * @param {Function} publish Delivers a phase through the contact owner.
+     * @param {Object} settings Live tap and press thresholds from the owning Gesture addon.
      * @param {Function} cancel Retires an owning claim.
      */
-    constructor(doc, publish, cancel) {
-        this.doc     = doc;
-        this.publish = publish;
-        this.cancel  = cancel
+    constructor(doc, publish, settings, cancel) {
+        this.doc      = doc;
+        this.publish  = publish;
+        this.settings = settings;
+        this.cancel   = cancel
     }
 
     /** @summary Drops repeat history when the document loses ownership. */
@@ -55,7 +52,8 @@ export default class TapPress {
      * @param {Object[]} lifted
      */
     trackTap(claim, kind, lifted) {
-        const {owner, node, sequence, frame: {contacts, elapsed, trusted, pointerType}} = claim;
+        const {owner, node, sequence, frame: {contacts, elapsed, trusted, pointerType}} = claim,
+              {repeatDistance, repeatInterval, tapDuration, tapTolerance}                = this.settings;
         let state = this.#taps.get(claim);
 
         if (kind === 'cancel') {
@@ -136,7 +134,7 @@ export default class TapPress {
         const point = contacts[0] ?? lifted[0];
 
         if (!state && kind === 'start' && contacts.length === 1) {
-            const {holdMs=500, moveTolerance=8} = claim.owner.gestureOptions?.press ?? {};
+            const {holdMs = this.settings.pressHoldMs, moveTolerance = this.settings.pressMoveTolerance} = claim.owner.gestureOptions?.press ?? {};
 
             state = {origin: point, focal: {x: point.x, y: point.y}, moveTolerance};
             this.#presses.set(claim, state);
