@@ -1,6 +1,6 @@
-/* Dashboard dock while a drag runs, every theme: each variable bound to a role (ADR 0044 decision 4). A theme
-   re-values one in its own dashboard/Container.css only where its design language deviates. The rules in
-   src/dashboard/Container.css read these. */
+/* Dashboard dock while a drag runs, every theme: each variable reads a role, or one role mixed with transparent.
+   A theme re-values one in its own dashboard/Container.css only where its design language deviates. The rules
+   in src/dashboard/Container.css read these. */
 [class*="neo-theme-"] {
     --neo-dashboard-dock-drop-chip-box-shadow        : 0 2px 8px var(--neo-color-shadow);
     --neo-dashboard-dock-drop-chip-signal-box-shadow : 0 2px 10px var(--neo-color-shadow);
@@ -17,7 +17,7 @@
     --neo-dock-preview-signal-background-color       : color-mix(in srgb, var(--neo-color-border-accent) 16%, transparent);
     --neo-dock-preview-signal-color                  : var(--neo-color-border-accent);
     --neo-dock-proxy-background                      : var(--neo-color-background-surface-raised);
-    --neo-dock-proxy-border-color                    : color-mix(in srgb, var(--neo-color-border-accent) 38%, var(--neo-color-border-default));
+    --neo-dock-proxy-border-color                    : color-mix(in srgb, var(--neo-color-border-accent) 50%, transparent);
     --neo-dock-proxy-border-radius                   : var(--neo-radius-extra-large);
     --neo-dock-proxy-box-shadow                      : var(--neo-color-shadow);
     --neo-dock-proxy-color                           : var(--neo-color-text-default);
