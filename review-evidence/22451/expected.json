@@ -1,0 +1,146 @@
+[
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "oklch(0.61 0.04 270)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (light: neutral-500 to neutral-200)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "oklch(0.544 0.042 270)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (dark: neutral-600 to neutral-800)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "oklch(0.61 0.04 270)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (light: neutral-500 to neutral-200)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "oklch(0.544 0.042 270)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (dark: neutral-600 to neutral-800)"
+    },
+    {
+        "component": "button[large]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "oklch(0.61 0.04 270)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (light: neutral-500 to neutral-200)"
+    },
+    {
+        "component": "button[large]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "oklch(0.544 0.042 270)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (dark: neutral-600 to neutral-800)"
+    },
+    {
+        "component": "button[small]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "oklch(0.61 0.04 270)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (light: neutral-500 to neutral-200)"
+    },
+    {
+        "component": "button[small]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "oklch(0.544 0.042 270)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (dark: neutral-600 to neutral-800)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "oklch(0.61 0.04 270)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (light: neutral-500 to neutral-200)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "oklch(0.544 0.042 270)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (dark: neutral-600 to neutral-800)"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "oklch(0.61 0.04 270)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (light: neutral-500 to neutral-200)"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "oklch(0.544 0.042 270)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (dark: neutral-600 to neutral-800)"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "oklch(0.61 0.04 270)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (light: neutral-500 to neutral-200)"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "oklch(0.544 0.042 270)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (dark: neutral-600 to neutral-800)"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "oklch(0.61 0.04 270)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (light: neutral-500 to neutral-200)"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "oklch(0.544 0.042 270)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (dark: neutral-600 to neutral-800)"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "oklch(0.61 0.04 270)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (light: neutral-500 to neutral-200)"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "oklch(0.544 0.042 270)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "#22451, rule 4 of #22295: a button's border is a hairline on border-default, as 14.0 read it (dark: neutral-600 to neutral-800)"
+    }
+]
