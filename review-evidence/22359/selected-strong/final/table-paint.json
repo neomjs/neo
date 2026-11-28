@@ -1,0 +1,707 @@
+{
+  "head": "7da9fd09e33f8ac669bb9aee39ba844846b99bf2",
+  "tree": "3bc91cd92cabbf25d9b9789616410cd48adc885d",
+  "route": "/examples/table/cellEditing/index.html",
+  "browser": "158.0.8127.38",
+  "viewport": [
+    1440,
+    900
+  ],
+  "method": "Exact candidate development theme build from an isolated git archive. Only the normal example theme configuration is opted into Material. No CSS or DOM editing. Inspector selects the model; first-row Number cell clicked; pointer hovers second-row Firstname. Selected row and active cell, unselected hover and untouched row sampled from a whole-viewport PNG. CellColumnRowModel additionally samples the selected column in the hovered row. Opaque selected/hover fills checked against independently decoded screenshot and the computed color.",
+  "cssDigests": {
+    "theme-material/Global.css": "65a09fb0354db663c1d60b2104e55bf8689ceacabb49b625633b5a5d71aedc8a",
+    "theme-base/table/Body.css": "74621bc9f54692ebdc4abeeb6b8c6a18a8c23903d55534d487a8a544a29b1c90",
+    "src/table/Body.css": "db0f37da37975424d1f8a47b0ee6da141f50e3b6dd0ce54b8c80840965782058"
+  },
+  "samples": [
+    {
+      "theme": "neo-theme-material-light",
+      "model": "CellRowModel",
+      "frame": {
+        "file": "cellrowmodel-light.png",
+        "sha256": "88da6baf1340b475e75e8bf1a9de293219f54222ec7c379f1c5c8430e89e6cb2"
+      },
+      "cells": {
+        "active": {
+          "cellClass": "neo-table-cell neo-selected",
+          "rowClass": "neo-table-row neo-selected",
+          "text": "100",
+          "computedFill": "oklch(0.745 0.13 295.7)",
+          "computedText": "oklch(0.187 0.012 300.4)",
+          "fillRgb": [
+            179,
+            155,
+            245,
+            255
+          ],
+          "textRgb": [
+            20,
+            18,
+            24,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 382,
+              "y": 168,
+              "color": "#b39bf5"
+            },
+            {
+              "x": 402,
+              "y": 168,
+              "color": "#b39bf5"
+            },
+            {
+              "x": 412,
+              "y": 168,
+              "color": "#b39bf5"
+            }
+          ]
+        },
+        "rowMate": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row neo-selected",
+          "text": "Tobias",
+          "computedFill": "oklch(0.835 0.095 298)",
+          "computedText": "oklch(0.187 0.012 300.4)",
+          "fillRgb": [
+            208,
+            188,
+            255,
+            255
+          ],
+          "textRgb": [
+            20,
+            18,
+            24,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 168,
+              "color": "#d0bcff"
+            },
+            {
+              "x": 202,
+              "y": 168,
+              "color": "#d0bcff"
+            },
+            {
+              "x": 212,
+              "y": 168,
+              "color": "#d0bcff"
+            }
+          ]
+        },
+        "hover": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row",
+          "text": "Rich",
+          "computedFill": "oklch(0.916 0.049 302.7)",
+          "computedText": "oklch(0.187 0.012 300.4)",
+          "fillRgb": [
+            233,
+            220,
+            255,
+            255
+          ],
+          "textRgb": [
+            20,
+            18,
+            24,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 208,
+              "color": "#e9dcff"
+            },
+            {
+              "x": 202,
+              "y": 208,
+              "color": "#e9dcff"
+            },
+            {
+              "x": 212,
+              "y": 208,
+              "color": "#e9dcff"
+            }
+          ]
+        },
+        "rest": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row",
+          "text": "Nils",
+          "computedFill": "oklch(0.954 0.015 312.6)",
+          "computedText": "oklch(0.187 0.012 300.4)",
+          "fillRgb": [
+            243,
+            237,
+            247,
+            255
+          ],
+          "textRgb": [
+            20,
+            18,
+            24,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 248,
+              "color": "#f3edf7"
+            },
+            {
+              "x": 202,
+              "y": 248,
+              "color": "#f3edf7"
+            },
+            {
+              "x": 212,
+              "y": 248,
+              "color": "#f3edf7"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "theme": "neo-theme-material-dark",
+      "model": "CellRowModel",
+      "frame": {
+        "file": "cellrowmodel-dark.png",
+        "sha256": "4bf53a9f50652667dc7dd2d726abe53c4012401cab55ee89bb7fdeaf5d03ca16"
+      },
+      "cells": {
+        "active": {
+          "cellClass": "neo-table-cell neo-selected",
+          "rowClass": "neo-table-row neo-selected",
+          "text": "100",
+          "computedFill": "oklch(0.496 0.13 293.7)",
+          "computedText": "oklch(0.916 0.014 314.5)",
+          "fillRgb": [
+            103,
+            80,
+            164,
+            255
+          ],
+          "textRgb": [
+            231,
+            225,
+            234,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 382,
+              "y": 168,
+              "color": "#6750a4"
+            },
+            {
+              "x": 402,
+              "y": 168,
+              "color": "#6750a4"
+            },
+            {
+              "x": 412,
+              "y": 168,
+              "color": "#6750a4"
+            }
+          ]
+        },
+        "rowMate": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row neo-selected",
+          "text": "Tobias",
+          "computedFill": "oklch(0.405 0.134 292.6)",
+          "computedText": "oklch(0.916 0.014 314.5)",
+          "fillRgb": [
+            78,
+            53,
+            138,
+            255
+          ],
+          "textRgb": [
+            231,
+            225,
+            234,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 168,
+              "color": "#4e358a"
+            },
+            {
+              "x": 202,
+              "y": 168,
+              "color": "#4e358a"
+            },
+            {
+              "x": 212,
+              "y": 168,
+              "color": "#4e358a"
+            }
+          ]
+        },
+        "hover": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row",
+          "text": "Rich",
+          "computedFill": "oklch(0.33 0.135 291.2)",
+          "computedText": "oklch(0.916 0.014 314.5)",
+          "fillRgb": [
+            57,
+            32,
+            115,
+            255
+          ],
+          "textRgb": [
+            231,
+            225,
+            234,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 208,
+              "color": "#392073"
+            },
+            {
+              "x": 202,
+              "y": 208,
+              "color": "#392073"
+            },
+            {
+              "x": 212,
+              "y": 208,
+              "color": "#392073"
+            }
+          ]
+        },
+        "rest": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row",
+          "text": "Nils",
+          "computedFill": "oklch(0.245 0.013 298.5)",
+          "computedText": "oklch(0.916 0.014 314.5)",
+          "fillRgb": [
+            33,
+            31,
+            38,
+            255
+          ],
+          "textRgb": [
+            231,
+            225,
+            234,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 248,
+              "color": "#211f26"
+            },
+            {
+              "x": 202,
+              "y": 248,
+              "color": "#211f26"
+            },
+            {
+              "x": 212,
+              "y": 248,
+              "color": "#211f26"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "theme": "neo-theme-material-light",
+      "model": "CellColumnRowModel",
+      "frame": {
+        "file": "cellcolumnrowmodel-light.png",
+        "sha256": "694ced5224acca7b7b4cf5b45ef0b6878bcbbb6ca3347d6ea18e6eaf43e52612"
+      },
+      "cells": {
+        "active": {
+          "cellClass": "neo-table-cell selected-column-cell neo-selected",
+          "rowClass": "neo-table-row neo-selected",
+          "text": "100",
+          "computedFill": "oklch(0.745 0.13 295.7)",
+          "computedText": "oklch(0.187 0.012 300.4)",
+          "fillRgb": [
+            179,
+            155,
+            245,
+            255
+          ],
+          "textRgb": [
+            20,
+            18,
+            24,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 382,
+              "y": 168,
+              "color": "#b39bf5"
+            },
+            {
+              "x": 402,
+              "y": 168,
+              "color": "#b39bf5"
+            },
+            {
+              "x": 412,
+              "y": 168,
+              "color": "#b39bf5"
+            }
+          ]
+        },
+        "rowMate": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row neo-selected",
+          "text": "Tobias",
+          "computedFill": "oklch(0.835 0.095 298)",
+          "computedText": "oklch(0.187 0.012 300.4)",
+          "fillRgb": [
+            208,
+            188,
+            255,
+            255
+          ],
+          "textRgb": [
+            20,
+            18,
+            24,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 168,
+              "color": "#d0bcff"
+            },
+            {
+              "x": 202,
+              "y": 168,
+              "color": "#d0bcff"
+            },
+            {
+              "x": 212,
+              "y": 168,
+              "color": "#d0bcff"
+            }
+          ]
+        },
+        "hover": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row",
+          "text": "Rich",
+          "computedFill": "oklch(0.916 0.049 302.7)",
+          "computedText": "oklch(0.187 0.012 300.4)",
+          "fillRgb": [
+            233,
+            220,
+            255,
+            255
+          ],
+          "textRgb": [
+            20,
+            18,
+            24,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 208,
+              "color": "#e9dcff"
+            },
+            {
+              "x": 202,
+              "y": 208,
+              "color": "#e9dcff"
+            },
+            {
+              "x": 212,
+              "y": 208,
+              "color": "#e9dcff"
+            }
+          ]
+        },
+        "rest": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row",
+          "text": "Nils",
+          "computedFill": "oklch(0.954 0.015 312.6)",
+          "computedText": "oklch(0.187 0.012 300.4)",
+          "fillRgb": [
+            243,
+            237,
+            247,
+            255
+          ],
+          "textRgb": [
+            20,
+            18,
+            24,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 248,
+              "color": "#f3edf7"
+            },
+            {
+              "x": 202,
+              "y": 248,
+              "color": "#f3edf7"
+            },
+            {
+              "x": 212,
+              "y": 248,
+              "color": "#f3edf7"
+            }
+          ]
+        },
+        "hoveredColumnMate": {
+          "cellClass": "neo-table-cell selected-column-cell",
+          "rowClass": "neo-table-row",
+          "text": "90",
+          "computedFill": "oklch(0.835 0.095 298)",
+          "computedText": "oklch(0.187 0.012 300.4)",
+          "fillRgb": [
+            208,
+            188,
+            255,
+            255
+          ],
+          "textRgb": [
+            20,
+            18,
+            24,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 382,
+              "y": 208,
+              "color": "#d0bcff"
+            },
+            {
+              "x": 402,
+              "y": 208,
+              "color": "#d0bcff"
+            },
+            {
+              "x": 412,
+              "y": 208,
+              "color": "#d0bcff"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "theme": "neo-theme-material-dark",
+      "model": "CellColumnRowModel",
+      "frame": {
+        "file": "cellcolumnrowmodel-dark.png",
+        "sha256": "bf69ff7aa5aad9446f04e4a22ba1e3a2f2ad9527b9a300bd5148d4d3e9961d1c"
+      },
+      "cells": {
+        "active": {
+          "cellClass": "neo-table-cell selected-column-cell neo-selected",
+          "rowClass": "neo-table-row neo-selected",
+          "text": "100",
+          "computedFill": "oklch(0.496 0.13 293.7)",
+          "computedText": "oklch(0.916 0.014 314.5)",
+          "fillRgb": [
+            103,
+            80,
+            164,
+            255
+          ],
+          "textRgb": [
+            231,
+            225,
+            234,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 382,
+              "y": 168,
+              "color": "#6750a4"
+            },
+            {
+              "x": 402,
+              "y": 168,
+              "color": "#6750a4"
+            },
+            {
+              "x": 412,
+              "y": 168,
+              "color": "#6750a4"
+            }
+          ]
+        },
+        "rowMate": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row neo-selected",
+          "text": "Tobias",
+          "computedFill": "oklch(0.405 0.134 292.6)",
+          "computedText": "oklch(0.916 0.014 314.5)",
+          "fillRgb": [
+            78,
+            53,
+            138,
+            255
+          ],
+          "textRgb": [
+            231,
+            225,
+            234,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 168,
+              "color": "#4e358a"
+            },
+            {
+              "x": 202,
+              "y": 168,
+              "color": "#4e358a"
+            },
+            {
+              "x": 212,
+              "y": 168,
+              "color": "#4e358a"
+            }
+          ]
+        },
+        "hover": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row",
+          "text": "Rich",
+          "computedFill": "oklch(0.33 0.135 291.2)",
+          "computedText": "oklch(0.916 0.014 314.5)",
+          "fillRgb": [
+            57,
+            32,
+            115,
+            255
+          ],
+          "textRgb": [
+            231,
+            225,
+            234,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 208,
+              "color": "#392073"
+            },
+            {
+              "x": 202,
+              "y": 208,
+              "color": "#392073"
+            },
+            {
+              "x": 212,
+              "y": 208,
+              "color": "#392073"
+            }
+          ]
+        },
+        "rest": {
+          "cellClass": "neo-table-cell",
+          "rowClass": "neo-table-row",
+          "text": "Nils",
+          "computedFill": "oklch(0.245 0.013 298.5)",
+          "computedText": "oklch(0.916 0.014 314.5)",
+          "fillRgb": [
+            33,
+            31,
+            38,
+            255
+          ],
+          "textRgb": [
+            231,
+            225,
+            234,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 182,
+              "y": 248,
+              "color": "#211f26"
+            },
+            {
+              "x": 202,
+              "y": 248,
+              "color": "#211f26"
+            },
+            {
+              "x": 212,
+              "y": 248,
+              "color": "#211f26"
+            }
+          ]
+        },
+        "hoveredColumnMate": {
+          "cellClass": "neo-table-cell selected-column-cell",
+          "rowClass": "neo-table-row",
+          "text": "90",
+          "computedFill": "oklch(0.405 0.134 292.6)",
+          "computedText": "oklch(0.916 0.014 314.5)",
+          "fillRgb": [
+            78,
+            53,
+            138,
+            255
+          ],
+          "textRgb": [
+            231,
+            225,
+            234,
+            255
+          ],
+          "pixels": [
+            {
+              "x": 382,
+              "y": 208,
+              "color": "#4e358a"
+            },
+            {
+              "x": 402,
+              "y": 208,
+              "color": "#4e358a"
+            },
+            {
+              "x": 412,
+              "y": 208,
+              "color": "#4e358a"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "errors": []
+}
