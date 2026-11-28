@@ -775,7 +775,8 @@ export const COMPONENT_MATRIX = Object.freeze([
             '.neo-tab-header-button:not(.pressed) .neo-button-text',
             '.neo-tab-header-button:not(.pressed) .neo-button-glyph',
             '.neo-tab-strip',
-            '.neo-active-tab-indicator'
+            '.neo-active-tab-indicator',
+            '.neo-tab-body-container'
         ]
     },
     {
