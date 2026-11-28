@@ -154,6 +154,45 @@ test.describe('Neo.ai.client.InteractionService', () => {
         }
     });
 
+    test('writer departure during target lookup fences a replay before write admission', async () => {
+        const originalWorker = Neo.currentWorker,
+              context        = {agentId: 'writer', sessionId: 'departing-session'},
+              host           = Neo.create(InteractionService),
+              pathRequested  = Promise.withResolvers(),
+              pathResponse   = Promise.withResolvers(),
+              calls          = [];
+
+        Neo.currentWorker = {...originalWorker, isSharedWorker: true};
+        Neo.Main.importAddon = () => {};
+        host.resolveDomRect = () => {};
+        host.assertWritable = () => calls.push('admit');
+        Neo.main.addon.EventSimulator = {
+            getGestureTarget() {
+                pathRequested.resolve();
+                return pathResponse.promise
+            },
+            driveGesture() {
+                calls.push('drive')
+            }
+        };
+
+        try {
+            const result = host.driveGesture({
+                provider: 'engine', target: 'nested', windowId: 'popup',
+                preset  : {kind: 'hold', at: {x: 5, y: 10}, durationMs: 50}
+            }, context);
+
+            await pathRequested.promise;
+            expect(host.cancelWriterGestures(context)).toBeNull();
+            pathResponse.resolve([{id: 'nested', generation: 1}, {id: 'panel', generation: 2}]);
+            await expect(result).resolves.toMatchObject({error: {code: 'GESTURE_WRITER_DEPARTED'}, observed: []});
+            expect(calls).toEqual([])
+        } finally {
+            host.destroy();
+            Neo.currentWorker = originalWorker
+        }
+    });
+
     test('resolveWindow reads the current owning Main realm when no projected geometry exists', async () => {
         Neo.Main.getWindowData = async ({windowId}) => {
             expect(windowId).toBe('source-window');

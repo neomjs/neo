@@ -217,7 +217,7 @@ test.describe('Helix multi-touch partial lift and single-finger drag', () => {
     }
 
     test('the browser provider gives vertical motion to native scrolling', async ({page, neuralLink}) => {
-        const {app, helixId}             = await bootHelix(page, neuralLink),
+        const {app, appWorker, helixId}  = await bootHelix(page, neuralLink),
               [{properties: {windowId}}] = await app.queryComponent({id: helixId}, ['windowId']),
               target                     = 'helix-native-gesture-scroll',
               scrollHost                 = page.locator(`#${target}`),
@@ -232,29 +232,33 @@ test.describe('Helix multi-touch partial lift and single-finger drag', () => {
                   contactFrame(240, 'up', point(100))
               ];
 
-        await page.evaluate(id => {
-            const host    = document.createElement('div'),
-                  content = document.createElement('div');
+        await appWorker.evaluate(async id => {
+            const {default: Component} = await import('../component/Base.mjs'),
+                  {mainView}           = Object.values(Neo.apps).find(app => app.name === 'Neo.examples.component.helix');
 
-            host.id = id;
-            Object.assign(host.style, {
-                background : 'white',
-                height     : '320px',
-                overflowY  : 'auto',
-                position   : 'fixed',
-                right      : '32px',
-                top        : '80px',
-                touchAction: 'pan-y',
-                width      : '220px',
-                zIndex     : '10000'
-            });
-            content.style.height = '1100px';
-            host.append(content);
-            document.body.append(host);
-            host.addEventListener('pointercancel', event => {host.dataset.trustedCancel = String(event.isTrusted)}, {once: true})
+            mainView.add({
+                id,
+                module: Component,
+                style : {
+                    background : 'white',
+                    height     : '320px',
+                    overflowY  : 'auto',
+                    position   : 'fixed',
+                    right      : '32px',
+                    top        : '80px',
+                    touchAction: 'pan-y',
+                    width      : '220px',
+                    zIndex     : '10000'
+                },
+                vdom: {cn: [{style: {height: '1100px'}}]}
+            })
         }, target);
 
         await expect(scrollHost).toBeVisible();
+        await scrollHost.evaluate(host => {
+            host.addEventListener('pointercancel', event => {host.dataset.trustedCancel = String(event.isTrusted)}, {once: true})
+        });
+
         expect(await scrollHost.evaluate(node => node.scrollHeight - node.clientHeight)).toBeGreaterThan(200);
 
         const read   = () => scrollHost.evaluate(node => ({scrollTop: node.scrollTop, trustedCancel: node.dataset.trustedCancel || null})),
