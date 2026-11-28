@@ -48,15 +48,14 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
                   groundToken: 'rgba(250, 250, 250, 0.94)',
                   acceptPaint: 'rgb(28, 96, 160)'
               },
+              // theme Neo declares the dock once in theme-base, bound to roles: each token reads its role
               'neo-theme-neo-dark': {
-                  acceptToken: '#5eead4',
-                  groundToken: 'rgba(26, 33, 44, 0.92)',
-                  acceptPaint: 'rgb(94, 234, 212)'
+                  acceptRole: '--neo-color-border-accent',
+                  groundRole: '--neo-color-background-surface-raised'
               },
               'neo-theme-neo-light': {
-                  acceptToken: '#0d9488',
-                  groundToken: 'rgba(247, 249, 252, 0.94)',
-                  acceptPaint: 'rgb(13, 148, 136)'
+                  acceptRole: '--neo-color-border-accent',
+                  groundRole: '--neo-color-background-surface-raised'
               }
           },
 
@@ -168,16 +167,26 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
             expect(await page.evaluate(t => document.body.classList.contains(t), theme)).toBe(true);
 
             // TOKEN level: the values layer drives the theme host.
-            const tokens = await page.evaluate(() => {
+            const tokens = await page.evaluate(({acceptRole, groundRole}) => {
                 const style = getComputedStyle(document.body);
 
                 return {
-                    accept: style.getPropertyValue('--neo-dock-preview-accept-color').trim(),
-                    ground: style.getPropertyValue('--neo-dock-preview-background').trim()
+                    accept    : style.getPropertyValue('--neo-dock-preview-accept-color').trim(),
+                    ground    : style.getPropertyValue('--neo-dock-preview-background').trim(),
+                    acceptRole: acceptRole && style.getPropertyValue(acceptRole).trim(),
+                    groundRole: groundRole && style.getPropertyValue(groundRole).trim()
                 };
-            });
-            expect(tokens.accept, `--neo-dock-preview-accept-color under ${theme}`).toBe(expected.acceptToken);
-            expect(tokens.ground, `--neo-dock-preview-background under ${theme}`).toBe(expected.groundToken);
+            }, expected);
+            const acceptToken = expected.acceptToken ?? tokens.acceptRole;
+            expect(acceptToken, `an accept value under ${theme}`).toBeTruthy();
+            expect(tokens.accept, `--neo-dock-preview-accept-color under ${theme}`).toBe(acceptToken);
+
+            if (expected.groundRole) {
+                expect(tokens.groundRole, `${expected.groundRole} under ${theme}`).toBeTruthy();
+                expect(tokens.ground, `--neo-dock-preview-background under ${theme} mixes its role`).toContain(tokens.groundRole)
+            } else {
+                expect(tokens.ground, `--neo-dock-preview-background under ${theme}`).toBe(expected.groundToken)
+            }
 
             // PAINT level: the structure layer's var() chain resolves the token into real paint.
             await mountSpecimen(page);
@@ -185,7 +194,14 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
                 const el = document.getElementById('standalone-specimen');
                 return getComputedStyle(el, '::before').borderColor;
             });
-            expect(chevronColor, `indicator chevron resolves the themed accept accent under ${theme}`).toBe(expected.acceptPaint);
+            const acceptPaint = expected.acceptPaint ?? await page.evaluate(role => {
+                const probe = document.body.appendChild(Object.assign(document.createElement('div'), {style: `border:2px solid var(${role})`})),
+                      color = getComputedStyle(probe).borderTopColor;
+
+                probe.remove();
+                return color
+            }, expected.acceptRole);
+            expect(chevronColor, `indicator chevron resolves the themed accept accent under ${theme}`).toBe(acceptPaint);
         });
     }
 
