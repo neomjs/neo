@@ -1,0 +1,8 @@
+.neo-list.neo-list-pull-to-refresh {
+    overscroll-behavior-y: contain;
+    touch-action         : pan-x pan-y pinch-zoom;
+
+    &[data-neo-pan-at-scroll-start] {
+        touch-action: pan-x pan-down pinch-zoom;
+    }
+}

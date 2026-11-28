@@ -1,0 +1,15 @@
+[class*="neo-theme-"] {
+    --neo-pull-refresh-example-count-color                : var(--neo-color-text-muted);
+    --neo-pull-refresh-example-count-padding              : var(--neo-space-4);
+    --neo-pull-refresh-example-indicator-background-color : var(--neo-color-background-surface-raised);
+    --neo-pull-refresh-example-indicator-border-radius    : var(--neo-radius-full);
+    --neo-pull-refresh-example-indicator-box-shadow       : var(--neo-elevation-2);
+    --neo-pull-refresh-example-indicator-color            : var(--neo-color-text-default);
+    --neo-pull-refresh-example-indicator-padding          : var(--neo-space-2) var(--neo-space-4);
+    --neo-pull-refresh-example-row-border                 : var(--neo-border-width-thin) solid var(--neo-color-border-default);
+    --neo-pull-refresh-example-surface-background-color   : var(--neo-color-background-surface);
+    --neo-pull-refresh-example-title-font-size            : var(--neo-font-size-heading-3);
+    --neo-pull-refresh-example-title-font-weight          : var(--neo-font-weight-semibold);
+    --neo-pull-refresh-example-toolbar-gap               : var(--neo-space-1);
+    --neo-pull-refresh-example-toolbar-height            : var(--neo-control-height-large);
+}

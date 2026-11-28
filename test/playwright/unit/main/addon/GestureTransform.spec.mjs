@@ -31,6 +31,7 @@ Neo.worker.Manager.on ??= () => {};
 delete Neo.main.DomAccess;
 
 const {default: Gesture}   = await import('../../../../../src/main/addon/Gesture.mjs'),
+      {default: DomAccess} = await import('../../../../../src/main/DomAccess.mjs'),
       {default: DomEvents} = await import('../../../../../src/main/DomEvents.mjs'),
       originalSend         = DomEvents.sendMessageToApp;
 
@@ -82,30 +83,55 @@ function createClaim(family) {
     }
 }
 
-test('an opted-in touch pan reads the scroll offset only at first contact', () => {
-    const id    = 'boundary-pan',
-          node  = {id, dataset: {neoId: id}, scrollTop: 80},
-          event = {composedPath: () => [node], isTrusted: true, timeStamp: 0},
-          read  = DomEvents.getEventData;
+test('an opted-in touch pan admits the initial marked boundary and clears the marker when released', () => {
+    const id     = 'boundary-pan',
+          marker = 'data-neo-pan-at-scroll-start',
+          attrs  = new Set(),
+          node   = {
+              id, dataset: {neoId: id}, scrollTop: 80,
+              hasAttribute   : name => attrs.has(name),
+              removeAttribute: name => attrs.delete(name),
+              toggleAttribute: (name, value) => value ? attrs.add(name) : attrs.delete(name)
+          },
+          event  = {composedPath: () => [node], isTrusted: true, timeStamp: 0},
+          native = new Event('scroll'),
+          read   = DomEvents.getEventData,
+          lookup = DomAccess.getElement;
 
+    Object.defineProperty(native, 'target', {value: node});
+    windowRef.CSS = {supports: () => true};
+    DomAccess.getElement = key => key === id ? node : null;
     DomEvents.getEventData = () => ({path: []});
 
     try {
         addon.register({componentId: id, id, registrationId: 1, events: ['pan:start'], gestureOptions: {pan: {atScrollStart: true}}});
+        expect(node.hasAttribute(marker)).toBe(false);
 
         const midList = addon.createSequence(event, 'touch');
         expect(midList.claims.has('pan')).toBe(false);
 
         node.scrollTop = 0;
+        documentRef.dispatchEvent(native);
+        expect(node.hasAttribute(marker)).toBe(true);
         expect(midList.claims.has('pan')).toBe(false);
         expect(addon.createSequence(event, 'touch').claims.has('pan')).toBe(true);
         expect(addon.createSequence(event, 'mouse').claims.has('pan')).toBe(false);
 
+        node.scrollTop = 80;
+        expect(addon.createSequence(event, 'touch').claims.has('pan')).toBe(false);
+        windowRef.dispatchEvent(new Event('pageshow'));
+        expect(node.hasAttribute(marker)).toBe(false);
+        node.scrollTop = 0;
+        documentRef.dispatchEvent(native);
+
         addon.register({componentId: id, id, registrationId: 2, events: ['pan:start']});
+        expect(node.hasAttribute(marker)).toBe(false);
         node.scrollTop = 80;
         expect(addon.createSequence(event, 'touch').claims.has('pan')).toBe(true)
     } finally {
-        DomEvents.getEventData = read
+        DomAccess.getElement = lookup;
+        DomEvents.getEventData = read;
+        delete windowRef.CSS
     }
 });
 

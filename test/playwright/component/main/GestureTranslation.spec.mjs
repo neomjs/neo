@@ -6,13 +6,15 @@ test.use({hasTouch: true});
  * @summary Mounts real pan and swipe subscribers and a scrollable host in the running Engine.
  * @param {import('@playwright/test').Page} page
  * @param {String} policy
+ * @param {Boolean} [atScrollStart=false]
  * @returns {Promise<Object>}
  */
-async function bootMotion(page, policy) {
+async function bootMotion(page, policy, atScrollStart=false) {
     await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
     await page.waitForSelector('#component-test-viewport', {state: 'attached'});
 
-    const worker = page.workers().find(item => item.url().includes('/worker/App'));
+    const worker  = page.workers().find(item => item.url().includes('/worker/App')),
+          ownerId = atScrollStart ? 'translation-host' : 'translation-target';
 
     await worker.evaluate(async () => {
         const viewport = Neo.getComponent('component-test-viewport');
@@ -25,48 +27,52 @@ async function bootMotion(page, policy) {
         return Boolean(registered && Object.getPrototypeOf(registered.prototype) === Neo.core.Base.prototype)
     })).toBe(true);
 
-    await page.evaluate(() => {
+    await page.evaluate(({atScrollStart, ownerId}) => {
         const addon = Neo.main.addon.Gesture, register = addon.register.bind(addon);
 
         window.translationRegistered = false;
         addon.register = data => {
             const result = register(data);
 
-            if (result && data.id === 'translation-target' && data.events.includes('pan:move') && data.events.includes('swipe')) {
+            if (result && data.id === ownerId && data.events.includes('pan:move') && data.events.includes('swipe') &&
+                (!atScrollStart || data.gestureOptions?.pan?.atScrollStart)) {
                 window.translationRegistered = true
             }
 
             return result
         }
-    });
+    }, {atScrollStart, ownerId});
 
-    await worker.evaluate(async () => {
+    await worker.evaluate(async atScrollStart => {
         const [{default: Component}, {default: Container}] = await Promise.all([
                   import('../component/Base.mjs'), import('../container/Base.mjs')
               ]),
               target   = Neo.create(Component, {id: 'translation-target', text: 'Translation target'}),
-              host     = Neo.create(Container, {id: 'translation-host', items: [target]});
+              host     = Neo.create(Container, {id: 'translation-host', items: [target]}),
+              owner    = atScrollStart ? host : target;
 
         Neo.getComponent('component-test-viewport').add(host);
-        target.motion = {pan: [], swipes: []};
+        owner.motion = {pan: [], swipes: []};
 
-        target.domListeners = [
-            ...['start', 'move', 'end', 'cancel'].map(phase => ({
-                [`pan:${phase}`]: data => {
+        owner.domListeners = [
+            ...['start', 'move', 'end', 'cancel'].map(phase => {
+                const record = data => {
                     const {deltaX, deltaY, elapsed, stepX, stepY, trusted, velocityX, velocityY} = data;
 
-                    target.motion.pan.push({deltaX, deltaY, elapsed, lifted: Object.hasOwn(data, 'lifted'), phase,
+                    owner.motion.pan.push({deltaX, deltaY, elapsed, lifted: Object.hasOwn(data, 'lifted'), phase,
                         stepX, stepY, trusted, velocityX, velocityY})
-                }
-            })),
+                };
+
+                return {[`pan:${phase}`]: phase === 'start' && atScrollStart ? {fn: record, atScrollStart: true} : record}
+            }),
             {swipe: data => {
                 const {contacts, direction, phase, trusted, velocityX, x, y} = data;
 
-                target.motion.swipes.push({contacts, direction, lifted: Object.hasOwn(data, 'lifted'), phase,
+                owner.motion.swipes.push({contacts, direction, lifted: Object.hasOwn(data, 'lifted'), phase,
                     trusted, velocityX, x, y})
             }}
         ]
-    });
+    }, atScrollStart);
 
     const target = page.locator('#translation-target'),
           host   = page.locator('#translation-host');
@@ -75,18 +81,19 @@ async function bootMotion(page, policy) {
     await expect.poll(() => page.evaluate(() => window.translationRegistered)).toBe(true);
     await page.addStyleTag({content: `
         #translation-host {display: block; flex: none; width: 480px; max-height: 460px; overflow-y: auto}
-        #translation-target {display: block; flex: none; min-height: 900px; touch-action: ${policy}}
+        #translation-target {display: block; flex: none; min-height: 900px}
+        #${ownerId} {touch-action: ${policy}}
     `});
     await expect.poll(() => host.evaluate(node => node.scrollHeight - node.clientHeight)).toBeGreaterThan(200);
 
-    await page.evaluate(() => {
+    await page.evaluate(ownerId => {
         const addon = Neo.main.addon.Gesture;
 
         window.translationNative = {cancels: 0, frames: [], releases: []};
         addon.on('contact', frame => {
             const {claim, kind, lifted} = frame;
 
-            if (claim.node.id === 'translation-target') {
+            if (claim.node.id === ownerId) {
                 window.translationNative.frames.push({
                     family: claim.family, kind, lifted, hasLifted: Object.hasOwn(frame, 'lifted')
                 })
@@ -99,19 +106,20 @@ async function bootMotion(page, policy) {
 
         document.addEventListener('touchend', event => {
             const point = event.changedTouches[0],
-                  rect  = document.getElementById('translation-target').getBoundingClientRect();
+                  rect  = document.getElementById(ownerId).getBoundingClientRect();
 
             if (event.isTrusted) window.translationNative.releases.push({x: point.clientX - rect.left, y: point.clientY - rect.top})
         }, {capture: true, passive: true})
-    });
+    }, ownerId);
 
     const cdp  = await page.context().newCDPSession(page),
-          rect = await target.boundingBox();
+          rect = await page.locator('#' + ownerId).boundingBox();
 
     return {
         cdp, host,
-        motion: () => worker.evaluate(() => Neo.getComponent('translation-target').motion),
+        motion: () => worker.evaluate(id => Neo.getComponent(id).motion, ownerId),
         native: () => page.evaluate(() => window.translationNative),
+        clear : () => worker.evaluate(id => {Neo.getComponent(id).domListeners = []}, ownerId),
         send  : (type, dx, dy) => cdp.send('Input.dispatchTouchEvent', {
             type,
             touchPoints: dx === undefined ? [] : [{id: 17, x: Math.round(rect.x + dx), y: Math.round(rect.y + dy)}]
@@ -287,6 +295,60 @@ test('native vertical scroll never commits a swipe', async ({page}) => {
         expect(frames.filter(frame => frame.kind === 'cancel').every(frame => !frame.hasLifted)).toBe(true);
         expect(result.pan.filter(event => event.phase === 'end')).toEqual([]);
         if (result.pan.length) expect(result.pan.at(-1).phase).toBe('cancel')
+    } finally {
+        await cdp.detach()
+    }
+});
+
+test('scroll-start admission follows the native host and stays fixed for one touch', async ({page}) => {
+    const {cdp, clear, host, motion, native, send} = await bootMotion(page, 'none', true),
+          marker                                   = 'data-neo-pan-at-scroll-start',
+          move                                     = async () => {
+              for (const y of [167, 207, 255]) {
+                  await send('touchMove', 120, y)
+              }
+          };
+
+    try {
+        await expect(host).toHaveAttribute(marker, '');
+        await host.evaluate(node => {node.scrollTop = 180});
+        await expect(host).not.toHaveAttribute(marker, '');
+
+        // Isolate contact admission from the browser's own cancellation of a native scroll.
+        await send('touchStart', 120, 135);
+        await host.evaluate(node => {node.scrollTop = 0});
+        await expect(host).toHaveAttribute(marker, '');
+        await move();
+        await send('touchEnd');
+        await expect.poll(async () => (await native()).releases.length).toBe(1);
+        expect((await native()).frames.filter(({family}) => family === 'pan')).toEqual([]);
+        expect((await motion()).pan).toEqual([]);
+
+        await send('touchStart', 120, 135);
+        await move();
+        await send('touchEnd');
+        await expect.poll(async () => (await motion()).pan.at(-1)).toMatchObject({phase: 'end', deltaY: 120, trusted: true});
+        const phases = (await motion()).pan;
+        expect(phases.filter(({phase}) => phase === 'start')).toHaveLength(1);
+        expect(phases.filter(({phase}) => phase === 'end')).toHaveLength(1);
+
+        await page.addStyleTag({content: `
+            #translation-host {touch-action: pan-x pan-y pinch-zoom}
+            #translation-host[${marker}] {touch-action: pan-x pan-down pinch-zoom}
+        `});
+        await host.evaluate(node => {node.scrollTop = 180});
+        await expect(host).not.toHaveAttribute(marker, '');
+        await send('touchStart', 120, 135);
+        await move();
+        await expect.poll(() => host.evaluate(node => node.scrollTop)).toBeLessThan(180);
+        await expect.poll(async () => (await native()).cancels).toBeGreaterThan(0);
+        await send('touchEnd');
+        expect((await motion()).pan).toEqual(phases);
+
+        await host.evaluate(node => {node.scrollTop = 0});
+        await expect(host).toHaveAttribute(marker, '');
+        await clear();
+        await expect(host).not.toHaveAttribute(marker, '')
     } finally {
         await cdp.detach()
     }
