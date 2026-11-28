@@ -1,0 +1,6 @@
+[class*="neo-theme-"] {
+    --neo-hljs-line-numbers-background-color: var(--neo-color-background-surface);
+    --neo-hljs-line-numbers-border-right    : var(--neo-border-width-thin) solid var(--neo-color-border-subtle);
+    --neo-hljs-line-numbers-color           : var(--neo-color-text-muted);
+    --neo-hljs-line-numbers-highlighted-line: var(--neo-color-background-accent-subtle);
+}

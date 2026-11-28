@@ -1,6 +1,0 @@
-:where(.neo-theme-neo-light) {
-    --neo-hljs-line-numbers-background-color: #fff;
-    --neo-hljs-line-numbers-border-right    : inherit;
-    --neo-hljs-line-numbers-color           : #6a737d;
-    --neo-hljs-line-numbers-highlighted-line: #cee8fc !important;
-}

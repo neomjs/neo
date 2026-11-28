@@ -2,36 +2,67 @@ import {expect, test} from '@playwright/test';
 
 const source = '#!/usr/bin/env node\n/**\n * A multiline comment.\n * @returns {Promise<Boolean>}\n */\n' +
     'const value = `<div class="probe">&amp;</div>\n${true ?\n"yes" : "no"}\nend`;\n\n';
+const cssRoot = '/dist/development/css';
 
 for (const theme of ['light', 'neo-light', 'dark', 'neo-dark', 'standalone-light', 'standalone-dark']) {
     test(`${theme}: rendered tokens, multiline spans and gutter meet AA`, async ({page}, info) => {
+        const neo = theme.startsWith('neo-'), standalone = theme.startsWith('standalone');
+
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
         await expect(page.locator('#component-test-viewport')).toBeVisible();
 
+        if (neo) {
+            await page.addStyleTag({url: `${cssRoot}/theme-neo/Global.css`})
+        }
+
         for (const name of ['HighlightJs', 'HighlightJsLineNumbers']) {
-            await page.addStyleTag({url: `/dist/development/css/src/util/${name}.css`});
-            if (!theme.startsWith('standalone')) {
-                await page.addStyleTag({url: `/dist/development/css/theme-${theme}/util/${name}.css`})
+            await page.addStyleTag({url: `${cssRoot}/src/util/${name}.css`});
+
+            if (!standalone) {
+                await page.addStyleTag({url: `${cssRoot}/theme-base/util/${name}.css`});
+
+                if (!neo) {
+                    await page.addStyleTag({url: `${cssRoot}/theme-${theme}/util/${name}.css`})
+                }
             }
         }
-        if (theme.startsWith('standalone')) {
+
+        if (standalone) {
             await page.addStyleTag({url: `/resources/lib/highlightjs-custom-${theme.endsWith('light') ? 'github' : 'dark'}-theme.css`})
         }
 
-        await page.evaluate(async ({source, theme}) => {
+        await page.evaluate(async ({neo, source, theme}) => {
             const {default: HighlightJs} = await import('/src/util/HighlightJs.mjs');
             const node                   = document.createElement('pre');
             node.id = 'highlight-contrast';
             node.className = `hljs neo-theme-${theme.replace('standalone-', '')}`;
             node.style.cssText = 'position:fixed;inset:20px;z-index:1000;padding:20px';
             node.innerHTML = await HighlightJs.highlightLine(source, 'javascript');
+
+            if (neo) {
+                for (const marker of node.querySelectorAll('.hljs-ln td[data-line-number="6"]')) {
+                    marker.classList.add('neo-highlighted-line')
+                }
+            }
+
             document.body.append(node)
-        }, {source, theme});
+        }, {neo, source, theme});
 
         const code = page.locator('#highlight-contrast');
         expect(await code.textContent()).toBe(source);
         const measurements = await code.evaluate(root => {
-            const rgba  = color => color.match(/[\d.]+/g).map(Number);
+            // CSSOM can return a role colour in OKLCH. Let the browser resolve it into the sRGB space used here.
+            const canvas = document.createElement('canvas'),
+                  ctx    = canvas.getContext('2d', {willReadFrequently: true}),
+                  rgba   = color => {
+                      ctx.clearRect(0, 0, 1, 1);
+                      ctx.fillStyle = color;
+                      ctx.fillRect(0, 0, 1, 1);
+
+                      const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+
+                      return [r, g, b, a / 255]
+                  };
             const blend = (foreground, background) => foreground.slice(0, 3).map((value, i) =>
                 value * (foreground[3] ?? 1) + background[i] * (1 - (foreground[3] ?? 1)));
             const luminance = rgb => rgb.map(value => {
@@ -54,6 +85,16 @@ for (const theme of ['light', 'neo-light', 'dark', 'neo-dark', 'standalone-light
         });
         await info.attach('computed-contrast', {body: JSON.stringify(measurements, null, 2), contentType: 'application/json'});
         await code.screenshot({path: info.outputPath(`${theme}.png`)});
+
+        if (neo) {
+            const line = code.locator('.hljs-ln-numbers[data-line-number="6"]'),
+                  fill = await line.evaluate(element => getComputedStyle(element).backgroundColor);
+
+            await expect(code.locator('.hljs-ln-code[data-line-number="6"]')).toHaveCSS('background-color', fill);
+            expect(fill).not.toBe(await code.locator('.hljs-ln-numbers[data-line-number="1"]')
+                .evaluate(element => getComputedStyle(element).backgroundColor))
+        }
+
         for (const {token, samples} of measurements) {
             expect(samples.length, `${theme} renders ${token}`).toBeGreaterThan(0);
             for (const sample of samples) expect(sample.ratio, `${theme} ${token} ${JSON.stringify(sample)}`).toBeGreaterThanOrEqual(4.5)
