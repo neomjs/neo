@@ -16,6 +16,14 @@ const lockWheel    = Symbol.for('lockWheel'); // we can not use itemsMounted, si
  * @mixes Neo.mixin.StoreLoading
  */
 class Helix extends Component {
+    /** @member {Object|null} #gestureFrame The outstanding frame request in the owning window. */
+    #gestureFrame = null
+    /** @member {Object} #gestureMotion Pending and ended motion before the next frame. */
+    #gestureMotion = {
+        rotation: {active: null, ended: 0},
+        depth   : {active: null, ended: 0}
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.component.Helix'
@@ -95,6 +103,11 @@ class Helix extends Component {
          * @reactive
          */
         followSelection_: false,
+        /**
+         * Optional inclusive ranges for semantic gesture input, using `[min, max]` per axis.
+         * @member {Object|null} gestureBounds=null
+         */
+        gestureBounds: null,
         /**
          * The record field containing the image data.
          * Nested fields are supported (e.g. author.image)
@@ -288,17 +301,26 @@ class Helix extends Component {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        const me    = this,
+              pan   = {bubble: false, fn: me.onGesturePan, local: true},
+              pinch = {bubble: false, fn: me.onGesturePinch, local: true};
 
         me[itemsMounted] = false;
         me[lockWheel]    = true;
 
         me.addDomListeners({
-            click    : me.onClick,
-            resize   : me.onResize,
-            scope    : me,
-            touchmove: me.onTouchMove,
-            wheel    : {
+            click         : me.onClick,
+            'pan:start'   : {...pan},
+            'pan:move'    : {...pan},
+            'pan:end'     : {...pan},
+            'pan:cancel'  : {...pan},
+            'pinch:start' : {...pinch},
+            'pinch:move'  : {...pinch},
+            'pinch:end'   : {...pinch},
+            'pinch:cancel': {...pinch},
+            resize        : me.onResize,
+            scope         : me,
+            wheel         : {
                 bubble : false,
                 fn     : me.onMouseWheel,
                 local  : true,
@@ -385,6 +407,8 @@ class Helix extends Component {
 
         let me = this;
 
+        if (!value) me.resetGestureMotion();
+
         if (oldValue !== undefined) {
             me.addResizeObserver(value)
         }
@@ -454,6 +478,7 @@ class Helix extends Component {
      */
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
+        this.resetGestureMotion();
 
         if (value) {
             let appConfig = Neo.windowConfigs?.[value] || Neo.config;
@@ -1002,18 +1027,152 @@ class Helix extends Component {
     }
 
     /**
-     * @summary Scales finite touch-move deltas into wheel rotation/zoom updates and ignores events lacking finite deltas.
-     * @param {Object} data
+     * @summary Converts accepted horizontal travel into rotation at Helix's existing touch gain.
+     * @param {Object} data A pan phase.
+     * @protected
      */
-    onTouchMove(data) {
-        if (!Number.isFinite(data?.deltaX) || !Number.isFinite(data?.deltaY)) {
+    onGesturePan(data) {
+        this.recordGestureMotion(this.#gestureMotion.rotation, data, () => data.stepX * 1.5 * this.mouseWheelDeltaX)
+    }
+
+    /**
+     * @summary Converts the change in cumulative pinch scale into a depth step.
+     * @param {Object} data A pinch phase.
+     * @protected
+     */
+    onGesturePinch(data) {
+        this.recordGestureMotion(this.#gestureMotion.depth, data, gesture => {
+            const {scale} = data;
+
+            if (!Number.isFinite(scale) || scale <= 0) return 0;
+
+            const delta = (Math.log(scale) - Math.log(gesture.scale)) * this.perspective;
+            gesture.scale = scale;
+            return delta
+        })
+    }
+
+    /**
+     * @summary Tracks the accepted motion of one recognizer and retains pending motion on a normal release.
+     * Cancel drops the current gesture's unpainted motion. Completed gestures keep their pending final steps.
+     * @param {Object} motion The axis being updated.
+     * @param {Object} data A semantic gesture phase.
+     * @param {Function} getStep Reads the step for the active gesture.
+     * @protected
+     */
+    recordGestureMotion(motion, {gestureId, phase}, getStep) {
+        if (phase === 'start' && gestureId != null && this.mouseWheelEnabled && !this[lockWheel]) {
+            motion.active = {id: gestureId, pending: 0, scale: 1}
+        }
+
+        const {active} = motion;
+        if (!active || active.id !== gestureId) return;
+
+        if (phase === 'cancel' || !this.mouseWheelEnabled || this[lockWheel]) {
+            motion.active = null;
             return
         }
 
-        data.deltaX *= 1.5;
-        data.deltaY *= 3;
+        const delta = getStep(active);
+        if (delta && Number.isFinite(delta)) {
+            active.pending += delta;
+            this.scheduleGestureFrame()
+        }
 
-        this.onMouseWheel(data)
+        if (phase === 'end') {
+            motion.ended += active.pending;
+            motion.active = null
+        }
+    }
+
+    /**
+     * @summary Coalesces pan and pinch into one App-side update on an actual owning-window animation frame.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async scheduleGestureFrame() {
+        if (!this.mounted || this.#gestureFrame) return;
+
+        const {windowId} = this,
+              frame      = this.#gestureFrame = {windowId};
+
+        try {
+            await Neo.Main.nextAnimationFrame({windowId});
+
+            if (this.#gestureFrame !== frame || !this.mounted || this.isDestroying || this.isDestroyed) return;
+            this.#gestureFrame = null;
+
+            const takeDelta = motion => {
+                const {active, ended} = motion,
+                      delta           = ended + (active?.pending ?? 0);
+
+                if (active) active.pending = 0;
+                motion.ended = 0;
+                return delta
+            };
+
+            const {depth, rotation} = this.#gestureMotion,
+                  rotationDelta     = takeDelta(rotation),
+                  depthDelta        = takeDelta(depth);
+
+            if (this.mouseWheelEnabled && !this[lockWheel]) {
+                await this.applyGestureMotion(rotationDelta, depthDelta)
+            }
+        } catch (error) {
+            if (this.#gestureFrame === frame) this.resetGestureMotion();
+
+            if (!this.isDestroyed && error !== Neo.isDestroyed && !Neo.currentWorker.isDeparture(error, windowId)) {
+                console.error('Unable to apply Helix gesture motion', error)
+            }
+        }
+    }
+
+    /**
+     * @summary Applies both axes in one refresh and reflects the resulting values to the controls.
+     * @param {Number} rotationDelta
+     * @param {Number} depthDelta
+     * @returns {Promise<*>|undefined}
+     * @protected
+     */
+    applyGestureMotion(rotationDelta, depthDelta) {
+        const next = (key, delta) => {
+                  const value = this[key] + delta;
+
+                  if (!delta || !Number.isFinite(value)) return this[key];
+
+                  const [min, max] = this.gestureBounds?.[key] ?? [];
+                  return Number.isFinite(min) && Number.isFinite(max) && min <= max
+                      ? Math.max(min, Math.min(max, value))
+                      : value
+              },
+              rotation        = next('rotationAngle', rotationDelta),
+              depth           = next('translateZ', depthDelta),
+              rotationChanged = rotation !== this.rotationAngle,
+              depthChanged    = depth !== this.translateZ;
+
+        if (rotationChanged || depthChanged) {
+            this._rotationAngle = rotation;
+            this._translateZ    = depth;
+
+            const rendered = this.refresh();
+
+            if (rotationChanged) this.fire('changeRotation', rotation);
+            if (depthChanged) this.fire('changeTranslateZ', depth);
+            return rendered
+        }
+    }
+
+    /**
+     * @summary Discards motion and any outstanding frame from a retired render mounting.
+     * @protected
+     */
+    resetGestureMotion() {
+        this.#gestureFrame = null;
+
+        for (const motion of Object.values(this.#gestureMotion)) {
+            motion.active = null;
+            motion.ended  = 0
+        }
     }
 
     /**

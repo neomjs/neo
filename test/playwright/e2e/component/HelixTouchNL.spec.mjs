@@ -3,8 +3,7 @@ import {expect, test} from '../../fixtures.mjs';
 test.use({hasTouch: true, viewport: {width: 1280, height: 800}});
 
 /**
- * @summary Verifies partial-lift multi-touch contact tracking and single-finger drag geometry on the live Helix
- * example via trusted CDP multi-touch input (`Input.dispatchTouchEvent`) paired with Neural Link and App Worker checks.
+ * @summary Opens the stock Helix and waits for its demand-loaded gesture receiver and first geometry.
  */
 async function bootHelix(page, neuralLink) {
     await neuralLink.routeConfig(page.context(), config => ({...config, useAiClient: true}));
@@ -12,24 +11,34 @@ async function bootHelix(page, neuralLink) {
     await expect(page.locator('.neo-helix-item').first()).toBeVisible();
 
     const app       = await neuralLink.connectToApp('Neo.examples.component.helix'),
-          [initial] = await app.queryComponent({ntype: 'helix'}, ['mouseWheelDeltaX', 'mouseWheelDeltaY', 'rotationAngle', 'translateZ']),
+          [initial] = await app.queryComponent({ntype: 'helix'}, ['windowId']),
           appWorker = page.workers().find(worker => worker.url().includes('App.mjs'));
 
     await expect.poll(() => appWorker.evaluate(id => {
         const helix = Neo.get(id);
         return Boolean(helix && helix[Symbol.for('lockWheel')] === false)
     }, initial.id)).toBe(true);
+    await expect.poll(() => page.evaluate(() => Boolean(Neo.main?.addon?.Gesture))).toBe(true);
 
     // Align Helix with the Controls panel RangeField center (`rotationAngle: 0`, `translateZ: -1500`)
     // so ViewportController's slider sync (`[-720, 720]` and `[-4500, 4500]`) never clamps single-step deltas.
-    await appWorker.evaluate(id => {
-        Neo.get(id).set({rotationAngle: 0, translateZ: -1500})
+    await appWorker.evaluate(async id => {
+        const helix = Neo.getComponent(id);
+
+        helix.set({rotationAngle: 0, translateZ: -1500});
+        await helix.refresh()
     }, initial.id);
 
-    const [ready] = await app.queryComponent({id: initial.id}, ['mouseWheelDeltaX', 'mouseWheelDeltaY', 'rotationAngle', 'translateZ']),
-          box     = await page.locator('.neo-helix').boundingBox();
+    const [ready] = await app.queryComponent({id: initial.id}, ['mouseWheelDeltaX', 'mouseWheelDeltaY', 'perspective', 'rotationAngle', 'translateZ', 'windowId']),
+          helix   = page.locator('.neo-helix'),
+          box     = await helix.boundingBox(),
+          replay  = (provider, frames) => app.driveGesture({
+              frames, provider, target: initial.id, windowId: String(ready.properties.windowId)
+          });
 
-    return {app, appWorker, box, helixId: initial.id, initial: ready.properties}
+    expect(await helix.evaluate(node => Neo.main.DomAccess.getNodeId(node))).toBe(initial.id);
+
+    return {app, appWorker, box, helix, helixId: initial.id, initial: ready.properties, replay}
 }
 
 /**
@@ -75,76 +84,156 @@ async function observeTouchInput(page) {
 
 const contactFrame = (t, state, point) => ({t, contacts: [{...point, state}]});
 
-test.describe('Helix multi-touch partial lift and single-finger drag', () => {
-    test('lifting the tracked finger reanchors to the remaining contact', async ({page, neuralLink}) => {
-        const {app, appWorker, box, helixId, initial} = await bootHelix(page, neuralLink),
-              cdp                                     = await page.context().newCDPSession(page),
-              x13                                     = Math.round(box.x + box.width * 0.35),
-              y13                                     = Math.round(box.y + box.height * 0.5),
-              x27                                     = Math.round(box.x + box.width * 0.55),
-              y27                                     = Math.round(box.y + box.height * 0.55);
+const pairFrame = (t, state, points) => ({t, contacts: points.map(point => ({...point, state}))});
 
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchStart',
-            touchPoints: [{id: 13, x: x13, y: y13, radiusX: 5, radiusY: 5, force: 1}]
-        });
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchStart',
-            touchPoints: [
-                {id: 13, x: x13, y: y13, radiusX: 5, radiusY: 5, force: 1},
-                {id: 27, x: x27, y: y27, radiusX: 5, radiusY: 5, force: 1}
-            ]
-        });
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchEnd',
-            touchPoints: [{id: 13, x: x13, y: y13, radiusX: 5, radiusY: 5, force: 0}]
-        });
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchMove',
-            touchPoints: [{id: 27, x: x27 - 12, y: y27 + 6, radiusX: 5, radiusY: 5, force: 1}]
-        });
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchEnd',
-            touchPoints: [{id: 27, x: x27 - 12, y: y27 + 6, radiusX: 5, radiusY: 5, force: 0}]
+/**
+ * @summary Reads actual Main-to-App input sends and real App geometry refreshes without replacing the consumer.
+ * @param {import('@playwright/test').Page} page
+ * @param {import('@playwright/test').Worker} appWorker
+ * @param {String} helixId
+ */
+async function observeMotion(page, appWorker, helixId) {
+    await observeTouchInput(page);
+    await page.evaluate(id => {
+        const manager = Neo.worker.Manager,
+              send    = manager.sendMessage;
+
+        window.helixMotionWire = {rawMoves: 0, semantic: []};
+        manager.sendMessage   = function(destination, message, transfer) {
+            const result                    = send.call(this, destination, message, transfer),
+                  {action, data, eventName} = message;
+
+            if (result && destination === 'app' && action === 'domEvent') {
+                if (eventName === 'touchmove' && data.path?.some(node => node.id === id)) {
+                    window.helixMotionWire.rawMoves++
+                } else if (data.gestureOwner?.id === id && (eventName.startsWith('pan:') || eventName.startsWith('pinch:'))) {
+                    const {gestureId, phase, scale, stepX, trusted} = data;
+
+                    window.helixMotionWire.semantic.push({eventName, gestureId, phase, scale, stepX, trusted})
+                }
+            }
+
+            return result
+        }
+    }, helixId);
+    await appWorker.evaluate(id => {
+        const helix     = Neo.getComponent(id),
+              main      = Neo.Main,
+              nextFrame = main.nextAnimationFrame,
+              refresh   = helix.refresh;
+        let frame;
+
+        helix.touchRefreshes = [];
+        main.nextAnimationFrame = async function(data) {
+            const timestamp = await nextFrame.call(this, data);
+
+            if (data.windowId === helix.windowId) frame = timestamp;
+            return timestamp
+        };
+        helix.refresh = function(...args) {
+            helix.touchRefreshes.push({frame, rotationAngle: helix.rotationAngle, translateZ: helix.translateZ});
+            return refresh.apply(this, args)
+        }
+    }, helixId)
+}
+
+test.describe('Helix semantic pan and pinch', () => {
+    for (const firstLift of [0, 1]) {
+        test(`pinch depth rebases when contact ${firstLift + 1} lifts first, then starts a fresh gesture`, async ({page, neuralLink}) => {
+            const {app, appWorker, box, helixId, initial, replay} = await bootHelix(page, neuralLink),
+                  cx                                              = Math.round(box.width / 2),
+                  cy                                              = Math.round(box.height / 2),
+                  point                                           = (id, dx) => ({id, x: cx + dx, y: cy}),
+                  pair                                            = [point('A', -30), point('B', 30)],
+                  spread                                          = firstLift === 0 ? 60 : 15,
+                  moved                                           = [point('A', -spread), point('B', spread)],
+                  lift                                            = moved[firstLift],
+                  keep                                            = moved[1 - firstLift],
+                  shift                                           = {...keep, x: keep.x + 16},
+                  depth                                           = initial.translateZ + Math.log(spread / 30) * initial.perspective,
+                  angle                                           = initial.rotationAngle + 16 * 1.5 * initial.mouseWheelDeltaX;
+
+            await observeTouchInput(page);
+            const first = await replay('engine', [
+                pairFrame(0, 'down', pair),
+                pairFrame(20, 'move', moved),
+                contactFrame(20, 'up', lift),
+                contactFrame(60, 'move', shift),
+                contactFrame(60, 'up', shift)
+            ]);
+
+            expect(first).toMatchObject({provider: 'engine', terminal: 'end', success: true, trusted: false});
+            expect(first.observed.map(({active, changed}) => [active, changed])).toEqual([
+                [['A', 'B'], ['A', 'B']], [['A', 'B'], ['A', 'B']], [[keep.id], [lift.id]], [[keep.id], [keep.id]], [[], [keep.id]]
+            ]);
+            await expect.poll(async () => (await readHelixGeometry(app, appWorker, helixId)).worker).toMatchObject({
+                finite: true, rotationAngle: angle, translateZ: expect.closeTo(depth, 6)
+            });
+
+            const aborted   = [point('abort-A', -22), point('abort-B', 22)],
+                  discarded = [point('abort-A', -44), point('abort-B', 44)];
+            await expect(replay('engine', [
+                pairFrame(0, 'down', aborted), pairFrame(20, 'move', discarded), pairFrame(20, 'cancel', discarded)
+            ])).resolves.toMatchObject({provider: 'engine', terminal: 'cancel', success: true});
+
+            // An already queued frame may run after cancellation. It must not apply the canceled scale.
+            await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+            expect((await readHelixGeometry(app, appWorker, helixId)).worker).toMatchObject({
+                finite: true, rotationAngle: angle, translateZ: expect.closeTo(depth, 6)
+            });
+
+            const fresh = [point('fresh-A', -20), point('fresh-B', 20)],
+                  zoom  = [point('fresh-A', -30), point('fresh-B', 30)];
+
+            await expect(replay('engine', [
+                pairFrame(0, 'down', fresh), pairFrame(20, 'move', zoom), pairFrame(20, 'up', zoom)
+            ])).resolves.toMatchObject({provider: 'engine', terminal: 'end', success: true});
+            await expect.poll(async () => (await readHelixGeometry(app, appWorker, helixId)).worker).toMatchObject({
+                finite: true, rotationAngle: angle, translateZ: expect.closeTo(depth + Math.log(1.5) * initial.perspective, 6)
+            })
+        })
+    }
+
+    test('coalesces continuous pan to one actual rotation refresh per frame and carries the endpoint', async ({page, neuralLink}) => {
+        const {app, appWorker, box, helixId, initial, replay} = await bootHelix(page, neuralLink),
+              point                                           = dx => ({id: 'pan', x: Math.round(box.width * 0.35) + dx, y: Math.round(box.height * 0.5)}),
+              moves                                           = [[20, 10], [20, 14], [20, 18], [90, 22], [90, 26], [90, 30],
+                       [160, 34], [160, 38], [160, 42], [230, 46], [230, 50]],
+              frames = [contactFrame(0, 'down', point(0)), ...moves.map(([t, dx]) => contactFrame(t, 'move', point(dx))),
+                        contactFrame(230, 'up', point(50))],
+              expectedAngle = initial.rotationAngle + 50 * 1.5 * initial.mouseWheelDeltaX;
+
+        await observeMotion(page, appWorker, helixId);
+        await expect(replay('engine', frames)).resolves.toMatchObject({provider: 'engine', terminal: 'end', success: true});
+        await expect.poll(() => readHelixGeometry(app, appWorker, helixId)).toEqual({
+            worker: {finite: true, rotationAngle: expectedAngle, translateZ: initial.translateZ},
+            nl    : {rotationAngle: expectedAngle, translateZ: initial.translateZ}
         });
 
-        await expect.poll(async () => (await readHelixGeometry(app, appWorker, helixId)).worker.rotationAngle)
-            .toBe(initial.rotationAngle - 12 * 1.5 * initial.mouseWheelDeltaX);
+        const {rawMoves, semantic, contactMoves} = await page.evaluate(() => ({
+                  ...window.helixMotionWire,
+                  contactMoves: window.helixContacts.filter(event => event.type === 'touchmove').length
+              })),
+              refreshes = await appWorker.evaluate(id => Neo.getComponent(id).touchRefreshes, helixId),
+              pan       = semantic.filter(event => event.eventName.startsWith('pan:')),
+              panMoves  = pan.filter(event => event.phase === 'move');
 
-        const afterTrackedLift = await readHelixGeometry(app, appWorker, helixId);
-        expect(afterTrackedLift.worker.finite).toBe(true);
-        expect(afterTrackedLift.worker.translateZ).toBe(initial.translateZ + 6 * 3 * initial.mouseWheelDeltaY)
-    });
-
-    test('one-finger drag rotates and zooms the Helix as before', async ({page, neuralLink}) => {
-        const {app, appWorker, box, helixId, initial} = await bootHelix(page, neuralLink),
-              cdp                                     = await page.context().newCDPSession(page),
-              x0                                      = Math.round(box.x + box.width * 0.4),
-              y0                                      = Math.round(box.y + box.height * 0.5),
-              dx                                      = 20,
-              dy                                      = 12;
-
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchStart',
-            touchPoints: [{id: 1, x: x0, y: y0, radiusX: 5, radiusY: 5, force: 1}]
-        });
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchMove',
-            touchPoints: [{id: 1, x: x0 + dx, y: y0 + dy, radiusX: 5, radiusY: 5, force: 1}]
-        });
-        await cdp.send('Input.dispatchTouchEvent', {
-            type       : 'touchEnd',
-            touchPoints: [{id: 1, x: x0 + dx, y: y0 + dy, radiusX: 5, radiusY: 5, force: 0}]
-        });
-
-        await expect.poll(async () => (await readHelixGeometry(app, appWorker, helixId)).worker.rotationAngle)
-            .toBe(initial.rotationAngle + dx * 1.5 * initial.mouseWheelDeltaX);
-
-        const finalState = await readHelixGeometry(app, appWorker, helixId);
-
-        expect(finalState.worker.translateZ).toBe(initial.translateZ + dy * 3 * initial.mouseWheelDeltaY);
-        expect(finalState.nl.rotationAngle).toBe(finalState.worker.rotationAngle);
-        expect(finalState.nl.translateZ).toBe(finalState.worker.translateZ)
+        expect(contactMoves).toBe(moves.length);
+        expect(rawMoves).toBe(contactMoves);
+        expect(panMoves.length).toBeGreaterThan(0);
+        expect(panMoves.length).toBeLessThan(rawMoves);
+        expect(pan[0].phase).toBe('start');
+        expect(pan.at(-1).phase).toBe('end');
+        expect(pan.reduce((sum, event) => sum + event.stepX, 0)).toBe(50);
+        expect(refreshes.length).toBeGreaterThan(1);
+        expect(refreshes.length).toBeLessThanOrEqual(pan.length);
+        expect(refreshes.every(({frame, translateZ}) => Number.isFinite(frame) && translateZ === initial.translateZ)).toBe(true);
+        expect(new Set(refreshes.map(({frame}) => frame)).size).toBe(refreshes.length);
+        expect(refreshes.some(({rotationAngle}) => rotationAngle > initial.rotationAngle && rotationAngle < expectedAngle)).toBe(true);
+        expect(refreshes.at(-1).rotationAngle).toBe(expectedAngle);
+        test.info().annotations.push({type: 'Helix pan traffic', description: JSON.stringify({
+            contactMoves, rawMoves, semanticMoves: panMoves.length, refreshes: refreshes.length
+        })})
     });
 
     for (const provider of ['engine', 'browser']) {
@@ -157,8 +246,8 @@ test.describe('Helix multi-touch partial lift and single-finger drag', () => {
                   b                                       = contact('B', 0.55, 0.55),
                   c                                       = contact('C', 0.42, 0.53),
                   hold                                    = contact('hold', 0.48, 0.5),
-                  movedA                                  = move(a, 16, -10),
-                  movedC                                  = move(c, 28, 12),
+                  movedA                                  = move(a, 16, 0),
+                  movedC                                  = move(c, 28, 0),
                   holdDuration                            = 240,
                   frames                                  = [
                       contactFrame(0,   'down',   a),
@@ -204,72 +293,94 @@ test.describe('Helix multi-touch partial lift and single-finger drag', () => {
                 type, trusted, target: helixId, active: active.length, changed: changed.length
             })));
 
-            const expectedGeometry = {
-                rotationAngle: initial.rotationAngle + (16 + 28) * 1.5 * initial.mouseWheelDeltaX,
-                translateZ   : initial.translateZ + (-10 + 12) * 3 * initial.mouseWheelDeltaY
-            };
+            const gain       = 1.5 * initial.mouseWheelDeltaX,
+                  freshAngle = initial.rotationAngle + 28 * gain;
 
-            await expect.poll(() => readHelixGeometry(app, appWorker, helixId)).toEqual({
-                worker: {finite: true, ...expectedGeometry},
-                nl    : expectedGeometry
-            })
+            await expect.poll(async () => (await readHelixGeometry(app, appWorker, helixId)).worker.rotationAngle)
+                .toBeGreaterThanOrEqual(freshAngle);
+
+            const {worker, nl} = await readHelixGeometry(app, appWorker, helixId);
+
+            // The canceled stroke can have one already-painted rotation step. Its cancel never adds another.
+            expect([freshAngle, freshAngle + 16 * gain]).toContain(worker.rotationAngle);
+            expect(worker).toMatchObject({finite: true, translateZ: initial.translateZ});
+            expect(nl).toEqual({rotationAngle: worker.rotationAngle, translateZ: worker.translateZ})
         })
     }
 
-    test('the browser provider gives vertical motion to native scrolling', async ({page, neuralLink}) => {
-        const {app, appWorker, helixId}  = await bootHelix(page, neuralLink),
-              [{properties: {windowId}}] = await app.queryComponent({id: helixId}, ['windowId']),
-              target                     = 'helix-native-gesture-scroll',
-              scrollHost                 = page.locator(`#${target}`),
-              point                      = y => ({id: 'scroll', x: 80, y}),
-              frames                     = [
-                  contactFrame(0,   'down', point(250)),
-                  contactFrame(40,  'move', point(220)),
-                  contactFrame(80,  'move', point(190)),
-                  contactFrame(120, 'move', point(160)),
-                  contactFrame(160, 'move', point(130)),
-                  contactFrame(200, 'move', point(100)),
-                  contactFrame(240, 'up', point(100))
-              ];
+    test('a trusted vertical stroke starts over Helix and scrolls the stock mobile viewport', async ({page, neuralLink}) => {
+        await page.setViewportSize({width: 390, height: 844});
 
-        await appWorker.evaluate(async id => {
-            const {default: Component} = await import('../component/Base.mjs'),
-                  {mainView}           = Object.values(Neo.apps).find(app => app.name === 'Neo.examples.component.helix');
+        const {app, appWorker, box, helix, helixId, initial, replay} = await bootHelix(page, neuralLink),
+              viewport                                               = page.locator('.neo-examples-helix'),
+              point                                                  = y => ({id: 'scroll', x: Math.round(box.width * 0.45), y: Math.round(box.height * y)}),
+              frames                                                 = [contactFrame(0, 'down', point(0.78)), contactFrame(35, 'move', point(0.64)),
+                          contactFrame(70, 'move', point(0.49)), contactFrame(105, 'move', point(0.31)),
+                          contactFrame(140, 'up', point(0.31))];
 
-            mainView.add({
-                id,
-                module: Component,
-                style : {
-                    background : 'white',
-                    height     : '320px',
-                    overflowY  : 'auto',
-                    position   : 'fixed',
-                    right      : '32px',
-                    top        : '80px',
-                    touchAction: 'pan-y',
-                    width      : '220px',
-                    zIndex     : '10000'
-                },
-                vdom: {cn: [{style: {height: '1100px'}}]}
-            })
-        }, target);
+        await expect(helix).toHaveCSS('touch-action', 'pan-y');
+        await expect.poll(() => viewport.evaluate(node => node.scrollHeight - node.clientHeight)).toBeGreaterThan(60);
 
-        await expect(scrollHost).toBeVisible();
-        await scrollHost.evaluate(host => {
-            host.addEventListener('pointercancel', event => {host.dataset.trustedCancel = String(event.isTrusted)}, {once: true})
+        await helix.evaluate(node => {
+            window.helixNativeScroll = {start: false, cancel: false};
+
+            for (const [type, key] of [['pointerdown', 'start'], ['pointercancel', 'cancel']]) {
+                document.addEventListener(type, event => {
+                    if (event.isTrusted && event.pointerType === 'touch' && node.contains(event.target)) {
+                        window.helixNativeScroll[key] = true
+                    }
+                }, {capture: true, passive: true})
+            }
         });
 
-        expect(await scrollHost.evaluate(node => node.scrollHeight - node.clientHeight)).toBeGreaterThan(200);
+        const scrollTop      = () => viewport.evaluate(node => node.scrollTop),
+              originalScroll = await scrollTop(),
+              geometry       = {finite: true, rotationAngle: initial.rotationAngle, translateZ: initial.translateZ};
 
-        const read   = () => scrollHost.evaluate(node => ({scrollTop: node.scrollTop, trustedCancel: node.dataset.trustedCancel || null})),
-              replay = provider => app.driveGesture({provider, target, windowId: String(windowId), frames});
+        await expect(replay('engine', frames)).resolves.toMatchObject({provider: 'engine', success: true, trusted: false});
+        expect(await scrollTop()).toBe(originalScroll);
+        expect((await readHelixGeometry(app, appWorker, helixId)).worker).toEqual(geometry);
 
-        await expect(replay('engine')).resolves.toMatchObject({provider: 'engine', success: true, trusted: false});
-        expect(await read()).toEqual({scrollTop: 0, trustedCancel: null});
+        await expect(replay('browser', frames)).resolves.toMatchObject({provider: 'browser', trusted: true});
+        await expect.poll(() => page.evaluate(() => window.helixNativeScroll)).toEqual({start: true, cancel: true});
+        await expect.poll(scrollTop).toBeGreaterThan(originalScroll + 20);
+        expect((await readHelixGeometry(app, appWorker, helixId)).worker).toEqual(geometry)
+    });
 
-        await expect(replay('browser')).resolves.toMatchObject({provider: 'browser', trusted: true});
-        await expect.poll(async () => (await read()).scrollTop).toBeGreaterThan(0);
-        expect((await read()).trustedCancel).toBe('true')
+    test('retains native wheel, visible range controls, and Helix keyboard navigation', async ({page, neuralLink}) => {
+        const {app, appWorker, box, helix, helixId, initial} = await bootHelix(page, neuralLink),
+              [rotation]                                     = await app.queryComponent({ntype: 'rangefield', name: 'rotationAngle'}, ['stepSize']),
+              [depth]                                        = await app.queryComponent({ntype: 'rangefield', name: 'translateZ'}, ['value']),
+              rotationInput                                  = page.locator(`[id="${rotation.id}"] input[type="range"]`),
+              depthInput                                     = page.locator(`[id="${depth.id}"] input[type="range"]`),
+              angle                                          = initial.rotationAngle + 10 * initial.mouseWheelDeltaX,
+              translateZ                                     = initial.translateZ + initial.mouseWheelDeltaY;
+
+        await expect(rotationInput).toBeVisible();
+        await expect(depthInput).toBeVisible();
+        await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.5);
+        await page.mouse.wheel(10, 1);
+        await expect.poll(async () => (await readHelixGeometry(app, appWorker, helixId)).worker).toEqual({
+            finite: true, rotationAngle: angle, translateZ
+        });
+        await expect(rotationInput).toHaveValue(String(angle));
+        await expect(depthInput).toHaveValue(String(translateZ));
+
+        await rotationInput.focus();
+        await expect(rotationInput).toBeFocused();
+        await page.keyboard.press('ArrowRight');
+        await expect.poll(async () => (await readHelixGeometry(app, appWorker, helixId)).worker.rotationAngle)
+            .toBe(angle + rotation.properties.stepSize);
+
+        const selection = () => appWorker.evaluate(id => Neo.getComponent(id).selectionModel.items[0] ?? null, helixId),
+              before    = await selection();
+
+        await helix.focus();
+        await expect(helix).toBeFocused();
+        await page.keyboard.press('ArrowRight');
+        await expect.poll(selection).not.toBe(before);
+        expect(await selection()).not.toBeNull();
+        await expect(helix.locator('.neo-helix-item.neo-selected')).toHaveCount(1)
     });
 
     test('the browser provider refuses a partial cancellation before dispatch', async ({page, neuralLink}) => {

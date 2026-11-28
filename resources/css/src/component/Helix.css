@@ -6,6 +6,7 @@
     margin          : 0;
     padding         : 0;
     perspective     : 800px;
+    touch-action    : pan-y;
     transform       : translateZ(0px);
     transform-style : flat;
 

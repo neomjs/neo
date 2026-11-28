@@ -8,6 +8,9 @@ import RangeField         from '../../../src/form/field/Range.mjs';
 import ThemeSwitcher      from '../../../src/button/ThemeSwitcher.mjs';
 import ViewportController from './ViewportController.mjs';
 
+const rotationBounds = [-720, 720],
+      depthBounds    = [-4500, 4500];
+
 /**
  * @summary A 3D helix component example demonstrating advanced component lifecycle and interactivity.
  *
@@ -34,6 +37,10 @@ class Viewport extends BaseViewport {
          */
         className: 'Neo.examples.component.helix.Viewport',
         /**
+         * @member {String[]} cls
+         */
+        cls: ['neo-examples-helix'],
+        /**
          * @member {Neo.controller.Component} controller=ViewportController
          * @reactive
          */
@@ -58,28 +65,21 @@ class Viewport extends BaseViewport {
          */
         items: [{
             ntype : 'container',
+            cls   : ['neo-examples-helix-stage'],
             flex  : 1,
             layout: 'fit',
-            style : {position: 'relative'},
 
             items: [{
                 ntype: 'component',
-                html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
-                style: {
-                    color   : '#f8fafc',
-                    position: 'absolute',
-                    right   : '20px',
-                    top     : '25px',
-                    width   : '200px',
-                    zIndex  : 1
-                }
+                cls  : ['neo-examples-helix-metrics'],
+                html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>'
             }]
         }, {
             module   : Panel,
             layout   : {ntype: 'vbox', align: 'stretch'},
             cls      : ['neo-helix-controls-panel'],
             reference: 'controls-panel',
-            width    : 250,
+            flex     : 'none',
 
             containerConfig: {
                 flex : null,
@@ -124,8 +124,8 @@ class Viewport extends BaseViewport {
                 eventName: 'changeTranslateZ',
                 labelText: 'Translate Z',
                 listeners: {change: 'onRangefieldChange', mounted: 'onRangefieldMounted'},
-                maxValue : 4500,
-                minValue : -4500,
+                maxValue : depthBounds[1],
+                minValue : depthBounds[0],
                 name     : 'translateZ',
                 value    : -1500
             }, {
@@ -139,8 +139,8 @@ class Viewport extends BaseViewport {
                 eventName: 'changeRotation',
                 labelText: 'Rotate',
                 listeners: {change: 'onRangefieldChange', mounted: 'onRangefieldMounted'},
-                minValue : -720,
-                maxValue : 720,
+                minValue : rotationBounds[0],
+                maxValue : rotationBounds[1],
                 name     : 'rotationAngle',
                 value    : 0
             }, {
@@ -223,7 +223,7 @@ class Viewport extends BaseViewport {
                 ntype: 'label',
                 html : [
                     '<b>Navigation Concept</b>',
-                    '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>',
+                    '<p>Swipe sideways to rotate, or pinch to zoom. Tap or click an item to select it, then use the arrow keys to navigate.</p>',
                     '<p>Hit the Space Key to rotate the currently selected item to the front.</p>',
                     '<p>Hit the Enter Key to expand the currently selected item.</p>'
                 ].join(''),
@@ -253,14 +253,16 @@ class Viewport extends BaseViewport {
         let me = this;
 
         me.helix = Neo.create({
-            module   : Helix,
-            appName  : me.appName,
-            reference: 'helix',
-            store    : ImageStore,
-            windowId : me.windowId,
+            module       : Helix,
+            appName      : me.appName,
+            gestureBounds: {rotationAngle: [...rotationBounds], translateZ: [...depthBounds]},
+            reference    : 'helix',
+            store        : ImageStore,
+            windowId     : me.windowId,
             ...me.helixConfig
         });
 
+        me.helix.vdom.tabIndex = 0;
         me.items[0].items.unshift(me.helix)
     }
 

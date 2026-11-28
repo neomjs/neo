@@ -1,16 +1,43 @@
-.neo-helix-controls-panel {
-    max-width: 50%;
+.neo-examples-helix {
+    .neo-examples-helix-stage {
+        min-width: 0;
+        position : relative;
+    }
+
+    .neo-examples-helix-metrics {
+        color         : #f8fafc;
+        inset-block   : 25px auto;
+        inset-inline  : auto 20px;
+        pointer-events: none;
+        position      : absolute;
+        width         : 200px;
+        z-index       : 1;
+    }
+
+    .neo-helix-controls-panel {
+        max-width: 50%;
+        width    : 250px;
+    }
+
+    .neo-helix:focus-visible {
+        outline       : 2px solid var(--neo-sem-color-border-focus, CanvasText);
+        outline-offset: -2px;
+    }
 
     @media (max-width: 600px) {
-        .neo-rangefield input[type=range] {
-            max-width: 80px;
+        &.neo-flex-direction-row {
+            flex-direction: column;
+            overflow-y    : auto;
         }
 
-        .neo-textfield {
-            .neo-textfield-label {
-                font-size: 12px;
-                max-width: 70px;
-            }
+        .neo-examples-helix-stage {
+            min-height: clamp(240px, 56svh, 440px);
+            overflow  : clip;
+        }
+
+        .neo-helix-controls-panel {
+            max-width: none;
+            width    : 100%;
         }
     }
 }
