@@ -422,8 +422,8 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         expect(resize.finish({clientX: 50, clientY: 0, timeStamp: 1200}).velocity).toBe(0)
     });
 
-    test('a stroke that rests before its release measures 0, and one that reverses measures only its last direction', () => {
-        let {resize} = createState({axis: 'height'});
+    test('a stroke that rests before its release measures 0', () => {
+        const {resize} = createState({axis: 'height'});
 
         // 60px up in 16ms, then still for 79ms: the chord across the window read +0.632 and flung a resting drag
         resize.apply({clientX: 0, clientY: 422, timeStamp: 1000});
@@ -431,9 +431,11 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         resize.apply({clientX: 0, clientY: 362, timeStamp: 1050});
         resize.apply({clientX: 0, clientY: 362, timeStamp: 1080});
 
-        expect(resize.finish({clientX: 0, clientY: 362, timeStamp: 1095}).velocity).toBe(0);
+        expect(resize.finish({clientX: 0, clientY: 362, timeStamp: 1095}).velocity).toBe(0)
+    });
 
-        ({resize} = createState({axis: 'height'}));
+    test('a stroke that reverses before its release measures only its last direction', () => {
+        const {resize} = createState({axis: 'height'});
 
         // 100px up, then 50px down over the last 70ms: the chord read +0.556 and flung against the release
         resize.apply({clientX: 0, clientY: 422, timeStamp: 1000});
