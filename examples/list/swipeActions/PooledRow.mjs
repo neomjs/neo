@@ -116,7 +116,7 @@ class PooledRow extends Container {
      * @param {Number} distance
      */
     setReveal(distance) {
-        this.getReference('front').style = {transform: `translateX(${-distance}px)`};
+        this.getReference('front').style = {'--neo-swipe-example-reveal': `${distance}px`};
         this.getReference('reveal').hidden = distance === 0
     }
 

@@ -306,11 +306,12 @@ class Toast extends Component {
     }
 
     /**
-     * Initiates the toast fade-out sequence and unregisters/destroys the instance on `animationend`.
+     * @summary Fades the toast before unregistering it and removing it from the DOM.
      * Guards against duplicate invocations when manual close and {@link #removeDelay} overlap.
-     * @param {...*} args
+     * @param {Boolean} [updateParentVdom=true] Whether to remove the rendered node.
+     * @param {Boolean} [silent=false] Whether to update the parent VDOM silently.
      */
-    async destroy(...args) {
+    async destroy(updateParentVdom=true, silent=false) {
         let me = this;
 
         if (me.isDestroyed || me.cls.includes('neo-toast-fade-out')) {
@@ -323,7 +324,7 @@ class Toast extends Component {
             animationend: function () {
                 ToastManager.removeToast(me.id);
                 ToastManager.unregister(me);
-                superDestroy(...args);
+                superDestroy(updateParentVdom, silent);
             }
         });
 

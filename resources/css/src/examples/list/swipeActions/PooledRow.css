@@ -6,7 +6,7 @@
         background-color: var(--neo-swipe-example-background-color);
         block-size      : 100%;
         gap             : var(--neo-swipe-example-row-gap);
-        inline-size     : 100%;
+        inline-size     : calc(100% - var(--neo-swipe-example-reveal, 0px));
         padding-inline  : var(--neo-swipe-example-padding);
         z-index         : 1;
     }

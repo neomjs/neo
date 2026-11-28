@@ -131,6 +131,12 @@ test('a short swipe reveals an action and vertical touch keeps native scrolling'
 
         await archive.click();
         await expectArchive(app);
+        await expect.poll(() => app.toast.evaluate(node => {
+            const bounds = node.getBoundingClientRect();
+
+            return bounds.left >= 0 && bounds.right <= innerWidth && bounds.top >= 0 && bounds.bottom <= innerHeight &&
+                   node.getAnimations().every(animation => animation.playState === 'finished')
+        })).toBe(true);
         await page.screenshot({path: testInfo.outputPath('archive-undo-390x844.png')});
         await app.undo.click();
         await expectRestore(app);
@@ -205,7 +211,15 @@ test('a trusted contact cannot archive through a recycled row binding', async ({
         await app.undo.focus();
         await expect(app.undo).toBeFocused();
         await page.keyboard.press('Enter');
-        await expectRestore(app)
+        await expectRestore(app);
+        await expect(app.toast).toHaveCount(0);
+
+        await touch.down(row);
+
+        for (const dx of longSwipe) await touch.move(dx, 0);
+
+        await touch.up();
+        await expectArchive(app)
     } finally {
         await element.dispose();
         await touch.close()
