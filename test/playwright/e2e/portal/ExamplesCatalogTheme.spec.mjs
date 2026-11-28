@@ -485,6 +485,31 @@ test.describe('Examples with custom theme toggles (#21973)', () => {
         await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}))
     });
 
+    test('Tab Container honors supported launch themes and keeps its workbench switch in sync', async ({page, neuralLink}) => {
+        const url    = '/examples/tab/container/index.html',
+              toggle = page.locator('.neo-button-theme-switch');
+
+        for (const [requested, initial, label, next] of [
+            [LIGHT, LIGHT, 'Theme Dark', 'neo-theme-dark'],
+            ['neo-theme-light', 'neo-theme-light', 'Theme Neo-Light', LIGHT],
+            [DARK, 'neo-theme-dark'],
+            [null, 'neo-theme-dark']
+        ]) {
+            await page.goto(requested ? `${url}?theme=${requested}` : url);
+
+            const viewportId = await page.locator('.neo-viewport').first().getAttribute('id'),
+                  app        = await neuralLink.connectToApp('Neo.examples.tab.container');
+
+            await expectAlignedTheme(page, app, viewportId, initial, requested || 'default');
+
+            if (next) {
+                await expect(toggle).toHaveText(label);
+                await toggle.click();
+                await expectAlignedTheme(page, app, viewportId, next, `${requested} first switch`)
+            }
+        }
+    });
+
     for (const example of CUSTOM_TOGGLE_EXAMPLES) {
         test(`${example.name} honors dark and light catalog launches and switches cleanly on the first action`, async ({page, neuralLink}) => {
             const hash     = example.hash || '',
