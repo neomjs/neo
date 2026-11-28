@@ -1,0 +1,18 @@
+[
+    {
+        "component": "segmented-button",
+        "theme"    : "neo-theme-neo-light",
+        "property" : "border-radius",
+        "base"     : "999px",
+        "head"     : "9999px",
+        "reason"   : "segmented-button pill radius -> radius-full (9999px; Epic #22295 rule 3)"
+    },
+    {
+        "component": "segmented-button",
+        "theme"    : "neo-theme-neo-dark",
+        "property" : "border-radius",
+        "base"     : "999px",
+        "head"     : "9999px",
+        "reason"   : "segmented-button pill radius -> radius-full (9999px; Epic #22295 rule 3)"
+    }
+]
