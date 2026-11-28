@@ -24,7 +24,7 @@ class MainContainerStateProvider extends StateProvider {
                 autoLoad   : true,
                 keyProperty: 'code',
                 listeners  : {load: 'onCountryStoreLoad'},
-                url        : '../../../resources/examples/data/countries.json',
+                url        : new URL(Neo.config.basePath + 'resources/examples/data/countries.json', Neo.config.url.base).href,
 
                 model: {
                     fields: [
