@@ -1,0 +1,78 @@
+/* The title lines up with the toolbar's other text */
+.neo-sheet-example-title {
+    font-weight         : 600;
+    padding-inline-start: 11px;
+}
+
+/* A drawn map behind the sheet: water to the north, a street grid, three places and a "you are here" dot */
+.neo-sheet-example-map {
+    background-color: var(--neo-color-background-canvas, #e8eef0);
+    background-image:
+        radial-gradient(circle at 50% 30%, #fff 0 9px, transparent 10px),
+        radial-gradient(circle at 50% 30%, rgba(28, 96, 160, .14) 0 22px, transparent 23px),
+        radial-gradient(circle at 22% 38%, var(--neo-color-background-accent, #1c60a0) 0 7px, transparent 8px),
+        radial-gradient(circle at 64% 22%, var(--neo-color-background-accent, #1c60a0) 0 7px, transparent 8px),
+        radial-gradient(circle at 78% 40%, var(--neo-color-background-accent, #1c60a0) 0 7px, transparent 8px),
+        linear-gradient(170deg, var(--neo-color-background-info-subtle, #cfe3f5) 0 18%, transparent 18%),
+        repeating-linear-gradient(90deg, var(--neo-color-border-subtle, rgba(127, 127, 127, .25)) 0 2px, transparent 2px 64px),
+        repeating-linear-gradient(0deg, var(--neo-color-border-subtle, rgba(127, 127, 127, .25)) 0 2px, transparent 2px 64px);
+    position        : relative;
+
+    /* The dot's centre, inside the white ring of the layers above */
+    &::after {
+        background-color: var(--neo-color-background-accent, #1c60a0);
+        border-radius   : 50%;
+        content         : '';
+        height          : 12px;
+        left            : calc(50% - 6px);
+        position        : absolute;
+        top             : calc(30% - 6px);
+        width           : 12px;
+    }
+}
+
+.neo-sheet-example-count {
+    color      : var(--neo-color-text-muted, inherit);
+    font-size  : .875em;
+    padding    : 0 16px 12px;
+}
+
+/* A row: the category icon, the name over the category, and the distance at the end. The rows sit on the sheet's
+   surface instead of painting the list's own. */
+.neo-sheet-example-places {
+    --neo-list-container-background-color: transparent;
+    --neo-list-item-background-color     : transparent;
+
+    .neo-list-item {
+        align-items          : center;
+        border-bottom        : 1px solid var(--neo-color-border-default, rgba(127, 127, 127, .3));
+        column-gap           : 12px;
+        display              : grid;
+        grid-template-areas  : 'icon name distance' 'icon category distance';
+        grid-template-columns: 24px 1fr auto;
+        padding              : 10px 16px;
+    }
+
+    .neo-sheet-example-place-icon {
+        color     : var(--neo-color-text-accent, #1c60a0);
+        grid-area : icon;
+        text-align: center;
+    }
+
+    .neo-sheet-example-place-name {
+        font-weight: 600;
+        grid-area  : name;
+    }
+
+    .neo-sheet-example-place-category {
+        color    : var(--neo-color-text-muted, inherit);
+        font-size: .875em;
+        grid-area: category;
+    }
+
+    .neo-sheet-example-place-distance {
+        color               : var(--neo-color-text-muted, inherit);
+        font-variant-numeric: tabular-nums;
+        grid-area           : distance;
+    }
+}

@@ -15,6 +15,17 @@ import {
     hasBrainRuntimeRoot
 } from '../../fixtures.mjs';
 
+const gestureReceipt = {
+    observed : [{active: ['contact'], changed: ['contact'], frame: 0, t: 0}],
+    phases   : [],
+    provider : 'engine',
+    sequences: ['end'],
+    status   : 'complete',
+    success  : true,
+    terminal : 'end',
+    trusted  : false
+};
+
 /**
  * @summary Fake Playwright `Worker` that simulates a dedicated App Worker with `Neo.ai.Client` in-memory.
  */
@@ -92,6 +103,9 @@ function createFakeDedicatedWorker({
                             }
                             if (method === 'get_computed_styles') {
                                 return {styles: {display: 'inline-flex'}}
+                            }
+                            if (method === 'drive_gesture') {
+                                return gestureReceipt
                             }
 
                             return {method, ok: true, params}
@@ -435,7 +449,7 @@ test.describe('test/playwright/dedicatedWorkerNeuralLink — off-socket dedicate
             NeuralLink_ConnectionService: {
                 async call(sid, rpcMethod, params) {
                     bridgeCalls.push({args: params, method: 'call', rpcMethod, serviceName: 'NeuralLink_ConnectionService', sessionId: sid});
-                    return {ok: true, params, rpcMethod, sessionId: sid}
+                    return rpcMethod === 'drive_gesture' ? gestureReceipt : {ok: true, params, rpcMethod, sessionId: sid}
                 },
                 async getConsoleLogs(args) {
                     bridgeCalls.push({args, method: 'getConsoleLogs', serviceName: 'NeuralLink_ConnectionService'});
@@ -462,7 +476,7 @@ test.describe('test/playwright/dedicatedWorkerNeuralLink — off-socket dedicate
 
         expect(methodKeys(workerApp)).toEqual(methodKeys(bridgeApp));
         expect(methodKeys(workerApp)).toEqual(methodKeys(sharedSurface));
-        expect(methodKeys(workerApp)).toHaveLength(50);
+        expect(methodKeys(workerApp)).toHaveLength(51);
         expect(Object.keys(BRIDGE_TOOL_SERVICE_MAP).length).toBeGreaterThanOrEqual(48);
 
         // Response picks and argument shaping match across both transports
@@ -482,6 +496,39 @@ test.describe('test/playwright/dedicatedWorkerNeuralLink — off-socket dedicate
             rpcMethod: 'drive_drag',
             sessionId
         });
+
+        const gestureRequest = {
+            preset  : {kind: 'hold', at: {x: 10, y: 20}},
+            provider: 'engine',
+            target  : 'neo-button-1',
+            windowId: '1'
+        };
+
+        for (const app of [bridgeApp, workerApp]) {
+            expect(await app.driveGesture(gestureRequest)).toEqual(gestureReceipt);
+            expect(await app.driveGesture({...gestureRequest, provider: 'browser'})).toMatchObject({
+                error   : {code: 'BROWSER_PROVIDER_UNAVAILABLE'},
+                observed: [],
+                provider: 'browser',
+                status  : 'unavailable',
+                success : false,
+                terminal: 'none',
+                trusted : null
+            })
+        }
+
+        expect(bridgeCalls.filter(call => call.rpcMethod === 'drive_gesture')).toEqual([{
+            args       : gestureRequest,
+            method     : 'call',
+            rpcMethod  : 'drive_gesture',
+            serviceName: 'NeuralLink_ConnectionService',
+            sessionId
+        }]);
+        expect(worker.requests.filter(request => request.method === 'drive_gesture')).toEqual([{
+            context: writerPair,
+            method : 'drive_gesture',
+            params : gestureRequest
+        }]);
 
         await bridgeApp.getWorkerTopology();
         await bridgeApp.getWindowTopology();

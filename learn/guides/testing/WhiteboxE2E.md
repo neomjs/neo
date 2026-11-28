@@ -225,6 +225,48 @@ await page.mouse.up();
 
 See `test/playwright/e2e/grid/ColumnCrossBodyDnD.spec.mjs` for a worked locked-column drag (in-region landing + cross-region re-home) that pairs the gesture with Neural Link worker assertions.
 
+### Replay the Same Touch Trace Through Two Providers
+
+Use `nlApp.driveGesture()` for a complete touch sequence. Keep the trace when you switch providers
+so you can tell whether a difference comes from App behavior or from the browser taking ownership
+of the contact. The `engine` provider returns observed synthetic input with `trusted: false`.
+The `browser` provider drives native touch through the owning Playwright page and reports the
+events it observed there. It needs a Chromium input attachment in the test's browser context.
+
+```javascript
+const [target] = await nlApp.queryComponent({id: componentId}, ['windowId']);
+const trace = {
+    target  : target.id,
+    windowId: String(target.properties.windowId),
+    frames  : [
+        {t: 0,   contacts: [{id: 'finger', x: 30, y: 40, state: 'down'}]},
+        {t: 240, contacts: [{id: 'finger', x: 30, y: 40, state: 'up'}]}
+    ]
+};
+
+const receipt = await nlApp.driveGesture({...trace, provider: 'browser'});
+expect(receipt).toMatchObject({success: true, trusted: true, terminal: 'end'});
+expect(receipt.observed.map(({active}) => active)).toEqual([['finger'], []]);
+```
+
+Coordinates are relative to the target's initial border box. Each frame lists the contacts that
+change. Contacts omitted from a frame keep their last position. The `hold`, `swipe`, `pinch`, and
+`rotate` presets build the same traces. The browser provider preserves the intervals between
+observed frames, so a slow input round trip can lengthen the trace. Its default deadline allows
+extra time for those round trips. An explicit `timeoutMs` remains the whole-trace deadline. When
+the target moves to a pop-out, read its new `windowId`. The fixture joins the worker identity and
+window ID to find the corresponding page.
+
+A provider that cannot run returns `status: 'unavailable'`. Chromium's cancellation call clears
+the active contacts together, so a request that cancels one contact while retaining another is
+refused before it sends input. Ask for `engine` explicitly when you need synthetic input. The
+fixture does not switch providers. Read `observed`, `trusted`, and `sequences` for the input
+receipt, then query the component to assert what it did. The Helix witness checks the receipt
+independently of the rotation and depth reported by the App Worker.
+
+See `test/playwright/e2e/component/HelixTouchNL.spec.mjs` for the shared trace and
+`test/playwright/e2e/core/GestureReplayMultiWindow.spec.mjs` for the owning-window check.
+
 ### Topology, Nodes, & Namespaces
 Get a bird's eye view of the entire runtime environment, discovering connected workers or resolving the class hierarchy.
 

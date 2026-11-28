@@ -1,6 +1,7 @@
 import {expect}                    from '@playwright/test';
 import crypto                      from 'node:crypto';
 import process                     from 'node:process';
+import {driveBrowserGesture}       from './playwrightGestureReplay.mjs';
 import {attachPageSharedAppWorker} from './sharedWorkerAppWorker.mjs';
 
 const NAVIGATION_URL = /^(?!.*\/[^/?#]+\.(?:avif|bmp|cjs|css|csv|eot|gif|glb|gltf|gz|ico|jpeg|jpg|js|json|jsonl|map|md|mjs|mp3|mp4|ogg|otf|pdf|png|svg|ttf|txt|wasm|wav|webm|webp|woff|woff2|xml|yaml|yml|zip)(?:[?#]|$)).+/i;
@@ -134,11 +135,13 @@ export async function disconnectTestWriter(worker, writerPair) {
  * and response pick stays identical across transports.
  * @param {Object}   options
  * @param {Function} options.call         `async (tool, params) => response`
+ * @param {Function} [options.pages]      Returns pages eligible for browser input.
  * @param {String}   options.sessionId    Session / App Worker id
+ * @param {String}   [options.workerId]   Exact App Worker id for browser input.
  * @param {Object}   [options.writerPair] Optional `{agentId, sessionId}` writer pair for the dedicated-worker path
  * @returns {Object}
  */
-export function buildAppConnectionSurface({call, sessionId, writerPair}) {
+export function buildAppConnectionSurface({call, pages = () => [], sessionId, workerId = sessionId, writerPair}) {
     return {
         sessionId,
         ...(writerPair ? {writerPair} : {}),
@@ -266,6 +269,17 @@ export function buildAppConnectionSurface({call, sessionId, writerPair}) {
             return call('drive_drag', request)
         },
 
+        /**
+         * @summary Replays a bounded touch trace through the requested provider.
+         * @param {Object} request Gesture provider, target, owning window and frames or preset.
+         * @returns {Promise<Object>} The selected provider's gesture receipt.
+         */
+        async driveGesture(request) {
+            return request?.provider === 'browser'
+                ? driveBrowserGesture(request, {pages, workerId})
+                : call('drive_gesture', request)
+        },
+
         async simulateEvent(events) {
             return call('simulate_event', {events: Array.isArray(events) ? events : [events]})
         },
@@ -386,12 +400,15 @@ export function buildAppConnectionSurface({call, sessionId, writerPair}) {
  * @summary Creates the `nlApp` SDK surface backed by the Brain's `NeuralLink_*Service` modules over the Bridge.
  * @param {Object} services  Loaded `NeuralLink_*Service` map
  * @param {String} sessionId The connected App Worker session id
+ * @param {Object}   [browserInput]
+ * @param {Function} [browserInput.pages]    Returns pages owned by the fixture's contexts.
+ * @param {String}   [browserInput.workerId] Exact App Worker id for browser input.
  * @returns {Object}
  */
-export function createBridgeAppConnection(services, sessionId) {
+export function createBridgeAppConnection(services, sessionId, {pages, workerId} = {}) {
     const call = async (tool, params = {}) => {
-        if (tool === 'drive_drag') {
-            return services.NeuralLink_ConnectionService.call(sessionId, 'drive_drag', params)
+        if (tool === 'drive_drag' || tool === 'drive_gesture') {
+            return services.NeuralLink_ConnectionService.call(sessionId, tool, params)
         }
 
         if (tool === 'get_worker_topology' || tool === 'get_window_topology') {
@@ -409,7 +426,7 @@ export function createBridgeAppConnection(services, sessionId) {
         return service[methodName]({sessionId, ...params})
     };
 
-    return buildAppConnectionSurface({call, sessionId})
+    return buildAppConnectionSurface({call, pages, sessionId, workerId})
 }
 
 /**
@@ -418,11 +435,12 @@ export function createBridgeAppConnection(services, sessionId) {
  * @param {Object}   options
  * @param {Function} options.getLogs    Returns captured console log entries for the dedicated App Worker
  * @param {Function} options.getWorker  Returns, or resolves to, the page's current App Worker
+ * @param {Function} [options.pages]    Returns pages in the attached App Worker's context.
  * @param {String}   options.sessionId  The App Worker id (`Neo.worker.App.id`)
  * @param {Object}   options.writerPair `{agentId, sessionId}` minted for this test
  * @returns {Object}
  */
-export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorker, sessionId, writerPair}) {
+export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorker, pages, sessionId, writerPair}) {
     const invokeWorker = async (method, params = {}) => {
         const worker = await getWorker();
 
@@ -610,7 +628,7 @@ export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorke
         return invokeWorker(tool, params)
     };
 
-    return buildAppConnectionSurface({call, sessionId, writerPair})
+    return buildAppConnectionSurface({call, pages, sessionId, writerPair})
 }
 
 /**
@@ -741,6 +759,7 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
                 return {
                     getLogs  : () => logs,
                     getWorker: async () => appWorker || boundPage.workers().find(isDedicatedAppWorker) || sharedAppWorker(),
+                    pages    : () => owner.pages(),
                     release
                 }
             })())
@@ -871,6 +890,7 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
             return createDedicatedWorkerAppConnection({
                 getLogs  : binding.getLogs,
                 getWorker: binding.getWorker,
+                pages    : binding.pages,
                 sessionId: workerId,
                 writerPair
             })

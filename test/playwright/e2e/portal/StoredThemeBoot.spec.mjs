@@ -64,21 +64,37 @@ async function booted(page) {
 }
 
 /**
- * Reads the theme class and the resolved colours of both surfaces in one pass.
+ * @summary Reads the theme class and resolved sRGB colours of both surfaces in one pass, rasterizing CSS
+ * Color 4 values (`oklch()`, `color()`, `rgb()`) through a 1x1 canvas so `contrastRatio` measures painted sRGB.
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<{body: Object, viewport: Object}>}
  */
 function readSurfaces(page) {
     return page.evaluate(() => {
-        const read = el => {
-            const style = getComputedStyle(el);
+        const
+            canvas = document.createElement('canvas'),
+            ctx    = canvas.getContext('2d', {willReadFrequently: true}),
+            toRgb  = cssColor => {
+                ctx.clearRect(0, 0, 1, 1);
+                ctx.fillStyle = cssColor;
+                ctx.fillRect(0, 0, 1, 1);
 
-            return {
-                theme     : [...el.classList].filter(cls => cls.startsWith('neo-theme-')),
-                background: style.backgroundColor,
-                color     : style.color
-            }
-        };
+                const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+
+                return `rgb(${r}, ${g}, ${b})`
+            },
+            read   = el => {
+                const style = getComputedStyle(el);
+
+                return {
+                    theme     : [...el.classList].filter(cls => cls.startsWith('neo-theme-')),
+                    background: toRgb(style.backgroundColor),
+                    color     : toRgb(style.color)
+                }
+            };
+
+        canvas.width  = 1;
+        canvas.height = 1;
 
         return {body: read(document.body), viewport: read(document.querySelector('#neo-viewport-1'))}
     })

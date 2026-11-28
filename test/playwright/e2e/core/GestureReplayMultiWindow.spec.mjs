@@ -1,6 +1,6 @@
-import {expect, test}              from '../../fixtures.mjs';
-import {mintTestWriterPair}        from '../../dedicatedWorkerNeuralLink.mjs';
-import {attachPageSharedAppWorker} from '../../sharedWorkerAppWorker.mjs';
+import {expect, readWorkerId, test} from '../../fixtures.mjs';
+import {mintTestWriterPair}         from '../../dedicatedWorkerNeuralLink.mjs';
+import {attachPageSharedAppWorker}  from '../../sharedWorkerAppWorker.mjs';
 
 test.use({hasTouch: true});
 
@@ -176,6 +176,82 @@ test('replays by registered RPC in two owning windows and cancels on replacement
         expect((await raw(page)).slice(-2).map(event => event.type)).toEqual(['touchstart', 'touchend'])
     } finally {
         await companionWorker?.close();
+        await worker?.close();
+        await popup.close().catch(() => {})
+    }
+});
+
+test('the browser provider follows the requested window of a root-bound fixture', async ({browser, context, neuralLink, page}) => {
+    await neuralLink.routeConfig(context, config => ({...config, useAiClient: true}));
+    await page.goto('/examples/stateProvider/multiWindow/index.html');
+
+    const openButton = page.getByRole('button', {name: 'Open second window'});
+    await expect(openButton).toBeVisible();
+
+    const [popup] = await Promise.all([context.waitForEvent('page'), openButton.click()]);
+    let worker;
+
+    try {
+        await expect(popup.getByRole('button', {name: 'Edit user'})).toBeVisible();
+
+        const workerId = await readWorkerId(page, 15000);
+        expect(workerId).toBeTruthy();
+        expect(await readWorkerId(popup, 15000)).toBe(workerId);
+
+        const app = await neuralLink.connectToApp(primaryApp);
+        expect(app.sessionId).toBe(workerId);
+
+        worker = await attachPageSharedAppWorker({browser, page});
+
+        const source    = await addReplayTarget(worker, page, primaryApp, sourceId, 70),
+              companion = await addReplayTarget(worker, popup, companionApp, popupId, 240),
+              raw       = documentPage => documentPage.evaluate(() => window.replayedContacts),
+              at        = {x: 50, y: 38},
+              request   = {
+                  preset  : {kind: 'hold', at, durationMs: 60},
+                  provider: 'browser',
+                  target  : popupId,
+                  windowId: companion.windowId
+              };
+
+        expect(companion.windowId).not.toBe(source.windowId);
+        await expect(popup.locator(`#${sourceId}`)).toHaveCount(0);
+
+        const receipt = await app.driveGesture(request);
+        expect(receipt).toMatchObject({
+            provider: 'browser', trusted: true, status: 'complete', success: true, sequences: ['end'], terminal: 'end'
+        });
+        expect(receipt.observed.map(({active, changed}) => [active, changed])).toEqual([
+            [['A'], ['A']], [[], ['A']]
+        ]);
+
+        const popupContacts = await raw(popup);
+        expect(popupContacts).toEqual(['touchstart', 'touchend'].map(type => ({
+            type,
+            target : popupId,
+            trusted: true,
+            changed: [{x: companion.left + at.x, y: companion.top + at.y, target: popupId}]
+        })));
+        expect(await raw(page)).toEqual([]);
+
+        await expect(app.driveGesture({...request, target: sourceId})).resolves.toMatchObject({
+            provider: 'browser', status: 'unavailable', success: false, error: {code: 'GESTURE_TARGET_UNAVAILABLE'},
+            observed: [], terminal: 'none', trusted: null
+        });
+        expect(await raw(page)).toEqual([]);
+        expect(await raw(popup)).toEqual(popupContacts);
+
+        const timeout = await app.driveGesture({
+            ...request, preset: {...request.preset, durationMs: 1500}, timeoutMs: 600
+        });
+
+        expect(timeout).toMatchObject({status: 'interrupted', error: {code: 'GESTURE_TIMEOUT'},
+            terminal: 'none', cleanup: {attempted: true, succeeded: true}});
+        expect((await raw(popup)).slice(popupContacts.length).map(event => [event.type, event.trusted])).toEqual([
+            ['touchstart', true], ['touchcancel', true]
+        ]);
+        expect(await raw(page)).toEqual([])
+    } finally {
         await worker?.close();
         await popup.close().catch(() => {})
     }

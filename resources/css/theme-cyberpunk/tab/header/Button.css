@@ -1,3 +1,4 @@
 :root .neo-theme-cyberpunk { /* .neo-tab-header-button */
     --neo-tab-button-close-border-radius: 2px;
+    --neo-tab-button-text-transform     : initial; /* labels inherit their case, as before theme-base */
 }
