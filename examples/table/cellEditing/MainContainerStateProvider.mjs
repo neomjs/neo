@@ -2,8 +2,6 @@ import MainStore     from './MainStore.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
 import Store         from '../../../src/data/Store.mjs';
 
-const countrySymbol = Symbol.for('country');
-
 /**
  * @class Neo.examples.table.cellEditing.MainContainerStateProvider
  * @extends Neo.state.Provider
@@ -15,6 +13,8 @@ class MainContainerStateProvider extends StateProvider {
          * @protected
          */
         className: 'Neo.examples.table.cellEditing.MainContainerStateProvider',
+        /** @member {Object} data Country names indexed by their editable codes. */
+        data: {countryNames: {}},
         /**
          * @member {Object} stores
          */
@@ -37,25 +37,12 @@ class MainContainerStateProvider extends StateProvider {
         }
     }
 
-    /**
-     * @param {Record[]} items
-     */
-    onCountryStoreLoad(items) {
-        let me        = this,
-            mainStore = me.getStore('mainStore'),
-            country;
+    /** @summary Publishes loaded names to cells without editing the Table records. */
+    onCountryStoreLoad() {
+        const names = {};
 
-        // if the main table store is already loaded, the country field renderer had no data
-        if (mainStore.getCount() > 0) {
-            mainStore.forEach(record => {
-                country = record.country;
-
-                // hack resetting the current value to get a new record change
-                record[countrySymbol] = null;
-
-                record.country = country
-            })
-        }
+        this.getStore('countries').forEach(({code, name}) => names[code] = name);
+        this.setData('countryNames', names)
     }
 }
 

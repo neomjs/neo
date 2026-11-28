@@ -3,6 +3,7 @@ import CellColumnRowModel         from '../../../src/selection/table/CellColumnR
 import CellModel                  from '../../../src/selection/table/CellModel.mjs';
 import CellRowModel               from '../../../src/selection/table/CellRowModel.mjs';
 import CheckBox                   from '../../../src/form/field/CheckBox.mjs';
+import Component                  from '../../../src/component/Base.mjs';
 import CountryField               from '../../../src/form/field/Country.mjs';
 import ConfigurationViewport      from '../../ConfigurationViewport.mjs';
 import DateField                  from '../../../src/form/field/Date.mjs';
@@ -28,16 +29,20 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
+     * @summary Binds the displayed country name without changing its editable code.
      * @param {Object} data
+     * @param {Object} data.record
+     * @returns {Object}
      */
     countryRenderer({record}) {
-        let countryStore = this.getStateProvider().getStore('countries');
+        const getName = data => data.countryNames[record.country] ?? '';
 
-        if (countryStore.getCount() > 0) {
-            return countryStore.get(record.country).name
+        return {
+            module: Component,
+            bind  : {text: getName},
+            tag   : 'span',
+            text  : getName(this.getStateProvider().data)
         }
-
-        return ''
     }
 
     /**
