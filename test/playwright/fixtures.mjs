@@ -6,8 +6,9 @@ import {
     createBridgeAppConnection,
     runDedicatedWorkerNeuralLink
 } from './dedicatedWorkerNeuralLink.mjs';
-import { findBridgeScriptRoot } from './findBridgeScriptRoot.mjs';
-import * as RmaHelpers          from './util/RmaHelpers.mjs';
+import { findBridgeScriptRoot }             from './findBridgeScriptRoot.mjs';
+import {installBrowserGestureDeliveryClock} from './playwrightGestureReplay.mjs';
+import * as RmaHelpers                      from './util/RmaHelpers.mjs';
 
 // `Neo` plus the core class system, imported for their SIDE EFFECT and not for these bindings.
 //
@@ -390,6 +391,7 @@ export const test = base.extend({
 
         await routeConfig(context);
         assertUnnavigatedBeforeNeuralLinkRoute(page);
+        await installBrowserGestureDeliveryClock(context);
 
         const ownedContexts = new Set([context]);
 
@@ -413,6 +415,7 @@ export const test = base.extend({
                 const created = await browser.newContext(options);
 
                 await routeConfig(created);
+                await installBrowserGestureDeliveryClock(created);
                 ownedContexts.add(created);
                 created.once('close', () => ownedContexts.delete(created));
 

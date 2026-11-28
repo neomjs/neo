@@ -1,8 +1,8 @@
-import {expect}                    from '@playwright/test';
-import crypto                      from 'node:crypto';
-import process                     from 'node:process';
-import {driveBrowserGesture}       from './playwrightGestureReplay.mjs';
-import {attachPageSharedAppWorker} from './sharedWorkerAppWorker.mjs';
+import {expect}                                                  from '@playwright/test';
+import crypto                                                    from 'node:crypto';
+import process                                                   from 'node:process';
+import {driveBrowserGesture, installBrowserGestureDeliveryClock} from './playwrightGestureReplay.mjs';
+import {attachPageSharedAppWorker}                               from './sharedWorkerAppWorker.mjs';
 
 const NAVIGATION_URL = /^(?!.*\/[^/?#]+\.(?:avif|bmp|cjs|css|csv|eot|gif|glb|gltf|gz|ico|jpeg|jpg|js|json|jsonl|map|md|mjs|mp3|mp4|ogg|otf|pdf|png|svg|ttf|txt|wasm|wav|webm|webp|woff|woff2|xml|yaml|yml|zip)(?:[?#]|$)).+/i;
 
@@ -674,6 +674,7 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
 
     await routeConfig(context);
     assertUnnavigated?.(page);
+    await installBrowserGestureDeliveryClock(context);
 
     /**
      * @summary Binds one page through the same worker capture and release hooks as the fixture page. Each SDK keeps
@@ -778,6 +779,7 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
             const created = await browser.newContext(options);
 
             await routeConfig(created);
+            await installBrowserGestureDeliveryClock(created);
 
             return created
         },

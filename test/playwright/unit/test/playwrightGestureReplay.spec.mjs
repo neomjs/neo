@@ -12,9 +12,10 @@ test('a liveness check crossing the deadline cancels the contact and releases th
 
     const state = {
               events,
-              left : 0,
-              top  : 0,
-              start: 0,
+              clockAvailable: true,
+              left          : 0,
+              top           : 0,
+              start         : 0,
 
               isLive() {
                   // The second transport liveness response arrives after the first trace's deadline.
@@ -69,6 +70,14 @@ test('a liveness check crossing the deadline cancels the contact and releases th
 
         now = 0;
         await expect(driveBrowserGesture(request, options)).resolves.toMatchObject({status: 'complete', success: true});
+        expect(sent).toEqual(['touchStart', 'touchCancel', 'touchStart', 'touchEnd']);
+
+        state.clockAvailable = false;
+        await expect(driveBrowserGesture(request, options)).resolves.toMatchObject({
+            observationAvailable: false,
+            error               : {code: 'BROWSER_PROVIDER_UNAVAILABLE'},
+            success             : false
+        });
         expect(sent).toEqual(['touchStart', 'touchCancel', 'touchStart', 'touchEnd'])
     } finally {
         performance.now = originalNow

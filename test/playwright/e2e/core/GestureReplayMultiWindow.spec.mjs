@@ -217,6 +217,19 @@ test('the browser provider follows the requested window of a root-bound fixture'
         expect(companion.windowId).not.toBe(source.windowId);
         await expect(popup.locator(`#${sourceId}`)).toHaveCount(0);
 
+        await popup.evaluate(() => {
+            window.holdDeliveryTimes = [];
+            window.addEventListener('touchstart', () => {
+                const start = performance.now();
+
+                window.holdDeliveryTimes.push(start);
+                while (performance.now() - start < 65) {}
+            }, {capture: true, once: true});
+            window.addEventListener('touchend', () => {
+                window.holdDeliveryTimes.push(performance.now())
+            }, {capture: true, once: true})
+        });
+
         const receipt = await app.driveGesture(request);
         expect(receipt).toMatchObject({
             provider: 'browser', trusted: true, status: 'complete', success: true, sequences: ['end'], terminal: 'end'
@@ -224,6 +237,14 @@ test('the browser provider follows the requested window of a root-bound fixture'
         expect(receipt.observed.map(({active, changed}) => [active, changed])).toEqual([
             [['A'], ['A']], [[], ['A']]
         ]);
+
+        const [downTime, upTime] = await popup.evaluate(() => window.holdDeliveryTimes),
+              [down, up]         = receipt.observed.flatMap(({events}) => events),
+              actualGap          = upTime - downTime;
+
+        // The 60ms hold follows the blocked callback. Neither the planned trace nor a late capture sees the full gap.
+        expect(actualGap).toBeGreaterThanOrEqual(100);
+        expect(Math.abs(up.elapsedMs - down.elapsedMs - actualGap)).toBeLessThan(15);
 
         const popupContacts = await raw(popup);
         expect(popupContacts).toEqual(['touchstart', 'touchend'].map(type => ({

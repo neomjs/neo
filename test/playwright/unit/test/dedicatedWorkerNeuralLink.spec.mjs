@@ -134,6 +134,7 @@ function createFakeFixtures(worker) {
           pageRoutes    = [];
 
     const context = {
+        async addInitScript() {},
         on() {},
         pages: () => page.closed ? [] : [page],
         async route(pattern, handler) {
@@ -145,6 +146,7 @@ function createFakeFixtures(worker) {
         contexts: () => [context],
         async newContext() {
             return {
+                async addInitScript() {},
                 async route(pattern, handler) {
                     contextRoutes.push({handler, pattern, isNewContext: true})
                 }
