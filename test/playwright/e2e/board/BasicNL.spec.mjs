@@ -1,4 +1,21 @@
-import {test, expect} from '../../fixtures.mjs';
+import {contrastRatio, parseColor} from '../../../../buildScripts/util/check-theme-palette.mjs';
+import {test, expect}              from '../../fixtures.mjs';
+
+/**
+ * @summary Measures actual Board paint, including computed OKLCH values in the shared palettes.
+ * @param {String} foreground
+ * @param {String} background
+ * @returns {Number}
+ */
+function paintContrast(foreground, background) {
+    const ink  = parseColor(foreground),
+          fill = parseColor(background);
+
+    expect(ink, `measurable foreground: ${foreground}`).toBeTruthy();
+    expect(fill, `measurable background: ${background}`).toBeTruthy();
+
+    return contrastRatio(ink.rgba.slice(0, 3), fill.rgba.slice(0, 3))
+}
 
 /**
  * @summary The board's basic example: one seeded store of 40 cards behind a board and a table.
@@ -676,17 +693,11 @@ test.describe('Board, basic example: one store, two views', () => {
         await expect(dueBadge).toHaveAttribute('datetime', '2026-12-15');
         await expect(dueBadge).toHaveText('Due Dec 15');
 
-        const dueContrast = await dueBadge.evaluate(el => {
-            const parseRgb = value => (value.match(/\d+(\.\d+)?/g) || [0, 0, 0]).slice(0, 3).map(Number),
-                  lum      = ([r, g, b]) => [r, g, b]
-                      .map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 })
-                      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0),
-                  cardBg   = getComputedStyle(el.closest('.neo-board-card')).backgroundColor,
-                  [l1, l2] = [lum(parseRgb(getComputedStyle(el).color)), lum(parseRgb(cardBg))];
-
-            return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
-        });
-        expect(dueContrast, 'dueDate badge meets WCAG 4.5:1 against card background').toBeGreaterThanOrEqual(4.5);
+        const dueColors = await dueBadge.evaluate(el => [
+            getComputedStyle(el).color,
+            getComputedStyle(el.closest('.neo-board-card')).backgroundColor
+        ]);
+        expect(paintContrast(...dueColors), 'dueDate badge meets WCAG 4.5:1 against card background').toBeGreaterThanOrEqual(4.5);
 
         await card.locator('.neo-board-card-menu-button').click();
         await expect(dialog).toBeVisible();
@@ -699,15 +710,7 @@ test.describe('Board, basic example: one store, two views', () => {
 
     test('the card editor keeps WCAG contrast on Save in neo-light and on header icons and field outlines in cyberpunk', async ({page, neuralLink}) => {
         const measureEditor = () => page.locator('.neo-board-card-editor').evaluate(editor => {
-            const parseRgb = value => (value.match(/\d+(\.\d+)?/g) || [0, 0, 0]).slice(0, 3).map(Number),
-                  lum      = ([r, g, b]) => [r, g, b]
-                      .map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 })
-                      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0),
-                  ratio    = (a, b) => {
-                      const [l1, l2] = [lum(parseRgb(a)), lum(parseRgb(b))];
-                      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
-                  },
-                  editorBg = getComputedStyle(editor).backgroundColor,
+            const editorBg = getComputedStyle(editor).backgroundColor,
                   header   = editor.querySelector('.neo-header-toolbar'),
                   headerBg = getComputedStyle(header).backgroundColor,
                   saveBtn  = editor.querySelector('.neo-board-card-editor-save'),
@@ -716,15 +719,15 @@ test.describe('Board, basic example: one store, two views', () => {
             document.activeElement?.blur?.();
 
             return {
-                saveContrast : ratio(getComputedStyle(saveText).color, getComputedStyle(saveBtn).backgroundColor),
-                iconContrasts: [...editor.querySelectorAll('.neo-header-toolbar .neo-button-glyph')]
-                    .map(glyph => ratio(getComputedStyle(glyph).color, headerBg)),
+                save : [getComputedStyle(saveText).color, getComputedStyle(saveBtn).backgroundColor],
+                icons: [...editor.querySelectorAll('.neo-header-toolbar .neo-button-glyph')]
+                    .map(glyph => [getComputedStyle(glyph).color, headerBg]),
                 fieldBorders : [...editor.querySelectorAll('.neo-textfield-input, .neo-selectfield-input')].map(input => {
                     const style = getComputedStyle(input);
                     return {
-                        contrast: ratio(style.borderTopColor, editorBg),
-                        style   : style.borderTopStyle,
-                        width   : parseFloat(style.borderTopWidth)
+                        colors: [style.borderTopColor, editorBg],
+                        style : style.borderTopStyle,
+                        width : parseFloat(style.borderTopWidth)
                     }
                 })
             }
@@ -738,7 +741,7 @@ test.describe('Board, basic example: one store, two views', () => {
 
         const lightMetrics = await measureEditor();
 
-        expect(lightMetrics.saveContrast, 'neo-light Save label >= 4.5:1').toBeGreaterThanOrEqual(4.5);
+        expect(paintContrast(...lightMetrics.save), 'neo-light Save label >= 4.5:1').toBeGreaterThanOrEqual(4.5);
 
         const cyber = await open(page, neuralLink, 'neo-theme-cyberpunk');
 
@@ -748,13 +751,13 @@ test.describe('Board, basic example: one store, two views', () => {
 
         const cyberMetrics = await measureEditor();
 
-        expect(cyberMetrics.iconContrasts.length).toBeGreaterThanOrEqual(1);
-        cyberMetrics.iconContrasts.forEach(contrast => expect(contrast, 'cyberpunk header icon >= 3:1').toBeGreaterThanOrEqual(3));
+        expect(cyberMetrics.icons.length).toBeGreaterThanOrEqual(1);
+        cyberMetrics.icons.forEach(colors => expect(paintContrast(...colors), 'cyberpunk header icon >= 3:1').toBeGreaterThanOrEqual(3));
         expect(cyberMetrics.fieldBorders.length).toBeGreaterThanOrEqual(7);
         cyberMetrics.fieldBorders.forEach(border => {
             expect(border.width, 'cyberpunk field border width').toBeGreaterThanOrEqual(1);
             expect(border.style).not.toBe('none');
-            expect(border.contrast, 'cyberpunk unfocused field outline >= 3:1').toBeGreaterThanOrEqual(3)
+            expect(paintContrast(...border.colors), 'cyberpunk unfocused field outline >= 3:1').toBeGreaterThanOrEqual(3)
         })
     });
 

@@ -1,4 +1,5 @@
-import {test, expect} from '../../fixtures.mjs';
+import {contrastRatio} from '../../../../buildScripts/util/check-theme-palette.mjs';
+import {test, expect}  from '../../fixtures.mjs';
 
 /**
  * @summary The bug triage example: forty reports in the Inbox, selected by click, Shift and the command key, and
@@ -127,32 +128,33 @@ test.describe('Board, multi-select example: select many reports, move them in on
     });
 
     test('colored cards retain their left accent across rest, hover, selection and selected-hover; uncolored cards follow all four borders across all five themes', async ({page}) => {
-        const readPaint = locator => locator.evaluate(node => {
-            const parseSrgb = value => {
-                      const nums = (value.match(/\d+(\.\d+)?/g) || [0, 0, 0]).slice(0, 3).map(Number);
-                      return value.startsWith('color(srgb') ? nums : nums.map(c => c / 255)
-                  },
-                  lum       = srgb => srgb
-                      .map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
-                      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0),
-                  contrast  = (fg, bg) => {
-                      const l1 = lum(parseSrgb(fg)),
-                            l2 = lum(parseSrgb(bg));
-                      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
-                  },
-                  style     = getComputedStyle(node),
-                  title     = node.querySelector('.neo-board-card-title'),
-                  menuBtn   = node.querySelector('.neo-board-card-menu-button');
+        const readPaint = async locator => {
+            const {muted, surface, title, ...paint} = await locator.evaluate(node => {
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = 1;
+                const context = canvas.getContext('2d', {willReadFrequently: true}),
+                      style   = getComputedStyle(node),
+                      rgb     = color => {
+                          context.clearRect(0, 0, 1, 1);
+                          context.fillStyle = color;
+                          context.fillRect(0, 0, 1, 1);
 
-            return {
-                backgroundColor: style.backgroundColor,
-                borderLeftColor: style.borderLeftColor,
-                borderTopColor : style.borderTopColor,
-                boxShadow      : style.boxShadow,
-                mutedContrast  : contrast(getComputedStyle(menuBtn).color, style.backgroundColor),
-                titleContrast  : contrast(getComputedStyle(title).color, style.backgroundColor)
-            }
-        });
+                          return Array.from(context.getImageData(0, 0, 1, 1).data.slice(0, 3), channel => channel / 255)
+                      };
+
+                return {
+                    backgroundColor: style.backgroundColor,
+                    borderLeftColor: style.borderLeftColor,
+                    borderTopColor : style.borderTopColor,
+                    boxShadow      : style.boxShadow,
+                    muted          : rgb(getComputedStyle(node.querySelector('.neo-board-card-menu-button')).color),
+                    surface        : rgb(style.backgroundColor),
+                    title          : rgb(getComputedStyle(node.querySelector('.neo-board-card-title')).color)
+                }
+            });
+
+            return {...paint, mutedContrast: contrastRatio(muted, surface), titleContrast: contrastRatio(title, surface)}
+        };
 
         for (const theme of THEMES) {
             const {card, errors, line} = await open(page, theme),

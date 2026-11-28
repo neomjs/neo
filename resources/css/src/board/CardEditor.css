@@ -27,13 +27,13 @@
     }
 
     .neo-board-card-editor-save {
-        --neo-button-color       : var(--neo-board-background);
-        --neo-button-color-active: var(--neo-board-background);
-        --neo-button-color-hover : var(--neo-board-background);
+        --neo-button-color       : var(--neo-board-on-accent-color, var(--neo-board-background));
+        --neo-button-color-active: var(--neo-board-on-accent-color, var(--neo-board-background));
+        --neo-button-color-hover : var(--neo-board-on-accent-color, var(--neo-board-background));
         background                : var(--neo-board-accent-color);
         border-color              : var(--neo-board-accent-color);
         border-radius             : var(--neo-board-editor-button-border-radius);
-        color                     : var(--neo-board-background);
+        color                     : var(--neo-board-on-accent-color, var(--neo-board-background));
         font-weight               : 600;
     }
 

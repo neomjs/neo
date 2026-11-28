@@ -92,7 +92,7 @@
         padding      : 4px 8px;
 
         &.neo-board-column-wip-exceeded {
-            background: var(--neo-board-wip-color);
+            background: var(--neo-board-wip-badge-background-color, var(--neo-board-wip-color));
             color     : var(--neo-board-wip-contrast-color);
         }
     }

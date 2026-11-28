@@ -38,6 +38,11 @@
         border-color     : var(--neo-board-card-border-color-selected, var(--neo-board-accent-color));
         border-left-color: var(--neo-board-card-accent-color, var(--neo-board-card-border-color-selected, var(--neo-board-accent-color)));
 
+        .neo-board-card-menu-button,
+        .neo-board-card-text {
+            color: var(--neo-board-card-muted-color-selected, var(--neo-board-card-muted-color));
+        }
+
         @media (hover: hover) {
             &:hover {
                 box-shadow: 0 0 0 1px var(--neo-board-card-border-color-selected, var(--neo-board-accent-color)), var(--neo-board-card-box-shadow);
@@ -194,7 +199,7 @@
                 align-items    : center;
                 background     : var(--neo-board-overdue-border-color);
                 border-radius  : 50%;
-                color          : var(--neo-board-card-background);
+                color          : var(--neo-board-overdue-indicator-color, var(--neo-board-card-background));
                 content        : '!';
                 display        : inline-flex;
                 flex           : 0 0 auto;
@@ -270,8 +275,7 @@
         border         : 2px solid var(--neo-board-card-background);
         border-radius  : var(--neo-board-badge-border-radius);
         box-shadow     : var(--neo-board-card-box-shadow);
-        /* Each theme's accent sits opposite its background in lightness, so the background reads on it */
-        color          : var(--neo-board-background);
+        color          : var(--neo-board-on-accent-color, var(--neo-board-background));
         display        : inline-flex;
         font-size      : 0.78em;
         font-weight    : 700;
