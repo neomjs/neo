@@ -11,7 +11,7 @@ class MainStore extends Store {
         autoLoad   : true,
         keyProperty: 'abbreviation',
         model      : Model,
-        url        : '../../resources/examples/data/us_states.json',
+        url        : new URL(Neo.config.basePath + 'resources/examples/data/us_states.json', Neo.config.url.base).href,
 
         sorters: [{
             property : 'name',
