@@ -75,19 +75,22 @@ const TOLERANCE = Object.freeze({
 
 /**
  * The pairs a palette keeps readable, as `[foreground, background, floor]`: text needs 4.5:1 on its
- * region, a border and the focus ring 3:1, and `background-selected` keeps at least a 1.1:1 step on
- * `background-accent-subtle`. A translucent background is measured over the canvas.
+ * region, a border and the focus ring 3:1, `background-selected` keeps at least a 1.1:1 step on
+ * `background-accent-subtle`, and `background-selected-strong` keeps at least a 1.1:1 step on
+ * `background-selected`. A translucent background is measured over the canvas.
  * @type {Array[]}
  */
 export const CONTRAST_PAIRS = Object.freeze([
-    [TEXT + 'default',         CANVAS,                         4.5],
-    [TEXT + 'default',         BACKGROUND + 'surface-raised',  4.5],
-    [TEXT + 'default',         BACKGROUND + 'field',           4.5],
-    [TEXT + 'default',         BACKGROUND + 'neutral-hover',   4.5],
-    [TEXT + 'default',         BACKGROUND + 'neutral-active',  4.5],
-    [TEXT + 'default',         BACKGROUND + 'accent-subtle',   4.5],
-    [TEXT + 'default',         BACKGROUND + 'selected',        4.5],
-    [BACKGROUND + 'selected',  BACKGROUND + 'accent-subtle',   1.1],
+    [TEXT + 'default',                CANVAS,                         4.5],
+    [TEXT + 'default',                BACKGROUND + 'surface-raised',  4.5],
+    [TEXT + 'default',                BACKGROUND + 'field',           4.5],
+    [TEXT + 'default',                BACKGROUND + 'neutral-hover',   4.5],
+    [TEXT + 'default',                BACKGROUND + 'neutral-active',  4.5],
+    [TEXT + 'default',                BACKGROUND + 'accent-subtle',   4.5],
+    [TEXT + 'default',                BACKGROUND + 'selected',        4.5],
+    [TEXT + 'default',                BACKGROUND + 'selected-strong', 4.5],
+    [BACKGROUND + 'selected',         BACKGROUND + 'accent-subtle',   1.1],
+    [BACKGROUND + 'selected-strong',  BACKGROUND + 'selected',        1.1],
     [TEXT + 'strong',          CANVAS,                         4.5],
     [TEXT + 'muted',           CANVAS,                         4.5],
     [TEXT + 'muted',           BACKGROUND + 'surface-raised',  4.5],

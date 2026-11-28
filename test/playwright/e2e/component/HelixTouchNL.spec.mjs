@@ -7,7 +7,7 @@ test.use({hasTouch: true, viewport: {width: 1280, height: 800}});
  * example via trusted CDP multi-touch input (`Input.dispatchTouchEvent`) paired with Neural Link and App Worker checks.
  */
 async function bootHelix(page, neuralLink) {
-    await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
+    await neuralLink.routeConfig(page.context(), config => ({...config, useAiClient: true}));
     await page.goto('/examples/component/helix/index.html');
     await expect(page.locator('.neo-helix-item').first()).toBeVisible();
 
