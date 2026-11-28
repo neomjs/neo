@@ -36,5 +36,29 @@ test.describe('theme-release-compare — the in-page reads', () => {
 
         expect(color).toEqual({variable: '--neo-button-label-color', declared: 'var(--neo-color-text-muted)'});
         expect(fontSize.variable).toBe('--neo-control-font-size')
+    });
+
+    test('a probe restores an inline !important value, and a button two groups sample keeps both markers', async ({page}) => {
+        await page.setContent(`
+            <style>
+                .neo-button {font-size: var(--neo-button-font-size, 12px); color: var(--neo-button-label-color, rgb(1, 2, 3))}
+            </style>
+            <div class="neo-button neo-tab-header-button" style="--neo-button-font-size: 20px !important"><span class="neo-button-text">Tab</span></div>`);
+
+        const elements = await page.evaluate(readElements, {elementSet: ELEMENT_SET, properties: PROPERTIES, perGroup: 6});
+
+        expect(elements.filter(item => item.values['font-size'] === '20px').map(item => item.group).sort()).toEqual(['button', 'tab']);
+
+        const [buttonSize, tabSize] = await page.evaluate(resolveOwners, [
+            {group: 'button', index: 0, property: 'font-size'},
+            {group: 'tab',    index: 0, property: 'font-size'}
+        ]);
+
+        expect(buttonSize, 'the first group still finds its sample').toEqual({variable: '--neo-button-font-size', declared: '20px'});
+        expect(tabSize).toEqual({variable: '--neo-button-font-size', declared: '20px'});
+
+        expect(await page.locator('.neo-button').evaluate(el => [
+            el.style.getPropertyValue('--neo-button-font-size'), el.style.getPropertyPriority('--neo-button-font-size'), getComputedStyle(el).fontSize
+        ]), 'the inline value, its priority and the size it paints survive the probes').toEqual(['20px', 'important', '20px'])
     })
 });

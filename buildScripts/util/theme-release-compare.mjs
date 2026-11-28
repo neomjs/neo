@@ -19,11 +19,14 @@
  * - `rows`: one per differing property of a paired element, or per element present on one side only
  *   (`property: '(element)'`). Elements pair by group and label, digits masked, so an inserted control or a
  *   live number does not shift its neighbours. `owner` is the custom property the `dev` value was measured to
- *   flow through: overriding it on the declaring element changed the value. `equalValue` lists the element's
- *   custom properties whose value merely equals the `dev` value: a lead, never a verdict.
+ *   flow through: overriding it on the declaring element changed the value. Its `declared` text is named only
+ *   when setting it there reproduces the value, and every probe restores the element's own inline value and
+ *   priority. `equalValue` lists the element's custom properties whose value merely equals the `dev` value: a
+ *   lead, never a verdict.
  *
- * A near-equal color pair (a palette re-tint) is dropped unless it crosses a contrast threshold (3:1 or 4.5:1)
- * against what it paints on; such a row carries `crossing`.
+ * An equal or near-equal color (a palette re-tint) is dropped unless it crosses a contrast threshold (3:1 or
+ * 4.5:1) against what it paints on, which can change while the color does not; such a row carries `crossing`
+ * and both sides' `backdrop`.
  *
  * The tree must be a git-archive export, never the working checkout, so no stale `dist` file can stand in for
  * a deleted sheet. Inside it, run `npm run build-themes -- -n -e dev -t all` and `npm run bundle-browser-deps`
@@ -174,7 +177,8 @@ export function contrastOn(color, backdrop) {
 }
 
 /**
- * @summary The contrast floor a near-equal color pair crosses between the two sides, if any.
+ * @summary The contrast floor an equal or near-equal color pair crosses between the two sides against its
+ * backdrops, if any.
  * @param {Object} item The released snapshot.
  * @param {Object} match The `dev` snapshot.
  * @param {String} property
@@ -273,8 +277,8 @@ export function alignGroup(released, dev) {
  * @param {Object[]} released `{key, group, index, label, values, backdrop, vars}` from the released page.
  * @param {Object[]} dev The same from the `dev` page.
  * @param {Number} [perGroup=Infinity]
- * @returns {Object[]} `{key, group, property, released, dev, equalValue, devIndex}` (plus `crossing` and
- * `devKey` where they apply); a one-sided element reports `property: '(element)'`.
+ * @returns {Object[]} `{key, group, property, released, dev, equalValue, devIndex}` (plus `crossing` with
+ * `backdrop`, and `devKey`, where they apply); a one-sided element reports `property: '(element)'`.
  */
 export function diffSnapshots(released, dev, perGroup = Infinity) {
     const rows   = [],
@@ -290,12 +294,13 @@ export function diffSnapshots(released, dev, perGroup = Infinity) {
                 const before = item.values[property],
                       after  = match.values[property];
 
-                if (before === after) continue;
                 if (property === 'border-top-color' && drawsNoBorder(item.values) && drawsNoBorder(match.values)) continue;
 
-                const crossing = nearSameColor(before, after) ? crossedFloor(item, match, property) : null;
+                // An equal or near-equal colour is kept only when it crosses a floor against what it paints on,
+                // which can change while the colour does not
+                const crossing = before === after || nearSameColor(before, after) ? crossedFloor(item, match, property) : null;
 
-                if (nearSameColor(before, after) && !crossing) continue;
+                if ((before === after || nearSameColor(before, after)) && !crossing) continue;
 
                 const names = (match.vars || []).filter(entry => entry.value === after).map(entry => entry.name);
 
@@ -307,7 +312,7 @@ export function diffSnapshots(released, dev, perGroup = Infinity) {
                     released: before,
                     dev     : after,
                     devIndex: match.index ?? 0,
-                    ...(crossing && {crossing}),
+                    ...(crossing && {crossing, backdrop: {released: item.backdrop?.[property], dev: match.backdrop?.[property]}}),
                     equalValue: rankCandidates(names, group).slice(0, 4)
                 })
             }
@@ -381,7 +386,7 @@ export function formatReport(result) {
         for (const row of run.rows) {
             const owner = row.owner?.variable ? `\`${row.owner.variable}\`${row.owner.declared ? ` = \`${row.owner.declared}\`` : ''}` : (row.owner?.literal ? 'a literal' : '');
 
-            lines.push(`| \`${row.key}\` | ${row.property}${row.crossing ? ` (crosses ${row.crossing})` : ''} | \`${row.released}\` | \`${row.dev}\` | ${owner} | ${row.equalValue.map(name => `\`${name}\``).join(', ')} |`)
+            lines.push(`| \`${row.key}\` | ${row.property}${row.crossing ? ` (crosses ${row.crossing} on \`${row.backdrop.released}\` → \`${row.backdrop.dev}\`)` : ''} | \`${row.released}\` | \`${row.dev}\` | ${owner} | ${row.equalValue.map(name => `\`${name}\``).join(', ')} |`)
         }
     }
 
@@ -497,7 +502,8 @@ export function readElements({elementSet, properties, perGroup}) {
             }
 
             probe.remove();
-            el.setAttribute('data-release-compare', `${group}:${index}`);
+            // A word per sample: an element that two groups sample keeps both markers
+            el.setAttribute('data-release-compare', `${el.getAttribute('data-release-compare') ?? ''} ${group}:${index}`.trim());
 
             out.push({
                 key     : `${group}#${index}${text ? ' ' + text : ''}`,
@@ -573,7 +579,7 @@ export function resolveOwners(queries) {
           read     = (el, property) => getComputedStyle(el).getPropertyValue(property);
 
     return queries.map(({group, index, property}) => {
-        const el = document.querySelector(`[data-release-compare="${group}:${index}"]`);
+        const el = document.querySelector(`[data-release-compare~="${group}:${index}"]`);
         if (!el) return {variable: null};
 
         let host = el;
@@ -596,16 +602,23 @@ export function resolveOwners(queries) {
               original = read(host, property);
 
         for (const name of names) {
-            declarer.style.setProperty(name, sentinel(property), 'important');
-            const moved = read(host, property) !== original;
-            declarer.style.removeProperty(name);
+            const prior   = [declarer.style.getPropertyValue(name), declarer.style.getPropertyPriority(name)],
+                  restore = () => prior[0] ? declarer.style.setProperty(name, ...prior) : declarer.style.removeProperty(name),
+                  // Whether `value`, set on the declarer above every rule, leaves the measured value as it was
+                  keeps   = value => {
+                      declarer.style.setProperty(name, value, 'important');
+                      const same = read(host, property) === original;
+                      restore();
+                      return same
+                  };
 
-            if (moved) {
+            if (!keeps(sentinel(property))) {
                 const own = [declarer, ...(function* up(node) {while ((node = node.parentElement)) yield node})(declarer)]
-                    .map(node => matching(node).map(rule => rule.style.getPropertyValue(name)).filter(Boolean).pop())
-                    .find(Boolean);
+                    .map(node => node.style.getPropertyValue(name) || matching(node).map(rule => rule.style.getPropertyValue(name)).filter(Boolean).pop())
+                    .find(Boolean)?.trim();
 
-                return {variable: name, declared: own?.trim() || null}
+                // A declaration is named only when it reproduces the measured value
+                return {variable: name, declared: own && keeps(own) ? own : null}
             }
         }
 

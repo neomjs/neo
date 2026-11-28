@@ -127,6 +127,23 @@ test.describe('theme-release-compare — surfaces, pairing, differences and the 
         expect(diffSnapshots(released, dev)).toEqual([expect.objectContaining({property: 'border-top-color', crossing: '3:1'})])
     });
 
+    test('keeps an unchanged text colour whose backdrop alone crosses a contrast floor', () => {
+        const grey     = 'rgba(118, 118, 118, 1)',
+              released = [snapshot('field#0 Name', {color: grey}, {backdrop: {color: 'rgba(255, 255, 255, 1)'}})],
+              dev      = [snapshot('field#0 Name', {color: grey}, {backdrop: {color: 'rgba(249, 249, 249, 1)'}})];
+
+        expect(contrastOn(grey, 'rgba(255, 255, 255, 1)')).toBeCloseTo(4.54, 2);
+        expect(contrastOn(grey, 'rgba(249, 249, 249, 1)')).toBeCloseTo(4.31, 2);
+
+        expect(diffSnapshots(released, dev)).toEqual([expect.objectContaining({
+            property: 'color',
+            released: grey,
+            dev     : grey,
+            crossing: '4.5:1',
+            backdrop: {released: 'rgba(255, 255, 255, 1)', dev: 'rgba(249, 249, 249, 1)'}
+        })])
+    });
+
     test('compares only the first perGroup elements, using the rest as pairing slack', () => {
         const released = [snapshot('tab#0 A'), snapshot('tab#1 B'), snapshot('tab#2 C')],
               dev      = [snapshot('tab#0 New'), snapshot('tab#1 A'), snapshot('tab#2 B'), snapshot('tab#3 C')];
