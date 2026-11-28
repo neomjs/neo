@@ -174,6 +174,39 @@ test.describe('Neo.scheduler.Container', () => {
         } finally { events.destroy(); resources.destroy() }
     });
 
+    test('applies pointer moves buffered during booking dragStart and discards them when cancelled mid-start', async () => {
+        const resources = Neo.create(Store, {keyProperty: 'id', model: {fields: [{name: 'id', type: 'String'}]}, data: [{id: 'r'}]});
+        const events    = Neo.create(EventStore, {data: [{id: 'e', resourceId: 'r', title: 'Score mix',
+            startDate: '2026-11-09T01:00Z', endDate: '2026-11-09T02:00Z'}]});
+        scheduler = Neo.create(SchedulerContainer, {appName, store: resources, eventStore: events,
+            timeAxis: {start: '2026-11-09T00:00Z', end: '2026-11-09T12:00Z', pxPerMinute: 1, snapMinutes: 15}});
+        const zone = scheduler.eventDragZone;
+        const bar  = {id: 'buffered-start-bar', cls: ['neo-timeline-bar'], data: {eventId: 'e'}, rect: {left: 60, top: 20, x: 60, y: 20, width: 60, height: 24}};
+        let resolveHandshake;
+        Neo.main.addon.DragDrop.setConfigs = () => new Promise(resolve => { resolveHandshake = resolve });
+
+        try {
+            // Cancelled mid-start discards buffered move
+            const cancelledStart = scheduler.onBarDragStart({axisOffset: 75, clientX: 75, clientY: 30, path: [bar]});
+            zone.onDragMove({axisOffset: 165, clientX: 165, clientY: 30});
+            scheduler.onSchedulerKeyDown({key: 'Escape'});
+            resolveHandshake({});
+            await cancelledStart;
+            expect(zone.pendingDrop).toBeNull();
+
+            // Active start applies buffered move without needing a post-handshake pointer frame
+            const activeStart = scheduler.onBarDragStart({axisOffset: 75, clientX: 75, clientY: 30, path: [bar]});
+            zone.onDragMove({axisOffset: 165, clientX: 165, clientY: 30});
+            resolveHandshake({});
+            await activeStart;
+            expect(zone.grabOffset).toBe(15);
+            expect(zone.pendingDrop?.startDate.toISOString()).toBe('2026-11-09T02:30:00.000Z');
+            zone.onDragEnd({});
+            expect(events.get('e').startDate.toISOString()).toBe('2026-11-09T02:30:00.000Z');
+            expect(events.get('e').endDate.toISOString()).toBe('2026-11-09T03:30:00.000Z')
+        } finally { events.destroy(); resources.destroy() }
+    });
+
     test('assembles locked-start resourceColumns + center Neo.timeline.Column + TimeAxisHeader and projects overlapping bars', () => {
         const
             resourceStore = Neo.create(Store, {
