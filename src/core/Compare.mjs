@@ -20,15 +20,20 @@ class Compare {
     /**
      * @param {Array} item1
      * @param {Array} item2
+     * @param {WeakMap} [seen] The pairs already being compared, see isEqual()
      * @returns {Boolean}
      */
-    static compareArrays(item1, item2) {
+    static compareArrays(item1, item2, seen = new WeakMap()) {
+        if (Compare.isComparing(item1, item2, seen)) {
+            return true
+        }
+
         if (item1.length !== item2.length) {
             return false
         }
 
         for (const [i, v] of item1.entries()) {
-            if (!Compare.isEqual(v, item2[i])) {
+            if (!Compare.isEqual(v, item2[i], seen)) {
                 return false
             }
         }
@@ -42,7 +47,11 @@ class Compare {
      * @returns {Boolean}
      */
     static compareDates(item1, item2) {
-        return item1.valueOf() === item2.valueOf()
+        const time1 = item1.valueOf(),
+              time2 = item2.valueOf();
+
+        // invalid dates have the time value NaN
+        return time1 === time2 || (Number.isNaN(time1) && Number.isNaN(time2))
     }
 
     /**
@@ -91,17 +100,25 @@ class Compare {
     }
 
     /**
+     * Objects are equal when they have the same own enumerable keys with equal values.
      * @param {Object} item1
      * @param {Object} item2
+     * @param {WeakMap} [seen] The pairs already being compared, see isEqual()
      * @returns {Boolean}
      */
-    static compareObjects(item1, item2) {
-        if (Object.keys(item1).length !== Object.keys(item2).length) {
+    static compareObjects(item1, item2, seen = new WeakMap()) {
+        if (Compare.isComparing(item1, item2, seen)) {
+            return true
+        }
+
+        const keys = Object.keys(item1);
+
+        if (keys.length !== Object.keys(item2).length) {
             return false
         }
 
-        for (let key in item1) {
-            if (!Compare.isEqual(item1[key], item2[key])) {
+        for (const key of keys) {
+            if (!Object.hasOwn(item2, key) || !Compare.isEqual(item1[key], item2[key], seen)) {
                 return false
             }
         }
@@ -138,11 +155,45 @@ class Compare {
     }
 
     /**
+     * Records that item1 and item2 are being compared.
+     * A pair that is already in progress counts as equal, so cyclic structures end the walk.
+     * When a nested pair is not equal, the whole comparison is false, so a recorded pair never hides a difference.
+     * @param {Array|Object} item1
+     * @param {Array|Object} item2
+     * @param {WeakMap} seen Maps item1 to the Set of items it is being compared with
+     * @returns {Boolean} true if the pair was already in progress
+     */
+    static isComparing(item1, item2, seen) {
+        let partners = seen.get(item1);
+
+        if (partners?.has(item2)) {
+            return true
+        }
+
+        if (!partners) {
+            partners = new Set();
+            seen.set(item1, partners)
+        }
+
+        partners.add(item2);
+
+        return false
+    }
+
+    /**
+     * Compares two values by type.
+     * Objects need the same own enumerable keys with equal values.
+     * Arrays compare by position.
+     * NaN equals NaN (also as the time value of invalid dates), while 0 and -0 stay equal.
+     * Cyclic objects and arrays are compared without recursing forever.
+     * Functions compare by name and source text.
+     * Map values and Set members compare by identity.
      * @param {*} item1
      * @param {*} item2
+     * @param {WeakMap} [seen] Used internally for the pairs already being compared
      * @returns {Boolean}
      */
-    static isEqual(item1, item2) {
+    static isEqual(item1, item2, seen) {
         if (item1 === item2) {
             return true
         }
@@ -155,11 +206,11 @@ class Compare {
         }
 
         if (Compare.map[type1]) {
-            return Compare[Compare.map[type1]](item1, item2)
+            return Compare[Compare.map[type1]](item1, item2, seen)
         }
 
-        // all other types
-        return item1 === item2
+        // all other types: NaN is the only value that is not equal to itself
+        return Number.isNaN(item1) && Number.isNaN(item2)
     }
 }
 
