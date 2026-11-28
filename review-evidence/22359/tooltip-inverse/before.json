@@ -1,0 +1,353 @@
+{
+  "head": "fc64894fc770074dc13faeef2062faa43c7eece1",
+  "stage": "before",
+  "route": "/examples/toolbar/application/index.html",
+  "viewport": [
+    1280,
+    800
+  ],
+  "method": "Chrome, DPR 1. Only the existing toolbar example boot config is extended to opt in the Material schemes. A real pointer hovers the example’s own tooltip targets. Role values are resolved in the hovered tooltip’s observed scheme. PNG colors are sampled inside the visible bubble. Contrast uses sRGB relative luminance. Each nested run uses the normal App Worker theme config on the toolbar and one included button.",
+  "standalone": {
+    "material-light": {
+      "scope": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-tooltip neo-floating neo-tooltip-hoverable neo-theme-material-light neo-aligned-bottom",
+      "bodyOwned": true,
+      "text": "Toggle the draft’s monospace font",
+      "scheme": "light",
+      "bg": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "fg": [
+        0,
+        0,
+        0,
+        255
+      ],
+      "roles": {
+        "background-inverse": [
+          43,
+          41,
+          48,
+          255
+        ],
+        "text-inverse": [
+          243,
+          237,
+          247,
+          255
+        ],
+        "background-accent": [
+          103,
+          80,
+          164,
+          255
+        ],
+        "text-on-accent": [
+          255,
+          255,
+          255,
+          255
+        ]
+      },
+      "rect": {
+        "x": 108.828125,
+        "y": 131,
+        "w": 218.390625,
+        "h": 18
+      },
+      "padding": "0px",
+      "radius": "0px",
+      "fontSize": "16px",
+      "border": "0px none rgb(0, 0, 0)",
+      "shadow": "none",
+      "paint": {
+        "pixelCount": 2968,
+        "exactBackgroundPixels": 96,
+        "exactForegroundPixels": 96,
+        "nearestForeground": "#000000",
+        "foregroundChannelError": 0,
+        "lowerInterior": [
+          {
+            "x": 163,
+            "y": 147,
+            "rgb": "#fef7ff"
+          },
+          {
+            "x": 218,
+            "y": 147,
+            "rgb": "#fef7ff"
+          },
+          {
+            "x": 272,
+            "y": 147,
+            "rgb": "#fef7ff"
+          }
+        ]
+      },
+      "computedRatio": null,
+      "frame": {
+        "file": "before-material-light.png",
+        "sha256": "2ccce972498dc5b9e83d9116b111348ed7be976c67d3a21a0ad5e121ad778955"
+      }
+    },
+    "material-dark": {
+      "scope": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-tooltip neo-floating neo-tooltip-hoverable neo-theme-material-dark neo-aligned-bottom",
+      "bodyOwned": true,
+      "text": "Toggle the draft’s monospace font",
+      "scheme": "dark",
+      "bg": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "fg": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "roles": {
+        "background-inverse": [
+          231,
+          225,
+          234,
+          255
+        ],
+        "text-inverse": [
+          43,
+          41,
+          48,
+          255
+        ],
+        "background-accent": [
+          208,
+          188,
+          255,
+          255
+        ],
+        "text-on-accent": [
+          57,
+          32,
+          115,
+          255
+        ]
+      },
+      "rect": {
+        "x": 108.828125,
+        "y": 131,
+        "w": 218.390625,
+        "h": 18
+      },
+      "padding": "0px",
+      "radius": "0px",
+      "fontSize": "16px",
+      "border": "0px none rgb(255, 255, 255)",
+      "shadow": "none",
+      "paint": {
+        "pixelCount": 2968,
+        "exactBackgroundPixels": 0,
+        "exactForegroundPixels": 96,
+        "nearestForeground": "#ffffff",
+        "foregroundChannelError": 0,
+        "lowerInterior": [
+          {
+            "x": 163,
+            "y": 147,
+            "rgb": "#141218"
+          },
+          {
+            "x": 218,
+            "y": 147,
+            "rgb": "#141218"
+          },
+          {
+            "x": 272,
+            "y": 147,
+            "rgb": "#141218"
+          }
+        ]
+      },
+      "computedRatio": null,
+      "frame": {
+        "file": "before-material-dark.png",
+        "sha256": "cedcc4e83bfe6a86741001564057b7a008978002ec4f4e78448717a458c34c70"
+      }
+    },
+    "neo-light": {
+      "scope": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-tooltip neo-floating neo-tooltip-hoverable neo-theme-neo-light neo-aligned-bottom",
+      "bodyOwned": true,
+      "text": "Toggle the draft’s monospace font",
+      "scheme": "light",
+      "bg": [
+        62,
+        99,
+        221,
+        255
+      ],
+      "fg": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "roles": {
+        "background-inverse": [
+          14,
+          15,
+          19,
+          255
+        ],
+        "text-inverse": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "background-accent": [
+          62,
+          99,
+          221,
+          255
+        ],
+        "text-on-accent": [
+          255,
+          255,
+          255,
+          255
+        ]
+      },
+      "rect": {
+        "x": 90.5,
+        "y": 116,
+        "w": 225.890625,
+        "h": 24
+      },
+      "padding": "2px 8px 0px",
+      "radius": "4px",
+      "fontSize": "14px",
+      "border": "0px none rgb(255, 255, 255)",
+      "shadow": "none",
+      "paint": {
+        "pixelCount": 4380,
+        "exactBackgroundPixels": 3102,
+        "exactForegroundPixels": 72,
+        "nearestForeground": "#ffffff",
+        "foregroundChannelError": 0,
+        "lowerInterior": [
+          {
+            "x": 146,
+            "y": 138,
+            "rgb": "#3e63dd"
+          },
+          {
+            "x": 203,
+            "y": 138,
+            "rgb": "#3e63dd"
+          },
+          {
+            "x": 259,
+            "y": 138,
+            "rgb": "#3e63dd"
+          }
+        ]
+      },
+      "computedRatio": 5.206,
+      "frame": {
+        "file": "before-neo-light.png",
+        "sha256": "963c03ac1b1bf70f706b9dfe8eaeebc465d2e00e0a2dc26ee2747b32da7d1855"
+      }
+    },
+    "neo-dark": {
+      "scope": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-tooltip neo-floating neo-tooltip-hoverable neo-theme-neo-dark neo-aligned-bottom",
+      "bodyOwned": true,
+      "text": "Toggle the draft’s monospace font",
+      "scheme": "dark",
+      "bg": [
+        62,
+        99,
+        221,
+        255
+      ],
+      "fg": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "roles": {
+        "background-inverse": [
+          249,
+          250,
+          251,
+          255
+        ],
+        "text-inverse": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "background-accent": [
+          62,
+          99,
+          221,
+          255
+        ],
+        "text-on-accent": [
+          255,
+          255,
+          255,
+          255
+        ]
+      },
+      "rect": {
+        "x": 90.5,
+        "y": 116,
+        "w": 225.890625,
+        "h": 24
+      },
+      "padding": "2px 8px 0px",
+      "radius": "4px",
+      "fontSize": "14px",
+      "border": "0px none rgb(255, 255, 255)",
+      "shadow": "none",
+      "paint": {
+        "pixelCount": 4380,
+        "exactBackgroundPixels": 3102,
+        "exactForegroundPixels": 72,
+        "nearestForeground": "#ffffff",
+        "foregroundChannelError": 0,
+        "lowerInterior": [
+          {
+            "x": 146,
+            "y": 138,
+            "rgb": "#3e63dd"
+          },
+          {
+            "x": 203,
+            "y": 138,
+            "rgb": "#3e63dd"
+          },
+          {
+            "x": 259,
+            "y": 138,
+            "rgb": "#3e63dd"
+          }
+        ]
+      },
+      "computedRatio": 5.206,
+      "frame": {
+        "file": "before-neo-dark.png",
+        "sha256": "99d04329f20e61973eb68c2417a33b37ad193d68f58f165e086de152d0586308"
+      }
+    }
+  },
+  "nested": [],
+  "pageErrors": [],
+  "materialTooltipSheetSha256": null,
+  "browser": "158.0.8127.38",
+  "ok": true
+}

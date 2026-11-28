@@ -1,0 +1,590 @@
+{
+  "head": "8897599be910259fcd386b0f78184cc64cc929f2",
+  "stage": "after",
+  "route": "/examples/toolbar/application/index.html",
+  "viewport": [
+    1280,
+    800
+  ],
+  "method": "Chrome, DPR 1. Only the existing toolbar example boot config is extended to opt in the Material schemes. A real pointer hovers the example’s own tooltip targets. Role values are resolved in the hovered tooltip’s observed scheme. PNG colors are sampled inside the visible bubble. Contrast uses sRGB relative luminance. Each nested run uses the normal App Worker theme config on the toolbar and one included button.",
+  "standalone": {
+    "material-light": {
+      "scope": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-tooltip neo-floating neo-tooltip-hoverable neo-theme-material-light neo-aligned-bottom",
+      "bodyOwned": true,
+      "text": "Toggle the draft’s monospace font",
+      "scheme": "light",
+      "bg": [
+        43,
+        41,
+        48,
+        255
+      ],
+      "fg": [
+        243,
+        237,
+        247,
+        255
+      ],
+      "roles": {
+        "background-inverse": [
+          43,
+          41,
+          48,
+          255
+        ],
+        "text-inverse": [
+          243,
+          237,
+          247,
+          255
+        ],
+        "background-accent": [
+          103,
+          80,
+          164,
+          255
+        ],
+        "text-on-accent": [
+          255,
+          255,
+          255,
+          255
+        ]
+      },
+      "sizes": {
+        "control-height-small": "32px",
+        "radius-small": "4px",
+        "control-font-size-medium": "0.875rem",
+        "space-0-5": "2px",
+        "space-2": "8px"
+      },
+      "rootFontSize": "16px",
+      "rect": {
+        "x": 114.4765625,
+        "y": 131,
+        "w": 207.09375,
+        "h": 32
+      },
+      "padding": "2px 8px 0px",
+      "radius": "4px",
+      "fontSize": "14px",
+      "border": "0px none oklch(0.954 0.015 312.6)",
+      "shadow": "none",
+      "paint": {
+        "pixelCount": 5600,
+        "exactBackgroundPixels": 4542,
+        "exactForegroundPixels": 20,
+        "nearestForeground": "#f3edf7",
+        "foregroundChannelError": 0,
+        "lowerInterior": [
+          {
+            "x": 166,
+            "y": 161,
+            "rgb": "#2b2930"
+          },
+          {
+            "x": 218,
+            "y": 161,
+            "rgb": "#2b2930"
+          },
+          {
+            "x": 269,
+            "y": 161,
+            "rgb": "#2b2930"
+          }
+        ]
+      },
+      "computedRatio": 12.49,
+      "frame": {
+        "file": "after-material-light.png",
+        "sha256": "a3db8c1c2a50565eae920ce64d75a383a6bfb3736d0abc83c57b90686893d79d"
+      }
+    },
+    "material-dark": {
+      "scope": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-tooltip neo-floating neo-tooltip-hoverable neo-theme-material-dark neo-aligned-bottom",
+      "bodyOwned": true,
+      "text": "Toggle the draft’s monospace font",
+      "scheme": "dark",
+      "bg": [
+        231,
+        225,
+        234,
+        255
+      ],
+      "fg": [
+        43,
+        41,
+        48,
+        255
+      ],
+      "roles": {
+        "background-inverse": [
+          231,
+          225,
+          234,
+          255
+        ],
+        "text-inverse": [
+          43,
+          41,
+          48,
+          255
+        ],
+        "background-accent": [
+          208,
+          188,
+          255,
+          255
+        ],
+        "text-on-accent": [
+          57,
+          32,
+          115,
+          255
+        ]
+      },
+      "sizes": {
+        "control-height-small": "32px",
+        "radius-small": "4px",
+        "control-font-size-medium": "0.875rem",
+        "space-0-5": "2px",
+        "space-2": "8px"
+      },
+      "rootFontSize": "16px",
+      "rect": {
+        "x": 114.4765625,
+        "y": 131,
+        "w": 207.09375,
+        "h": 32
+      },
+      "padding": "2px 8px 0px",
+      "radius": "4px",
+      "fontSize": "14px",
+      "border": "0px none oklch(0.286 0.013 298.7)",
+      "shadow": "none",
+      "paint": {
+        "pixelCount": 5600,
+        "exactBackgroundPixels": 4542,
+        "exactForegroundPixels": 20,
+        "nearestForeground": "#2b2930",
+        "foregroundChannelError": 0,
+        "lowerInterior": [
+          {
+            "x": 166,
+            "y": 161,
+            "rgb": "#e7e1ea"
+          },
+          {
+            "x": 218,
+            "y": 161,
+            "rgb": "#e7e1ea"
+          },
+          {
+            "x": 269,
+            "y": 161,
+            "rgb": "#e7e1ea"
+          }
+        ]
+      },
+      "computedRatio": 11.183,
+      "frame": {
+        "file": "after-material-dark.png",
+        "sha256": "7e5404a2bb9f225c972cda459d2e631a071a5c371032049535cc3a015794f79a"
+      }
+    },
+    "neo-light": {
+      "scope": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-tooltip neo-floating neo-tooltip-hoverable neo-theme-neo-light neo-aligned-bottom",
+      "bodyOwned": true,
+      "text": "Toggle the draft’s monospace font",
+      "scheme": "light",
+      "bg": [
+        62,
+        99,
+        221,
+        255
+      ],
+      "fg": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "roles": {
+        "background-inverse": [
+          14,
+          15,
+          19,
+          255
+        ],
+        "text-inverse": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "background-accent": [
+          62,
+          99,
+          221,
+          255
+        ],
+        "text-on-accent": [
+          255,
+          255,
+          255,
+          255
+        ]
+      },
+      "sizes": {
+        "control-height-small": "24px",
+        "radius-small": "4px",
+        "control-font-size-medium": "0.875rem",
+        "space-0-5": "2px",
+        "space-2": "8px"
+      },
+      "rootFontSize": "16px",
+      "rect": {
+        "x": 90.5,
+        "y": 116,
+        "w": 225.890625,
+        "h": 24
+      },
+      "padding": "2px 8px 0px",
+      "radius": "4px",
+      "fontSize": "14px",
+      "border": "0px none rgb(255, 255, 255)",
+      "shadow": "none",
+      "paint": {
+        "pixelCount": 4380,
+        "exactBackgroundPixels": 3102,
+        "exactForegroundPixels": 72,
+        "nearestForeground": "#ffffff",
+        "foregroundChannelError": 0,
+        "lowerInterior": [
+          {
+            "x": 146,
+            "y": 138,
+            "rgb": "#3e63dd"
+          },
+          {
+            "x": 203,
+            "y": 138,
+            "rgb": "#3e63dd"
+          },
+          {
+            "x": 259,
+            "y": 138,
+            "rgb": "#3e63dd"
+          }
+        ]
+      },
+      "computedRatio": 5.206,
+      "frame": {
+        "file": "after-neo-light.png",
+        "sha256": "80e162a76a0faef9289c8dfb3eaf6bec0ace467ecbabb8e5484827e8a772468a"
+      }
+    },
+    "neo-dark": {
+      "scope": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-tooltip neo-floating neo-tooltip-hoverable neo-theme-neo-dark neo-aligned-bottom",
+      "bodyOwned": true,
+      "text": "Toggle the draft’s monospace font",
+      "scheme": "dark",
+      "bg": [
+        62,
+        99,
+        221,
+        255
+      ],
+      "fg": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "roles": {
+        "background-inverse": [
+          249,
+          250,
+          251,
+          255
+        ],
+        "text-inverse": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "background-accent": [
+          62,
+          99,
+          221,
+          255
+        ],
+        "text-on-accent": [
+          255,
+          255,
+          255,
+          255
+        ]
+      },
+      "sizes": {
+        "control-height-small": "24px",
+        "radius-small": "4px",
+        "control-font-size-medium": "0.875rem",
+        "space-0-5": "2px",
+        "space-2": "8px"
+      },
+      "rootFontSize": "16px",
+      "rect": {
+        "x": 90.5,
+        "y": 116,
+        "w": 225.890625,
+        "h": 24
+      },
+      "padding": "2px 8px 0px",
+      "radius": "4px",
+      "fontSize": "14px",
+      "border": "0px none rgb(255, 255, 255)",
+      "shadow": "none",
+      "paint": {
+        "pixelCount": 4380,
+        "exactBackgroundPixels": 3102,
+        "exactForegroundPixels": 72,
+        "nearestForeground": "#ffffff",
+        "foregroundChannelError": 0,
+        "lowerInterior": [
+          {
+            "x": 146,
+            "y": 138,
+            "rgb": "#3e63dd"
+          },
+          {
+            "x": 203,
+            "y": 138,
+            "rgb": "#3e63dd"
+          },
+          {
+            "x": 259,
+            "y": 138,
+            "rgb": "#3e63dd"
+          }
+        ]
+      },
+      "computedRatio": 5.206,
+      "frame": {
+        "file": "after-neo-dark.png",
+        "sha256": "4dd03cdb46c88a52d6cc9b79b249c3e164b7dcdec072f71b50df8747bb0a046d"
+      }
+    }
+  },
+  "nested": [
+    {
+      "outer": "neo-light",
+      "inner": "material-dark",
+      "steps": [
+        {
+          "host": "neo-light",
+          "explicit": {
+            "theme": "material-dark",
+            "fill": "#e7e1ea",
+            "text": "#2b2930",
+            "paint": "#e7e1ea"
+          },
+          "inherited": {
+            "theme": "neo-light",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          }
+        },
+        {
+          "host": "material-dark",
+          "explicit": {
+            "theme": "material-dark",
+            "fill": "#e7e1ea",
+            "text": "#2b2930",
+            "paint": "#e7e1ea"
+          },
+          "inherited": {
+            "theme": "material-dark",
+            "fill": "#e7e1ea",
+            "text": "#2b2930",
+            "paint": "#e7e1ea"
+          }
+        },
+        {
+          "host": "neo-light",
+          "explicit": {
+            "theme": "material-dark",
+            "fill": "#e7e1ea",
+            "text": "#2b2930",
+            "paint": "#e7e1ea"
+          },
+          "inherited": {
+            "theme": "neo-light",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          }
+        }
+      ]
+    },
+    {
+      "outer": "material-dark",
+      "inner": "neo-light",
+      "steps": [
+        {
+          "host": "material-dark",
+          "explicit": {
+            "theme": "neo-light",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          },
+          "inherited": {
+            "theme": "material-dark",
+            "fill": "#e7e1ea",
+            "text": "#2b2930",
+            "paint": "#e7e1ea"
+          }
+        },
+        {
+          "host": "neo-light",
+          "explicit": {
+            "theme": "neo-light",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          },
+          "inherited": {
+            "theme": "neo-light",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          }
+        },
+        {
+          "host": "material-dark",
+          "explicit": {
+            "theme": "neo-light",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          },
+          "inherited": {
+            "theme": "material-dark",
+            "fill": "#e7e1ea",
+            "text": "#2b2930",
+            "paint": "#e7e1ea"
+          }
+        }
+      ]
+    },
+    {
+      "outer": "neo-dark",
+      "inner": "material-light",
+      "steps": [
+        {
+          "host": "neo-dark",
+          "explicit": {
+            "theme": "material-light",
+            "fill": "#2b2930",
+            "text": "#f3edf7",
+            "paint": "#2b2930"
+          },
+          "inherited": {
+            "theme": "neo-dark",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          }
+        },
+        {
+          "host": "material-light",
+          "explicit": {
+            "theme": "material-light",
+            "fill": "#2b2930",
+            "text": "#f3edf7",
+            "paint": "#2b2930"
+          },
+          "inherited": {
+            "theme": "material-light",
+            "fill": "#2b2930",
+            "text": "#f3edf7",
+            "paint": "#2b2930"
+          }
+        },
+        {
+          "host": "neo-dark",
+          "explicit": {
+            "theme": "material-light",
+            "fill": "#2b2930",
+            "text": "#f3edf7",
+            "paint": "#2b2930"
+          },
+          "inherited": {
+            "theme": "neo-dark",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          }
+        }
+      ]
+    },
+    {
+      "outer": "material-light",
+      "inner": "neo-dark",
+      "steps": [
+        {
+          "host": "material-light",
+          "explicit": {
+            "theme": "neo-dark",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          },
+          "inherited": {
+            "theme": "material-light",
+            "fill": "#2b2930",
+            "text": "#f3edf7",
+            "paint": "#2b2930"
+          }
+        },
+        {
+          "host": "neo-dark",
+          "explicit": {
+            "theme": "neo-dark",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          },
+          "inherited": {
+            "theme": "neo-dark",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          }
+        },
+        {
+          "host": "material-light",
+          "explicit": {
+            "theme": "neo-dark",
+            "fill": "#3e63dd",
+            "text": "#ffffff",
+            "paint": "#3e63dd"
+          },
+          "inherited": {
+            "theme": "material-light",
+            "fill": "#2b2930",
+            "text": "#f3edf7",
+            "paint": "#2b2930"
+          }
+        }
+      ]
+    }
+  ],
+  "pageErrors": [],
+  "materialTooltipSheetSha256": "988341c22a49782bfc5ac5b37121e82fd0a0a2ee414e9ee066c5606777b21cfc",
+  "browser": "158.0.8127.38",
+  "ok": true
+}
