@@ -1,11 +1,12 @@
 /**
  * @module buildScripts/util/themeCss
  * @summary The stylesheet reading the theme tools share: the walk over a tree, the comment strip, the
- * `var()` strip, and the custom properties CSS may read although no CSS declares them.
+ * `var()` strip, the colours a value derives instead of reading, and the custom properties CSS may read
+ * although no CSS declares them.
  *
- * `check-theme-var-references`, `check-theme-surfaces` and `theme-census` read `resources/css` with
- * regular expressions over comment-stripped text, not through a CSS parser. One copy of that reading
- * keeps a guard's verdict and the census's counts about the same tree.
+ * `check-theme-var-references`, `check-theme-surfaces`, `check-theme-palette` and `theme-census` read
+ * `resources/css` with regular expressions over comment-stripped text, not through a CSS parser. One copy
+ * of that reading keeps a guard's verdict and the census's counts about the same tree.
  */
 import fs   from 'node:fs';
 import path from 'node:path';
@@ -106,6 +107,144 @@ export function stripVarCalls(value) {
     }
 
     return value
+}
+
+/**
+ * A raw colour written as a hex colour or a colour function. `color-mix()` and `light-dark()` hold colours and
+ * are read for what they hold.
+ * @type {RegExp}
+ */
+const RAW_COLOUR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/gi;
+
+/**
+ * The named colours of CSS Color 4, each a raw colour. `transparent` and `currentcolor` are keywords, and the
+ * system colours are the browser's.
+ * @type {Set<String>}
+ */
+const NAMED_COLOURS = new Set([
+    'aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood',
+    'cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray',
+    'darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen',
+    'darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue',
+    'firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew',
+    'hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan',
+    'lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray',
+    'lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue',
+    'mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred',
+    'midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid',
+    'palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple',
+    'rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue',
+    'slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke',
+    'yellow yellowgreen'
+].join(' ').split(' '));
+
+/**
+ * `url()` data and quoted strings: a `#` fragment or a word inside one is no colour.
+ * @type {RegExp}
+ */
+const DATA = /url\(\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^)]*)\s*\)|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gi;
+
+/**
+ * A whole identifier: no part of a dashed name, and no function name.
+ * @type {RegExp}
+ */
+const IDENTIFIER = /(?<![\w-])[a-z]+(?![\w(-])/gi;
+
+/**
+ * @summary A value with its `url()` data and quoted strings blanked out, each index still on its character.
+ * @param {String} text
+ * @returns {String}
+ */
+function withoutData(text) {
+    return text.replace(DATA, data => ' '.repeat(data.length))
+}
+
+/**
+ * @summary The raw colours in a stretch of CSS: hex colours, colour functions and named colours, in any case,
+ * and none inside `url()` data or a quoted string. `check-theme-surfaces`, `check-theme-palette` and
+ * `theme-census` read raw colour through it.
+ * @param {String} text
+ * @returns {String[]}
+ */
+export function rawColours(text) {
+    const bare = withoutData(text);
+
+    return [
+        ...bare.match(RAW_COLOUR) ?? [],
+        ...(bare.match(IDENTIFIER) ?? []).filter(word => NAMED_COLOURS.has(word.toLowerCase()))
+    ]
+}
+
+/**
+ * @summary The arguments of a call, split at the commas outside nested parentheses.
+ * @param {String} list The text between the call's own parentheses
+ * @returns {String[]}
+ */
+function topLevelArguments(list) {
+    const args  = [];
+    let   depth = 0,
+        start = 0;
+
+    for (let i = 0; i < list.length; i++) {
+        if (list[i] === '(') {
+            depth++
+        } else if (list[i] === ')') {
+            depth--
+        } else if (list[i] === ',' && depth === 0) {
+            args.push(list.slice(start, i).trim());
+            start = i + 1
+        }
+    }
+
+    return [...args, list.slice(start).trim()]
+}
+
+/**
+ * @summary The colours a declaration value derives instead of reading, which a component variable does not
+ * hold: it reads roles, and derives a colour only by mixing one role with `transparent`.
+ *
+ * `mixes` holds each `color-mix()` whose two colours are both something other than `transparent`: the result
+ * is a colour no role names, so no palette check measures a pair it forms. `raw` holds each raw colour
+ * (`rawColours`), one inside a `var()` fallback too. Function names are read in any case, and nothing inside
+ * `url()` data or a quoted string counts. `check-theme-palette` fails both in `theme-base`, and `theme-census`
+ * counts a value by the same reading.
+ * @param {String} value A declaration value without comments
+ * @returns {{mixes: String[], raw: String[]}}
+ */
+export function colourSources(value) {
+    const
+        bare  = withoutData(value),
+        lower = bare.toLowerCase(),
+        mixes = [];
+    let index = -1;
+
+    while ((index = lower.indexOf('color-mix(', index + 1)) !== -1) {
+        let depth = 0,
+            end   = -1;
+
+        for (let i = index + 9; i < bare.length; i++) {
+            if (bare[i] === '(') {
+                depth++
+            } else if (bare[i] === ')' && --depth === 0) {
+                end = i;
+                break
+            }
+        }
+
+        if (end === -1) {
+            break
+        }
+
+        // `in <space>` first, then two colours, each with an optional percentage
+        const colours = topLevelArguments(lower.slice(index + 10, end)).slice(1)
+            .map(colour => colour.replace(/(?:^|\s)\d*\.?\d+%(?=\s|$)/g, '').trim());
+
+        if (colours.length === 2 && !colours.includes('transparent')) {
+            mixes.push(value.slice(index, end + 1))
+        }
+    }
+
+    return {mixes, raw: rawColours(value)}
 }
 
 /**

@@ -10,18 +10,16 @@
  * 2. Token-only color consumption throughout the Workstation stylesheet tree.
  * 3. Completeness for every consumed, non-local token in both skins.
  */
-import fs                                    from 'node:fs';
-import path                                  from 'node:path';
-import {fileURLToPath}                       from 'node:url';
-import isEntryModule                         from './isEntryModule.mjs';
-import {resolveThemeClassMap, stripVarCalls} from './themeCss.mjs';
+import fs                                                from 'node:fs';
+import path                                              from 'node:path';
+import {fileURLToPath}                                   from 'node:url';
+import isEntryModule                                     from './isEntryModule.mjs';
+import {rawColours, resolveThemeClassMap, stripVarCalls} from './themeCss.mjs';
 
 const
     dirname              = path.dirname(fileURLToPath(import.meta.url)),
     repoRoot             = path.resolve(dirname, '../..'),
     cssRoot              = path.join(repoRoot, 'resources/css'),
-    COLOR_LITERAL_RE     = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/,
-    NAMED_COLOR_RE       = /\b(?:aqua|aquamarine|beige|black|blue|brown|chartreuse|chocolate|coral|crimson|cyan|fuchsia|gold|goldenrod|gray|grey|green|indigo|ivory|khaki|lavender|lime|magenta|maroon|navy|olive|orange|orchid|pink|plum|purple|rebeccapurple|red|salmon|silver|tan|teal|tomato|turquoise|violet|wheat|white|yellow|(?:light|dark)(?:blue|gray|grey|green|red|pink|orange|salmon|violet|cyan|khaki))\b/,
     DECLARATION_RE       = /(?:^|[{;])\s*([-a-zA-Z]+|--[a-zA-Z0-9-]+)\s*:\s*([^;}]*)/g,
     TOKEN_DECLARATION_RE = /^\s*(--(?:workstation|agent-dock)-[a-z0-9-]+)\s*:\s*(.+?);\s*$/,
     TOKEN_DEFINITION_RE  = /(--(?:workstation|agent-dock)-[a-z0-9-]+)\s*:/g,
@@ -205,9 +203,7 @@ export function collectThemeSurfaceFailures(surface = WORKSTATION_SURFACE) {
 
                 if (property.startsWith('--')) continue;
 
-                const bareValue = stripVarCalls(value).replace(/(['"]).*?\1/g, '');
-
-                if (COLOR_LITERAL_RE.test(bareValue) || NAMED_COLOR_RE.test(bareValue)) {
+                if (rawColours(stripVarCalls(value)).length) {
                     failures.push(
                         '[token-only] ' + path.relative(repoRoot, file) + ':' + (index + 1) +
                         ' bare color literal — consume a semantic token instead: ' + line.trim()
