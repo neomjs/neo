@@ -498,7 +498,7 @@
  "Neo.main.draggable.Resize": null,
  "Neo.main.draggable.sensor.Base": "Neo.core.Base",
  "Neo.main.draggable.sensor.Pointer": "Neo.main.draggable.sensor.Base",
- "Neo.main.gesture.Translation": null,
+ "Neo.main.gesture.Translation": "Neo.core.Base",
  "Neo.main.mixin.TouchDomEvents": "Neo.core.Base",
  "Neo.manager.Base": "Neo.collection.Base",
  "Neo.manager.Component": "Neo.manager.Base",

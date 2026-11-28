@@ -19,6 +19,8 @@ async function bootMotion(page, policy) {
 
         await Neo.currentWorker.getAddon('Gesture', viewport.windowId)
     });
+    expect(await page.evaluate(() => Neo.main.gesture?.Translation?.prototype instanceof Neo.core.Base)).toBe(true);
+
     await page.evaluate(() => {
         const addon = Neo.main.addon.Gesture, register = addon.register.bind(addon);
 

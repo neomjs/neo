@@ -61,6 +61,8 @@ class Gesture extends Base {
     #nextGestureId = 0
     /** @member {WeakMap} #transformClaims */
     #transformClaims = new WeakMap()
+    /** @member {Neo.main.gesture.Translation|null} #translation */
+    #translation = null
 
     /**
      * @summary Installs the local recognizers on the owning addon's contact stream.
@@ -69,10 +71,14 @@ class Gesture extends Base {
     construct(config) {
         super.construct(config);
 
-        const translation = new Translation(this.#document, this.publish.bind(this), this);
+        const translation = this.#translation = Neo.create(Translation, {
+            doc     : this.#document,
+            publish : this.publish.bind(this),
+            settings: this
+        });
 
         this.on('contact', this.trackTransform, this);
-        this.on('contact', translation.track.bind(translation), this)
+        this.on('contact', translation.track, translation)
     }
 
     /**
@@ -142,6 +148,11 @@ class Gesture extends Base {
     destroy() {
         this.stopListening();
         this.#nodes.clear();
+
+        const translation = this.#translation;
+        this.un('contact', translation.track, translation);
+        translation.destroy();
+
         super.destroy()
     }
 

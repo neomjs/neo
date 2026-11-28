@@ -1,23 +1,30 @@
+import Base from '../../core/Base.mjs';
+
 const swipeNoise  = 2,
       swipeRestMs = 50;
 
 /**
  * @summary Recognizes continuous pan and terminal swipe from the Main contact owner's normalized frames.
+ * @class Neo.main.gesture.Translation
+ * @extends Neo.core.Base
  */
-export default class Translation {
+class Translation extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.main.gesture.Translation'
+         * @protected
+         */
+        className: 'Neo.main.gesture.Translation',
+        /** @member {Document|null} doc=null Owns the animation frame clock. */
+        doc: null,
+        /** @member {Function|null} publish=null Delivers a phase through the contact owner. */
+        publish: null,
+        /** @member {Neo.main.addon.Gesture|null} settings=null Owns the live translation thresholds. */
+        settings: null
+    }
+
     /** @member {WeakMap} #claims */
     #claims = new WeakMap()
-
-    /**
-     * @param {Document} doc Owns the animation frame clock and pending pan move.
-     * @param {Function} publish Delivers a phase through the contact owner.
-     * @param {Object} settings Live pan and swipe thresholds from the owning Gesture addon.
-     */
-    constructor(doc, publish, settings) {
-        this.doc      = doc;
-        this.publish  = publish;
-        this.settings = settings
-    }
 
     /**
      * @summary Routes an admitted contact sample to its translation recognizer.
@@ -97,7 +104,7 @@ export default class Translation {
         if (state.raf === null) {
             state.raf = this.doc.defaultView.requestAnimationFrame(() => {
                 state.raf = null;
-                if (this.#claims.get(claim) !== state) return;
+                if (this.isDestroyed || this.#claims.get(claim) !== state) return;
 
                 const changed = [...state.pending];
                 state.pending.clear();
@@ -212,3 +219,5 @@ export default class Translation {
             velocityX, velocityY, x: point.x, y: point.y})
     }
 }
+
+export default Neo.setupClass(Translation);
