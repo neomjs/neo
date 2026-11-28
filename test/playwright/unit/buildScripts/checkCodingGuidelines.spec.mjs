@@ -6,11 +6,13 @@ import path                      from 'node:path';
 import {fileURLToPath}           from 'node:url';
 import {findViolations}          from '../../../../buildScripts/util/check-coding-guidelines.mjs';
 
-const guardPath = fileURLToPath(new URL('../../../../buildScripts/util/check-coding-guidelines.mjs', import.meta.url)),
-      probeFile = 'src/test/Probe.mjs';
+const guardPath  = fileURLToPath(new URL('../../../../buildScripts/util/check-coding-guidelines.mjs', import.meta.url)),
+      probeFile  = 'src/test/Probe.mjs',
+      baseImport = "import Base from '../core/Base.mjs';";
 
 function classSource(members) {
-    return `class Probe extends Base {
+    return `${baseImport}
+class Probe extends Base {
 ${members}
 }
 export default Neo.setupClass(Probe);`
@@ -65,7 +67,7 @@ test.describe('coding guidelines for Neo classes', () => {
         const source = `class Translation {}
 export const create = () => class Swipe extends Base {};
 const Press = class extends Base {};
-class Registered extends Base {}
+class Registered extends Neo.core.Base {}
 Neo.setupClass(Registered);`;
 
         expect(findViolations(source, probeFile)).toEqual([
@@ -85,17 +87,30 @@ Neo.setupClass(Local);
 Neo.setupClass(Probe);`)).toEqual(['neo-class-base', 'neo-class-base'])
     });
 
+    test('rejects unbound globals and typos as registered superclasses', () => {
+        for (const superclass of [
+            'HTMLDivElement', 'AbortController', 'TransformStream', 'window.HTMLElement', 'self.Error', 'Basse'
+        ]) {
+            expect(rules(`class Probe extends ${superclass} {}\nexport default Neo.setupClass(Probe);`), superclass)
+                .toEqual(['neo-class-base'])
+        }
+    });
+
     test('accepts subclasses registered in the visible scope and the exact bootstrap root', () => {
         expect(rules(classSource(''))).toEqual([]);
-        expect(rules('export default Neo.setupClass(class extends Base {});')).toEqual([]);
-        expect(rules(`export function make() {
+        expect(rules('export default Neo.setupClass(class extends Neo.core.Base {});')).toEqual([]);
+        expect(rules(`${baseImport}
+        export function make() {
             const Local = class extends Base {};
             return Neo.setupClass(Local)
         }`)).toEqual([]);
         expect(rules(`import {Parent as Error} from './Parent.mjs';
             export default Neo.setupClass(class extends Error {});`)).toEqual([]);
-        expect(rules(`import Neo from '../Neo.mjs';
+        expect(rules(`${baseImport}
+            import Neo from '../Neo.mjs';
             export default Neo.setupClass(class extends Base {});`)).toEqual([]);
+        expect(rules(`import window from './namespace.mjs';
+            export default Neo.setupClass(class extends window.HTMLElement {});`)).toEqual([]);
 
         const bootstrap = 'class Base {}\nexport default Neo.setupClass(Base);';
         expect(rules(bootstrap, 'src/core/Base.mjs')).toEqual([]);
@@ -127,10 +142,12 @@ Neo.setupClass(Probe);`)).toEqual(['neo-class-base', 'neo-class-base'])
 ${statement}`), statement).toEqual(['neo-class-setup'])
         }
 
-        expect(rules(`class Probe extends Base {}
+        expect(rules(`${baseImport}
+class Probe extends Base {}
 if (true) { Neo.setupClass(Probe); }
 export default Probe;`)).toEqual([]);
-        expect(rules(`export function make() {
+        expect(rules(`${baseImport}
+        export function make() {
             class Local extends Base {}
             return Neo.setupClass(Local)
         }`)).toEqual([])
@@ -150,10 +167,12 @@ export default Probe;`)).toEqual([]);
 ${statement}`), statement).toEqual(['neo-class-setup'])
         }
 
-        expect(rules(`switch (mode) {
+        expect(rules(`${baseImport}
+        switch (mode) {
             case 1: class Local extends Base {} Neo.setupClass(Local); break;
         }`)).toEqual([]);
-        expect(rules(`for (const Neo of bindings) {}
+        expect(rules(`${baseImport}
+        for (const Neo of bindings) {}
             export default Neo.setupClass(class extends Base {});`)).toEqual([])
     });
 

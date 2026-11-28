@@ -1,0 +1,4 @@
+/* Cyberpunk draws no tab strip: `initial` leaves every reader on the fallback it had before theme-base. */
+:root .neo-theme-cyberpunk { /* .neo-tab-strip */
+    --neo-tab-strip-height: initial;
+}

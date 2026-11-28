@@ -2,7 +2,7 @@ import {test, expect} from '@playwright/test';
 
 /**
  * The inline tab header's paint, measured on a rendered dock pane header rather than on stylesheet
- * text: in both neo themes the header is a flat semantic surface with a hairline under it, and the
+ * text: in both neo themes the header is a flat surface role with a hairline under it, and the
  * public image hook resolves to `none`. Before this contract the themes valued the hook with a
  * gradient from the highlighted to the default neutral surface — a band that read as its own object
  * over any host surface, and that the Workstation had to re-value for itself.
@@ -11,7 +11,7 @@ import {test, expect} from '@playwright/test';
  * theme, must keep its established paint — no surface colour, no image, no hairline — so a pass
  * here means the variant selector scoped the tokens, not that a stylesheet leaked them everywhere.
  * Token values are resolved through probe elements, never by string-matching hex literals, so the
- * assertion follows the theme's semantic tokens if their core values move.
+ * assertion follows the theme's roles if their values move.
  */
 const THEMES = ['neo-theme-neo-dark', 'neo-theme-neo-light'];
 
@@ -66,8 +66,8 @@ const applyTheme = (page, theme) => page.evaluate(name => {
 }, theme);
 
 /**
- * Reads the inline header, the control header, and the two semantic tokens the contract names —
- * each token resolved to the rgb() string a browser computes for it, via a probe element.
+ * Reads the inline header, the control header, and the two roles the contract names (theme-base
+ * `tab/Container.css`), each resolved to the colour string a browser computes for it, via a probe element.
  */
 const measure = (page, controlId) => page.evaluate(id => {
     const
@@ -94,8 +94,8 @@ const measure = (page, controlId) => page.evaluate(id => {
     return {
         control     : paint(control),
         inline      : paint(inline),
-        surfaceToken: resolve('--neo-sem-color-surface-neutral-highlighted'),
-        borderToken : resolve('--neo-sem-color-border-default')
+        surfaceToken: resolve('--neo-color-background-surface-raised'),
+        borderToken : resolve('--neo-color-border-default')
     }
 }, controlId);
 
@@ -141,7 +141,7 @@ test.describe('Neo.tab.Container — the CLASSIC families give the inline header
         })
     }
 
-    test('AC-3 the neo families are untouched — they still resolve their semantic surface', async ({page}) => {
+    test('AC-3 the neo families are untouched — they still resolve their surface role', async ({page}) => {
         // The regression this ticket could plausibly cause: editing the classic pair while reaching
         // for a shared token would move the neo pair too. Cheap to assert, and it is the only arm
         // here that would notice.
@@ -150,7 +150,7 @@ test.describe('Neo.tab.Container — the CLASSIC families give the inline header
 
             const measured = await measure(page, controlId);
 
-            expect(measured.surfaceToken, `${theme} still values the highlighted neutral surface`).toMatch(/^rgb/);
+            expect(measured.surfaceToken, `${theme} still values the raised surface role`).toMatch(/^(rgb|oklch)\(/);
             expect(measured.inline.backgroundColor, `${theme} still paints that surface`).toBe(measured.surfaceToken)
         }
     })
@@ -158,7 +158,7 @@ test.describe('Neo.tab.Container — the CLASSIC families give the inline header
 
 test.describe('Neo.tab.Container — the inline header paints a flat surface with a hairline', () => {
     for (const theme of THEMES) {
-        test(`${theme}: flat semantic surface, hairline, no gradient — and the standalone control keeps its paint`, async ({page}) => {
+        test(`${theme}: flat surface role, hairline, no gradient — and the standalone control keeps its paint`, async ({page}) => {
             await applyTheme(page, theme);
 
             const measured = await measure(page, controlId);
@@ -167,12 +167,12 @@ test.describe('Neo.tab.Container — the inline header paints a flat surface wit
             expect(measured.control, 'the standalone control header must be rendered').toBeTruthy();
 
             // The tokens must resolve to real colours in this theme, or the arm below is vacuous.
-            expect(measured.surfaceToken, `${theme} values the highlighted neutral surface`).toMatch(/^rgb/);
-            expect(measured.borderToken, `${theme} values the default border`).toMatch(/^rgb/);
+            expect(measured.surfaceToken, `${theme} values the raised surface role`).toMatch(/^(rgb|oklch)\(/);
+            expect(measured.borderToken, `${theme} values the default border role`).toMatch(/^(rgb|oklch)\(/);
 
             // The measurement: no band, the theme's surface, the theme's hairline.
             expect(measured.inline.backgroundImage, 'the inline header paints no gradient band').toBe('none');
-            expect(measured.inline.backgroundColor, 'the inline header is the highlighted neutral surface').toBe(measured.surfaceToken);
+            expect(measured.inline.backgroundColor, 'the inline header is the raised surface role').toBe(measured.surfaceToken);
             expect(measured.inline.boxShadow, 'the hairline is an inset shadow in the border colour').toContain('inset');
             expect(measured.inline.boxShadow).toContain(measured.borderToken);
 
@@ -190,7 +190,7 @@ test.describe('Neo.tab.Container — the inline header paints a flat surface wit
               tier     = await page.evaluate(() => {
                   const probe = document.createElement('div');
 
-                  probe.style.height = 'var(--neo-sem-height-large)';
+                  probe.style.height = 'var(--neo-control-height-medium)';
                   document.body.appendChild(probe);
 
                   const value = probe.getBoundingClientRect().height;
@@ -199,7 +199,7 @@ test.describe('Neo.tab.Container — the inline header paints a flat surface wit
                   return value
               });
 
-        expect(tier, 'the semantic large height must resolve').toBeGreaterThan(0);
+        expect(tier, 'the medium control height must resolve').toBeGreaterThan(0);
         // An inset shadow paints inside the box; a border-bottom would have added a pixel here.
         expect(Math.abs(measured.inline.height - tier), 'the inline header is exactly the density tier tall').toBeLessThanOrEqual(1)
     });
@@ -230,7 +230,7 @@ test.describe('Neo.tab.Container — the inline header paints a flat surface wit
 
             // The outer scope must genuinely value the token, or the arm proves nothing: without
             // this, an inner reset and an inner nothing are indistinguishable.
-            expect(measured.surfaceToken, 'the outer neo scope still values the highlighted surface').toMatch(/^rgb/);
+            expect(measured.surfaceToken, 'the outer neo scope still values the raised surface role').toMatch(/^(rgb|oklch)\(/);
 
             // The property under test is the RESET, not the value: an inner classic scope must stop
             // showing the outer neo surface. It used to reset to `transparent` because that is what

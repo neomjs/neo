@@ -2109,9 +2109,6 @@
   "src/main/addon/GridRowScrollPinning.mjs": {
     "compact-jsdoc-loss": ["GridRowScrollPinning.registrations"]
   },
-  "src/main/addon/HighlightJS.mjs": {
-    "static-config-order": ["HighlightJS.highlightJsLineNumbersPath"]
-  },
   "src/main/addon/InputModality.mjs": {
     "static-config-order": ["InputModality.className"]
   },

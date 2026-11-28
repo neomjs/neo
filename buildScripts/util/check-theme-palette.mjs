@@ -6,8 +6,8 @@
  * scheme the theme declares, and every palette declares the same palette and role names as every other.
  *
  * Every palette and role name (`kindOf` `'palette'` or `'role'`) is declared in a `Global.css` only: a theme's
- * `Global.css`, or `src/Global.css` for a scale role re-valued under a narrower scope or a condition. Any
- * declaration or `@property` registration in another sheet fails as `[scope]`.
+ * `Global.css`, a product palette's, or `src/Global.css` for a scale role re-valued under a narrower scope or a
+ * condition. Any declaration or `@property` registration in another sheet fails as `[scope]`.
  * A palette is a theme class for which a theme `Global.css` declares a `--neo-palette-*` name. A theme without
  * one is skipped for pair and grade checks and declares no colour role but the scheme; a palette or colour-role
  * name declared under a condition fails as `[conditional]` for every theme class, with or without a palette. Inside
@@ -16,6 +16,13 @@
  * refuses an unconditional role when any arm reaches the document or a bare theme). Pass `--contrast <foreground>
  * <background> [--theme <class-or-stem>]` (or `npm run theme-contrast -- <fg> <bg>`) to print a pair's contrast
  * ratio in each scheme with the same compositing.
+ *
+ * A product palette is `theme-<name>/apps/<app>/Global.css`. It re-values palette and role names, and adds none,
+ * under no condition on the theme classes whose palette its folder's own `Global.css` declares, so one app has one
+ * overlay per theme class. Any other declaration or a registration fails, and so does a sheet that re-values
+ * nothing. It is measured as a palette of its own, the theme's values with the product's on top, by every rule
+ * above, and named in the passing line beside its theme. Run from a workspace, the check reads the build's theme roots in their
+ * override order (`themeCssRoots`), so a workspace's product palette is measured on the Engine's theme.
  *
  * Three things are outside this check: a value set from JavaScript, a sheet reached through `@import`, and a
  * `color-scheme` that a rule sets against the one `src` wires from `--neo-color-scheme`. The lightness numbers
@@ -29,6 +36,7 @@ import postcss                                                   from 'postcss';
 import selectorParser                                            from 'postcss-selector-parser';
 import isEntryModule                                             from './isEntryModule.mjs';
 import {cssFiles}                                                from './themeCss.mjs';
+import {themeCssRoots}                                           from './themeCssRoots.mjs';
 import {PALETTE_EXTRAS, PALETTE_GRADES, SCHEME_PROPERTY, kindOf} from './themeNameShapes.mjs';
 
 const
@@ -102,6 +110,11 @@ export const CONTRAST_PAIRS = Object.freeze([
     [BORDER + 'accent',        CANVAS,                         3],
     [BORDER + 'strong',        CANVAS,                         3],
     [BORDER + 'strong',        BACKGROUND + 'field',           3],
+    [BORDER + 'strong-hover',  CANVAS,                         3],
+    [BORDER + 'strong-hover',  BACKGROUND + 'field',           3],
+    [BACKGROUND + 'track',     CANVAS,                         3],
+    [BACKGROUND + 'handle',    BACKGROUND + 'track',           3],
+    [BACKGROUND + 'handle',    BACKGROUND + 'accent',          3],
     ['--neo-color-focus-ring', CANVAS,                         3]
 ]);
 
@@ -350,6 +363,17 @@ function isThemeGlobal(cssRelPath) {
  */
 function isSrcGlobal(cssRelPath) {
     return cssRelPath === 'src/Global.css'
+}
+
+/**
+ * @summary The theme folder and the app of a product palette, `theme-<name>/apps/<app>/Global.css`.
+ * @param {String} cssRelPath A `resources/css`-relative path
+ * @returns {{app: String, folder: String}|null} null for any other sheet
+ */
+function productOf(cssRelPath) {
+    const match = cssRelPath.match(/^(theme-[a-z0-9-]+)\/apps\/([^/]+)\/Global\.css$/);
+
+    return match && {app: match[2], folder: match[1]}
 }
 
 /**
@@ -991,34 +1015,110 @@ function checkCascade({declarations, failures, relPath, themeClass, values}) {
 }
 
 /**
- * @summary Reads every stylesheet under `resources/css`, checks each palette it finds, compares their names,
- * and refuses a measured name wherever a sheet declares it outside the one reading this check has of it.
- * @param {Object} [options={}]
- * @param {String} [options.root=repoRoot]
- * @returns {{failures: String[], names: Number, palettes: String[]}} `palettes` names each checked theme class
- * with its scheme; `names` counts the distinct palette and role names they declare
+ * @summary Measures each product palette as a palette of its own: its theme's palette for the class with the
+ * product's values on top, held to every rule `checkPalette` holds a theme to. A product sits in the folder whose
+ * `Global.css` declares the class's palette, re-values only names its theme declares for the class, keeps the
+ * theme's scheme, and gives each name one value.
+ * @param {Object} data
+ * @param {Set<String>} data.failures
+ * @param {String[]} data.measured Gains `<class> + <app> (<scheme>)` for each overlay measured
+ * @param {Map<String,Object>} data.paletteOf Per theme class, `{declarations, folder, relPath, values}` of its palette
+ * @param {Map<String,Object>} data.products Per product sheet, `{app, classes, folder, relPath}`; `classes` maps a
+ * theme class to the `{conditional, declarations, values}` the theme reader collects for a theme
  */
-export function inspectThemePalettes({root = repoRoot} = {}) {
-    const
-        cssRoot  = path.join(root, 'resources/css'),
-        declared = [],
-        failures = new Set(),
-        palettes = [];
+function checkProducts({failures, measured, paletteOf, products}) {
+    for (const {app, classes, folder, relPath} of products.values()) {
+        for (const [themeClass, {conditional, declarations, values}] of classes) {
+            const base = paletteOf.get(themeClass);
 
-    if (!fs.existsSync(cssRoot)) {
-        return {failures: [`[surface] missing resources/css under ${root}`], names: 0, palettes}
+            for (const {conditions, name} of conditional) {
+                failures.add(
+                    `[conditional] ${relPath} declares ${name} for .${themeClass} inside ${conditions.join(' ')}; ` +
+                    `this check reads no condition and cannot tell when that value paints`
+                )
+            }
+
+            if (base?.folder !== folder) {
+                failures.add(
+                    `[product] ${relPath} declares on .${themeClass}, whose palette ${base ? `${base.relPath} declares` : 'no theme declares'}; ` +
+                    `a product palette sits in the folder whose Global.css declares its class's palette, one overlay per app and class`
+                );
+                continue
+            }
+
+            for (const [name, seen] of values) {
+                if (name === SCHEME) {
+                    failures.add(`[product] ${relPath} declares ${name} for .${themeClass}; a product palette keeps its theme's scheme`)
+                } else if (isPaletteOrRole(name) && !base.values.has(name)) {
+                    failures.add(
+                        `[product] ${relPath} declares ${name} for .${themeClass}, which its theme does not; ` +
+                        `a product palette re-values its theme's names and adds none`
+                    )
+                } else if (isMeasured(name) && seen.size > 1) {
+                    failures.add(
+                        `[cascade] ${name} has ${seen.size} values for .${themeClass} in ${relPath}; ` +
+                        `this check reads one declaration per name and cannot tell which one the browser paints`
+                    )
+                }
+            }
+
+            const merged = new Map([...base.declarations, ...declarations]);
+
+            measured.push(`${themeClass} + ${app} (${merged.get(SCHEME) ?? 'no scheme'})`);
+            checkPalette({declarations: merged, failures, relPath, themeClass})
+        }
+    }
+}
+
+/**
+ * @summary Reads every stylesheet under the theme roots, checks each palette it finds, compares their names,
+ * measures each product palette on its theme's, and refuses a measured name wherever a sheet declares it outside
+ * the one reading this check has of it.
+ * @param {Object} [options={}]
+ * @param {String} [options.root=repoRoot] The directory a failure names a sheet relative to
+ * @param {String[]} [options.cssRoots] Theme source roots in override order, as `themeCssRoots` lists them: a later
+ * root's sheet replaces an earlier root's at the same path. Defaults to `root`'s own `resources/css`
+ * @returns {{failures: String[], names: Number, palettes: String[], productPalettes: String[]}} `palettes` names
+ * each checked theme class with its scheme, `productPalettes` each measured overlay as `<class> + <app> (<scheme>)`;
+ * `names` counts the distinct palette and role names the themes declare
+ */
+export function inspectThemePalettes({root = repoRoot, cssRoots = [path.join(root, 'resources/css')]} = {}) {
+    const
+        declared        = [],
+        failures        = new Set(),
+        files           = new Map(),
+        paletteOf       = new Map(),
+        palettes        = [],
+        productPalettes = [],
+        products        = new Map();
+
+    if (!cssRoots.some(cssRoot => fs.existsSync(cssRoot))) {
+        return {failures: [`[surface] missing resources/css under ${root}`], names: 0, palettes, productPalettes}
+    }
+
+    // A later root replaces an earlier root's sheet at the same path, as the theme build reads them.
+    for (const cssRoot of cssRoots.filter(dir => fs.existsSync(dir))) {
+        for (const file of cssFiles(cssRoot)) {
+            files.set(path.relative(cssRoot, file).replaceAll('\\', '/'), file)
+        }
     }
 
     const
         themes = new Map(),
         theme  = themeClass => themes.get(themeClass) ??
-            themes.set(themeClass, {conditional: [], sheets: [], values: new Map()}).get(themeClass);
+            themes.set(themeClass, {conditional: [], sheets: [], values: new Map()}).get(themeClass),
+        overlay = ({app, folder}, relPath, themeClass) => {
+            const {classes} = products.get(relPath) ?? products.set(relPath, {app, classes: new Map(), folder, relPath}).get(relPath);
+
+            return classes.get(themeClass) ??
+                classes.set(themeClass, {conditional: [], declarations: new Map(), values: new Map()}).get(themeClass)
+        };
 
     // Every sheet first, then every class: any theme Global.css can name a theme class.
-    for (const file of cssFiles(cssRoot)) {
+    for (const [cssRelPath, file] of files) {
         const
             css         = readSheet(file),
-            cssRelPath  = path.relative(cssRoot, file).replaceAll('\\', '/'),
+            product     = productOf(cssRelPath),
             relPath     = path.relative(root, file).replaceAll('\\', '/'),
             srcGlobal   = isSrcGlobal(cssRelPath),
             themeGlobal = isThemeGlobal(cssRelPath),
@@ -1032,7 +1132,7 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
             continue
         }
 
-        if (!themeGlobal && !srcGlobal) {
+        if (!themeGlobal && !srcGlobal && !product) {
             const checkOutsideGlobal = name => {
                 if (isPaletteOrRole(name)) {
                     failures.add(
@@ -1093,8 +1193,20 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
             }
         };
 
+        const failuresBefore = failures.size;
+
         const {syntaxError, themes: sheets} = walkSheetCustomProperties(css, {
             onDeclaration: (classes, name, value, conditions, {inRule}) => {
+                if (product && !isPaletteOrRole(name)) {
+                    failures.add(`[product] ${relPath} declares ${name}, which is no palette or role name; a product palette re-values its theme's names only`);
+                    return
+                }
+
+                if (product && !isMeasured(name) && !classes.length) {
+                    failures.add(`[product] ${relPath} declares ${name} outside a theme class; a product palette re-values names on its theme's classes only`);
+                    return
+                }
+
                 if (isMeasured(name) && !classes.length) {
                     reportThemeGlobalScope(name);
                     return
@@ -1106,17 +1218,20 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
                 }
 
                 for (const themeClass of classes) {
-                    const {conditional, values} = theme(themeClass);
+                    // A product palette's values stay its own: they are measured on top of the theme's, never beside them.
+                    const {conditional, values} = product ? overlay(product, relPath, themeClass) : theme(themeClass);
 
                     if (!conditions.length) {
                         values.has(name) || values.set(name, new Map());
                         values.get(name).has(value) || values.get(name).set(value, relPath)
-                    } else if (isMeasured(name)) {
+                    } else if (isMeasured(name) || product) {
                         conditional.push({conditions, name, relPath})
                     }
                 }
             },
-            onProperty: name => reportThemeGlobalScope(name, true)
+            onProperty: name => product
+                ? failures.add(`[product] ${relPath} registers ${name}; a product palette re-values its theme's names and registers none`)
+                : reportThemeGlobalScope(name, true)
         });
 
         if (syntaxError) {
@@ -1125,7 +1240,16 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         }
 
         for (const [themeClass, declarations] of sheets) {
-            theme(themeClass).sheets.push({declarations, relPath})
+            if (product) {
+                overlay(product, relPath, themeClass).declarations = declarations
+            } else {
+                theme(themeClass).sheets.push({declarations, folder: cssRelPath.split('/')[0], relPath})
+            }
+        }
+
+        // A product sheet that no rule above refused and that re-values no name on a theme class was never read.
+        if (product && failures.size === failuresBefore && !products.has(relPath)) {
+            failures.add(`[product] ${relPath} re-values no palette or role name on a theme class; a product palette declares its values there`)
         }
     }
 
@@ -1153,7 +1277,9 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
             continue
         }
 
-        const {declarations, relPath} = palette;
+        const {declarations, folder, relPath} = palette;
+
+        paletteOf.set(themeClass, {declarations, folder, relPath, values});
 
         if (second) {
             failures.add(`[cascade] .${themeClass} has a palette in ${relPath} and in ${second.relPath}; a theme class has one`)
@@ -1167,9 +1293,11 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         checkPalette({declarations, failures, relPath, themeClass})
     }
 
+    checkProducts({failures, measured: productPalettes, paletteOf, products});
+
     const names = checkNames({declared, failures});
 
-    return {failures: [...failures], names, palettes}
+    return {failures: [...failures], names, palettes, productPalettes}
 }
 
 /**
@@ -1318,6 +1446,25 @@ function parseContrastCli(argv) {
     return {background: positional[1], foreground: positional[0], theme}
 }
 
+/**
+ * @summary The roots a command-line run reads, decided the way `build-themes` decides them: from a workspace
+ * package, the build's theme roots in override order, so the workspace's product palette is measured on the
+ * Engine's theme; inside the Engine, or where no package names the run, the Engine's own tree.
+ * @param {String} [cwd=process.cwd()]
+ * @returns {{cssRoots?: String[], root?: String}} Options for {@link inspectThemePalettes}
+ */
+function runRoots(cwd = process.cwd()) {
+    let name;
+
+    try {
+        ({name} = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf8')))
+    } catch {
+        return {}
+    }
+
+    return typeof name === 'string' && !name.includes('neo.mjs') ? {cssRoots: themeCssRoots(cwd, {insideNeo: false}), root: cwd} : {}
+}
+
 if (isEntryModule(import.meta.url)) {
     const contrastArgs = parseContrastCli(process.argv.slice(2));
 
@@ -1340,7 +1487,7 @@ if (isEntryModule(import.meta.url)) {
         console.log(`${pairs[0].foreground} on ${pairs[0].background}`);
         pairs.forEach(({formatted, scheme, themeClass}) => console.log(`  ${themeClass} (${scheme}): ${formatted}`))
     } else {
-        const {failures, names, palettes} = inspectThemePalettes();
+        const {failures, names, palettes, productPalettes} = inspectThemePalettes(runRoots());
 
         if (failures.length) {
             console.error('✗ theme palette FAILED:\n');
@@ -1351,7 +1498,8 @@ if (isEntryModule(import.meta.url)) {
         console.log(
             `✓ theme palette — ${palettes.length} palette(s): ${palettes.join(', ') || 'none'}; the same ${names} names ` +
             `in each, every grade at one lightness across its slots, every slot descending, ${CONTRAST_PAIRS.length} ` +
-            `pairs at their floors.`
+            `pairs at their floors.` +
+            (productPalettes.length ? ` ${productPalettes.length} product palette(s), measured on their theme's: ${productPalettes.join(', ')}.` : '')
         )
     }
 }

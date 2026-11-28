@@ -42,7 +42,7 @@ const linkStylesheets = (page, hrefs) => page.evaluate(async hrefs => {
  */
 const loadThemeStylesheets = page => linkStylesheets(page, [
     ...themeSheetHrefs([...NEO_THEMES, ...CLASSIC_THEMES], ['button.Base']),
-    '/dist/development/css/theme-neo-light/tab/header/Button.css'
+    ...themeSheetHrefs(['neo-theme-neo-light'], ['tab.header.Button'])
 ]);
 
 /**

@@ -40,6 +40,8 @@ const gestureEvents = new Set([
     'rotate:start', 'rotate:move', 'rotate:end', 'rotate:cancel'
 ]);
 
+const maxPressHoldMs = 2_147_483_647;
+
 const globalDomEvents = [
     'change',
     'click',
@@ -413,7 +415,13 @@ class DomEvent extends Base {
                 delivery.recipients.add(componentId)
             }
 
-            const predicate = listener => isLive?.() !== false && (!isOwner || listener.vnodeId === data.gestureOwner.id);
+            const predicate = listener => {
+                const filters = eventName === 'tap' ? listener.gestureOptions : undefined;
+
+                return isLive?.() !== false && (!isOwner || listener.vnodeId === data.gestureOwner.id) && !filters?.invalid &&
+                    (filters?.count === undefined || filters.count === data.count) &&
+                    (filters?.contactCount === undefined || filters.contactCount === data.contactCount)
+            };
 
             if (!this.invokeListeners(target, this.items[componentId]?.[eventName], data, path, eventName, predicate) || data.cancelBubble) {
                 break
@@ -710,6 +718,42 @@ class DomEvent extends Base {
     }
 
     /**
+     * @summary Normalizes tap filters and press policy independently of callback identity.
+     * Main supplies press defaults. Only an omitted tap filter acts as a wildcard.
+     * @param {String} eventName
+     * @param {Object|Function|String} opts
+     * @returns {Object|undefined}
+     * @protected
+     */
+    normalizeGestureOptions(eventName, opts) {
+        if (Neo.isObject(opts)) {
+            if (eventName === 'tap') {
+                const {count, contactCount} = opts;
+
+                if ((count !== undefined && (!Number.isSafeInteger(count) || count <= 0)) ||
+                    (contactCount !== undefined && (!Number.isSafeInteger(contactCount) || contactCount <= 0))) {
+                    return {invalid: true}
+                }
+
+                if (count !== undefined || contactCount !== undefined) {
+                    return {count, contactCount}
+                }
+            } else if (eventName === 'press:start') {
+                const {holdMs, moveTolerance} = opts,
+                      hasHold                 = Number.isFinite(holdMs) && holdMs > 0 && holdMs <= maxPressHoldMs,
+                      hasMoveTolerance        = Number.isFinite(moveTolerance) && moveTolerance >= 0;
+
+                if (hasHold || hasMoveTolerance) {
+                    return {
+                        ...(hasHold && {holdMs}),
+                        ...(hasMoveTolerance && {moveTolerance})
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * @param {Object}  config
      * @param {Boolean} config.bubble
      * @param {String}  config.delegate
@@ -744,6 +788,13 @@ class DomEvent extends Base {
             scope = opts.scope || scope
         }
 
+        const
+            optionedGesture = eventName === 'tap' || eventName === 'press:start',
+            gestureOptions  = optionedGesture ? me.normalizeGestureOptions(eventName, opts) : undefined,
+            vnodeId         = config.vnodeId || (Neo.isObject(opts) && opts.vnodeId) || config.id,
+            delegate        = config.delegate || (Neo.isObject(opts) && opts.delegate) || (vnodeId === 'document.body' ? DomEvent.documentBodyDelegate : '#' + config.id),
+            priority        = config.priority || (Neo.isObject(opts) && opts.priority) || 1;
+
         if (!listeners[id]) {
             listeners[id] = {}
         }
@@ -751,15 +802,15 @@ class DomEvent extends Base {
         if (listeners[id][eventName]) {
             listener = listeners[id][eventName];
 
-            Object.keys(listener).forEach(key => {
-                if (
-                    listener[key].fn.toString() === fn.toString() && // todo: add a better check
-                    listener[key].scope         === scope &&
-                    listener[key].delegate      === config.delegate
-                ) {
-                    alreadyRegistered = true
-                }
-            })
+            alreadyRegistered = listener.some(entry =>
+                entry.fn.toString() === fn.toString() && // todo: add a better check
+                entry.scope         === scope &&
+                (optionedGesture
+                    ? entry.delegate === delegate && entry.vnodeId === vnodeId &&
+                      (eventName !== 'press:start' || entry.priority === priority) &&
+                      Neo.isEqual(entry.gestureOptions, gestureOptions)
+                    : entry.delegate === config.delegate)
+            )
         } else {
             listeners[id][eventName] = []
         }
@@ -772,9 +823,7 @@ class DomEvent extends Base {
 
         config.listenerId = listenerId;
 
-        let local    = config.local || (Neo.isObject(opts) && opts.local) || false,
-            vnodeId  = config.vnodeId || (Neo.isObject(opts) && opts.vnodeId) || config.id,
-            delegate = config.delegate || (Neo.isObject(opts) && opts.delegate) || (vnodeId === 'document.body' ? DomEvent.documentBodyDelegate : '#' + config.id);
+        let local = config.local || (Neo.isObject(opts) && opts.local) || false;
 
         listenerConfig = {
             bubble        : Object.hasOwn(config, 'bubble') ? config.bubble : (Neo.isObject(opts) && Object.hasOwn(opts, 'bubble')) ? opts.bubble : true,
@@ -786,9 +835,10 @@ class DomEvent extends Base {
             mounted       : !local && globalDomEvents.includes(eventName),
             originalConfig: config.originalConfig,
             ownerId       : config.ownerId,
-            priority      : config.priority || (Neo.isObject(opts) && opts.priority) || 1,
+            priority,
             scope,
-            vnodeId
+            vnodeId,
+            ...(gestureOptions && {gestureOptions})
         };
 
         me.map[listenerId] = listenerConfig;
@@ -980,7 +1030,7 @@ class DomEvent extends Base {
     /**
      * @summary Reconciles gesture phase listeners with one registration per component and DOM node.
      * Removal takes effect on the current registrations immediately. Adding a node or phase waits for
-     * the normal DOM mount path. Replacing a callback for an existing phase keeps its registration.
+     * the normal DOM mount path. A changed press policy retires the current registration.
      * @param {Neo.component.Base} component
      * @param {Object} [listeners] Omit to release the component's registrations.
      * @param {Boolean} [mount=false] Allow new registrations on the DOM mount path.
@@ -1003,18 +1053,32 @@ class DomEvent extends Base {
                     continue
                 }
 
-                for (const {vnodeId} of handlers) {
+                for (const {gestureOptions, vnodeId} of handlers) {
                     if (mount || previous.desired.get(vnodeId)?.events.has(eventName)) {
-                        if (!desired.has(vnodeId)) {
-                            const registrationId = (!replacing && previous?.desired.get(vnodeId)?.registrationId) || ++this.#nextGestureRegistrationId;
+                        let entry = desired.get(vnodeId);
 
-                            desired.set(vnodeId, {events: new Set(), registrationId})
+                        if (!entry) {
+                            entry = {events: new Set()};
+                            desired.set(vnodeId, entry)
                         }
 
-                        desired.get(vnodeId).events.add(eventName)
+                        // Handlers are sorted by priority. The first press:start on this node owns the policy.
+                        if (eventName === 'press:start' && !entry.events.has(eventName)) {
+                            entry.pressOptions = gestureOptions
+                        }
+
+                        entry.events.add(eventName)
                     }
                 }
             }
+        }
+
+        for (const [vnodeId, entry] of desired) {
+            const prior = previous?.desired.get(vnodeId);
+
+            entry.registrationId = !replacing && prior && Neo.isEqual(prior.pressOptions, entry.pressOptions)
+                ? prior.registrationId
+                : ++this.#nextGestureRegistrationId
         }
 
         if (!previous && desired.size === 0) {
@@ -1076,7 +1140,7 @@ class DomEvent extends Base {
                     }
                 }
 
-                for (const [id, {events, registrationId}] of desired) {
+                for (const [id, {events, pressOptions, registrationId}] of desired) {
                     const existing = applied.get(id);
 
                     if (desired !== state.desired) {
@@ -1084,7 +1148,10 @@ class DomEvent extends Base {
                     }
 
                     if (existing?.registrationId !== registrationId || existing.events.size !== events.size || [...events].some(name => !existing.events.has(name))) {
-                        await state.addon.register({componentId, events: [...events], id, registrationId, windowId});
+                        await state.addon.register({
+                            componentId, events: [...events], id, registrationId, windowId,
+                            ...(pressOptions && {gestureOptions: {press: pressOptions}})
+                        });
                         applied.set(id, {events, registrationId})
                     }
                 }

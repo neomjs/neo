@@ -15,12 +15,6 @@ const ROOTS        = ['src', 'apps', 'examples', 'docs/app'],
       BASELINE     = 'buildScripts/util/check-coding-guidelines-baseline.json',
       GUIDELINES   = '.github/CODING_GUIDELINES.md',
       NEO_IMPORT   = Symbol('Neo module import'),
-      NATIVE_BASES = new Set([
-          'AggregateError', 'Array', 'Boolean', 'CustomEvent', 'DOMException', 'DOMRect', 'DOMRectReadOnly',
-          'Date', 'Element', 'Error', 'EvalError', 'Event', 'EventTarget', 'Function', 'HTMLElement', 'Map',
-          'Node', 'Number', 'Object', 'Promise', 'RangeError', 'ReferenceError', 'RegExp', 'Set', 'String',
-          'SyntaxError', 'TypeError', 'URIError', 'URL', 'URLSearchParams', 'WeakMap', 'WeakSet'
-      ]),
       MERGE_OWNERS = new Map([
           ['src/core/Base.mjs', 'Base'],
           ['src/component/Base.mjs', 'Component'],
@@ -196,7 +190,7 @@ function scanClasses(ast, file) {
     return {classes, registrations}
 }
 
-/** @summary Detects absent and known non-Neo superclasses through same-module bindings. */
+/** @summary Detects absent or unbound superclasses and follows known same-module class bindings. */
 function hasNonNeoBase(declaration, classes, file) {
     const seen    = new Set();
     let   current = declaration;
@@ -211,13 +205,13 @@ function hasNonNeoBase(declaration, classes, file) {
 
         if (parent.type === 'Identifier') {
             const binding = scopeBinding(scope, parent.name);
-            if (binding === undefined) return NATIVE_BASES.has(parent.name);
+            if (binding === undefined) return true;
             current = classes.has(binding) ? binding : null
         } else if (parent.type === 'ClassExpression') {
             current = parent
         } else {
-            return parent.type === 'MemberExpression' && parent.object.name === 'globalThis' &&
-                scopeBinding(scope, 'globalThis') === undefined && NATIVE_BASES.has(keyName(parent))
+            return parent.type === 'MemberExpression' && ['globalThis', 'self', 'window'].includes(parent.object.name) &&
+                scopeBinding(scope, parent.object.name) === undefined
         }
     }
     return false
