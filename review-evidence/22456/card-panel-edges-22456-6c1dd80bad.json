@@ -1,0 +1,987 @@
+{
+  "head": "6c1dd80bad3791fca0f9bded2c3901de1567b4c8",
+  "css": {
+    "resources/css/src/examples/ConfigurationViewport.css": "a4839db3b425aa86e15f7198769e9388bbb58c2a427b3e0cdaa9c29abca2c767",
+    "dist/development/css/src/examples/ConfigurationViewport.css": "fe4498190f3c8a69254a3e37867bfdcb2ed71f7a883d1f523597acbf55a4ad98",
+    "resources/css/src/examples/form/checkout/MainContainer.css": "ba2b49dbc881aa64f4c4d90443c7da61c1e308902bf880d57c2e344b9bc83543",
+    "dist/development/css/src/examples/form/checkout/MainContainer.css": "ca75d161d9b43c7fb0cd970e3aca124ebff14fd87f463b3918bdc936536955fc",
+    "resources/css/src/examples/form/validation/MainContainer.css": "a938ef2ec9681b0f7d44a79f9525ac572cae371bfd611cb4d84bdb65232e5bfa",
+    "dist/development/css/src/examples/form/validation/MainContainer.css": "55b2dbfe26a5e466eaaa3ec4d20c6e952838a338c31571599451f94e4026bbe0"
+  },
+  "rows": [
+    {
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-neo-light",
+      "selector": ".checkout-card",
+      "owner": "headerless Panel/Container",
+      "requested": "neo-theme-neo-light",
+      "actualTheme": [
+        "neo-theme-neo-light"
+      ],
+      "viewportTheme": [
+        "neo-theme-neo-light"
+      ],
+      "structure": {
+        "nativePanel": true,
+        "role": null,
+        "directItems": [
+          "checkout-heading",
+          "checkout-form",
+          "checkout-actions"
+        ],
+        "nearestPanelHeaders": 0,
+        "directForm": true,
+        "forms": 1,
+        "heading": "Address and payment"
+      },
+      "computed": "rgb(255, 255, 255)",
+      "normalizedToken": "rgb(255, 255, 255)",
+      "container": true,
+      "border": {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgb(221, 221, 221)",
+        "panelToken": "#ddd",
+        "defaultRole": "light-dark(oklch(0.875 0.012 270.0), oklch(0.390 0.034 270.0))",
+        "panelSheets": [
+          "/dist/development/css/src/container/Panel.css",
+          "/dist/development/css/theme-neo-light/container/Panel.css",
+          "/dist/development/css/theme-neo-dark/container/Panel.css"
+        ]
+      },
+      "exposed": [
+        288,
+        272
+      ],
+      "edge": [
+        720,
+        260
+      ],
+      "outside": [
+        720,
+        259
+      ],
+      "inside": [
+        720,
+        261
+      ],
+      "side": {
+        "edge": [
+          280,
+          500
+        ],
+        "outside": [
+          278,
+          500
+        ],
+        "inside": [
+          283,
+          500
+        ]
+      },
+      "rect": [
+        280,
+        260.3125,
+        880,
+        479.375
+      ],
+      "paint": {
+        "outside": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "edge": [
+          221,
+          221,
+          221,
+          255
+        ],
+        "inside": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "surface": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "side": {
+          "edge": [
+            221,
+            221,
+            221,
+            255
+          ],
+          "outside": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "inside": [
+            255,
+            255,
+            255,
+            255
+          ]
+        }
+      },
+      "override": "rgb(72, 81, 192)",
+      "overridePaint": [
+        72,
+        81,
+        192,
+        255
+      ]
+    },
+    {
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-neo-dark",
+      "selector": ".checkout-card",
+      "owner": "headerless Panel/Container",
+      "requested": "neo-theme-neo-dark",
+      "actualTheme": [
+        "neo-theme-neo-dark"
+      ],
+      "viewportTheme": [
+        "neo-theme-neo-dark"
+      ],
+      "structure": {
+        "nativePanel": true,
+        "role": null,
+        "directItems": [
+          "checkout-heading",
+          "checkout-form",
+          "checkout-actions"
+        ],
+        "nearestPanelHeaders": 0,
+        "directForm": true,
+        "forms": 1,
+        "heading": "Address and payment"
+      },
+      "computed": "rgb(13, 15, 18)",
+      "normalizedToken": "rgb(13, 15, 18)",
+      "container": true,
+      "border": {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgb(67, 73, 92)",
+        "panelToken": "#43495C",
+        "defaultRole": "light-dark(oklch(0.875 0.012 270.0), oklch(0.390 0.034 270.0))",
+        "panelSheets": [
+          "/dist/development/css/src/container/Panel.css",
+          "/dist/development/css/theme-neo-light/container/Panel.css",
+          "/dist/development/css/theme-neo-dark/container/Panel.css"
+        ]
+      },
+      "exposed": [
+        288,
+        272
+      ],
+      "edge": [
+        720,
+        260
+      ],
+      "outside": [
+        720,
+        259
+      ],
+      "inside": [
+        720,
+        261
+      ],
+      "side": {
+        "edge": [
+          280,
+          500
+        ],
+        "outside": [
+          278,
+          500
+        ],
+        "inside": [
+          283,
+          500
+        ]
+      },
+      "rect": [
+        280,
+        260.3125,
+        880,
+        479.375
+      ],
+      "paint": {
+        "outside": [
+          13,
+          15,
+          18,
+          255
+        ],
+        "edge": [
+          67,
+          73,
+          92,
+          255
+        ],
+        "inside": [
+          13,
+          15,
+          18,
+          255
+        ],
+        "surface": [
+          13,
+          15,
+          18,
+          255
+        ],
+        "side": {
+          "edge": [
+            67,
+            73,
+            92,
+            255
+          ],
+          "outside": [
+            13,
+            15,
+            18,
+            255
+          ],
+          "inside": [
+            13,
+            15,
+            18,
+            255
+          ]
+        }
+      },
+      "override": "rgb(72, 81, 192)",
+      "overridePaint": [
+        72,
+        81,
+        192,
+        255
+      ]
+    },
+    {
+      "url": "/examples/form/validation/index.html?theme=neo-theme-neo-light",
+      "selector": ".signup-card",
+      "owner": "headerless Panel/Container",
+      "requested": "neo-theme-neo-light",
+      "actualTheme": [
+        "neo-theme-neo-light"
+      ],
+      "viewportTheme": [
+        "neo-theme-neo-light"
+      ],
+      "structure": {
+        "nativePanel": true,
+        "role": null,
+        "directItems": [
+          "signup-heading",
+          "signup-form",
+          "signup-actions"
+        ],
+        "nearestPanelHeaders": 0,
+        "directForm": true,
+        "forms": 1,
+        "heading": "Create your account"
+      },
+      "computed": "rgb(255, 255, 255)",
+      "normalizedToken": "rgb(255, 255, 255)",
+      "container": true,
+      "border": {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgb(221, 221, 221)",
+        "panelToken": "#ddd",
+        "defaultRole": "light-dark(oklch(0.875 0.012 270.0), oklch(0.390 0.034 270.0))",
+        "panelSheets": [
+          "/dist/development/css/src/container/Panel.css",
+          "/dist/development/css/theme-neo-light/container/Panel.css",
+          "/dist/development/css/theme-neo-dark/container/Panel.css"
+        ]
+      },
+      "exposed": [
+        508,
+        234
+      ],
+      "edge": [
+        720,
+        222
+      ],
+      "outside": [
+        720,
+        221
+      ],
+      "inside": [
+        720,
+        223
+      ],
+      "side": {
+        "edge": [
+          500,
+          500
+        ],
+        "outside": [
+          498,
+          500
+        ],
+        "inside": [
+          503,
+          500
+        ]
+      },
+      "rect": [
+        500,
+        222.21875,
+        440,
+        555.5625
+      ],
+      "paint": {
+        "outside": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "edge": [
+          221,
+          221,
+          221,
+          255
+        ],
+        "inside": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "surface": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "side": {
+          "edge": [
+            221,
+            221,
+            221,
+            255
+          ],
+          "outside": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "inside": [
+            255,
+            255,
+            255,
+            255
+          ]
+        }
+      },
+      "override": "rgb(72, 81, 192)",
+      "overridePaint": [
+        72,
+        81,
+        192,
+        255
+      ]
+    },
+    {
+      "url": "/examples/form/validation/index.html?theme=neo-theme-neo-dark",
+      "selector": ".signup-card",
+      "owner": "headerless Panel/Container",
+      "requested": "neo-theme-neo-dark",
+      "actualTheme": [
+        "neo-theme-neo-dark"
+      ],
+      "viewportTheme": [
+        "neo-theme-neo-dark"
+      ],
+      "structure": {
+        "nativePanel": true,
+        "role": null,
+        "directItems": [
+          "signup-heading",
+          "signup-form",
+          "signup-actions"
+        ],
+        "nearestPanelHeaders": 0,
+        "directForm": true,
+        "forms": 1,
+        "heading": "Create your account"
+      },
+      "computed": "rgb(13, 15, 18)",
+      "normalizedToken": "rgb(13, 15, 18)",
+      "container": true,
+      "border": {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgb(67, 73, 92)",
+        "panelToken": "#43495C",
+        "defaultRole": "light-dark(oklch(0.875 0.012 270.0), oklch(0.390 0.034 270.0))",
+        "panelSheets": [
+          "/dist/development/css/src/container/Panel.css",
+          "/dist/development/css/theme-neo-light/container/Panel.css",
+          "/dist/development/css/theme-neo-dark/container/Panel.css"
+        ]
+      },
+      "exposed": [
+        508,
+        234
+      ],
+      "edge": [
+        720,
+        222
+      ],
+      "outside": [
+        720,
+        221
+      ],
+      "inside": [
+        720,
+        223
+      ],
+      "side": {
+        "edge": [
+          500,
+          500
+        ],
+        "outside": [
+          498,
+          500
+        ],
+        "inside": [
+          503,
+          500
+        ]
+      },
+      "rect": [
+        500,
+        222.21875,
+        440,
+        555.5625
+      ],
+      "paint": {
+        "outside": [
+          13,
+          15,
+          18,
+          255
+        ],
+        "edge": [
+          67,
+          73,
+          92,
+          255
+        ],
+        "inside": [
+          13,
+          15,
+          18,
+          255
+        ],
+        "surface": [
+          13,
+          15,
+          18,
+          255
+        ],
+        "side": {
+          "edge": [
+            67,
+            73,
+            92,
+            255
+          ],
+          "outside": [
+            13,
+            15,
+            18,
+            255
+          ],
+          "inside": [
+            13,
+            15,
+            18,
+            255
+          ]
+        }
+      },
+      "override": "rgb(72, 81, 192)",
+      "overridePaint": [
+        72,
+        81,
+        192,
+        255
+      ]
+    },
+    {
+      "url": "/examples/button/base/index.html?theme=neo-theme-light",
+      "selector": ".neo-workbench-stage",
+      "owner": "Container",
+      "requested": "neo-theme-light",
+      "actualTheme": [
+        "neo-theme-light"
+      ],
+      "viewportTheme": [
+        "neo-theme-light"
+      ],
+      "structure": {
+        "nativePanel": false,
+        "role": null,
+        "directItems": [],
+        "nearestPanelHeaders": 0,
+        "directForm": false,
+        "forms": 0,
+        "heading": null
+      },
+      "computed": "rgb(255, 255, 255)",
+      "normalizedToken": "rgb(255, 255, 255)",
+      "container": true,
+      "border": {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgb(221, 221, 221)",
+        "panelToken": "#ddd",
+        "defaultRole": "",
+        "panelSheets": [
+          "/dist/development/css/src/container/Panel.css",
+          "/dist/development/css/theme-light/container/Panel.css",
+          "/dist/development/css/theme-dark/container/Panel.css",
+          "/dist/development/css/theme-neo-light/container/Panel.css"
+        ]
+      },
+      "exposed": null,
+      "edge": [
+        473,
+        20
+      ],
+      "outside": [
+        473,
+        19
+      ],
+      "inside": [
+        473,
+        21
+      ],
+      "side": {
+        "edge": [
+          20,
+          500
+        ],
+        "outside": [
+          18,
+          500
+        ],
+        "inside": [
+          23,
+          500
+        ]
+      },
+      "rect": [
+        20,
+        20,
+        906,
+        960
+      ],
+      "paint": {
+        "outside": [
+          250,
+          250,
+          250,
+          255
+        ],
+        "edge": [
+          221,
+          221,
+          221,
+          255
+        ],
+        "inside": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "surface": null,
+        "side": {
+          "edge": [
+            221,
+            221,
+            221,
+            255
+          ],
+          "outside": [
+            250,
+            250,
+            250,
+            255
+          ],
+          "inside": [
+            255,
+            255,
+            255,
+            255
+          ]
+        }
+      },
+      "override": "rgb(72, 81, 192)",
+      "overridePaint": null
+    },
+    {
+      "url": "/examples/button/base/index.html?theme=neo-theme-dark",
+      "selector": ".neo-workbench-stage",
+      "owner": "Container",
+      "requested": "neo-theme-dark",
+      "actualTheme": [
+        "neo-theme-dark"
+      ],
+      "viewportTheme": [
+        "neo-theme-dark"
+      ],
+      "structure": {
+        "nativePanel": false,
+        "role": null,
+        "directItems": [],
+        "nearestPanelHeaders": 0,
+        "directForm": false,
+        "forms": 0,
+        "heading": null
+      },
+      "computed": "rgb(43, 43, 43)",
+      "normalizedToken": "rgb(43, 43, 43)",
+      "container": true,
+      "border": {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgb(60, 63, 65)",
+        "panelToken": "#3c3f41",
+        "defaultRole": "",
+        "panelSheets": [
+          "/dist/development/css/src/container/Panel.css",
+          "/dist/development/css/theme-light/container/Panel.css",
+          "/dist/development/css/theme-dark/container/Panel.css",
+          "/dist/development/css/theme-neo-light/container/Panel.css"
+        ]
+      },
+      "exposed": null,
+      "edge": [
+        473,
+        20
+      ],
+      "outside": [
+        473,
+        19
+      ],
+      "inside": [
+        473,
+        21
+      ],
+      "side": {
+        "edge": [
+          20,
+          500
+        ],
+        "outside": [
+          18,
+          500
+        ],
+        "inside": [
+          23,
+          500
+        ]
+      },
+      "rect": [
+        20,
+        20,
+        906,
+        960
+      ],
+      "paint": {
+        "outside": [
+          50,
+          50,
+          50,
+          255
+        ],
+        "edge": [
+          60,
+          63,
+          65,
+          255
+        ],
+        "inside": [
+          43,
+          43,
+          43,
+          255
+        ],
+        "surface": null,
+        "side": {
+          "edge": [
+            60,
+            63,
+            65,
+            255
+          ],
+          "outside": [
+            50,
+            50,
+            50,
+            255
+          ],
+          "inside": [
+            43,
+            43,
+            43,
+            255
+          ]
+        }
+      },
+      "override": "rgb(72, 81, 192)",
+      "overridePaint": null
+    },
+    {
+      "url": "/examples/button/base/index.html?theme=neo-theme-light",
+      "selector": ".neo-workbench-inspector",
+      "owner": "Panel/Container",
+      "requested": "neo-theme-light",
+      "actualTheme": [
+        "neo-theme-light"
+      ],
+      "viewportTheme": [
+        "neo-theme-light"
+      ],
+      "structure": {
+        "nativePanel": true,
+        "role": null,
+        "directItems": [],
+        "nearestPanelHeaders": 0,
+        "directForm": false,
+        "forms": 0,
+        "heading": null
+      },
+      "computed": "rgb(255, 255, 255)",
+      "normalizedToken": "rgb(255, 255, 255)",
+      "container": true,
+      "border": {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgb(221, 221, 221)",
+        "panelToken": "#ddd",
+        "defaultRole": "",
+        "panelSheets": [
+          "/dist/development/css/src/container/Panel.css",
+          "/dist/development/css/theme-light/container/Panel.css",
+          "/dist/development/css/theme-dark/container/Panel.css",
+          "/dist/development/css/theme-neo-light/container/Panel.css"
+        ]
+      },
+      "exposed": null,
+      "edge": [
+        1193,
+        20
+      ],
+      "outside": [
+        1193,
+        19
+      ],
+      "inside": [
+        1193,
+        21
+      ],
+      "side": {
+        "edge": [
+          966,
+          500
+        ],
+        "outside": [
+          964,
+          500
+        ],
+        "inside": [
+          969,
+          500
+        ]
+      },
+      "rect": [
+        966,
+        20,
+        454,
+        960
+      ],
+      "paint": {
+        "outside": [
+          250,
+          250,
+          250,
+          255
+        ],
+        "edge": [
+          221,
+          221,
+          221,
+          255
+        ],
+        "inside": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "surface": null,
+        "side": {
+          "edge": [
+            221,
+            221,
+            221,
+            255
+          ],
+          "outside": [
+            250,
+            250,
+            250,
+            255
+          ],
+          "inside": [
+            255,
+            255,
+            255,
+            255
+          ]
+        }
+      },
+      "override": "rgb(72, 81, 192)",
+      "overridePaint": null
+    },
+    {
+      "url": "/examples/button/base/index.html?theme=neo-theme-dark",
+      "selector": ".neo-workbench-inspector",
+      "owner": "Panel/Container",
+      "requested": "neo-theme-dark",
+      "actualTheme": [
+        "neo-theme-dark"
+      ],
+      "viewportTheme": [
+        "neo-theme-dark"
+      ],
+      "structure": {
+        "nativePanel": true,
+        "role": null,
+        "directItems": [],
+        "nearestPanelHeaders": 0,
+        "directForm": false,
+        "forms": 0,
+        "heading": null
+      },
+      "computed": "rgb(43, 43, 43)",
+      "normalizedToken": "rgb(43, 43, 43)",
+      "container": true,
+      "border": {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgb(60, 63, 65)",
+        "panelToken": "#3c3f41",
+        "defaultRole": "",
+        "panelSheets": [
+          "/dist/development/css/src/container/Panel.css",
+          "/dist/development/css/theme-light/container/Panel.css",
+          "/dist/development/css/theme-dark/container/Panel.css",
+          "/dist/development/css/theme-neo-light/container/Panel.css"
+        ]
+      },
+      "exposed": null,
+      "edge": [
+        1193,
+        20
+      ],
+      "outside": [
+        1193,
+        19
+      ],
+      "inside": [
+        1193,
+        21
+      ],
+      "side": {
+        "edge": [
+          966,
+          500
+        ],
+        "outside": [
+          964,
+          500
+        ],
+        "inside": [
+          969,
+          500
+        ]
+      },
+      "rect": [
+        966,
+        20,
+        454,
+        960
+      ],
+      "paint": {
+        "outside": [
+          50,
+          50,
+          50,
+          255
+        ],
+        "edge": [
+          60,
+          63,
+          65,
+          255
+        ],
+        "inside": [
+          50,
+          50,
+          50,
+          255
+        ],
+        "surface": null,
+        "side": {
+          "edge": [
+            60,
+            63,
+            65,
+            255
+          ],
+          "outside": [
+            50,
+            50,
+            50,
+            255
+          ],
+          "inside": [
+            43,
+            43,
+            43,
+            255
+          ]
+        }
+      },
+      "override": "rgb(72, 81, 192)",
+      "overridePaint": null
+    }
+  ],
+  "workingChanges": "",
+  "exampleModules": {
+    "examples/form/checkout/MainContainer.mjs": "9e6ed361bbd379b75b461c9d6465a9d25bc31e57081c65c1a0c1e2f27cc72196",
+    "examples/form/validation/MainContainer.mjs": "d8ead372e1602b4ab2e87058be24ee60a341ffce0501d674a93e4a27f06fa506"
+  },
+  "chrome": "158.0.8127.38"
+}

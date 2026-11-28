@@ -1,0 +1,188 @@
+{
+  "method": "Isolated git archives at the PR merge base and commit, separately compiled with each revision’s build-themes development target. Unmodified Checkout route in Google Chrome. No stylesheet or DOM overrides. One CSS pixel per capture pixel. Detail crops use 3x nearest-neighbor enlargement.",
+  "base": "0793dafb3d1dc2e858812dfc753833e097435c00",
+  "head": "6c1dd80bad3791fca0f9bded2c3901de1567b4c8",
+  "lockfile": {
+    "before": "d7ca683dc1cf06d0aa7673b0ddc29566626fa21b08a73690aca517f2b2b9ef06",
+    "after": "d7ca683dc1cf06d0aa7673b0ddc29566626fa21b08a73690aca517f2b2b9ef06"
+  },
+  "captures": [
+    {
+      "revision": "0793dafb3d1dc2e858812dfc753833e097435c00",
+      "label": "before",
+      "scheme": "light",
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-neo-light",
+      "file": "checkout-22459-before-light.png",
+      "sha256": "b8b283cf589e8b27e78dbfea09d193857fffc0529fc5966c327c9c30aef7c21e",
+      "sideRGB": [
+        [
+          255,
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255,
+          255
+        ]
+      ],
+      "box": [
+        110,
+        141.3125,
+        880,
+        477.375
+      ],
+      "computed": "rgba(0, 0, 0, 0)",
+      "border": [
+        "0px",
+        "none",
+        "rgb(0, 0, 0)"
+      ],
+      "nativePanel": false,
+      "theme": "neo-theme-neo-light",
+      "visibleForm": true,
+      "title": "Address and payment"
+    },
+    {
+      "revision": "0793dafb3d1dc2e858812dfc753833e097435c00",
+      "label": "before",
+      "scheme": "dark",
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-neo-dark",
+      "file": "checkout-22459-before-dark.png",
+      "sha256": "f98d4f3549d0413eafca892b540608df73ffbe521c11d78746a3a0a8643813f0",
+      "sideRGB": [
+        [
+          13,
+          15,
+          18,
+          255
+        ],
+        [
+          13,
+          15,
+          18,
+          255
+        ],
+        [
+          13,
+          15,
+          18,
+          255
+        ]
+      ],
+      "box": [
+        110,
+        141.3125,
+        880,
+        477.375
+      ],
+      "computed": "rgba(0, 0, 0, 0)",
+      "border": [
+        "0px",
+        "none",
+        "rgb(240, 241, 244)"
+      ],
+      "nativePanel": false,
+      "theme": "neo-theme-neo-dark",
+      "visibleForm": true,
+      "title": "Address and payment"
+    },
+    {
+      "revision": "6c1dd80bad3791fca0f9bded2c3901de1567b4c8",
+      "label": "after",
+      "scheme": "light",
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-neo-light",
+      "file": "checkout-22459-after-light.png",
+      "sha256": "48b3b70722a43ebfcf1c523a6cd684641d3ed4ab75d2bd637c9d38b2433d7109",
+      "sideRGB": [
+        [
+          255,
+          255,
+          255,
+          255
+        ],
+        [
+          221,
+          221,
+          221,
+          255
+        ],
+        [
+          255,
+          255,
+          255,
+          255
+        ]
+      ],
+      "box": [
+        110,
+        140.3125,
+        880,
+        479.375
+      ],
+      "computed": "rgb(255, 255, 255)",
+      "border": [
+        "1px",
+        "solid",
+        "rgb(221, 221, 221)"
+      ],
+      "nativePanel": true,
+      "theme": "neo-theme-neo-light",
+      "visibleForm": true,
+      "title": "Address and payment"
+    },
+    {
+      "revision": "6c1dd80bad3791fca0f9bded2c3901de1567b4c8",
+      "label": "after",
+      "scheme": "dark",
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-neo-dark",
+      "file": "checkout-22459-after-dark.png",
+      "sha256": "ae76a2de7f9debb6ca5f247e645c71ad59c2a615565e656c8d076e4103977b17",
+      "sideRGB": [
+        [
+          13,
+          15,
+          18,
+          255
+        ],
+        [
+          67,
+          73,
+          92,
+          255
+        ],
+        [
+          13,
+          15,
+          18,
+          255
+        ]
+      ],
+      "box": [
+        110,
+        140.3125,
+        880,
+        479.375
+      ],
+      "computed": "rgb(13, 15, 18)",
+      "border": [
+        "1px",
+        "solid",
+        "rgb(67, 73, 92)"
+      ],
+      "nativePanel": true,
+      "theme": "neo-theme-neo-dark",
+      "visibleForm": true,
+      "title": "Address and payment"
+    }
+  ],
+  "chrome": "158.0.8127.38"
+}
