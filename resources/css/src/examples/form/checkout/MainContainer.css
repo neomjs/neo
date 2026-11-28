@@ -3,7 +3,6 @@
     padding   : 16px;
 
     .checkout-card {
-        border          : 1px solid var(--neo-panel-border-color);
         border-radius   : 12px;
         gap             : 16px;
         /* Centres the card while there is room, and lets the page scroll from its top when there is not */

@@ -2,7 +2,6 @@
     overflow-y: auto;
 
     .signup-card {
-        border          : 1px solid var(--neo-panel-border-color);
         border-radius   : 12px;
         gap             : 16px;
         max-width       : calc(100vw - 32px);
