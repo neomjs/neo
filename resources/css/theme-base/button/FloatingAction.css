@@ -1,4 +1,7 @@
-:where(.neo-theme-neo-dark) {
+/* FloatingAction button, every theme: each variable bound to a role or scale token (ADR 0044 decision 4, epic #22295).
+   A theme re-values one in its own button/FloatingAction.css only where its design language deviates.
+   The rules in src/button/FloatingAction.css read these. */
+[class*="neo-theme-"] {
     --neo-floating-action-button-background-color          : var(--neo-color-background-accent);
     --neo-floating-action-button-background-color-active   : var(--neo-color-background-accent-active);
     --neo-floating-action-button-background-color-hover    : var(--neo-color-background-accent-hover);
