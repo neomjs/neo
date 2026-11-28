@@ -1,0 +1,9 @@
+[
+    {"component": "tooltip", "theme": "neo-theme-cyberpunk", "property": "background-color", "base": "rgba(0, 0, 0, 0)", "head": "rgb(22, 27, 34)", "reason": "#22502: the bubble paints cyberpunk's panel (--neo-cyber-alt-background-color) instead of nothing"},
+    {"component": "tooltip", "theme": "neo-theme-cyberpunk", "property": "border-color", "base": "rgb(201, 209, 217)", "head": "rgb(0, 210, 255)", "reason": "#22502: the cyan edge cyberpunk's dialog wears"},
+    {"component": "tooltip", "theme": "neo-theme-cyberpunk", "property": "border-width", "base": "0px", "head": "1px", "reason": "#22502: the edge is drawn"},
+    {"component": "tooltip", "theme": "neo-theme-cyberpunk", "property": "box-shadow", "base": "none", "head": "rgb(0, 210, 255) 0px 0px 10px 0px", "reason": "#22502: the cyber glow, as on cyberpunk's dialog"},
+    {"component": "tooltip", "theme": "neo-theme-cyberpunk", "property": "font-size", "base": "16px", "head": "14px", "reason": "#22502: the classic tooltip type size, not the inherited body size"},
+    {"component": "tooltip", "theme": "neo-theme-cyberpunk", "property": "padding", "base": "0px", "head": "2px 8px 0px", "reason": "#22502: the classic tooltip padding"},
+    {"component": "tooltip", "theme": "neo-theme-cyberpunk", "property": "height", "base": "18px", "head": "24px", "reason": "#22502: the classic tooltip height"}
+]
