@@ -1,4 +1,0 @@
-:where(.neo-theme-neo-dark) { /* .neo-tree-sort-proxy */
-    --neo-tree-sort-proxy-box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
-    --neo-tree-sort-proxy-border-radius : 4px;
-}

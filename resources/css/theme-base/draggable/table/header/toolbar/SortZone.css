@@ -1,0 +1,4 @@
+/* A dragged table header button, every theme: a listed literal (rule 5). src/draggable/table/header/toolbar/SortZone.css reads it. */
+[class*="neo-theme-"] {
+    --neo-table-header-button-dragging-opacity: 0.7;
+}

@@ -1,0 +1,5 @@
+/* The tree sort proxy, every theme: each variable bound to a role (ADR 0044 decision 4). src/draggable/tree/SortZone.css reads these. */
+[class*="neo-theme-"] {
+    --neo-tree-sort-proxy-border-radius: var(--neo-radius-small);
+    --neo-tree-sort-proxy-box-shadow   : 0 2px 8px var(--neo-color-shadow);
+}
