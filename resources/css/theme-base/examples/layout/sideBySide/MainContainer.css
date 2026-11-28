@@ -1,0 +1,8 @@
+[class*="neo-theme-"] { /* .examples-layouts-side-by-side */
+    --neo-examples-layouts-background-color      : var(--neo-color-background-canvas);
+    --neo-examples-layouts-border-color          : var(--neo-color-border-default);
+    --neo-examples-layouts-color                 : var(--neo-color-text-default);
+    --neo-examples-layouts-detail-color          : var(--neo-color-text-muted);
+    --neo-examples-layouts-panel-background-color: var(--neo-color-background-surface-raised);
+    --neo-examples-layouts-stage-background-color: var(--neo-color-background-neutral-hover);
+}
