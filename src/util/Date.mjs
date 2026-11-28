@@ -106,25 +106,23 @@ class DateUtil extends Base {
     }
 
     /**
-     * Returns the week number of the passed date
+     * Returns the ISO 8601 week number of the passed date.
      * https://en.wikipedia.org/wiki/ISO_8601
+     * The week is the one of the local calendar day of the date (year, month and day in the local time zone),
+     * so neither the time zone nor the time of day changes the result.
      * @param {Date} targetDate
      * @returns {Number}
      */
     static getWeekOfYear(targetDate) {
-        let date      = new Date(targetDate.valueOf()),
-            dayNumber = (targetDate.getUTCDay() + 6) % 7,
-            firstThursday;
+        let date      = new Date(Date.UTC(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate())),
+            dayNumber = (date.getUTCDay() + 6) % 7,
+            firstDay;
 
+        // The Thursday of the ISO week decides which ISO year the week belongs to
         date.setUTCDate(date.getUTCDate() - dayNumber + 3);
-        firstThursday = date.valueOf();
-        date.setUTCMonth(0, 1);
+        firstDay = Date.UTC(date.getUTCFullYear(), 0, 1);
 
-        if (date.getUTCDay() !== 4) {
-            date.setUTCMonth(0, 1 + ((4 - date.getUTCDay()) + 7) % 7)
-        }
-
-        return Math.ceil((firstThursday - date) /  (7 * 24 * 3600 * 1000)) + 1
+        return Math.floor((date.valueOf() - firstDay) / (7 * 24 * 3600 * 1000)) + 1
     }
 
     /**

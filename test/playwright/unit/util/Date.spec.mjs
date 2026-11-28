@@ -58,12 +58,40 @@ test.describe('Neo.util.Date', () => {
 
     test('getWeekOfYear follows ISO 8601 across the year boundary', () => {
         // 2019-12-30 (a Monday) belongs to week 1 of the ISO week year 2020
-        expect(DateUtil.getWeekOfYear(new Date(Date.UTC(2019, 11, 30)))).toBe(1);
+        expect(DateUtil.getWeekOfYear(new Date(2019, 11, 30))).toBe(1);
 
         // 2021-01-01 (a Friday) still belongs to week 53 of the ISO week year 2020
-        expect(DateUtil.getWeekOfYear(new Date(Date.UTC(2021, 0, 1)))).toBe(53);
+        expect(DateUtil.getWeekOfYear(new Date(2021, 0, 1))).toBe(53);
 
-        expect(DateUtil.getWeekOfYear(new Date(Date.UTC(2024, 5, 15)))).toBe(24)
+        expect(DateUtil.getWeekOfYear(new Date(2024, 5, 15))).toBe(24)
+    });
+
+    test('getWeekOfYear reads the local calendar day, whatever the zone or the time of day', () => {
+        // Monday 2026-11-23 is in ISO week 48 from 00:00 to 23:59 local time
+        [[0, 30], [8, 30], [12, 0], [23, 30]].forEach(([hours, minutes]) => {
+            expect(DateUtil.getWeekOfYear(new Date(2026, 10, 23, hours, minutes))).toBe(48)
+        });
+
+        // Sunday 2026-11-29 is the last day of ISO week 48
+        expect(DateUtil.getWeekOfYear(new Date(2026, 10, 29, 0, 30))).toBe(48);
+        expect(DateUtil.getWeekOfYear(new Date(2026, 10, 29, 23, 30))).toBe(48);
+
+        // Monday 2026-11-30 starts ISO week 49
+        expect(DateUtil.getWeekOfYear(new Date(2026, 10, 30, 0, 30))).toBe(49);
+
+        // The year boundary holds at both ends of the day
+        expect(DateUtil.getWeekOfYear(new Date(2019, 11, 29, 23, 30))).toBe(52);
+        expect(DateUtil.getWeekOfYear(new Date(2019, 11, 30, 0, 30))).toBe(1);
+        expect(DateUtil.getWeekOfYear(new Date(2021, 0, 3, 23, 30))).toBe(53);
+        expect(DateUtil.getWeekOfYear(new Date(2021, 0, 4, 0, 30))).toBe(1)
+    });
+
+    test('getWeekOfYear does not change the passed date', () => {
+        let date = new Date(2026, 10, 29, 23, 30);
+
+        DateUtil.getWeekOfYear(date);
+
+        expect(date.getTime()).toBe(new Date(2026, 10, 29, 23, 30).getTime())
     });
 
     test('getWeeksOfMonth returns 6 weeks when a month spills into a sixth row', () => {

@@ -43,6 +43,7 @@ export default defineConfig({
     outputDir: path.join(__dirname, 'test-results/unit-tz'),
     testMatch: [
         '**/util/Date.spec.mjs',
+        '**/calendar/YearComponent.spec.mjs',
         '**/form/field/DateSubmitValue.spec.mjs',
         '**/plugin/HeaderFilter.spec.mjs',
         '**/selection/DateSelectorModel.spec.mjs',
