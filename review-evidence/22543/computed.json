@@ -1,0 +1,170 @@
+{
+  "released": [
+    {
+      "frame": "released-desktop-light.png",
+      "viewport": [
+        1440,
+        900
+      ],
+      "scheme": "light",
+      "selected": "true",
+      "filenameContrast": 3.98,
+      "folderContrast": 4.36,
+      "outlineStarWeight": "400",
+      "filledStarWeight": "900",
+      "menu": [
+        "Open",
+        "Duplicate",
+        "Move to",
+        "Star",
+        "",
+        "Delete",
+        "Images",
+        "Archive"
+      ]
+    },
+    {
+      "frame": "released-compact-light.png",
+      "viewport": [
+        390,
+        844
+      ],
+      "scheme": "light",
+      "selected": "true",
+      "filenameContrast": 16.07,
+      "folderContrast": 17.6,
+      "outlineStarWeight": "400",
+      "filledStarWeight": "900",
+      "menu": []
+    },
+    {
+      "frame": "released-desktop-dark.png",
+      "viewport": [
+        1440,
+        900
+      ],
+      "scheme": "dark",
+      "selected": "true",
+      "filenameContrast": 3.53,
+      "folderContrast": 2.74,
+      "outlineStarWeight": "400",
+      "filledStarWeight": "900",
+      "menu": [
+        "Open",
+        "Duplicate",
+        "Move to",
+        "Star",
+        "",
+        "Delete",
+        "Images",
+        "Archive"
+      ]
+    },
+    {
+      "frame": "released-compact-dark.png",
+      "viewport": [
+        390,
+        844
+      ],
+      "scheme": "dark",
+      "selected": "true",
+      "filenameContrast": 13.4,
+      "folderContrast": 10.38,
+      "outlineStarWeight": "400",
+      "filledStarWeight": "900",
+      "menu": []
+    }
+  ],
+  "candidate": [
+    {
+      "frame": "candidate-desktop-light.png",
+      "viewport": [
+        1440,
+        900
+      ],
+      "scheme": "light",
+      "selected": "true",
+      "filenameContrast": 14.66,
+      "folderContrast": 17.07,
+      "outlineStarWeight": "400",
+      "filledStarWeight": "900",
+      "menu": [
+        "Open",
+        "Duplicate",
+        "Move to",
+        "Star",
+        "",
+        "Delete",
+        "Images",
+        "Archive"
+      ]
+    },
+    {
+      "frame": "candidate-compact-light.png",
+      "viewport": [
+        390,
+        844
+      ],
+      "scheme": "light",
+      "selected": "true",
+      "filenameContrast": 14.66,
+      "folderContrast": 17.07,
+      "outlineStarWeight": "400",
+      "filledStarWeight": "900",
+      "menu": []
+    },
+    {
+      "frame": "candidate-desktop-dark.png",
+      "viewport": [
+        1440,
+        900
+      ],
+      "scheme": "dark",
+      "selected": "true",
+      "filenameContrast": 13.52,
+      "folderContrast": 13.21,
+      "outlineStarWeight": "400",
+      "filledStarWeight": "900",
+      "menu": [
+        "Open",
+        "Duplicate",
+        "Move to",
+        "Star",
+        "",
+        "Delete",
+        "Images",
+        "Archive"
+      ]
+    },
+    {
+      "frame": "candidate-compact-dark.png",
+      "viewport": [
+        390,
+        844
+      ],
+      "scheme": "dark",
+      "selected": "true",
+      "filenameContrast": 13.52,
+      "folderContrast": 13.21,
+      "outlineStarWeight": "400",
+      "filledStarWeight": "900",
+      "menu": []
+    }
+  ],
+  "engineEquality": {
+    "themes": [
+      "neo-theme-neo-light",
+      "neo-theme-neo-dark",
+      "neo-theme-light",
+      "neo-theme-dark",
+      "neo-theme-cyberpunk"
+    ],
+    "scopes": [
+      "inherited",
+      "scoped"
+    ],
+    "componentCount": 81,
+    "totalComparisons": 200880,
+    "diffs": []
+  }
+}
