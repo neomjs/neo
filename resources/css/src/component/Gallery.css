@@ -8,6 +8,10 @@
     text-align      : center;
     transform-style : preserve-3d;
 
+    &.neo-gallery-swipe-navigation {
+        touch-action: pan-y pinch-zoom;
+    }
+
     &:focus {
         outline: 0;
     }

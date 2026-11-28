@@ -37,6 +37,18 @@ class GalleryModel extends Model {
     addDomListener() {}
 
     /**
+     * @summary Moves one horizontal neighbor using the Gallery's current projection and wrapping.
+     * @param {Number} step -1 selects left and 1 selects right.
+     */
+    navigateHorizontal(step) {
+        const {view} = this;
+
+        if (view && (step === -1 || step === 1)) {
+            this[view.orderByRow ? 'onNavKeyColumn' : 'onNavKeyRow'](step)
+        }
+    }
+
+    /**
      *
      */
     onContainerClick() {
@@ -100,14 +112,14 @@ class GalleryModel extends Model {
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        this[this.view.orderByRow ? 'onNavKeyColumn' : 'onNavKeyRow'](-1)
+        this.navigateHorizontal(-1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        this[this.view.orderByRow ? 'onNavKeyColumn' : 'onNavKeyRow'](1)
+        this.navigateHorizontal(1)
     }
 
     /**
@@ -125,15 +137,14 @@ class GalleryModel extends Model {
             {view}       = me,
             {store}      = view,
             selected     = me.items[0],
-            countRecords = view.maxItems ? Math.min(view.maxItems, store.getCount()) : store.getCount(),
+            countRecords = Math.min(view.maxItems, store?.getCount() ?? 0),
             index, record;
 
-        if (selected) {
-            record = store.get(selected);
-            index  = store.indexOf(record) + step
-        } else {
-            index = 0
-        }
+        if (!countRecords) return;
+
+        const current = selected == null ? -1 : store.indexOf(store.get(selected));
+
+        index = current >= 0 && current < countRecords ? current + step : 0;
 
         if (index < 0) {
             index = countRecords - 1
@@ -158,21 +169,20 @@ class GalleryModel extends Model {
             {stayInRow, view}   = me,
             {amountRows, store} = view,
             selected            = me.items[0],
-            countRecords        = view.maxItems ? Math.min(view.maxItems, store.getCount()) : store.getCount(),
+            countRecords        = Math.min(view.maxItems, store?.getCount() ?? 0),
             index, record;
 
+        if (!countRecords || amountRows <= 0) return;
+
         if (view.orderByRow) {
-            amountRows = Math.ceil(view.store.getCount() / amountRows)
+            amountRows = Math.ceil(countRecords / amountRows)
         }
 
         step *= amountRows;
 
-        if (selected) {
-            record = store.get(selected);
-            index  = store.indexOf(record) + step
-        } else {
-            index = 0
-        }
+        const current = selected == null ? -1 : store.indexOf(store.get(selected));
+
+        index = current >= 0 && current < countRecords ? current + step : 0;
 
         if (index < 0) {
             if (!stayInRow) {
@@ -191,6 +201,8 @@ class GalleryModel extends Model {
         }
 
         record = store.getAt(index);
+
+        if (!record) return;
 
         me.select(view.getRecordId(record));
 

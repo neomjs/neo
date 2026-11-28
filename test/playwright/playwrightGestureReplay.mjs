@@ -168,10 +168,11 @@ export async function driveBrowserGesture(request, {pages, workerId}) {
 
         if (!origin) return fail('unavailable', 'GESTURE_TARGET_UNAVAILABLE', 'the target has no rendered border box');
 
-        // The Engine dispatches in-process. Browser IPC can spend more time between delivered frames.
-        const labels    = new Map(),
-              timeoutMs = request.timeoutMs ?? Math.min(plan.timeoutMs + 4000, gestureLimits.durationMs + 1000),
-              deadline  = performance.now() + timeoutMs;
+        // Preserve the trace's input clock in CDP. Receipts still report actual browser delivery time.
+        const labels     = new Map(),
+              timeoutMs  = request.timeoutMs ?? Math.min(plan.timeoutMs + 4000, gestureLimits.durationMs + 1000),
+              deadline   = performance.now() + timeoutMs,
+              traceStart = Date.now();
 
         let previousTime = 0, observedAt = performance.now();
 
@@ -196,6 +197,7 @@ export async function driveBrowserGesture(request, {pages, workerId}) {
 
                 active ||= step.type === 'touchstart';
                 await cdp.send('Input.dispatchTouchEvent', {
+                    timestamp  : (traceStart + frame.t) / 1000,
                     type       : eventType[step.type],
                     touchPoints: points.map(({identifier, x, y}) => ({id: identifier, x: origin.left + x, y: origin.top + y}))
                 });
