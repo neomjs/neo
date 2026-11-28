@@ -407,8 +407,8 @@ class Container extends Component {
         switch (Neo.typeOf(item)) {
             case 'NeoClass': {
                 item = Neo.create({
-                    ownsTheme: false,
-                    theme    : item.config.theme || (item.prototype.applyParentTheme ? null : me.theme),
+                    ownsTheme: Boolean(defaults.theme || item.config.theme),
+                    theme    : item.config.theme || me.theme,
                     ...defaults,
                     module: item,
                     ...config
@@ -463,7 +463,8 @@ class Container extends Component {
             }
 
             case 'Object': {
-                config.ownsTheme = false;
+                // An ntype resolves its class default during construction. Only the module path below supplies a parent fallback.
+                config.ownsTheme = true;
                 if (defaults) {
                     Neo.assignDefaults(item, defaults)
                 }
@@ -481,7 +482,9 @@ class Container extends Component {
                     // The item config's own theme first — the precedence every other item config key
                     // has — then itemDefaults, the class default, the parent. A nested theme is how
                     // a light scope lives inside a dark host, and the shared tooltip reads it.
-                    item.theme     = item.theme || defaults.theme || module.config.theme || (module.prototype.applyParentTheme ? null : me.theme)
+                    const declaredTheme = item.theme || defaults.theme || module.config.theme;
+                    config.ownsTheme = Boolean(declaredTheme);
+                    item.theme       = declaredTheme || me.theme
                 }
 
                 if (item.handlerScope === 'this') {
