@@ -1,0 +1,32 @@
+{
+    "rules": {
+        "neo-prefix": "App and example variables gain the --neo- prefix at their package move (ADR 0044 §2.1, I4).",
+        "css-property-suffix": "The name identifies the part and the CSS property it paints (ADR 0044 §2.4)."
+    },
+    "entries": {
+        "--context-files-accent": {
+            "to": "--neo-context-files-icon-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--context-files-background": {
+            "to": "--neo-context-files-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--context-files-chip": {
+            "to": "--neo-context-files-folder-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--context-files-muted": {
+            "to": "--neo-context-files-detail-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--context-files-rule": {
+            "to": "--neo-context-files-border-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--context-files-text": {
+            "to": "--neo-context-files-color",
+            "rule": "neo-prefix+css-property-suffix"
+        }
+    }
+}
