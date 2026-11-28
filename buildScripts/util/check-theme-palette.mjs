@@ -1338,15 +1338,12 @@ export function measureThemePairContrast(foregroundInput, backgroundInput, {root
     }
 
     const
-        normalized = String(theme ?? 'neo-theme-neo').trim().replace(/^\./, ''),
-        matches    = (themeClass, relPath) =>
-            normalized === 'all' ||
-            themeClass === normalized ||
-            themeClass.startsWith(`${normalized}-`) ||
-            themeClass === `neo-theme-${normalized}` ||
-            themeClass.startsWith(`neo-theme-${normalized}-`) ||
-            relPath.includes(`/${normalized}/`),
-        palettes   = [];
+        selector  = String(theme ?? 'neo-theme-neo').trim().replace(/^\./, ''),
+        classStem = selector.startsWith('neo-theme-') ? selector : `neo-theme-${selector}`,
+        matches   = (themeClass, cssRelPath) =>
+            selector === 'all' || themeClass === classStem || themeClass.startsWith(`${classStem}-`) ||
+            cssRelPath === `${selector}/Global.css`,
+        palettes  = [];
 
     for (const file of cssFiles(cssRoot)) {
         const cssRelPath = path.relative(cssRoot, file).replaceAll('\\', '/');
@@ -1360,7 +1357,7 @@ export function measureThemePairContrast(foregroundInput, backgroundInput, {root
             sheets  = readThemeDeclarations(readSheet(file));
 
         for (const [themeClass, declarations] of sheets) {
-            if ([...declarations.keys()].some(name => name.startsWith('--neo-palette-')) && matches(themeClass, relPath)) {
+            if ([...declarations.keys()].some(name => name.startsWith('--neo-palette-')) && matches(themeClass, cssRelPath)) {
                 palettes.push({declarations, relPath, themeClass})
             }
         }

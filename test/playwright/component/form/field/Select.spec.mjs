@@ -71,5 +71,54 @@ test.describe('Neo.form.field.Select', () => {
 
         await page.evaluate(id => Neo.worker.App.setConfigs({id, hideLabel: true}), componentId);
         await expect.poll(async () => Math.round((await field.locator('.neo-selectfield-input').boundingBox()).x - box.x), 'the select takes the whole field').toBe(0)
+    });
+
+    test('role scopes keep the active Select shape, including the Material focus indicator', async ({page}) => {
+        const cases = [
+            ['neo-theme-light',          '3px'],
+            ['neo-theme-dark',           '0px'],
+            ['neo-theme-cyberpunk',      '2px'],
+            ['neo-theme-material-light', '23px 23px 0px 0px'],
+            ['neo-theme-material-dark',  '23px 23px 0px 0px']
+        ];
+        await page.route('**/empty-viewport/neo-config.json', async route => {
+            const config = await (await route.fetch()).json();
+            await route.fulfill({json: {...config, themes: cases.map(([theme]) => theme)}})
+        });
+        await page.reload();
+        await expect(page.locator('#component-test-viewport')).toBeAttached();
+
+        for (const [theme, radius] of cases) {
+            const id = await page.evaluate(async theme => {
+                const create = async config => {
+                    const result = await Neo.worker.App.createNeoInstance(config);
+                    if (!result.success) throw new Error(result.error.message);
+                    return result.id
+                };
+                const owner = await create({importPath: '../container/Base.mjs', ntype: 'container', parentId: 'component-test-viewport', theme});
+                const scope = await create({importPath: '../container/Base.mjs', ntype: 'container', parentId: owner,
+                    cls: ['neo-theme-scope'], style: {'--neo-radius-small': '23px'}});
+                return create({importPath: '../form/field/Select.mjs', ntype: 'selectfield', parentId: scope,
+                    labelText: 'Room', options: ['One', 'Two'], width: 280})
+            }, theme);
+
+            const input = page.locator(`#${id} select`);
+            await expect(input, theme).toHaveCSS('border-radius', radius);
+            if (theme.startsWith('neo-theme-material-')) {
+                await expect(input).toHaveCSS('height', '56px');
+                await expect(input).toHaveCSS('border-width', '0px 0px 1px');
+                await expect(input).toHaveCSS('background-color', theme.endsWith('dark') ? /^oklch\(0\.33 / : /^oklch\(0\.916 /);
+                await input.focus();
+                await expect(input).toHaveCSS('border-width', '0px 0px 2px');
+                await expect(input).toHaveCSS('height', '56px')
+            }
+        }
+
+        // The legacy owner is `:root .neo-theme-light`. The document element itself has only the base binding.
+        await page.locator('html').evaluate(el => {
+            el.classList.add('neo-theme-light');
+            el.style.setProperty('--neo-radius-small', '29px')
+        });
+        await expect(page.locator('html')).toHaveCSS('--neo-selectfield-border-radius', '29px')
     })
 });

@@ -11,11 +11,13 @@ import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
 import {sanitizeInput}           from '../util/sanitizer.mjs';
 import {
     isCssTargetFolder,
+    readThemeMapFile,
     resolveThemeClassMap
 }                                from '../util/themeCss.mjs';
 import {
     cascadeLayer,
-    cascadeLayerPlugin
+    cascadeLayerPlugin,
+    themeBoundarySelectors
 }                                from '../util/themeCssLayers.mjs';
 import {themeCssRoots}           from '../util/themeCssRoots.mjs';
 
@@ -110,10 +112,9 @@ if (programOpts.info) {
               themes      = answers.themes   || programOpts.themes || 'all',
               activeRoots = programOpts.framework ? [frameworkCssPath] : cssRoots,
               startDate   = new Date(),
-              fileCount   = {development: 0, esm: 0, production: 0},
-              totalFiles  = {development: 0, esm: 0, production: 0};
+              fileCount   = {development: 0, esm: 0, production: 0};
 
-        let themeMap;
+        let boundaries, themeMap;
 
         /**
          * @param {Object} file
@@ -140,13 +141,23 @@ if (programOpts.info) {
          * @param {String} mode development or production
          */
         async function buildEnv(mode) {
+            const prior             = readThemeMapFile(path.join(cwd, 'dist', mode, themeMapFile)),
+                  boundariesChanged = themes !== 'all' && boundaries.join(',') !== themeBoundarySelectors(prior).join(',');
+
             await buildFiles(getAllCssFiles('src'), mode, 'src');
 
             for (const themeFolder of themeFolders) {
-                if (themes === 'all' || themes === themeFolder) {
+                // A partial build still refreshes already-built themes if a new boundary would leak through them.
+                if (themes === 'all' || themes === themeFolder ||
+                    (boundariesChanged && fs.existsSync(path.join(cwd, 'dist', mode, 'css', themeFolder)))) {
                     await buildFiles(getAllCssFiles(themeFolder), mode, themeFolder);
                 }
             }
+
+            // Publish the new boundary set only after all its dependent stylesheets were compiled.
+            const serialized = JSON.stringify(themeMap);
+            fs.outputFileSync(path.join(cwd, 'dist', mode, themeMapFile), serialized);
+            fs.outputFileSync(path.join(cwd, themeMapFile), serialized);
         }
 
         /**
@@ -233,8 +244,6 @@ if (programOpts.info) {
         async function buildFiles(files, mode, target) {
             let devMode = mode === 'development';
 
-            totalFiles[mode] += files.length;
-
             for (const file of files) {
                 addItemToThemeMap(file, target);
 
@@ -242,6 +251,7 @@ if (programOpts.info) {
                     destPath   = path.resolve(folderPath, `${file.name}.css`);
 
                 const plugins = [autoprefixer, cascadeLayerPlugin({
+                    boundaries,
                     layer: cascadeLayer(target, `${file.relativePath}/${file.name}.css`)
                 })];
 
@@ -268,20 +278,6 @@ if (programOpts.info) {
                 if (postcssResult.map) {
                     fs.writeFileSync(`${destPath}.map`, postcssResult.map.toString())
                 }
-
-                if (fileCount[mode] === totalFiles[mode]) {
-                    fs.writeFileSync(
-                        path.resolve(cwd, themeMapFile),
-                        JSON.stringify(themeMap, null, 0)
-                    );
-
-                    fs.mkdirpSync(path.join(cwd, '/dist/', mode, '/resources'), {recursive: true});
-
-                    fs.writeFileSync(
-                        path.join(cwd, '/dist/', mode, themeMapFile),
-                        JSON.stringify(themeMap, null, 0)
-                    );
-                }
             }
         }
 
@@ -300,6 +296,7 @@ if (programOpts.info) {
             includeWorkspaceMap: false,
             seedThemes         : engineSeedMap?.themes
         });
+        boundaries = themeBoundarySelectors(themeMap.themes);
 
         // dist/development
         if (env === 'all' || env === 'dev') {

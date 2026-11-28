@@ -213,6 +213,9 @@ Options:
 
 Copies the plain-CSS theme sources (`resources/css`, plus the root a dependency names in `"neo": {"css": "<dir>"}`) into `dist/<env>/css` and writes the theme map.
 
+The `theme-material` folder builds both Material schemes. To offer them in an app's theme switcher, add
+`neo-theme-material-light` and `neo-theme-material-dark` to the `themes` array in its `neo-config.json`.
+
 ```bash
 Usage: neo.mjs buildThemes [options]
 
@@ -222,7 +225,7 @@ Options:
   -e, --env <value>     "all", "dev", "esm", "prod"
   -f, --framework
   -n, --noquestions
-  -t, --themes <value>  all, theme-cyberpunk, theme-dark, theme-light, theme-neo-dark, theme-neo-light
+  -t, --themes <value>  all, theme-base, theme-cyberpunk, theme-dark, theme-light, theme-material, theme-neo, theme-neo-dark, theme-neo-light
   -h, --help            display help for command
 ```
 

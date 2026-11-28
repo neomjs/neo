@@ -4,6 +4,15 @@
  */
 
 /**
+ * @summary Identifies a named theme carrier. A role scope keeps the enclosing theme.
+ * @param {String} cls CSS class token.
+ * @returns {Boolean}
+ */
+export function isThemeClass(cls) {
+    return cls !== 'neo-theme-scope' && cls.startsWith('neo-theme-')
+}
+
+/**
  * @summary Maps a class to its theme-map namespace, omitting only the leading application view segment.
  * @param {String} className Class name used by the theme loader.
  * @param {String|null} [appThemeFolder] Optional application theme-root projection.

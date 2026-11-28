@@ -235,11 +235,13 @@ class ConfigurationViewport extends Viewport {
     getAvailableThemes() {
         const configured  = Neo.config.themes;
         const themeLabels = {
-            'neo-theme-neo-dark' : 'Theme Neo-Dark',
-            'neo-theme-neo-light': 'Theme Neo-Light',
-            'neo-theme-light'    : 'Theme Light',
-            'neo-theme-dark'     : 'Theme Dark',
-            'neo-theme-cyberpunk': 'Theme Cyberpunk'
+            'neo-theme-neo-dark'      : 'Theme Neo-Dark',
+            'neo-theme-neo-light'     : 'Theme Neo-Light',
+            'neo-theme-light'         : 'Theme Light',
+            'neo-theme-dark'          : 'Theme Dark',
+            'neo-theme-cyberpunk'     : 'Theme Cyberpunk',
+            'neo-theme-material-light': 'Theme Material Light',
+            'neo-theme-material-dark' : 'Theme Material Dark'
         };
 
         if (Array.isArray(configured) && configured.length > 0) {

@@ -1,7 +1,8 @@
 [class*="neo-theme-"] {
     --neo-textfield-alert-color                      : var(--neo-color-text-warning);
-    --neo-textfield-border-bottom-width              : var(--neo-textfield-border-width);
-    --neo-textfield-border-bottom-width-active       : var(--neo-textfield-border-bottom-width);
+    /* Unset edge widths follow the scalar on the field, including local widget overrides. */
+    --neo-textfield-border-bottom-width              : initial;
+    --neo-textfield-border-bottom-width-active       : initial;
     --neo-textfield-border-color                     : var(--neo-color-border-strong);
     --neo-textfield-border-color-active              : var(--neo-color-border-accent);
     --neo-textfield-border-color-alert               : var(--neo-color-border-warning);
@@ -9,11 +10,13 @@
     --neo-textfield-border-color-hover               : var(--neo-color-border-strong-hover);
     --neo-textfield-border-color-invalid             : var(--neo-color-border-danger);
     --neo-textfield-border-color-readonly            : var(--neo-color-border-default);
-    --neo-textfield-border-inline-width              : var(--neo-textfield-border-width);
+    --neo-textfield-border-inline-width              : initial;
     --neo-textfield-border-radius                    : var(--neo-radius-small);
-    --neo-textfield-border-top-width                 : var(--neo-textfield-border-width);
+    --neo-textfield-border-top-width                 : initial;
     --neo-textfield-border-width                     : var(--neo-control-border-width);
     --neo-textfield-error-color                      : var(--neo-color-text-danger);
+    --neo-textfield-focus-indicator-color            : initial;
+    --neo-textfield-focus-indicator-duration         : 0s;
     --neo-textfield-input-background-color           : var(--neo-color-background-field);
     --neo-textfield-input-background-color-disabled  : var(--neo-color-background-disabled);
     --neo-textfield-input-background-color-readonly  : var(--neo-color-background-canvas);
@@ -32,6 +35,7 @@
     --neo-textfield-label-color-disabled             : var(--neo-color-text-disabled);
     --neo-textfield-label-color-readonly             : var(--neo-color-text-muted);
     --neo-textfield-label-top-margin                 : 0 0 3px;
+    --neo-textfield-label-wrapper-background-color    : transparent;
     --neo-textfield-opacity-disabled                 : 1;
     --neo-textfield-opacity-readonly                 : 1;
     --neo-textfield-outline-active                   : none;

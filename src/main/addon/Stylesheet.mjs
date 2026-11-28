@@ -1,5 +1,6 @@
-import Base      from './Base.mjs';
-import DomAccess from '../DomAccess.mjs';
+import Base           from './Base.mjs';
+import DomAccess      from '../DomAccess.mjs';
+import {isThemeClass} from '../../util/Theme.mjs';
 
 /**
  * Logic to work with stylesheets, e.g. apply & switch Neo based themes
@@ -215,8 +216,8 @@ class Stylesheet extends Base {
      */
     insertCssRules(data) {
         let styleEl = document.getElementById(this.dynamicStyleSheetId),
-            i     = 0,
-            len   = data.rules.length,
+            i       = 0,
+            len     = data.rules.length,
             styleSheet;
 
         if (!styleEl) {
@@ -288,7 +289,7 @@ class Stylesheet extends Base {
             if (rule.style && (!selectorPattern || selectorPattern.test(rule.selectorText))) {
                 if (rule.style.getPropertyValue(key) !== '') {
                     const themeClasses = rule.selectorText
-                        ? [...new Set([...rule.selectorText.matchAll(/\.(neo-theme-[a-zA-Z0-9_-]+)/g)].map(m => m[1]))]
+                        ? [...new Set([...rule.selectorText.matchAll(/\.(neo-theme-[a-zA-Z0-9_-]+)/g)].map(m => m[1]).filter(isThemeClass))]
                         : [];
 
                     if (themeClasses.length <= 1) {

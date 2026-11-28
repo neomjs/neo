@@ -9,9 +9,9 @@ import postcss                     from 'postcss';
 import {generateTheme, listThemes} from '../../../../buildScripts/create/theme.mjs';
 import {extractThemeClasses}       from '../../../../buildScripts/util/themeCss.mjs';
 
-const repoRoot      = fileURLToPath(new URL('../../../../', import.meta.url)),
-      createPath    = path.join(repoRoot, 'buildScripts/create/theme.mjs'),
-      buildPath     = path.join(repoRoot, 'buildScripts/build/themes.mjs'),
+const repoRoot   = fileURLToPath(new URL('../../../../', import.meta.url)),
+      createPath = path.join(repoRoot, 'buildScripts/create/theme.mjs'),
+      buildPath  = path.join(repoRoot, 'buildScripts/build/themes.mjs'),
       // A theme is a folder whose Global.css declares a theme class, so theme-base is none
       shippedThemes = fs.readdirSync(path.join(repoRoot, 'resources/css'), {withFileTypes: true})
           .filter(entry => entry.isDirectory() && entry.name.startsWith('theme-') && fs.existsSync(path.join(repoRoot, 'resources/css', entry.name, 'Global.css')))
@@ -159,9 +159,11 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         expect(global).toMatch(/--neo-duration-fast\s*:\s*120ms/);
         expect(structural).toMatch(/--neo-duration-fast\s*:\s*0ms/);
         expect(structural).not.toMatch(/--neo-duration-fast\s*:\s*120ms/);
-        expect(button).toContain(':where(.neo-theme-acme)');
-        expect(button).toMatch(/--neo-button-background-color\s*:/);
-        expect(button).not.toContain('.neo-theme-neo-dark');
+        const scope = postcss.parse(button).nodes.find(node => node.name === 'layer' && node.nodes).first;
+        expect(scope.name).toBe('scope');
+        expect(scope.params).toBe('(.neo-theme-acme) to (:is(.neo-theme-acme, .neo-theme-light, .neo-theme-neo-dark))');
+        expect(scope.first.selector).toBe(':where(:scope.neo-theme-acme, .neo-theme-scope)');
+        expect(scope.first.first.prop).toBe('--neo-button-background-color');
         expect(map.Neo.Global).toContain('theme-acme');
         expect(map.Neo.button.Base).toEqual(expect.arrayContaining(['src', 'theme-acme']));
         expect(JSON.parse(read(path.join(root, 'dist/development/resources/theme-map.json')))).toEqual(map);

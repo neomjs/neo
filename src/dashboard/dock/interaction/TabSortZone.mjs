@@ -1,4 +1,5 @@
 import TabHeaderSortZone from '../../../draggable/tab/header/toolbar/SortZone.mjs';
+import {isThemeClass}    from '../../../util/Theme.mjs';
 
 /**
  * @class Neo.dashboard.dock.interaction.TabSortZone
@@ -403,7 +404,7 @@ class TabSortZone extends TabHeaderSortZone {
             const parentCls = parent.cls || [];
 
             language ??= parentCls.find(item => item.startsWith('neo-preview-lang-'));
-            theme    ??= parentCls.find(item => item.startsWith('neo-theme-'));
+            theme    ??= parentCls.find(isThemeClass);
 
             parent = parent.parent
         }

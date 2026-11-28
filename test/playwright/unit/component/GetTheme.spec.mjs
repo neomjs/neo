@@ -68,6 +68,16 @@ test.describe('Neo.component.Base#getTheme — the closest theme through the com
         expect(root.getTheme()).toBe('neo-theme-neo-dark')
     });
 
+    test('a role scope inside a class-only theme returns the named ancestor theme', () => {
+        root = Neo.create(Container, {
+            appName,
+            cls  : ['neo-theme-material-dark'],
+            items: [{module: Container, cls: ['neo-theme-scope'], items: [{module: Component}]}]
+        });
+
+        expect(root.items[0].items[0].getTheme()).toBe('neo-theme-material-dark')
+    });
+
     test('a component with no theme anywhere on its chain answers the app default', () => {
         root = Neo.create(Container, {
             appName,

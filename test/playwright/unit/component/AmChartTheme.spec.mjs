@@ -40,11 +40,13 @@ DarkScope = Neo.setupClass(DarkScope);
  * theme's name would get wrong: it is dark, and its name does not say so.
  */
 const SHIPPED_THEMES = [
-    ['neo-theme-cyberpunk', 'dark'],
-    ['neo-theme-dark',      'dark'],
-    ['neo-theme-light',     null],
-    ['neo-theme-neo-dark',  'dark'],
-    ['neo-theme-neo-light', null]
+    ['neo-theme-cyberpunk',      'dark'],
+    ['neo-theme-dark',           'dark'],
+    ['neo-theme-light',          null],
+    ['neo-theme-material-dark',  'dark'],
+    ['neo-theme-material-light', null],
+    ['neo-theme-neo-dark',       'dark'],
+    ['neo-theme-neo-light',      null]
 ];
 
 test.describe('Neo.component.wrapper.AmChart#resolveTheme', () => {

@@ -8,28 +8,23 @@ import os                        from 'os';
 import path                      from 'path';
 import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
 import {sanitizeInput}           from '../util/sanitizer.mjs';
+import {resolveThemeClassMap}    from '../util/themeCss.mjs';
+import {themeCssRoots}           from '../util/themeCssRoots.mjs';
 
 const
-    __dirname        = path.resolve(),
-    cwd              = process.cwd(),
-    nodeCmd          = os.platform().startsWith('win') ? 'node.exe' : 'node', // node binary based on OS
-    requireJson      = path => JSON.parse(fs.readFileSync((path))),
-    packageJson      = requireJson(path.join(__dirname, 'package.json')),
-    insideNeo        = packageJson.name.includes('neo.mjs'),
-    neoPath          = insideNeo ? './' : './node_modules/neo.mjs/',
-    addonChoices     = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
-    program          = new Command(),
-    programName      = `${packageJson.name} create-app`,
-    questions        = [],
-    frameworkCssPath = path.resolve(cwd, neoPath, 'resources/css'),
-    workspaceCssPath = path.resolve(cwd, 'resources/css'),
-    cssFolders       = [
-        ...(fs.existsSync(frameworkCssPath) ? fs.readdirSync(frameworkCssPath) : []),
-        ...(!insideNeo && fs.existsSync(workspaceCssPath) ? fs.readdirSync(workspaceCssPath) : [])
-    ],
-    themeFolders      = [...new Set(
-        cssFolders.filter(folder => folder.includes('theme')).map(folder => `neo-${folder}`)
-    )];
+    __dirname    = path.resolve(),
+    cwd          = process.cwd(),
+    nodeCmd      = os.platform().startsWith('win') ? 'node.exe' : 'node', // node binary based on OS
+    requireJson  = path => JSON.parse(fs.readFileSync((path))),
+    packageJson  = requireJson(path.join(__dirname, 'package.json')),
+    insideNeo    = packageJson.name.includes('neo.mjs'),
+    neoPath      = insideNeo ? './' : './node_modules/neo.mjs/',
+    addonChoices = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
+    program      = new Command(),
+    programName  = `${packageJson.name} create-app`,
+    questions    = [],
+    cssRoots     = themeCssRoots(cwd, {insideNeo}),
+    themeChoices = ['all', ...Object.keys(resolveThemeClassMap({cssRoots, includeWorkspaceMap: false})), 'none'];
 
 program
     .name(programName)
@@ -38,7 +33,7 @@ program
     .option('-a, --appName <value>',          'The name of your application', sanitizeInput)
     .option('-m, --mainThreadAddons <value>', `Comma separated list of:\n${addonChoices.join(', ')}\nDefaults to DragDrop, Navigator, Stylesheet`, sanitizeInput)
     .option('-s, --useServiceWorker <value>', '"yes", "no"', sanitizeInput)
-    .option('-t, --themes <value>',           ['all', ...themeFolders, 'none'].join(", "), sanitizeInput)
+    .option('-t, --themes <value>',           `Comma-separated theme classes: ${themeChoices.join(', ')}`, sanitizeInput)
     .option('-u, --useSharedWorkers <value>', '"yes", "no"', sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
@@ -83,11 +78,11 @@ if (programOpts.info) {
 
     if (!programOpts.themes) {
         questions.push({
-            type:     'select',
-            name:     'themes',
-            message:  'Please choose a theme for your neo app:',
-            choices:  ['all', ...themeFolders, 'none'],
-            default:  'all'
+            type   : 'select',
+            name   : 'themes',
+            message: 'Please choose a theme for your neo app:',
+            choices: themeChoices,
+            default: 'all'
         });
     }
 
@@ -129,7 +124,7 @@ if (programOpts.info) {
             startDate        = new Date();
 
         if (!Array.isArray(themes)) {
-            themes = [themes];
+            themes = themes.split(',').map(theme => theme.trim());
         }
 
         if (themes.length > 0 && !themes.includes('none') && !mainThreadAddons.includes('Stylesheet')) {

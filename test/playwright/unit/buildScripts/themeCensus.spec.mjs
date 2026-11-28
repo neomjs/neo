@@ -36,8 +36,8 @@ const
             '}'
         ].join('\n'),
         // a block's last declaration without its `;`
-        'src/component/Timer.css'        : '@keyframes t {\n    to {\n        --neo-timer-current: 0\n    }\n}\n.neo-timer {width: var(--neo-timer-current);}',
-        'src/apps/demo/Main.css'         : '.demo-main {color: var(--app-ghost); border-radius: 8px}',
+        'src/component/Timer.css': '@keyframes t {\n    to {\n        --neo-timer-current: 0\n    }\n}\n.neo-timer {width: var(--neo-timer-current);}',
+        'src/apps/demo/Main.css' : '.demo-main {color: var(--app-ghost); border-radius: 8px}',
         // one palette name and three roles: a role a component value reads, one a role reads, one nothing reads
         'theme-x-dark/Global.css'        : ':where(.neo-theme-x-dark) {--neo-gray-100: #111111; --sem-surface: #222222; --sem-unused: #333333; --cmp-radius: 4px; --neo-palette-white: #fff; --neo-color-text-default: #dddddd; --neo-space-2: 8px; --neo-control-gap: var(--neo-space-2);}',
         'theme-x-dark/apps/demo/Main.css': ':where(.neo-theme-x-dark) {--demo-panel-bg: #101010;}',
@@ -88,15 +88,15 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
         fs.rmSync(tmpRoot, {recursive: true, force: true});
     });
 
-    test('CONTROL: the live tree is read, the Neo pair is found, the component-alias layer is empty, and no runtime-set property is reported', async () => {
+    test('CONTROL: the shipped theme pairs resolve all engine reads, the component-alias layer is empty, and no runtime-set property is reported', async () => {
         const
             {RUNTIME_PROPERTIES} = await import('../../../../buildScripts/util/themeCss.mjs'),
             census               = collect();
 
-        // Two folders serve each Neo class while its packages move, so that pair is keyed by class
-        expect(census.pairs).toEqual([
-            expect.objectContaining({dark: 'neo-theme-neo-dark', light: 'neo-theme-neo-light'}),
-            expect.objectContaining({dark: 'theme-dark',         light: 'theme-light'})
+        expect(census.pairs.map(({dark, light}) => [dark, light])).toEqual([
+            ['neo-theme-material-dark', 'neo-theme-material-light'],
+            ['neo-theme-neo-dark',      'neo-theme-neo-light'],
+            ['theme-dark',              'theme-light']
         ]);
         expect(Object.values(census.themes).flatMap(theme => Object.values(theme.unresolved).flat()).filter(name => name in RUNTIME_PROPERTIES)).toEqual([]);
 

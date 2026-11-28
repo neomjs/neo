@@ -1,16 +1,18 @@
-import autoprefixer    from 'autoprefixer';
-import chalk           from 'chalk';
-import fs              from 'fs-extra';
-import path            from 'node:path';
-import postcss         from 'postcss';
-import isEntryModule   from '../util/isEntryModule.mjs';
+import autoprefixer  from 'autoprefixer';
+import chalk         from 'chalk';
+import fs            from 'fs-extra';
+import path          from 'node:path';
+import postcss       from 'postcss';
+import isEntryModule from '../util/isEntryModule.mjs';
 import {
     isCssTargetFolder,
+    readThemeMapFile,
     resolveThemeClassMap
 }                      from '../util/themeCss.mjs';
 import {
     cascadeLayer,
-    cascadeLayerPlugin
+    cascadeLayerPlugin,
+    themeBoundarySelectors
 }                      from '../util/themeCssLayers.mjs';
 import {themeCssRoots} from '../util/themeCssRoots.mjs';
 import {
@@ -171,15 +173,15 @@ function themeMapHasEntry(themeMap, entry) {
  * Retired source paths therefore disappear instead of surviving as additive ghost entries.
  * @param {Object} [options]
  * @param {Array} [options.census] Effective source census.
+ * @param {Object} [options.themeMap] Map already derived from that census.
  * @param {String} [options.repoRoot] Repository root.
  * @returns {Object} The generated theme map.
  */
 export function regenerateDevelopmentThemeMap({
     census,
-    repoRoot = REPO_ROOT
+    repoRoot = REPO_ROOT,
+    themeMap = createDevelopmentThemeMap(census ?? getThemeSourceCensus({repoRoot}), {repoRoot})
 } = {}) {
-    const themeMap = createDevelopmentThemeMap(census ?? getThemeSourceCensus({repoRoot}), {repoRoot});
-
     const serialized = JSON.stringify(themeMap);
 
     for (const target of [
@@ -344,14 +346,16 @@ export function pruneDevelopmentThemeArtifacts({
  * through autoprefixer and into its cascade layer, as the full theme build does.
  * @param {Object} entry Effective source census entry.
  * @param {Object} [options]
+ * @param {String[]} options.boundaries The current set of real theme boundary selectors.
  * @param {Object} [options.logger] Console-compatible logger.
  * @returns {Promise<String>} Absolute CSS output path.
  */
-async function buildEntry(entry, {logger = console} = {}) {
+async function buildEntry(entry, {boundaries, logger = console} = {}) {
     const startTime = Date.now();
 
     try {
         const plugins = [autoprefixer, cascadeLayerPlugin({
+            boundaries,
             layer: cascadeLayer(entry.root, path.relative(entry.root, entry.filename))
         })];
 
@@ -408,7 +412,7 @@ export function buildFile(filename, {
         outputPath: path.join(repoRoot, 'dist/development/css', normalized),
         root      : normalized.split(path.sep)[0],
         sourcePath
-    }, {logger})
+    }, {logger, boundaries: themeBoundarySelectors(readThemeMapFile(path.join(repoRoot, 'resources/theme-map.json')))})
 }
 
 /**
@@ -429,6 +433,10 @@ export async function reconcileThemeStructure({
 } = {}) {
     const
         census      = getThemeSourceCensus({repoRoot}),
+        themeMap    = createDevelopmentThemeMap(census, {repoRoot}),
+        boundaries  = themeBoundarySelectors(themeMap.themes),
+        prior       = readThemeMapFile(path.join(repoRoot, 'dist/development/resources/theme-map.json')),
+        changed     = boundaries.join(',') !== themeBoundarySelectors(prior).join(','),
         forcedFiles = new Set(forceFiles.map(file => path.normalize(file))),
         built       = [];
 
@@ -441,6 +449,7 @@ export async function reconcileThemeStructure({
 
         const shouldBuild = (
             forcedFiles.has(entry.filename) ||
+            (changed && cascadeLayer(entry.root, path.relative(entry.root, entry.filename)) === 'neo.theme') ||
             !outputStat ||
             outputStat.isSymbolicLink() ||
             outputStat.mtimeMs < fs.statSync(entry.sourcePath).mtimeMs
@@ -449,7 +458,7 @@ export async function reconcileThemeStructure({
         if (shouldBuild) {
             if (outputStat?.isSymbolicLink()) fs.removeSync(entry.outputPath);
 
-            await build(entry, {logger});
+            await build(entry, {boundaries, logger});
             built.push(entry.filename)
         }
     }
@@ -457,7 +466,7 @@ export async function reconcileThemeStructure({
     return {
         built,
         removed : pruneDevelopmentThemeArtifacts({census, repoRoot}),
-        themeMap: regenerateDevelopmentThemeMap({census, repoRoot})
+        themeMap: regenerateDevelopmentThemeMap({repoRoot, themeMap})
     }
 }
 
@@ -483,11 +492,12 @@ export async function handleThemeWatchEvent(eventType, filename, {
 
     const normalized = path.normalize(String(filename));
 
-    if (!normalized.endsWith('.css')) return {action: 'ignored', reason: 'not-css'};
+    const themeFolderRename = eventType === 'rename' && !normalized.includes(path.sep) && !path.extname(normalized);
+    if (!normalized.endsWith('.css') && !themeFolderRename) return {action: 'ignored', reason: 'not-css'};
 
     const exists = fs.existsSync(path.join(repoRoot, 'resources/css', normalized));
 
-    if (eventType === 'change' && exists) {
+    if (eventType === 'change' && exists && path.basename(normalized) !== 'Global.css') {
         await build(normalized, {logger, repoRoot});
         return {action: 'built', built: [normalized], removed: []}
     }

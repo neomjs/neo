@@ -64,14 +64,25 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             return inspect({'theme-neo/Global.css': source, 'theme-second/Global.css': change(copy)})
         };
 
-    test('CONTROL: the live repository passes, and theme Neo is measured in both schemes', () => {
+    test('CONTROL: the live repository passes, and Neo and Material are measured in both schemes', () => {
         const {failures, palettes} = inspectThemePalettes();
 
         expect(failures).toEqual([]);
-        expect(palettes).toEqual(expect.arrayContaining(['neo-theme-neo-light (light)', 'neo-theme-neo-dark (dark)']));
+        expect(palettes).toEqual(expect.arrayContaining([
+            'neo-theme-neo-light (light)',      'neo-theme-neo-dark (dark)',
+            'neo-theme-material-light (light)', 'neo-theme-material-dark (dark)'
+        ]));
         expect(CONTRAST_PAIRS).toHaveLength(45);
         expect(GRADES).toEqual([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]);
         expect(SCAN_SURFACE).toEqual(['resources/css/**/*.css'])
+    });
+
+    test('the track meets 3:1 on the canvas and the handle meets 3:1 on the track and accent, in both schemes', () => {
+        const weakTrack = plant(css => setRole(css, '--neo-color-background-track',
+            'light-dark(var(--neo-palette-neutral-200), var(--neo-palette-neutral-800))'));
+
+        expect(weakTrack.failures.filter(failure => failure.includes('--neo-color-background-track on --neo-color-background-canvas'))).toHaveLength(2);
+        expect(weakTrack.failures.filter(failure => failure.includes('--neo-color-background-handle on --neo-color-background-track'))).toHaveLength(1)
     });
 
     test('background-selected keeps at least a 1.1:1 step on background-accent-subtle in both schemes', () => {
@@ -147,7 +158,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         )
     });
 
-    test('a grade outside the eleven fails, and the eight extras are not read as grades', () => {
+    test('a grade outside the eleven fails, and the palette extras are not read as grades', () => {
         const
             offGrade   = neoName('palette-accent-550'),
             {failures} = plant(css => css.replace('--neo-palette-accent-600', `${offGrade}: oklch(0.58 0.18 267);\n    --neo-palette-accent-600`));
@@ -525,12 +536,28 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             `  neo-theme-neo-dark (dark): ${selected.pairs[1].formatted}`
         ]);
 
-        // Every checked pair in CONTRAST_PAIRS passes its floor via measureThemePairContrast.
+        // The default command measures Neo. Selecting Material reports both of its schemes instead.
+        const material = measureThemePairContrast('text-default', 'background-selected', {theme: 'material'});
+        expect(material.failures).toEqual([]);
+        expect(material.pairs.map(({themeClass}) => themeClass)).toEqual(['neo-theme-material-light', 'neo-theme-material-dark']);
+
+        const materialOutput = execFileSync(process.execPath, [modulePath, '--contrast', 'text-default', 'background-selected', '--theme', 'material'], {
+            cwd     : repoRoot,
+            encoding: 'utf8'
+        });
+
+        expect(materialOutput.trim().split('\n')).toEqual([
+            '--neo-color-text-default on --neo-color-background-selected',
+            `  neo-theme-material-light (light): ${material.pairs[0].formatted}`,
+            `  neo-theme-material-dark (dark): ${material.pairs[1].formatted}`
+        ]);
+
+        // Every checked pair passes its floor in both schemes of both palettes.
         for (const [foreground, background, floor] of CONTRAST_PAIRS) {
-            const fromCommand = measureThemePairContrast(foreground, background);
+            const fromCommand = measureThemePairContrast(foreground, background, {theme: 'all'});
 
             expect(fromCommand.failures).toEqual([]);
-            expect(fromCommand.pairs).toHaveLength(2);
+            expect(fromCommand.pairs).toHaveLength(4);
             expect(fromCommand.pairs.every(({ratio}) => ratio >= floor)).toBe(true)
         }
 
@@ -562,6 +589,18 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         });
         expect(missing.status).toBe(1);
         expect(missing.stderr).toContain('background-missing')
+    });
+
+    test('contrast selects the named theme in a tree with two palettes', () => {
+        const select = theme => measureThemePairContrast('text-default', 'background-selected', {theme});
+        const neo    = ['neo-theme-neo-light', 'neo-theme-neo-dark'];
+
+        for (const selector of ['neo', 'theme-neo', 'neo-theme-neo']) {
+            expect(select(selector).pairs.map(pair => pair.themeClass), selector).toEqual(neo)
+        }
+
+        expect(select('.neo-theme-material-dark').pairs.map(pair => pair.themeClass)).toEqual(['neo-theme-material-dark']);
+        expect(select('css')).toMatchObject({pairs: [], failures: [expect.stringContaining("no palette matches 'css'")]})
     });
 
     test('a colour the browser clamps is measured as it paints, and a malformed number fails closed', () => {

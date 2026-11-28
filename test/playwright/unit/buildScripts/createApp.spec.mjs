@@ -33,12 +33,17 @@ test.describe('buildScripts/create/app.mjs & appMinimal.mjs theme discovery (#53
         fs.symlinkSync(path.join(engineRoot, 'buildScripts/util'), path.join(engineDir, 'buildScripts/util'), 'dir');
         fs.cpSync(path.join(engineRoot, 'resources/lib'), path.join(engineDir, 'resources/lib'), {recursive: true});
 
-        fs.mkdirSync(path.join(root, 'node_modules/neo.mjs/resources/css/theme-neo-dark'),  {recursive: true});
-        fs.mkdirSync(path.join(root, 'node_modules/neo.mjs/resources/css/theme-neo-light'), {recursive: true});
+        const writeTheme = (repoRoot, folder, selectors) => {
+            const dir = path.join(repoRoot, 'resources/css', folder);
+            fs.mkdirSync(dir, {recursive: true});
+            fs.writeFileSync(path.join(dir, 'Global.css'), `${selectors} { color: inherit }`);
+        };
 
-        // Workspace custom theme + overlapping theme in resources/css
-        fs.mkdirSync(path.join(root, 'resources/css/theme-neo-dark'),  {recursive: true});
-        fs.mkdirSync(path.join(root, 'resources/css/theme-workspace'), {recursive: true});
+        writeTheme(engineDir, 'theme-neo', '.neo-theme-neo-dark, .neo-theme-neo-light');
+        writeTheme(engineDir, 'theme-material', '.neo-theme-material-light, .neo-theme-material-dark');
+        writeTheme(engineDir, 'theme-base', ':root');
+        writeTheme(root, 'theme-neo-dark', '.neo-theme-neo-dark');
+        writeTheme(root, 'theme-workspace', '.neo-theme-workspace');
 
         // Workspace myApps.json
         fs.mkdirSync(path.join(root, 'buildScripts'), {recursive: true});
@@ -49,10 +54,7 @@ test.describe('buildScripts/create/app.mjs & appMinimal.mjs theme discovery (#53
         fs.rmSync(root, {recursive: true, force: true});
     });
 
-    test('create/app.mjs merges and deduplicates framework and workspace themes in --help and app generation', () => {
-        const helpOutput = execFileSync('node', [appScript, '--help'], {cwd: root, encoding: 'utf8', stdio: 'pipe'}).replace(/\s+/g, ' ');
-        expect(helpOutput).toContain('all, neo-theme-neo-dark, neo-theme-neo-light, neo-theme-workspace, none');
-
+    test('create/app.mjs scaffolds a controller-backed viewport with a workspace theme', () => {
         execFileSync('node', [
             appScript,
             '-a', 'DemoApp',
@@ -74,12 +76,18 @@ test.describe('buildScripts/create/app.mjs & appMinimal.mjs theme discovery (#53
         expect(viewportController).toContain('export default Neo.setupClass(ViewportController);');
     });
 
-    test('create/appMinimal.mjs merges and deduplicates framework and workspace themes in --help', () => {
-        const helpOutput = execFileSync('node', [minimalScript, '--help'], {cwd: root, encoding: 'utf8', stdio: 'pipe'}).replace(/\s+/g, ' ');
-        expect(helpOutput).toContain('all, neo-theme-neo-dark, neo-theme-neo-light, neo-theme-workspace, none');
-    });
-
     for (const [name, script] of [['app', appScript], ['appMinimal', minimalScript]]) {
+        test(`${name} offers each theme class once and writes the selected Material pair in order`, () => {
+            const help = execFileSync('node', [script, '--help'], {cwd: root, encoding: 'utf8'}).replace(/\s+/g, ' ');
+            expect(help).toContain('all, neo-theme-material-dark, neo-theme-material-light, neo-theme-neo-dark, neo-theme-neo-light, neo-theme-workspace, none');
+
+            execFileSync('node', [script, '-a', 'MaterialApp', '-t', 'neo-theme-material-light, neo-theme-material-dark',
+                '-u', 'no', '-s', 'no'], {cwd: root, stdio: 'pipe'});
+
+            const config = JSON.parse(fs.readFileSync(path.join(root, 'apps/materialapp/neo-config.json'), 'utf8'));
+            expect(config.themes).toEqual(['neo-theme-material-light', 'neo-theme-material-dark']);
+        });
+
         test(`${name} copies the shared highlight styles into an external app`, () => {
             execFileSync('node', [script, '-a', 'DemoApp', '-m', 'HighlightJS,Stylesheet',
                 '-t', 'none', '-u', 'no', '-s', 'no'], {cwd: root, encoding: 'utf8', stdio: 'pipe'});

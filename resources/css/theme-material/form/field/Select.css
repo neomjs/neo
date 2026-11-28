@@ -1,0 +1,10 @@
+:where(.neo-theme-material-light, .neo-theme-material-dark) {
+    --neo-selectfield-border-bottom-width      : var(--neo-border-width-thin);
+    --neo-selectfield-border-bottom-width-focus: var(--neo-border-width-thick);
+    --neo-selectfield-border-inline-width      : 0px;
+    --neo-selectfield-border-radius            : var(--neo-radius-small) var(--neo-radius-small) 0 0;
+    --neo-selectfield-border-top-width         : 0px;
+    --neo-selectfield-input-height             : calc(var(--neo-control-height-large) - var(--neo-selectfield-border-bottom-width));
+    --neo-selectfield-input-padding            : 0 var(--neo-control-padding-inline-large);
+    --neo-selectfield-picker-border-radius     : var(--neo-radius-small);
+}
