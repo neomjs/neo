@@ -137,9 +137,9 @@
         "sourceUrl": "examples/tableFiltering",
         "urls": {
             "devmode": "examples/tableFiltering/",
-            "dist_dev": "dist/development/examples/tableFiltering/",
-            "dist_esm": "dist/esm/examples/tableFiltering/",
-            "dist_prod": "dist/production/examples/tableFiltering/"
+            "dist_dev": "dist/development/examples/tableFiltering/index.html",
+            "dist_esm": "dist/esm/examples/tableFiltering/index.html",
+            "dist_prod": "dist/production/examples/tableFiltering/index.html"
         },
         "hiddenIn": [],
         "family": "grid-table",

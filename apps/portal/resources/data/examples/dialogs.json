@@ -16,9 +16,9 @@
         "sourceUrl": "examples/dialog",
         "urls": {
             "devmode": "examples/dialog/",
-            "dist_dev": "dist/development/examples/dialog/",
-            "dist_esm": "dist/esm/examples/dialog/",
-            "dist_prod": "dist/production/examples/dialog/"
+            "dist_dev": "dist/development/examples/dialog/index.html",
+            "dist_esm": "dist/esm/examples/dialog/index.html",
+            "dist_prod": "dist/production/examples/dialog/index.html"
         },
         "hiddenIn": []
     },
