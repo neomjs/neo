@@ -806,10 +806,6 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
               endField      = editor.down({name: 'endTime'}),
               titleField    = editor.down({name: 'title'});
 
-        [titleField, calendarField, startField, endField].forEach(field => {
-            field.updateCenterBorderElWidth = () => {}
-        });
-
         expect(allDayField.checked).toBe(true);
         expect(allDayField.value).toBe(true);
         expect(titleField.value).toBe('Release freeze');

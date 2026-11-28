@@ -322,7 +322,8 @@
 
             .neo-textfield-label {
                 color    : var(--neo-textfield-border-color-active) !important;
-                transform: translateX(4px) translateY(calc(-62% - 0.5 * var(--neo-textfield-border-top-width))) scale(.7);
+                font-size: .7em;
+                transform: translateY(calc(-50% - 4px - 0.5 * var(--neo-textfield-border-top-width)));
             }
         }
 
@@ -333,7 +334,8 @@
 
             .neo-textfield-label {
                 color    : var(--neo-textfield-label-color);
-                transform: translateX(4px) translateY(calc(-62% - 0.5 * var(--neo-textfield-border-top-width))) scale(.7);
+                font-size: .7em;
+                transform: translateY(calc(-50% - 4px - 0.5 * var(--neo-textfield-border-top-width)));
             }
         }
 
@@ -352,9 +354,12 @@
             width   : 100%;
 
             .neo-center-border {
+                align-items  : flex-start;
                 border-bottom: var(--neo-textfield-border-bottom-width) solid var(--neo-textfield-border-color);
                 border-top   : var(--neo-textfield-border-top-width) solid var(--neo-textfield-border-color);
-                flex         : 0 0 auto;
+                display      : flex;
+                flex         : 0 1 auto;
+                min-width    : 0;
             }
 
             .neo-left-border {
@@ -378,6 +383,7 @@
                 border-top-left-radius   : 0;
                 border-top-width         : var(--neo-textfield-border-top-width);
                 flex                     : 1 0 auto;
+                min-width                : calc(11px + var(--neo-textfield-border-inline-width));
             }
         }
 
@@ -391,11 +397,15 @@
         }
 
         .neo-textfield-label {
+            flex            : 0 1 auto;
             margin-top      : 4px;
             max-width       : 100%;
-            text-overflow   : clip;
+            min-width       : 0;
+            overflow        : hidden;
+            padding-inline  : 4px;
+            text-overflow   : ellipsis;
             transform-origin: left top;
-            transition      : transform 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            transition      : transform 150ms cubic-bezier(0.4, 0, 0.2, 1), font-size 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1);
             will-change     : color, transform;
         }
     }
