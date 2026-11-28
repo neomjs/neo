@@ -27,7 +27,8 @@
         content: attr(data-line-number)
     }
 
-    .neo-highlighted-line {
+    .neo-highlighted-line,
+    .hljs-ln td.neo-highlighted-line {
         background-color: var(--neo-hljs-line-numbers-highlighted-line);
     }
 }

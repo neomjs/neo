@@ -1,0 +1,21 @@
+[class*="neo-theme-"] {
+    --neo-highlight-background-color   : var(--neo-color-background-surface);
+    --neo-highlight-color              : var(--neo-color-text-default);
+    --neo-highlight-comment-color      : var(--neo-color-text-muted);
+    --neo-highlight-keyword-color      : var(--neo-color-text-danger);
+    --neo-highlight-number-color       : var(--neo-color-text-info);
+    --neo-highlight-string-color       : var(--neo-color-text-info);
+    --neo-highlight-doctag-color       : var(--neo-color-text-info);
+    --neo-highlight-title-color        : var(--neo-color-text-accent);
+    --neo-highlight-type-color         : var(--neo-color-text-info);
+    --neo-highlight-tag-color          : var(--neo-color-text-brand);
+    --neo-highlight-regexp-color       : var(--neo-color-text-info);
+    --neo-highlight-symbol-color       : var(--neo-color-text-info);
+    --neo-highlight-builtin-color      : var(--neo-color-text-warning);
+    --neo-highlight-meta-color         : var(--neo-color-text-muted);
+    --neo-highlight-deletion-background: var(--neo-color-background-danger-subtle);
+    --neo-highlight-addition-background: var(--neo-color-background-success-subtle);
+    --neo-highlight-code-color         : var(--neo-color-text-default);
+    --neo-highlight-params-color       : var(--neo-color-text-default);
+    --neo-highlight-subst-color        : var(--neo-color-text-default);
+}
