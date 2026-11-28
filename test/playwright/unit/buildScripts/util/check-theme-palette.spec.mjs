@@ -591,6 +591,18 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         expect(missing.stderr).toContain('background-missing')
     });
 
+    test('contrast selects the named theme in a tree with two palettes', () => {
+        const select = theme => measureThemePairContrast('text-default', 'background-selected', {theme});
+        const neo    = ['neo-theme-neo-light', 'neo-theme-neo-dark'];
+
+        for (const selector of ['neo', 'theme-neo', 'neo-theme-neo']) {
+            expect(select(selector).pairs.map(pair => pair.themeClass), selector).toEqual(neo)
+        }
+
+        expect(select('.neo-theme-material-dark').pairs.map(pair => pair.themeClass)).toEqual(['neo-theme-material-dark']);
+        expect(select('css')).toMatchObject({pairs: [], failures: [expect.stringContaining("no palette matches 'css'")]})
+    });
+
     test('a colour the browser clamps is measured as it paints, and a malformed number fails closed', () => {
         const
             weak    = value => plant(css => setRole(css, '--neo-color-text-strong', value)).failures,
