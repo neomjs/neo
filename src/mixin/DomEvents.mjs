@@ -25,6 +25,11 @@ class DomEvents extends Base {
          * `Gesture.pressMoveTolerance` with `holdMs` in milliseconds and `moveTolerance` in CSS pixels.
          * The highest-priority `press:start` on the node supplies those overrides.
          * The gesture terminates in `press:end` (whose `duration` includes the full hold) or `press:cancel`.
+         *
+         * On a `pan:start` listener, `atScrollStart: true` admits touch only and samples the owning
+         * scroller's top boundary once at initial contact. On that scroller, use structural CSS to
+         * apply `touch-action: pan-x pan-down pinch-zoom` while Main's `data-neo-pan-at-scroll-start`
+         * attribute is present. Leave native scrolling available when the attribute is absent.
          * @member {Object[]|null} domListeners_=null
          * @example
          * domListeners: [{

@@ -7,6 +7,9 @@ const pullClass = 'neo-list-pull-to-refresh';
  * Main admits the pan on the list's live scroll boundary. The owner fires a `refresh` event whose
  * listeners can synchronously provide their work through `waitUntil(promise)`. A view can observe
  * the distance and refreshing configs to paint its indicator and call `refresh()` from a button.
+ * Touch pull requires the owning window to support `touch-action: pan-x pan-down pinch-zoom`.
+ * When that directional policy is unavailable, scrolling stays native. Provide a visible Refresh
+ * control that calls the same `refresh()` command.
  * @class Neo.list.plugin.PullToRefresh
  * @extends Neo.plugin.Base
  */
