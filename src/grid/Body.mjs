@@ -968,8 +968,15 @@ class GridBody extends Component {
         }
 
         if (!silent) {
+            let {view} = me.gridContainer;
+
             me.updateDepth = -1;
-            me.update()
+            me.update();
+
+            // Standalone renders still know the provisional scroll extent of an incoming chunk.
+            if (view && me.gridContainer.body === me && view.updateEmptyRowRules()) {
+                view.update()
+            }
         }
     }
 
@@ -1955,10 +1962,6 @@ class GridBody extends Component {
             // A body sized while its container creates the view knows no cap yet
             view         = me.gridContainer?.view,
             height;
-
-        if (view && me.gridContainer.body === me && me.rowHeight > 0) {
-            view.updateEmptyRowRules()
-        }
 
         if (countRecords > 0 && me.rowHeight > 0) {
             height = `${Math.min(me.getScrollExtent(), view?.maxScrollHeight ?? Infinity)}px`;

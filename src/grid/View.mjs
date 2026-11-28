@@ -1641,8 +1641,8 @@ class View extends Base {
      *
      * Preserves the row/cell pooling invariant: each body recomputes view data for a fixed node pool
      * via the silent `createViewData(true)` path — never inserting, removing, or moving DOM nodes
-     * while scrolling. Starts a VDOM flight only when `force` is true, a scroll correction is queued, or at least
-     * one body latched {@link Neo.grid.Body#hasSilentVdomChanges} during the pass.
+     * while scrolling. Starts a VDOM flight when forced, when a scroll correction is queued, or when the rule
+     * geometry or a body's {@link Neo.grid.Body#hasSilentVdomChanges} changed during the pass.
      * In content-sized mode the start row and the last visible row come from the {@link #rowGeometry} instead of
      * dividing by `rowHeight`. Fixed rows past {@link #maxScrollHeight} pick their page first, see {@link #pageScroll}.
      * @param {Number} scrollTop The logical offset
@@ -1708,7 +1708,9 @@ class View extends Base {
             me.#inFlightSilentBodies = null
         }
 
-        if (!force && me.#scrollCorrection === 0 && !bodies.some(item => item.hasSilentVdomChanges)) {
+        const rulesChanged = me.updateEmptyRowRules();
+
+        if (!force && !rulesChanged && me.#scrollCorrection === 0 && !bodies.some(item => item.hasSilentVdomChanges)) {
             return
         }
 
@@ -1741,24 +1743,31 @@ class View extends Base {
     }
 
     /**
-     * @summary Gives the empty-area paint its origin and physical scroll bound. A page offset moves the rows
-     * and the rule origin together. Content-sized rows use their measured end and the configured minimum
-     * row height as the regular cadence beyond it. Themes opt in with `--neo-grid-empty-row-border-color`.
+     * @summary Stages the empty-area paint's origin and physical scroll bound for the caller's update.
+     * A page offset moves the rows and the rule origin together. Content-sized rows use their measured end
+     * and the configured minimum row height as the cadence. Themes opt in with `--neo-grid-empty-row-border-color`.
+     * @returns {Boolean} Whether the paint geometry changed.
      * @protected
      */
     updateEmptyRowRules() {
-        let me     = this,
-            {body} = me.gridContainer,
-            style  = me.style ?? {},
-            rules  = {
-                '--neo-grid-empty-row-start' : `${Math.max(0, body.getContentHeight() - me.pageOffset)}px`,
-                '--neo-grid-empty-row-extent': `${Math.min(body.getScrollExtent(), me.maxScrollHeight)}px`,
+        let {body} = this.gridContainer;
+
+        if (!(body?.rowHeight > 0)) return false;
+
+        let root  = this.getVdomRoot(),
+            style = root.style ?? {},
+            rules = {
+                '--neo-grid-empty-row-start' : `${Math.max(0, body.getContentHeight() - this.pageOffset)}px`,
+                '--neo-grid-empty-row-extent': `${Math.min(body.getScrollExtent(), this.maxScrollHeight)}px`,
                 '--neo-grid-empty-row-height': `${Math.max(1, body.rowHeight)}px`
             };
 
         if (Object.keys(rules).some(key => style[key] !== rules[key])) {
-            me.style = {...style, ...rules}
+            root.style = {...style, ...rules};
+            return true
         }
+
+        return false
     }
 
     /**
