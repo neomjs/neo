@@ -210,6 +210,16 @@ export default Neo.setupClass(Base);
   - export statement
   - empty line
 
+Runtime classes extend `Neo.core.Base` or one of its subclasses and register with
+`Neo.setupClass`. This includes internal helpers, local class declarations, and class
+expressions. `src/core/Base.mjs` defines the class-system root. Use `Neo.create` to construct
+instances so their configs and lifecycle hooks run. Registered Neo classes also support `Neo.overwrites`.
+
+`buildScripts/util/check-coding-guidelines.mjs` checks registration and locally
+detectable superclass violations in `src`, `apps`, `examples`, and `docs/app`.
+The baseline records existing findings by source path and class. The base-revision
+check rejects new findings recorded in the baseline.
+
 ## 5. Config order
 
 ## JSDoc for Configs

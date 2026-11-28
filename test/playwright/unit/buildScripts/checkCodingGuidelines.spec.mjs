@@ -61,6 +61,57 @@ function withRecordedDebt(check) {
 }
 
 test.describe('coding guidelines for Neo classes', () => {
+    test('requires setup for internal declarations and class expressions', () => {
+        const source = `class Translation {}
+export const create = () => class Swipe extends Base {};
+const Press = class extends Base {};
+class Registered extends Base {}
+Neo.setupClass(Registered);`;
+
+        expect(findViolations(source, probeFile)).toEqual([
+            {file: probeFile, rule: 'neo-class-setup', name: 'Translation', line: 1},
+            {file: probeFile, rule: 'neo-class-setup', name: 'Swipe', line: 2},
+            {file: probeFile, rule: 'neo-class-setup', name: 'Press', line: 3}
+        ])
+    });
+
+    test('requires a Neo superclass even when setup is present', () => {
+        for (const inheritance of ['', ' extends Error', " extends globalThis['HTMLElement']", ' extends null']) {
+            expect(rules(`class Probe${inheritance} {}\nNeo.setupClass(Probe);`)).toEqual(['neo-class-base'])
+        }
+        expect(rules(`class Local {}
+class Probe extends Local {}
+Neo.setupClass(Local);
+Neo.setupClass(Probe);`)).toEqual(['neo-class-base', 'neo-class-base'])
+    });
+
+    test('accepts subclasses registered in the visible scope and the exact bootstrap root', () => {
+        expect(rules(classSource(''))).toEqual([]);
+        expect(rules('export default Neo.setupClass(class extends Base {});')).toEqual([]);
+        expect(rules(`export function make() {
+            const Local = class extends Base {};
+            return Neo.setupClass(Local)
+        }`)).toEqual([]);
+        expect(rules(`import {Parent as Error} from './Parent.mjs';
+            export default Neo.setupClass(class extends Error {});`)).toEqual([]);
+        expect(rules(`import Neo from '../Neo.mjs';
+            export default Neo.setupClass(class extends Base {});`)).toEqual([]);
+
+        const bootstrap = 'class Base {}\nexport default Neo.setupClass(Base);';
+        expect(rules(bootstrap, 'src/core/Base.mjs')).toEqual([]);
+        expect(rules(bootstrap)).toEqual(['neo-class-base']);
+        expect(rules('export default class Base {}', 'src/core/Base.mjs')).toEqual(['neo-class-setup'])
+    });
+
+    test('ignores lookalike setup calls and preserves class binding identity', () => {
+        expect(rules(`class Probe extends Base {}
+            function register(Neo) {return Neo.setupClass(Probe)}`)).toEqual(['neo-class-setup']);
+        expect(rules(`import Neo from './fake.mjs';
+            export default Neo.setupClass(class extends Base {});`)).toEqual(['neo-class-setup']);
+        expect(rules(`class Probe extends Base {}
+            function register(Probe) {return Neo.setupClass(Probe)}`)).toEqual(['neo-class-setup'])
+    });
+
     test('flags the documented forms that lose a default, description or tag in the generated API', () => {
         const invalid = [
             "/** @member {String[]} option=['a','b'] */",
@@ -234,8 +285,7 @@ Neo.app({mainView: {ntype: 'container', data, items: [
                 me.mergeConfig()
             }
         `))).toEqual([]);
-        expect(rules('class Ordinary { #local() {} }')).toEqual([]);
-        expect(rules('class Ordinary { #local() {} } function register(Ordinary) {return Neo.setupClass(Ordinary)}')).toEqual([]);
+        expect(rules('class Ordinary { #local() {} }')).toEqual(['neo-class-setup']);
         expect(rules('class Incomplete {')).toEqual([])
     });
 
@@ -342,6 +392,20 @@ Neo.app({mainView: {ntype: 'container', data, items: [
             expect(result.status, result.stderr).toBe(1);
             expect(result.stderr).toContain(oldFile);
             expect(result.stderr).toContain('newDebt')
+        })
+    });
+
+    test('a regenerated baseline cannot admit an unregistered helper introduced in the same commit', () => {
+        withRecordedDebt(({cwd, oldFile, original, baseline, git, run}) => {
+            fs.writeFileSync(path.join(cwd, oldFile), original + '\nclass Translation {}');
+            git('add', oldFile);
+            expect(run('--write-baseline').status).toBe(0);
+            git('add', baseline);
+
+            const result = run('--staged');
+            expect(result.status, result.stderr).toBe(1);
+            expect(result.stderr).toContain('[neo-class-setup] Translation');
+            expect(result.stderr).toContain('absent from the base revision')
         })
     });
 
