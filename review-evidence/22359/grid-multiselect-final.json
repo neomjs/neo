@@ -1,0 +1,913 @@
+{
+  "revision": "df2da3b3053466974e7b885dc511bd6c84450b0a",
+  "selectedIds": [
+    "SO-1042",
+    "SO-1043",
+    "SO-1044"
+  ],
+  "modes": {
+    "neo-theme-material-dark": {
+      "fonts": [
+        {
+          "familyName": "Times",
+          "postScriptName": "Times-Roman",
+          "isCustomFont": false,
+          "glyphCount": 7
+        }
+      ],
+      "frames": {
+        "inside": {
+          "name": "grid-multiselect-neo-theme-material-dark-inside.png",
+          "width": 414,
+          "height": 228,
+          "rows": [
+            {
+              "id": "SO-1041",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": false,
+              "role": "--neo-color-background-surface",
+              "reference": "oklch(0.245 0.013 298.5)",
+              "computed": "oklch(0.245 0.013 298.5)",
+              "computedRgb": [
+                33,
+                31,
+                38
+              ],
+              "expectedRgb": [
+                33,
+                31,
+                38
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                45
+              ],
+              "pixel": [
+                33,
+                31,
+                38
+              ]
+            },
+            {
+              "id": "SO-1042",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": false,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.405 0.134 292.6)",
+              "computed": "oklch(0.405 0.134 292.6)",
+              "computedRgb": [
+                78,
+                53,
+                138
+              ],
+              "expectedRgb": [
+                78,
+                53,
+                138
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                74
+              ],
+              "pixel": [
+                78,
+                53,
+                138
+              ]
+            },
+            {
+              "id": "SO-1043",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": true,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.405 0.134 292.6)",
+              "computed": "oklch(0.405 0.134 292.6)",
+              "computedRgb": [
+                78,
+                53,
+                138
+              ],
+              "expectedRgb": [
+                78,
+                53,
+                138
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                103
+              ],
+              "pixel": [
+                78,
+                53,
+                138
+              ]
+            },
+            {
+              "id": "SO-1044",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": false,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.405 0.134 292.6)",
+              "computed": "oklch(0.405 0.134 292.6)",
+              "computedRgb": [
+                78,
+                53,
+                138
+              ],
+              "expectedRgb": [
+                78,
+                53,
+                138
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                132
+              ],
+              "pixel": [
+                78,
+                53,
+                138
+              ]
+            },
+            {
+              "id": "SO-1045",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": false,
+              "role": "--neo-color-background-surface",
+              "reference": "oklch(0.245 0.013 298.5)",
+              "computed": "oklch(0.245 0.013 298.5)",
+              "computedRgb": [
+                33,
+                31,
+                38
+              ],
+              "expectedRgb": [
+                33,
+                31,
+                38
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                161
+              ],
+              "pixel": [
+                33,
+                31,
+                38
+              ]
+            },
+            {
+              "id": "SO-1046",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": false,
+              "role": "--neo-color-background-surface",
+              "reference": "oklch(0.245 0.013 298.5)",
+              "computed": "oklch(0.245 0.013 298.5)",
+              "computedRgb": [
+                33,
+                31,
+                38
+              ],
+              "expectedRgb": [
+                33,
+                31,
+                38
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                190
+              ],
+              "pixel": [
+                33,
+                31,
+                38
+              ]
+            }
+          ]
+        },
+        "outside": {
+          "name": "grid-multiselect-neo-theme-material-dark-outside.png",
+          "width": 414,
+          "height": 228,
+          "rows": [
+            {
+              "id": "SO-1041",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": false,
+              "role": "--neo-color-background-surface",
+              "reference": "oklch(0.245 0.013 298.5)",
+              "computed": "oklch(0.245 0.013 298.5)",
+              "computedRgb": [
+                33,
+                31,
+                38
+              ],
+              "expectedRgb": [
+                33,
+                31,
+                38
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                45
+              ],
+              "pixel": [
+                33,
+                31,
+                38
+              ]
+            },
+            {
+              "id": "SO-1042",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": false,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.405 0.134 292.6)",
+              "computed": "oklch(0.405 0.134 292.6)",
+              "computedRgb": [
+                78,
+                53,
+                138
+              ],
+              "expectedRgb": [
+                78,
+                53,
+                138
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                74
+              ],
+              "pixel": [
+                78,
+                53,
+                138
+              ]
+            },
+            {
+              "id": "SO-1043",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": false,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.405 0.134 292.6)",
+              "computed": "oklch(0.405 0.134 292.6)",
+              "computedRgb": [
+                78,
+                53,
+                138
+              ],
+              "expectedRgb": [
+                78,
+                53,
+                138
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                103
+              ],
+              "pixel": [
+                78,
+                53,
+                138
+              ]
+            },
+            {
+              "id": "SO-1044",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": false,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.405 0.134 292.6)",
+              "computed": "oklch(0.405 0.134 292.6)",
+              "computedRgb": [
+                78,
+                53,
+                138
+              ],
+              "expectedRgb": [
+                78,
+                53,
+                138
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                132
+              ],
+              "pixel": [
+                78,
+                53,
+                138
+              ]
+            },
+            {
+              "id": "SO-1045",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": true,
+              "role": "--neo-color-background-accent-subtle",
+              "reference": "oklch(0.33 0.135 291.2)",
+              "computed": "oklch(0.33 0.135 291.2)",
+              "computedRgb": [
+                57,
+                32,
+                115
+              ],
+              "expectedRgb": [
+                57,
+                32,
+                115
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                161
+              ],
+              "pixel": [
+                57,
+                32,
+                115
+              ]
+            },
+            {
+              "id": "SO-1046",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": false,
+              "role": "--neo-color-background-surface",
+              "reference": "oklch(0.245 0.013 298.5)",
+              "computed": "oklch(0.245 0.013 298.5)",
+              "computedRgb": [
+                33,
+                31,
+                38
+              ],
+              "expectedRgb": [
+                33,
+                31,
+                38
+              ],
+              "textColor": "oklch(0.916 0.014 314.5)",
+              "textRgb": [
+                231,
+                225,
+                234
+              ],
+              "sample": [
+                92,
+                190
+              ],
+              "pixel": [
+                33,
+                31,
+                38
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "neo-theme-neo-dark": {
+      "fonts": [
+        {
+          "familyName": "Helvetica",
+          "postScriptName": "Helvetica",
+          "isCustomFont": false,
+          "glyphCount": 7
+        }
+      ],
+      "frames": {
+        "inside": {
+          "name": "grid-multiselect-neo-theme-neo-dark-inside.png",
+          "width": 414,
+          "height": 228,
+          "rows": [
+            {
+              "id": "SO-1041",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": false,
+              "role": "--neo-color-background-surface",
+              "reference": "oklch(0.168 0.008 270)",
+              "computed": "oklch(0.168 0.008 270)",
+              "computedRgb": [
+                14,
+                15,
+                19
+              ],
+              "expectedRgb": [
+                14,
+                15,
+                19
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                45
+              ],
+              "pixel": [
+                14,
+                15,
+                19
+              ]
+            },
+            {
+              "id": "SO-1042",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": false,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.39 0.14 267)",
+              "computed": "oklch(0.39 0.14 267)",
+              "computedRgb": [
+                35,
+                60,
+                143
+              ],
+              "expectedRgb": [
+                35,
+                60,
+                143
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                74
+              ],
+              "pixel": [
+                35,
+                60,
+                143
+              ]
+            },
+            {
+              "id": "SO-1043",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": true,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.39 0.14 267)",
+              "computed": "oklch(0.39 0.14 267)",
+              "computedRgb": [
+                35,
+                60,
+                143
+              ],
+              "expectedRgb": [
+                35,
+                60,
+                143
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                103
+              ],
+              "pixel": [
+                35,
+                60,
+                143
+              ]
+            },
+            {
+              "id": "SO-1044",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": false,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.39 0.14 267)",
+              "computed": "oklch(0.39 0.14 267)",
+              "computedRgb": [
+                35,
+                60,
+                143
+              ],
+              "expectedRgb": [
+                35,
+                60,
+                143
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                132
+              ],
+              "pixel": [
+                35,
+                60,
+                143
+              ]
+            },
+            {
+              "id": "SO-1045",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": false,
+              "role": "--neo-color-background-surface",
+              "reference": "oklch(0.168 0.008 270)",
+              "computed": "oklch(0.168 0.008 270)",
+              "computedRgb": [
+                14,
+                15,
+                19
+              ],
+              "expectedRgb": [
+                14,
+                15,
+                19
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                161
+              ],
+              "pixel": [
+                14,
+                15,
+                19
+              ]
+            },
+            {
+              "id": "SO-1046",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": false,
+              "role": "--neo-color-background-surface",
+              "reference": "oklch(0.168 0.008 270)",
+              "computed": "oklch(0.168 0.008 270)",
+              "computedRgb": [
+                14,
+                15,
+                19
+              ],
+              "expectedRgb": [
+                14,
+                15,
+                19
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                190
+              ],
+              "pixel": [
+                14,
+                15,
+                19
+              ]
+            }
+          ]
+        },
+        "outside": {
+          "name": "grid-multiselect-neo-theme-neo-dark-outside.png",
+          "width": 414,
+          "height": 228,
+          "rows": [
+            {
+              "id": "SO-1041",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": false,
+              "role": "--neo-color-background-surface",
+              "reference": "oklch(0.168 0.008 270)",
+              "computed": "oklch(0.168 0.008 270)",
+              "computedRgb": [
+                14,
+                15,
+                19
+              ],
+              "expectedRgb": [
+                14,
+                15,
+                19
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                45
+              ],
+              "pixel": [
+                14,
+                15,
+                19
+              ]
+            },
+            {
+              "id": "SO-1042",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": false,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.39 0.14 267)",
+              "computed": "oklch(0.39 0.14 267)",
+              "computedRgb": [
+                35,
+                60,
+                143
+              ],
+              "expectedRgb": [
+                35,
+                60,
+                143
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                74
+              ],
+              "pixel": [
+                35,
+                60,
+                143
+              ]
+            },
+            {
+              "id": "SO-1043",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": false,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.39 0.14 267)",
+              "computed": "oklch(0.39 0.14 267)",
+              "computedRgb": [
+                35,
+                60,
+                143
+              ],
+              "expectedRgb": [
+                35,
+                60,
+                143
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                103
+              ],
+              "pixel": [
+                35,
+                60,
+                143
+              ]
+            },
+            {
+              "id": "SO-1044",
+              "ariaSelected": "true",
+              "selected": true,
+              "hovered": false,
+              "role": "--neo-color-background-selected",
+              "reference": "oklch(0.39 0.14 267)",
+              "computed": "oklch(0.39 0.14 267)",
+              "computedRgb": [
+                35,
+                60,
+                143
+              ],
+              "expectedRgb": [
+                35,
+                60,
+                143
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                132
+              ],
+              "pixel": [
+                35,
+                60,
+                143
+              ]
+            },
+            {
+              "id": "SO-1045",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": true,
+              "role": "--neo-color-background-accent-subtle",
+              "reference": "oklch(0.28 0.095 267)",
+              "computed": "oklch(0.28 0.095 267)",
+              "computedRgb": [
+                20,
+                36,
+                87
+              ],
+              "expectedRgb": [
+                20,
+                36,
+                87
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                161
+              ],
+              "pixel": [
+                20,
+                36,
+                87
+              ]
+            },
+            {
+              "id": "SO-1046",
+              "ariaSelected": null,
+              "selected": false,
+              "hovered": false,
+              "role": "--neo-color-background-surface",
+              "reference": "oklch(0.168 0.008 270)",
+              "computed": "oklch(0.168 0.008 270)",
+              "computedRgb": [
+                14,
+                15,
+                19
+              ],
+              "expectedRgb": [
+                14,
+                15,
+                19
+              ],
+              "textColor": "oklch(0.96 0.004 270)",
+              "textRgb": [
+                241,
+                242,
+                245
+              ],
+              "sample": [
+                92,
+                190
+              ],
+              "pixel": [
+                14,
+                15,
+                19
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "errors": [],
+  "orders": [
+    {
+      "id": "SO-1041",
+      "city": "Stockholm",
+      "status": "Ready"
+    },
+    {
+      "id": "SO-1042",
+      "city": "Lisbon",
+      "status": "Packing"
+    },
+    {
+      "id": "SO-1043",
+      "city": "Bordeaux",
+      "status": "Packing"
+    },
+    {
+      "id": "SO-1044",
+      "city": "Munich",
+      "status": "Ready"
+    },
+    {
+      "id": "SO-1045",
+      "city": "Edinburgh",
+      "status": "Queued"
+    },
+    {
+      "id": "SO-1046",
+      "city": "Copenhagen",
+      "status": "Queued"
+    }
+  ],
+  "fixture": "test/playwright/component/apps/theme-equality/index.html",
+  "browser": "158.0.8127.38"
+}

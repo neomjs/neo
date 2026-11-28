@@ -1,0 +1,302 @@
+{
+  "head": "91524d72ace39d61df167fe8e3dfcc53abfc89f8",
+  "surface": "/test/playwright/component/apps/empty-viewport/index.html",
+  "engines": {
+    "firefox": {
+      "states": [
+        {
+          "outer": "neo-theme-material-dark",
+          "inner": "neo-theme-neo-light",
+          "reducedMotion": "no-preference",
+          "rest": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "light",
+            "width": [
+              "3px",
+              "3px",
+              "3px",
+              "3px"
+            ],
+            "height": "27.8px",
+            "extent": "0%",
+            "duration": "0s",
+            "paint": "none",
+            "active": false
+          },
+          "focus": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "light",
+            "width": [
+              "3px",
+              "3px",
+              "3px",
+              "3px"
+            ],
+            "height": "27.8px",
+            "extent": "50%",
+            "duration": "0s",
+            "paint": "none",
+            "active": true
+          }
+        },
+        {
+          "outer": "neo-theme-material-dark",
+          "inner": "neo-theme-neo-light",
+          "reducedMotion": "reduce",
+          "rest": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "light",
+            "width": [
+              "3px",
+              "3px",
+              "3px",
+              "3px"
+            ],
+            "height": "27.8px",
+            "extent": "0%",
+            "duration": "0s",
+            "paint": "none",
+            "active": false
+          },
+          "focus": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "light",
+            "width": [
+              "3px",
+              "3px",
+              "3px",
+              "3px"
+            ],
+            "height": "27.8px",
+            "extent": "50%",
+            "duration": "0s",
+            "paint": "none",
+            "active": true
+          }
+        },
+        {
+          "outer": "neo-theme-neo-light",
+          "inner": "neo-theme-material-dark",
+          "reducedMotion": "no-preference",
+          "rest": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "dark",
+            "width": [
+              "0px",
+              "0px",
+              "1px",
+              "0px"
+            ],
+            "height": "56px",
+            "extent": "0%",
+            "duration": "0.2s",
+            "paint": "gradient",
+            "active": false
+          },
+          "focus": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "dark",
+            "width": [
+              "0px",
+              "0px",
+              "2px",
+              "0px"
+            ],
+            "height": "56px",
+            "extent": "50%",
+            "duration": "0.2s",
+            "paint": "gradient",
+            "active": true
+          }
+        },
+        {
+          "outer": "neo-theme-neo-light",
+          "inner": "neo-theme-material-dark",
+          "reducedMotion": "reduce",
+          "rest": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "dark",
+            "width": [
+              "0px",
+              "0px",
+              "1px",
+              "0px"
+            ],
+            "height": "56px",
+            "extent": "0%",
+            "duration": "0s",
+            "paint": "gradient",
+            "active": false
+          },
+          "focus": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "dark",
+            "width": [
+              "0px",
+              "0px",
+              "2px",
+              "0px"
+            ],
+            "height": "56px",
+            "extent": "50%",
+            "duration": "0s",
+            "paint": "gradient",
+            "active": true
+          }
+        }
+      ],
+      "errors": [],
+      "pass": true,
+      "version": "159.0",
+      "scope": "live Neo fixture, App Worker component creation and native focus"
+    },
+    "webkit": {
+      "states": [
+        {
+          "outer": "neo-theme-material-dark",
+          "inner": "neo-theme-neo-light",
+          "reducedMotion": "no-preference",
+          "rest": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "light",
+            "width": [
+              "3px",
+              "3px",
+              "3px",
+              "3px"
+            ],
+            "height": "27.796875px",
+            "extent": "0%",
+            "duration": "0s",
+            "paint": "none",
+            "active": false
+          },
+          "focus": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "light",
+            "width": [
+              "3px",
+              "3px",
+              "3px",
+              "3px"
+            ],
+            "height": "27.796875px",
+            "extent": "50%",
+            "duration": "0s",
+            "paint": "none",
+            "active": true
+          }
+        },
+        {
+          "outer": "neo-theme-material-dark",
+          "inner": "neo-theme-neo-light",
+          "reducedMotion": "reduce",
+          "rest": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "light",
+            "width": [
+              "3px",
+              "3px",
+              "3px",
+              "3px"
+            ],
+            "height": "27.796875px",
+            "extent": "0%",
+            "duration": "0s",
+            "paint": "none",
+            "active": false
+          },
+          "focus": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "light",
+            "width": [
+              "3px",
+              "3px",
+              "3px",
+              "3px"
+            ],
+            "height": "27.796875px",
+            "extent": "50%",
+            "duration": "0s",
+            "paint": "none",
+            "active": true
+          }
+        },
+        {
+          "outer": "neo-theme-neo-light",
+          "inner": "neo-theme-material-dark",
+          "reducedMotion": "no-preference",
+          "rest": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "dark",
+            "width": [
+              "0px",
+              "0px",
+              "1px",
+              "0px"
+            ],
+            "height": "56px",
+            "extent": "0%",
+            "duration": "0.2s",
+            "paint": "gradient",
+            "active": false
+          },
+          "focus": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "dark",
+            "width": [
+              "0px",
+              "0px",
+              "2px",
+              "0px"
+            ],
+            "height": "56px",
+            "extent": "50%",
+            "duration": "0.2s",
+            "paint": "gradient",
+            "active": true
+          }
+        },
+        {
+          "outer": "neo-theme-neo-light",
+          "inner": "neo-theme-material-dark",
+          "reducedMotion": "reduce",
+          "rest": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "dark",
+            "width": [
+              "0px",
+              "0px",
+              "1px",
+              "0px"
+            ],
+            "height": "56px",
+            "extent": "0%",
+            "duration": "0s",
+            "paint": "gradient",
+            "active": false
+          },
+          "focus": {
+            "fill": "rgb(24, 64, 96)",
+            "scheme": "dark",
+            "width": [
+              "0px",
+              "0px",
+              "2px",
+              "0px"
+            ],
+            "height": "56px",
+            "extent": "50%",
+            "duration": "0s",
+            "paint": "gradient",
+            "active": true
+          }
+        }
+      ],
+      "errors": [],
+      "pass": true,
+      "version": "27.2",
+      "scope": "live Neo fixture, App Worker component creation and native focus"
+    }
+  }
+}

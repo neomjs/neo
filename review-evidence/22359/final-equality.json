@@ -1,0 +1,22 @@
+{
+  "base": "49e7e5386679a2542fdd9b70bc2bf2450ce1d8a2",
+  "head": "df2da3b3053466974e7b885dc511bd6c84450b0a",
+  "expectedSource": "ecb07244f8:review-evidence/22368/expected.json",
+  "ok": true,
+  "themes": [
+    "neo-theme-neo-light",
+    "neo-theme-neo-dark",
+    "neo-theme-light",
+    "neo-theme-dark",
+    "neo-theme-cyberpunk"
+  ],
+  "scopes": [
+    "inherited",
+    "scoped"
+  ],
+  "componentCount": 79,
+  "totalComparisons": 192000,
+  "unexpected": 0,
+  "matched": 3526,
+  "unmet": 0
+}
