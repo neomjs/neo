@@ -45,6 +45,7 @@ export const PALETTE_EXTRAS = new Set([
     '--neo-palette-shade-2',
     '--neo-palette-shade-3',
     '--neo-palette-shade-4',
+    '--neo-palette-shade-5',
     '--neo-palette-tint-1',
     '--neo-palette-tint-2'
 ]);

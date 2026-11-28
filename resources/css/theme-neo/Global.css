@@ -25,7 +25,8 @@
     --neo-palette-shade-1             : rgb(0 0 0 / .05);
     --neo-palette-shade-2             : rgb(0 0 0 / .1);
     --neo-palette-shade-3             : rgb(0 0 0 / .16);
-    --neo-palette-shade-4             : rgb(0 0 0 / .5);
+    --neo-palette-shade-4             : rgb(0 0 0 / .32);
+    --neo-palette-shade-5             : rgb(0 0 0 / .5);
     --neo-palette-tint-1              : rgb(255 255 255 / .05);
     --neo-palette-tint-2              : rgb(255 255 255 / .1);
 
@@ -131,7 +132,7 @@
     --neo-color-background-field            : light-dark(var(--neo-palette-white),       var(--neo-palette-neutral-950));
     --neo-color-background-inverse          : light-dark(var(--neo-palette-neutral-950), var(--neo-palette-neutral-50));
     /* background: what dims the page under a modal surface */
-    --neo-color-background-scrim            : light-dark(var(--neo-palette-shade-3),     var(--neo-palette-shade-4));
+    --neo-color-background-scrim            : light-dark(var(--neo-palette-shade-4),     var(--neo-palette-shade-5));
     /* background: a neutral control. Translucent, so one value works on every region */
     --neo-color-background-neutral-hover    : light-dark(var(--neo-palette-shade-1),     var(--neo-palette-tint-1));
     --neo-color-background-neutral-active   : light-dark(var(--neo-palette-shade-2),     var(--neo-palette-tint-2));
@@ -178,7 +179,7 @@
 
     /* focus and shadow. The ring keeps a raised surface's edge visible on a dark canvas */
     --neo-color-focus-ring                  : light-dark(var(--neo-palette-accent-600),  var(--neo-palette-accent-400));
-    --neo-color-shadow                      : light-dark(var(--neo-palette-shade-3),     var(--neo-palette-shade-4));
+    --neo-color-shadow                      : light-dark(var(--neo-palette-shade-3),     var(--neo-palette-shade-5));
     --neo-color-shadow-ring                 : light-dark(transparent,                    var(--neo-palette-tint-2));
 
     /* ── Space: step × 4px. An index survives a density change, a pixel name does not ─────────────────── */
