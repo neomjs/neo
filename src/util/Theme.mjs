@@ -81,11 +81,14 @@ export function resolveThemeValue(theme, themeMap, schemeMap) {
  * before the map resolves a theme its `themeMap` does not name to its fallback; the declared scheme can only
  * answer after `Neo.worker.App#createThemeMap` fires `themeMapLoaded`.
  * @param {Neo.component.Base} component Offers `themeMap`, `getTheme()` and `applyColorScheme()`.
+ * @param {Function} [reapply] Replaces the default: `applyColorScheme()` for a theme `themeMap` does not name.
  */
-export function reapplyOnThemeMap(component) {
+export function reapplyOnThemeMap(component, reapply = () => {
+    Object.hasOwn(component.themeMap, component.getTheme() ?? '') || component.applyColorScheme()
+}) {
     const {Neo} = globalThis;
 
     !Neo?.cssMap?.fileInfo && Neo?.currentWorker?.on?.('themeMapLoaded', () => {
-        !component.isDestroyed && !Object.hasOwn(component.themeMap, component.getTheme() ?? '') && component.applyColorScheme()
+        component.isDestroyed || reapply()
     }, component, {once: true})
 }

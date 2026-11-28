@@ -64,7 +64,7 @@ class AmChart extends Component {
         package: 'am4charts',
         /**
          * The amCharts theme for a Neo theme that {@link #themeMap} does not name, by the color scheme that
-         * theme declares.
+         * theme declares: `'dark'`, or `null` for amCharts' light default, the two the AmCharts addon applies.
          * @member {Object} schemeMap
          */
         schemeMap: {dark: 'dark', light: null},

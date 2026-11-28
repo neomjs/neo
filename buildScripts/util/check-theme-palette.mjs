@@ -35,7 +35,7 @@ import {fileURLToPath}                                           from 'node:url'
 import postcss                                                   from 'postcss';
 import selectorParser                                            from 'postcss-selector-parser';
 import isEntryModule                                             from './isEntryModule.mjs';
-import {cssFiles}                                                from './themeCss.mjs';
+import {cssFiles, ownThemeClasses}                               from './themeCss.mjs';
 import {themeCssRoots}                                           from './themeCssRoots.mjs';
 import {PALETTE_EXTRAS, PALETTE_GRADES, SCHEME_PROPERTY, kindOf} from './themeNameShapes.mjs';
 
@@ -458,29 +458,6 @@ function isBalanced(css) {
     }
 
     return open.length === 0
-}
-
-/**
- * The selectors that declare on a theme class itself: the class, `:root` before it, and the root that holds
- * it as a child. Any other selector reaches elements this check cannot name.
- * @type {RegExp}
- */
-const OWN_SELECTOR = /^(?::root\s+)?\.(neo-theme-[a-zA-Z0-9_-]+)$|^:root:has\(\s*>\s*\.(neo-theme-[a-zA-Z0-9_-]+)\s*\)$/;
-
-/**
- * @summary The theme classes a rule declares on: every alternative of its selector list, bare or inside one
- * `:where()`, has to be such a selector. Empty for any other rule, and for the structural `neo-theme-scope`.
- * @param {String} header
- * @returns {String[]}
- */
-function ownThemeClasses(header) {
-    const names = (header.match(/^:where\(([^]*)\)$/)?.[1] ?? header).split(',').map(part => {
-        const match = part.trim().match(OWN_SELECTOR);
-
-        return match?.[1] ?? match?.[2]
-    });
-
-    return names.every(name => name && name !== 'neo-theme-scope') ? [...new Set(names)] : []
 }
 
 /**

@@ -5,10 +5,14 @@
  *
  * `check-theme-var-references`, `check-theme-surfaces` and `theme-census` read `resources/css` with
  * regular expressions over comment-stripped text, not through a CSS parser. One copy of that reading
- * keeps a guard's verdict and the census's counts about the same tree.
+ * keeps a guard's verdict and the census's counts about the same tree. The theme map's schemes are the
+ * exception and parse (`readDeclaredSchemes`): a scheme is a declaration, and the same text in a value or
+ * under a condition is none.
  */
-import fs   from 'node:fs';
-import path from 'node:path';
+import fs                from 'node:fs';
+import path              from 'node:path';
+import postcss           from 'postcss';
+import {SCHEME_PROPERTY} from './themeNameShapes.mjs';
 
 /**
  * Custom properties that stylesheets read and no stylesheet declares, because something outside CSS
@@ -176,36 +180,109 @@ export function readThemeMapFile(themeMapPath) {
 }
 
 /**
- * @summary Each theme class's declared light or dark scheme: the `--neo-color-scheme` of a rule in one of
- * its folders' `Global.css` whose selector names the class, since every theme declares its scheme there
- * once per class. The build writes it into `theme-map.json`, so a component that hands
- * a renderer a light or dark hint reads the theme's own answer instead of keeping a map of theme names.
- * A theme that declares none is left out, and its components fall back to light.
+ * The selectors that declare on a theme class itself: the class, `:root` before it, and the root that holds
+ * it as a child. Any other selector reaches other elements.
+ * @type {RegExp}
+ */
+const OWN_SELECTOR = /^(?::root\s+)?\.(neo-theme-[a-zA-Z0-9_-]+)$|^:root:has\(\s*>\s*\.(neo-theme-[a-zA-Z0-9_-]+)\s*\)$/;
+
+/**
+ * @summary The theme classes a rule declares on: every alternative of its selector list, bare or inside one
+ * `:where()`, has to be such a selector. Empty for any other rule, and for the structural `neo-theme-scope`.
+ * @param {String} header
+ * @returns {String[]}
+ */
+export function ownThemeClasses(header) {
+    const names = (header.match(/^:where\(([^]*)\)$/)?.[1] ?? header).split(',').map(part => {
+        const match = part.trim().match(OWN_SELECTOR);
+
+        return match?.[1] ?? match?.[2]
+    });
+
+    return names.every(name => name && name !== 'neo-theme-scope') ? [...new Set(names)] : []
+}
+
+/**
+ * @summary The `Global.css` the theme build reads for each folder across `cssRoots`: a later root's sheet
+ * replaces an earlier root's sheet in the same folder. `src` and `theme-base` declare no theme.
+ * @param {String[]} cssRoots Ordered CSS source roots (Engine, declared packages, workspace).
+ * @returns {Map<String, String>} Folder name → `Global.css` path.
+ */
+export function effectiveThemeGlobals(cssRoots) {
+    const sheets = new Map();
+
+    for (const cssRoot of cssRoots) {
+        if (!fs.existsSync(cssRoot)) continue;
+
+        for (const entry of fs.readdirSync(cssRoot, {withFileTypes: true}).sort((a, b) => a.name.localeCompare(b.name))) {
+            if (!entry.isDirectory() || entry.isSymbolicLink() || entry.name === 'src' || entry.name === 'theme-base') continue;
+
+            const globalPath = path.join(cssRoot, entry.name, 'Global.css');
+
+            try {
+                fs.statSync(globalPath).isFile() && sheets.set(entry.name, globalPath)
+            } catch {}
+        }
+    }
+
+    return sheets
+}
+
+/**
+ * @summary The light or dark `--neo-color-scheme` each theme class declares in one stylesheet: in a rule that
+ * declares on the class ({@link ownThemeClasses}), under no at-rule but `@layer`. A later declaration wins.
+ * @param {String} file
+ * @returns {Object<String, ('dark'|'light')>} Empty for a sheet that does not parse.
+ */
+export function readDeclaredSchemes(file) {
+    const schemes = {};
+
+    let root;
+
+    try {
+        root = postcss.parse(fs.readFileSync(file, 'utf8'))
+    } catch {
+        return schemes
+    }
+
+    root.walkDecls(SCHEME_PROPERTY, ({parent, value}) => {
+        let scope = parent.parent;
+
+        while (scope?.type === 'atrule' && scope.name.toLowerCase() === 'layer') scope = scope.parent;
+
+        if (parent.type === 'rule' && scope?.type === 'root' && /^(?:dark|light)$/.test(value.trim())) {
+            ownThemeClasses(parent.selector.trim()).forEach(themeClass => {schemes[themeClass] = value.trim()})
+        }
+    });
+
+    return schemes
+}
+
+/**
+ * @summary Each theme class's declared light or dark scheme, read from the `Global.css` the build emits for
+ * each of its folders ({@link effectiveThemeGlobals}, {@link readDeclaredSchemes}). The build and the theme
+ * watcher write it into `theme-map.json`, so a component that hands a renderer a light or dark hint reads the
+ * theme's own answer instead of keeping a map of theme names. A theme that declares none is left out, and its
+ * components fall back to light.
  * @param {Object} options
- * @param {String[]} options.cssRoots Ordered CSS source roots; a later root's `Global.css` wins.
+ * @param {String[]} options.cssRoots Ordered CSS source roots; a later root's `Global.css` replaces an earlier one's.
  * @param {Object<String, String[]>} options.themes Theme class → folders, as `resolveThemeClassMap()` returns it.
  * @returns {Object<String, ('dark'|'light')>}
  */
 export function resolveThemeSchemes({cssRoots, themes}) {
-    const schemes = {};
+    const sheets   = effectiveThemeGlobals(cssRoots),
+          declared = new Map(),
+          schemes  = {};
 
     for (const [themeClass, folders] of Object.entries(themes)) {
-        const namesClass = new RegExp(`\\.${themeClass}(?![\\w-])`);
+        for (const folder of folders) {
+            if (!sheets.has(folder)) continue;
 
-        for (const cssRoot of cssRoots) {
-            for (const folder of folders) {
-                const file = path.join(cssRoot, folder, 'Global.css');
+            declared.has(folder) || declared.set(folder, readDeclaredSchemes(sheets.get(folder)));
 
-                if (!fs.existsSync(file)) continue;
+            const scheme = declared.get(folder)[themeClass];
 
-                for (const [, selector, body] of readCss(file).matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
-                    const scheme = /--neo-color-scheme\s*:\s*(light|dark)\b/.exec(body)?.[1];
-
-                    if (scheme && namesClass.test(selector)) {
-                        schemes[themeClass] = scheme
-                    }
-                }
-            }
+            scheme && (schemes[themeClass] = scheme)
         }
     }
 
@@ -313,28 +390,8 @@ export function isCssTargetFolder(cssRootsOrRoot, folderName) {
  * @returns {Object<String, String[]>} Sorted map of theme class name to sorted folder list.
  */
 export function collectThemeClassMap(cssRoots, seedThemes={}) {
-    const effectiveGlobalByFolder = new Map(),
+    const effectiveGlobalByFolder = effectiveThemeGlobals(cssRoots),
           classToFolders          = new Map();
-
-    for (const cssRoot of cssRoots) {
-        if (!fs.existsSync(cssRoot)) continue;
-
-        const entries = fs.readdirSync(cssRoot, {withFileTypes: true})
-            .sort((a, b) => a.name.localeCompare(b.name));
-
-        for (const entry of entries) {
-            if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
-            if (entry.name === 'src' || entry.name === 'theme-base') continue;
-
-            const globalPath = path.join(cssRoot, entry.name, 'Global.css');
-
-            try {
-                if (fs.statSync(globalPath).isFile()) {
-                    effectiveGlobalByFolder.set(entry.name, globalPath)
-                }
-            } catch {}
-        }
-    }
 
     for (const [themeClass, folders] of Object.entries(seedThemes || {})) {
         if (!Array.isArray(folders)) continue;

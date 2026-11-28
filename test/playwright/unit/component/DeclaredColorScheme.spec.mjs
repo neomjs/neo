@@ -106,7 +106,7 @@ test.describe('A component answers a theme its themeMap does not name by the dec
 
         try {
             const editor = create(MonacoEditor, {theme: 'neo-theme-fixture-dark'}),
-                  named  = create(MonacoEditor, {theme: 'neo-theme-neo-dark'});
+                  named  = create(Mermaid,      {theme: 'neo-theme-neo-dark'});
 
             expect(editor.resolveEditorTheme(), 'no map yet: the editor keeps its own theme').toBe('vs');
             expect(listeners.map(entry => [entry.name, entry.options?.once])).toEqual([['themeMapLoaded', true], ['themeMapLoaded', true]]);
@@ -119,6 +119,39 @@ test.describe('A component answers a theme its themeMap does not name by the dec
 
             expect(editor.editorTheme, 'the unnamed theme re-resolves to dark').toBe('vs-dark');
             expect(applied, 'a theme the map names is not re-applied').toBe(0)
+        } finally {
+            currentWorker.on = on
+        }
+    });
+
+    test('MonacoEditor: options.theme outranks the declared scheme, and a late map re-sends each theme in build order', () => {
+        const explicit        = {options: {theme: 'hc-black'}, theme: 'neo-theme-fixture-dark'},
+              read            = editor => [editor.resolveEditorTheme(), editor.editorTheme, editor.getInitialOptions().theme],
+              warm            = create(MonacoEditor, explicit),
+              {currentWorker} = Neo,
+              on              = currentWorker.on,
+              listeners       = [],
+              sent            = [];
+
+        expect(read(warm), 'the map arrives first').toEqual(['hc-black', 'hc-black', 'hc-black']);
+
+        Neo.cssMap       = undefined;
+        currentWorker.on = (name, fn) => name === 'themeMapLoaded' && listeners.push(fn);
+
+        try {
+            const editors = {
+                auto    : create(MonacoEditor, {theme: 'neo-theme-fixture-dark'}),
+                pinned  : create(MonacoEditor, {theme: 'neo-theme-fixture-dark', themeMap: {'neo-theme-fixture-dark': 'hc-black'}}),
+                explicit: create(MonacoEditor, explicit)
+            };
+
+            Object.entries(editors).forEach(([name, editor]) => {editor.afterSetEditorTheme = value => sent.push([name, value])});
+
+            Neo.cssMap = {fileInfo: FILE_INFO};
+            listeners.forEach(fn => fn());
+
+            expect(sent, 'one theme per window: the last editor built paints').toEqual([['auto', 'vs-dark'], ['pinned', 'hc-black'], ['explicit', 'hc-black']]);
+            expect(read(editors.explicit), 'the late map ends where a warm boot starts').toEqual(read(warm))
         } finally {
             currentWorker.on = on
         }

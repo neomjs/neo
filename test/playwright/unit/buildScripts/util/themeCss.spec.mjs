@@ -56,5 +56,31 @@ test.describe('themeCss — resolveThemeSchemes', () => {
         });
 
         fs.rmSync(root, {recursive: true, force: true})
+    });
+
+    test('reads declarations of the Global.css the build emits, never text in a value, a condition or a descendant rule', () => {
+        const [pkg, workspace] = ['pkg', 'workspace'].map(name => fs.mkdtempSync(path.join(os.tmpdir(), `theme-schemes-${name}-`))),
+              write            = (root, css) => {
+                  fs.mkdirSync(path.join(root, 'theme-fog'), {recursive: true});
+                  fs.writeFileSync(path.join(root, 'theme-fog', 'Global.css'), css)
+              },
+              themes           = {'neo-theme-fog-ink': ['theme-fog'], 'neo-theme-fog-paper': ['theme-fog']};
+
+        write(pkg, [
+            '.neo-theme-fog-ink {--neo-color-scheme: dark}',
+            '.neo-theme-fog-ink {--neo-font-family-mono: "--neo-color-scheme: light"}',
+            '@media (prefers-contrast: more) {.neo-theme-fog-ink {--neo-color-scheme: light}}',
+            '.neo-theme-fog-ink .neo-panel {--neo-color-scheme: light}',
+            '@layer neo.theme {.neo-theme-fog-paper {--neo-color-scheme: light}}'
+        ].join('\n'));
+
+        expect(resolveThemeSchemes({cssRoots: [pkg], themes})).toEqual({'neo-theme-fog-ink': 'dark', 'neo-theme-fog-paper': 'light'});
+
+        // A workspace sheet in the same folder replaces the package's, and declares no scheme
+        write(workspace, '.neo-theme-fog-ink, .neo-theme-fog-paper {--neo-fog-ground: #000}');
+
+        expect(resolveThemeSchemes({cssRoots: [pkg, workspace], themes})).toEqual({});
+
+        [pkg, workspace].forEach(root => fs.rmSync(root, {recursive: true, force: true}))
     })
 });

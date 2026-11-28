@@ -116,6 +116,25 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         expect(calls).toEqual([['build', 'src/Panel.css']])
     });
 
+    test('a theme keeps its declared scheme through startup, and a Global.css edit reaches both maps (#22495)', async () => {
+        const
+            root     = createRoot(),
+            {logger} = createLogger(),
+            schemes  = () => ['resources/theme-map.json', 'dist/development/resources/theme-map.json']
+                .map(file => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')).schemes);
+
+        writeSource(root, 'src/Initial.css');
+        writeSource(root, 'theme-fog/Global.css', '.neo-theme-fog {--neo-color-scheme: dark}');
+        await reconcileFixture({logger, repoRoot: root});
+
+        expect(schemes()).toEqual([{'neo-theme-fog': 'dark'}, {'neo-theme-fog': 'dark'}]);
+
+        writeSource(root, 'theme-fog/Global.css', '.neo-theme-fog {--neo-color-scheme: light}');
+        await handleThemeWatchEvent('change', 'theme-fog/Global.css', {logger, reconcile: reconcileFixture, repoRoot: root});
+
+        expect(schemes()).toEqual([{'neo-theme-fog': 'light'}, {'neo-theme-fog': 'light'}])
+    });
+
     test('a content change copies the source, nesting kept, with a source map back to it', async () => {
         const
             root     = createRoot(),
