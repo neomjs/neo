@@ -194,7 +194,7 @@ test.describe('Neo.main.addon.EventSimulator — touch contacts', () => {
               source          = node;
 
         Neo.worker.Manager = {windowId: 'source-window'};
-        documentRef.defaultView = Object.assign(new EventTarget(), {Touch: TouchStandIn, TouchEvent: TouchEventStandIn});
+        documentRef.defaultView = Object.assign(new EventTarget(), {performance, Touch: TouchStandIn, TouchEvent: TouchEventStandIn});
         documentRef.body = Object.assign(new EventTarget(), {nodeType: 1, ownerDocument: documentRef});
         Object.assign(source, {
             dataset              : {neoId: 'chart'}, id: 'chart', ownerDocument: documentRef, isConnected: true,
