@@ -36,6 +36,8 @@ async function bootHelix(page, neuralLink) {
               frames, provider, target: initial.id, windowId: String(ready.properties.windowId)
           });
 
+    expect(await helix.evaluate(node => Neo.main.DomAccess.getNodeId(node))).toBe(initial.id);
+
     return {app, appWorker, box, helix, helixId: initial.id, initial: ready.properties, replay}
 }
 

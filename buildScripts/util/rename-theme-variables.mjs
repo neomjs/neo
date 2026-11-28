@@ -652,7 +652,9 @@ export function collectTargetFiles(root, resolvedMapPath) {
  * @param {String} [mapPath=defaultMapPath]
  * @param {Object} [options={}]
  * @param {String} [options.root] Optional repository root to check for pre-existing target collisions.
- * @returns {{entries: Map<String, {to: String, rule: String, reason?: String}>, rules: Object<String, String>}}
+ * An entry renames (`to`), splits into several names (`split`, at least two `--neo-` names) or is dropped
+ * (`dropped: true` with a `reason`); a split or dropped name is never rewritten.
+ * @returns {{entries: Map<String, {to?: String, split?: String[], dropped?: Boolean, rule: String, reason?: String}>, rules: Object<String, String>}}
  */
 export function loadRenameMap(mapPath = defaultMapPath, {root} = {}) {
     const
@@ -683,15 +685,31 @@ export function loadRenameMap(mapPath = defaultMapPath, {root} = {}) {
         }
 
         const
-            to     = typeof spec === 'string' ? spec : spec?.to,
-            rule   = typeof spec === 'object' ? spec?.rule : undefined,
-            reason = typeof spec === 'object' ? spec?.reason : undefined;
+            to      = typeof spec === 'string' ? spec : spec?.to,
+            rule    = typeof spec === 'object' ? spec?.rule : undefined,
+            reason  = typeof spec === 'object' ? spec?.reason : undefined,
+            split   = typeof spec === 'object' ? spec?.split : undefined,
+            dropped = typeof spec === 'object' ? spec?.dropped : undefined;
 
-        if (!oldName.startsWith('--') || typeof to !== 'string' || !to.startsWith('--')) {
+        // A later move can split a name into several or drop it: the map records what it became, never a dead target.
+        if (split !== undefined || dropped !== undefined) {
+            if (!oldName.startsWith('--') || to !== undefined || (split !== undefined && dropped !== undefined)) {
+                throw new Error(`Entry "${oldName}" in ${resolvedMapPath} takes exactly one of "to", "split" or "dropped"`)
+            }
+
+            if (dropped !== undefined && (dropped !== true || typeof reason !== 'string' || !reason.trim())) {
+                throw new Error(`Dropped entry "${oldName}" in ${resolvedMapPath} needs "dropped": true and a one-line reason`)
+            }
+
+            if (split !== undefined && (!Array.isArray(split) || new Set(split).size < 2 ||
+                split.some(name => typeof name !== 'string' || !name.startsWith('--neo-')))) {
+                throw new Error(`Split entry "${oldName}" in ${resolvedMapPath} needs at least two distinct --neo- names`)
+            }
+        } else if (!oldName.startsWith('--') || typeof to !== 'string' || !to.startsWith('--')) {
             throw new Error(`Invalid rename entry "${oldName}" -> "${to}" in ${resolvedMapPath}`)
         }
 
-        if (oldName === to) {
+        if (oldName === to || split?.includes(oldName)) {
             throw new Error(`Identity rename entry "${oldName}" in ${resolvedMapPath}`)
         }
 
@@ -707,21 +725,30 @@ export function loadRenameMap(mapPath = defaultMapPath, {root} = {}) {
             }
         }
 
-        if (targets.has(to)) {
-            throw new Error(`Duplicate rename target "${to}" from "${targets.get(to)}" and "${oldName}"`)
+        for (const target of split ?? (dropped ? [] : [to])) {
+            if (targets.has(target)) {
+                throw new Error(`Duplicate rename target "${target}" from "${targets.get(target)}" and "${oldName}"`)
+            }
+
+            targets.set(target, oldName)
         }
 
-        targets.set(to, oldName);
-        entries.set(oldName, {to, rule, ...(reason ? {reason} : {})})
+        entries.set(oldName, {
+            ...(split ? {split} : dropped ? {dropped: true} : {to}),
+            rule,
+            ...(reason ? {reason} : {})
+        })
     }
 
     if (entries.size === 0) {
         throw new Error(`Invalid rename map in "${resolvedMapPath}": "entries" must contain at least one rename mapping.`)
     }
 
-    for (const [oldName, {to}] of entries) {
-        if (entries.has(to)) {
-            throw new Error(`Chained rename "${oldName}" -> "${to}" -> "${entries.get(to).to}" is forbidden; map directly to final name`)
+    for (const [oldName, {split, to}] of entries) {
+        for (const target of split ?? (to ? [to] : [])) {
+            if (entries.has(target)) {
+                throw new Error(`Chained rename "${oldName}" -> "${target}" is forbidden; map directly to final name`)
+            }
         }
     }
 
@@ -781,7 +808,7 @@ export function rewriteContent(content, entries, isMjs = false) {
 
     if (isMjs) {
         const dashlessEdits = scanSetCssVariableCalls(nextContent)
-            .filter(call => call.kind === 'literal' && !call.key.startsWith('--') && entries.has('--' + call.key))
+            .filter(call => call.kind === 'literal' && !call.key.startsWith('--') && entries.get('--' + call.key)?.to)
             .sort((a, b) => b.contentStart - a.contentStart);
 
         for (const edit of dashlessEdits) {
@@ -795,7 +822,7 @@ export function rewriteContent(content, entries, isMjs = false) {
     nextContent = nextContent.replace(CUSTOM_PROP_RE, (full, token) => {
         const mapped = entries.get(token);
 
-        if (!mapped) {
+        if (!mapped?.to) {
             return full
         }
 
@@ -820,7 +847,8 @@ export function rewriteContent(content, entries, isMjs = false) {
  * @param {String} [options.mapPath=defaultMapPath]
  * @param {String} [options.root]
  * @param {Boolean} [options.verifyTargetsFree=false] Refuse to run if any target already exists in `root`.
- * @returns {{dashlessCalls: String[], dynamicTemplates: String[], modifiedFiles: String[], remainingMatches: Array<{file: String, line: Number, token: String}>, remainingOldCount: Number, replacements: Number}}
+ * @returns {{dashlessCalls: String[], dynamicTemplates: String[], modifiedFiles: String[], remainingMatches: Array<{file: String, line: Number, token: String, split?: String[], dropped?: String}>, remainingOldCount: Number, replacements: Number, unmigrated: Number}}
+ * `unmigrated` counts the matches of split or dropped names, which no run rewrites.
  */
 export function runThemeVariableRename({
     check             = false,
@@ -860,7 +888,7 @@ export function runThemeVariableRename({
         for (let i = 0; i < lines.length; i++) {
             for (const match of lines[i].matchAll(CUSTOM_PROP_RE)) {
                 if (entries.has(match[1])) {
-                    remainingMatches.push({file: rel, line: i + 1, token: match[1]})
+                    remainingMatches.push({file: rel, line: i + 1, token: match[1], ...recordOf(entries.get(match[1]))})
                 }
             }
         }
@@ -883,7 +911,12 @@ export function runThemeVariableRename({
                     dashlessCalls.push(`${rel}:${call.line}: setCssVariable key '${call.key}'`);
 
                     if (entries.has('--' + call.key)) {
-                        remainingMatches.push({file: rel, line: call.line, token: '--' + call.key + ' (dashless setCssVariable key)'})
+                        remainingMatches.push({
+                            file : rel,
+                            line : call.line,
+                            token: '--' + call.key + ' (dashless setCssVariable key)',
+                            ...recordOf(entries.get('--' + call.key))
+                        })
                     }
                 }
             }
@@ -896,8 +929,18 @@ export function runThemeVariableRename({
         modifiedFiles,
         remainingMatches,
         remainingOldCount: remainingMatches.length,
-        replacements
+        replacements,
+        unmigrated       : remainingMatches.filter(hit => hit.split || hit.dropped).length
     }
+}
+
+/**
+ * @summary What a split or dropped name became, for a match that still holds it; nothing for a plain rename.
+ * @param {Object} entry A `loadRenameMap()` entry
+ * @returns {{split?: String[], dropped?: String}}
+ */
+function recordOf(entry) {
+    return entry.split ? {split: entry.split} : entry.dropped ? {dropped: entry.reason} : {}
 }
 
 if (isEntryModule(import.meta.url)) {
@@ -923,11 +966,14 @@ if (isEntryModule(import.meta.url)) {
             }
 
             for (const hit of summary.remainingMatches.slice(0, 20)) {
-                console.error(`  [remaining] ${hit.file}:${hit.line} ${hit.token}`)
+                const record = hit.split ? ` split into ${hit.split.join(', ')}` : hit.dropped ? ` dropped: ${hit.dropped}` : '';
+
+                console.error(`  [remaining] ${hit.file}:${hit.line} ${hit.token}${record}`)
             }
         }
 
-        if (check && summary.remainingOldCount > 0) {
+        // A split or dropped name has no 1:1 target, so it fails every run until its author migrates it by hand.
+        if ((check && summary.remainingOldCount > 0) || summary.unmigrated > 0) {
             process.exitCode = 1
         }
     } catch (err) {

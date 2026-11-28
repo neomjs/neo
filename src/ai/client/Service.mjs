@@ -1,4 +1,5 @@
-import Base from '../../core/Base.mjs';
+import Base         from '../../core/Base.mjs';
+import {admitWrite} from '../admitWrite.mjs';
 
 /**
  * Base class for Neural Link Client Services.
@@ -49,6 +50,66 @@ class Service extends Base {
         if (method === 'execute_dock_operation') return;
         if (['commit_transaction', 'abort_transaction'].includes(method) && params?.groupId === batch.groupId) return;
         throw new Error('mixed-dock-non-dock-batch')
+    }
+
+    /**
+     * @summary Acquires an existing scoped write lease before a client service mutates a component subtree.
+     * Starts in-flight protection for the returned lease. Unattributed legacy requests return `null`.
+     * @param {Object|null} context The Bridge-stamped `{agentId, sessionId}` writer pair, or null/undefined (legacy).
+     * @param {String} id The target component id whose subtree the write locks.
+     * @returns {Object|null} Fenced acquisition receipt for an enforced write, otherwise `null`.
+     * @protected
+     */
+    assertWritable(context, id) {
+        const {admitted, reason, conflict, acquisition} = admitWrite({
+            context,
+            componentId: id,
+            parentOf   : cid => Neo.getComponent(cid)?.parentId,
+            writeGuard : this.client?.writeGuard
+        });
+
+        if (!admitted) {
+            const heldBy = conflict ? ` (held by ${conflict.agentId} / ${conflict.sessionId})` : '';
+            throw new Error(`Write denied for ${id}: ${reason}${heldBy}`)
+        }
+
+        if (acquisition) {
+            const writeGuard = this.client?.writeGuard,
+                  {began}    = writeGuard?.beginWrite(acquisition) || {began: false};
+
+            if (!began) {
+                if (acquisition.created) {
+                    writeGuard?.releaseWrite(acquisition)
+                }
+                throw new Error(`Write denied for ${id}: stale-acquisition`)
+            }
+        }
+
+        return acquisition
+    }
+
+    /**
+     * @summary End a successful write operation while retaining its held lease.
+     * @param {Object|null} acquisition Fenced receipt returned by {@link assertWritable}.
+     * @protected
+     */
+    finishWritable(acquisition) {
+        if (acquisition) {
+            this.client?.writeGuard?.endWrite(acquisition)
+        }
+    }
+
+    /**
+     * @summary End a failed write with phase-aware release/retain semantics and an observable receipt.
+     * @param {Object|null} acquisition Fenced receipt returned by {@link assertWritable}.
+     * @param {Error|String} error The operation failure.
+     * @param {'pre-mutation'|'rollback-complete'|'unknown'} mutationDisposition Proven mutation phase.
+     * @protected
+     */
+    failWritable(acquisition, error, mutationDisposition) {
+        if (acquisition) {
+            this.client?.writeGuard?.endWrite(acquisition, {failed: true, mutationDisposition, error})
+        }
     }
 
     /**

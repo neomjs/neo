@@ -1,0 +1,84 @@
+.neo-navigation-example.neo-viewport {
+    background-color: var(--neo-navigation-example-background-color);
+    color           : var(--neo-navigation-example-color);
+    flex-direction  : row;
+    font-family     : var(--neo-navigation-example-font-family);
+
+    .neo-navigation-example-main {
+        background-color: transparent;
+        min-block-size  : 0;
+        min-inline-size : 0;
+        position        : relative;
+    }
+
+    .neo-navigation-example-header {
+        background-color: var(--neo-navigation-example-surface-background-color);
+        border-block-end: var(--neo-navigation-example-border-width) solid var(--neo-navigation-example-border-color);
+        justify-content : space-between;
+        padding         : var(--neo-navigation-example-space-small) var(--neo-navigation-example-space-large);
+    }
+
+    .neo-navigation-example-brand {
+        font-size  : var(--neo-navigation-example-brand-font-size);
+        font-weight: var(--neo-navigation-example-brand-font-weight);
+    }
+
+    .neo-navigation-example-content {
+        min-block-size: 0;
+    }
+
+    .neo-navigation-example-card {
+        background-color : var(--neo-navigation-example-background-color);
+        overflow         : auto;
+        padding          : var(--neo-navigation-example-space-large);
+        padding-block-end: calc(var(--neo-floating-action-button-height) + var(--neo-navigation-example-action-gap));
+
+        h1 {
+            font-size   : var(--neo-navigation-example-title-font-size);
+            line-height : var(--neo-navigation-example-title-line-height);
+            margin-block: 0 var(--neo-navigation-example-space-medium);
+        }
+    }
+
+    .neo-navigation-example-detail {
+        color       : var(--neo-navigation-example-detail-color);
+        margin-block: 0 var(--neo-navigation-example-space-small);
+    }
+
+    .neo-navigation-example-list {
+        background-color: var(--neo-navigation-example-surface-background-color);
+        border          : var(--neo-navigation-example-border-width) solid var(--neo-navigation-example-border-color);
+        border-radius   : var(--neo-navigation-example-list-border-radius);
+        list-style      : none;
+        margin          : 0;
+        max-inline-size : 28rem;
+        padding         : 0;
+
+        li {
+            padding: var(--neo-navigation-example-space-small) var(--neo-navigation-example-space-medium);
+        }
+
+        li + li {
+            border-block-start: var(--neo-navigation-example-border-width) solid var(--neo-navigation-example-border-color);
+        }
+    }
+
+    .neo-navigation-example-draft {
+        max-inline-size: 28rem;
+    }
+
+    .neo-navigation-example-new-draft.neo-floating-action-button {
+        inset-block-end : var(--neo-navigation-example-space-medium);
+        inset-inline-end: max(var(--neo-navigation-example-space-medium), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+        position        : absolute;
+    }
+
+    @media (max-width: 600px) {
+        flex-direction: column-reverse;
+
+        .neo-navigation-example-header,
+        .neo-navigation-example-card {
+            padding-inline: var(--neo-navigation-example-space-medium);
+        }
+    }
+}

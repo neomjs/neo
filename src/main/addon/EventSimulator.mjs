@@ -28,6 +28,11 @@ const pointerTypeByMouseType = Object.freeze({
  */
 const touchListNames = Object.freeze(['changedTouches', 'targetTouches', 'touches']);
 
+const gestureNodeGenerations = new WeakMap(),
+      gestureReplays         = new WeakMap();
+
+let nextGestureNodeGeneration = 0;
+
 /**
  * @param {{x:Number,y:Number}} a
  * @param {{x:Number,y:Number}} b
@@ -121,7 +126,7 @@ class EventSimulator extends Base {
          * @protected
          */
         remote: {
-            app: ['dispatch', 'driveDrag', 'driveGesture']
+            app: ['cancelGesture', 'dispatch', 'driveDrag', 'driveGesture', 'getGestureTarget']
         },
         /**
          * @member {Boolean} singleton=true
@@ -378,17 +383,96 @@ class EventSimulator extends Base {
     }
 
     /**
+     * @summary Resolves the exact gesture node in its owning Main document.
+     * @param {String} target
+     * @param {Document} documentRef
+     * @returns {HTMLElement|null}
+     * @protected
+     */
+    getGestureNode(target, documentRef) {
+        const node      = DomAccess.getElement(target, documentRef),
+              bodyAlias = target === 'body' || target === 'document.body';
+
+        return node?.isConnected && node.ownerDocument === documentRef &&
+            (bodyAlias ? node === documentRef.body : DomAccess.getNodeId(node) === target) ? node : null
+    }
+
+    /**
+     * @summary Snapshots physical ancestry from target to root. A recycled id does not reuse a node generation.
+     * @param {HTMLElement} node
+     * @returns {Object[]}
+     * @protected
+     */
+    getGestureTargetPath(node) {
+        const path = [];
+
+        for (let current = node; current; current = current.parentElement) {
+            let generation = gestureNodeGenerations.get(current);
+
+            if (generation === undefined) {
+                generation = ++nextGestureNodeGeneration;
+                gestureNodeGenerations.set(current, generation)
+            }
+
+            path.push({id: DomAccess.getNodeId(current), generation})
+        }
+
+        return path
+    }
+
+    /**
+     * @summary Provides App with a live, window-local target path to resolve its managed write owner.
+     * @param {Object} request
+     * @param {String} request.target
+     * @param {String} request.windowId
+     * @returns {Object[]|null}
+     */
+    getGestureTarget({target, windowId}={}) {
+        if (typeof target !== 'string' || !target || !windowId || windowId !== Neo.worker.Manager?.windowId) return null;
+
+        let node;
+
+        try {
+            node = this.getGestureNode(target, this.getDriveDocument())
+        } catch {
+            return null
+        }
+
+        return node ? this.getGestureTargetPath(node) : null
+    }
+
+    /**
+     * @summary Interrupts the matching replay. The original drive settles only after its contact cleanup.
+     * @param {Object} request
+     * @param {String} request.replayId Internal replay identity assigned by App.
+     * @param {String} request.windowId Owning Main window.
+     * @returns {Boolean} Whether this call interrupted the replay.
+     */
+    cancelGesture({replayId, windowId}={}) {
+        const replay = gestureReplays.get(this);
+
+        if (!replay || replay.replayId !== replayId || replay.windowId !== windowId || replay.controller.signal.aborted) {
+            return false
+        }
+
+        replay.controller.abort(new DriveAbort('interrupted', 'GESTURE_WRITER_DEPARTED', 'the replay writer disconnected'));
+        return true
+    }
+
+    /**
      * @summary Executes a validated contact plan in this document and receipts actual TouchEvents.
      * The initial border box anchors client coordinates, and target identity is checked through the
      * last dispatch. Interruptions cancel the open contacts while this drive still owns the lock.
      * @param {Object} plan
      * @param {Object[]} plan.frames Normalized timed dispatch groups from InteractionService.
+     * @param {String} [plan.replayId] Internal replay identity for a writer-owned drive.
      * @param {String} plan.target Exact node id in this window.
+     * @param {Object[]} [plan.targetPath] Target path observed by App before write admission.
      * @param {Number} plan.timeoutMs Whole replay execution deadline.
      * @param {String} plan.windowId Window selected by App routing.
      * @returns {Promise<Object>}
      */
-    async driveGesture({frames, target, timeoutMs, windowId}) {
+    async driveGesture({frames, replayId, target, targetPath, timeoutMs, windowId}) {
         const receipt = {
             cleanup             : {attempted: false, succeeded: true},
             observed            : [],
@@ -424,7 +508,21 @@ class EventSimulator extends Base {
 
         const interrupt   = (code, message) => controller.abort(new DriveAbort('interrupted', code, message)),
               onPageHide  = () => interrupt('GESTURE_WINDOW_DEPARTED', 'the owning document is departing'),
-              isLive      = () => node.isConnected && node.ownerDocument === documentRef && DomAccess.getElement(target, documentRef) === node,
+              matchesPath = () => {
+                  if (targetPath === undefined) return true;
+
+                  const currentPath = this.getGestureTargetPath(node);
+
+                  return currentPath.length === targetPath.length && currentPath.every(({id, generation}, index) =>
+                      id === targetPath[index]?.id && generation === targetPath[index]?.generation)
+              },
+              checkTargetIdentity = () => {
+                  if (this.getGestureNode(target, documentRef) !== node) {
+                      interrupt('GESTURE_TARGET_REMOVED', 'the original target was removed or replaced during replay')
+                  } else if (!matchesPath()) {
+                      interrupt('GESTURE_TARGET_OWNER_MISMATCH', 'the original target changed its live DOM ancestry during replay')
+                  }
+              },
               checkTarget = () => {
                   signal.throwIfAborted();
 
@@ -432,10 +530,7 @@ class EventSimulator extends Base {
                       interrupt('GESTURE_TIMEOUT', 'the contact trace exceeded its execution deadline')
                   }
 
-                  if (!isLive()) {
-                      interrupt('GESTURE_TARGET_REMOVED', 'the original target was removed or replaced during replay')
-                  }
-
+                  checkTargetIdentity();
                   signal.throwIfAborted()
               };
 
@@ -464,13 +559,18 @@ class EventSimulator extends Base {
                 throw new DriveAbort('unavailable', 'TOUCH_UNAVAILABLE', 'the owning window cannot construct TouchEvents')
             }
 
-            node = DomAccess.getElement(target, documentRef);
+            node = this.getGestureNode(target, documentRef);
 
-            const bodyAlias = target === 'body' || target === 'document.body';
-
-            if (!node?.isConnected || node.ownerDocument !== documentRef ||
-                (bodyAlias ? node !== documentRef.body : DomAccess.getNodeId(node) !== target)) {
+            if (!node) {
                 throw new DriveAbort('unavailable', 'GESTURE_TARGET_UNAVAILABLE', 'the target is not live in the owning document')
+            }
+
+            if (replayId !== undefined || targetPath !== undefined) {
+                if (typeof replayId !== 'string' || !replayId || !Array.isArray(targetPath) || !matchesPath()) {
+                    throw new DriveAbort('unavailable', 'GESTURE_TARGET_OWNER_MISMATCH', 'the target no longer matches the admitted DOM ancestry')
+                }
+
+                gestureReplays.set(this, {controller, replayId, windowId})
             }
 
             const initialRect = node.getBoundingClientRect();
@@ -500,10 +600,12 @@ class EventSimulator extends Base {
             view.addEventListener('pagehide', onPageHide, {signal});
 
             if (view.MutationObserver) {
-                observer = new view.MutationObserver(() => {
-                    if (!isLive()) interrupt('GESTURE_TARGET_REMOVED', 'the original target was removed or replaced during replay')
-                });
-                observer.observe(documentRef, {childList: true, subtree: true})
+                observer = new view.MutationObserver(checkTargetIdentity);
+                observer.observe(documentRef, {
+                    childList: true,
+                    subtree  : true,
+                    ...(targetPath !== undefined && {attributeFilter: ['id', 'data-neo-id']})
+                })
             }
 
             const verify = (list, expectedList) => Array.from(list, (touch, index) => {
@@ -589,7 +691,7 @@ class EventSimulator extends Base {
             try {
                 if (active.size) {
                     receipt.cleanup.attempted = true;
-                    const carrier = node.isConnected ? node : documentRef.body || documentRef,
+                    const carrier = node.isConnected && matchesPath() ? node : documentRef.body || documentRef,
                           changed = [...active.values()];
 
                     // The deadline may have aborted the regular capture listeners. Install one
@@ -608,6 +710,7 @@ class EventSimulator extends Base {
                 receipt.cleanup.succeeded = false
             } finally {
                 controller.abort();
+                gestureReplays.delete(this);
                 this.driveActive = false
             }
         }

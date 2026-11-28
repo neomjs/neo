@@ -81,6 +81,31 @@ test.describe('Neo.ai.Client - agent disconnect lock release', () => {
         ])
     });
 
+    test('agent disconnect keeps its write scope until Main replay cleanup settles', async () => {
+        const writer      = {agentId: 'first', sessionId: 'one'},
+              otherLock   = lock('second', 'two', ['root', 'panel']),
+              interaction = client.services.interaction,
+              cancel      = interaction.cancelWriterGestures,
+              cleanup     = Promise.withResolvers();
+
+        client.writeGuard.requestWrite(lock(writer.agentId, writer.sessionId, otherLock.subtreePath));
+        interaction.cancelWriterGestures = context => {
+            expect(context).toEqual(writer);
+            return cleanup.promise
+        };
+
+        try {
+            const departure = client.handleAgentDisconnected(writer);
+
+            expect(client.writeGuard.requestWrite(otherLock).granted).toBe(false);
+            cleanup.resolve();
+            await expect(departure).resolves.toMatchObject({released: 1});
+            expect(client.writeGuard.requestWrite(otherLock).granted).toBe(true)
+        } finally {
+            interaction.cancelWriterGestures = cancel
+        }
+    });
+
     test('an unknown disconnected writer is a no-op', () => {
         client.writeGuard.requestWrite(lock('neo-opus-ada', 'sess-1', ['root', 'panel']));
 
