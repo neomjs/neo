@@ -2,8 +2,6 @@ import MainStore     from './MainStore.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
 import Store         from '../../../src/data/Store.mjs';
 
-const countrySymbol = Symbol.for('country');
-
 /**
  * @class Neo.examples.grid.cellEditing.MainContainerStateProvider
  * @extends Neo.state.Provider
@@ -37,25 +35,9 @@ class MainContainerStateProvider extends StateProvider {
         }
     }
 
-    /**
-     * @param {Record[]} items
-     */
-    onCountryStoreLoad(items) {
-        let me        = this,
-            mainStore = me.getStore('mainStore'),
-            country;
-
-        // if the main table store is already loaded, the country field renderer had no data
-        if (mainStore.getCount() > 0) {
-            mainStore.forEach(record => {
-                country = record.country;
-
-                // hack resetting the current value to get a new record change
-                record[countrySymbol] = null;
-
-                record.country = country
-            })
-        }
+    /** @summary Repaints mounted country labels when their lookup arrives. */
+    onCountryStoreLoad() {
+        this.component?.exampleComponent?.repaintCells()
     }
 }
 
