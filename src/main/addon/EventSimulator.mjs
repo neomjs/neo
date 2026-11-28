@@ -463,6 +463,8 @@ class EventSimulator extends Base {
      * @summary Executes a validated contact plan in this document and receipts actual TouchEvents.
      * The initial border box anchors client coordinates, and target identity is checked through the
      * last dispatch. Interruptions cancel the open contacts while this drive still owns the lock.
+     * Consecutive offsets set the minimum gap between frames. Correlated event timestamps anchor
+     * the next gap and the receipt in this document's clock.
      * @param {Object} plan
      * @param {Object[]} plan.frames Normalized timed dispatch groups from InteractionService.
      * @param {String} [plan.replayId] Internal replay identity for a writer-owned drive.
@@ -496,7 +498,7 @@ class EventSimulator extends Base {
               {signal}   = controller,
               events     = ['touchstart', 'touchmove', 'touchend', 'touchcancel'];
 
-        let documentRef, node, observer, deadline, expected, observed, start,
+        let documentRef, node, observer, clock, deadline, deadlineAt, expected, observed,
             active = new Map(),
             sequenceOpen = false;
 
@@ -508,6 +510,7 @@ class EventSimulator extends Base {
 
         const interrupt   = (code, message) => controller.abort(new DriveAbort('interrupted', code, message)),
               onPageHide  = () => interrupt('GESTURE_WINDOW_DEPARTED', 'the owning document is departing'),
+              onDeadline  = () => interrupt('GESTURE_TIMEOUT', 'the contact trace exceeded its execution deadline'),
               matchesPath = () => {
                   if (targetPath === undefined) return true;
 
@@ -526,8 +529,8 @@ class EventSimulator extends Base {
               checkTarget = () => {
                   signal.throwIfAborted();
 
-                  if (performance.now() - start >= timeoutMs) {
-                      interrupt('GESTURE_TIMEOUT', 'the contact trace exceeded its execution deadline')
+                  if (clock.now() >= deadlineAt) {
+                      onDeadline()
                   }
 
                   checkTargetIdentity();
@@ -619,18 +622,23 @@ class EventSimulator extends Base {
                   });
 
             receipt.status = 'interrupted';
-            start = performance.now();
-            deadline = setTimeout(() => interrupt('GESTURE_TIMEOUT', 'the contact trace exceeded its execution deadline'), timeoutMs);
+            clock = view.performance;
+            const start = clock.now();
+            deadlineAt = start + timeoutMs;
+            deadline = setTimeout(onDeadline, timeoutMs);
 
+            let deliveredAt = start, previousTime = 0;
             for (const [index, frame] of plan.entries()) {
-                const wait = start + frame.t - performance.now();
+                const wait = deliveredAt + (frame.t - previousTime) - clock.now();
 
                 if (wait > 0) {
-                    await this.timeout(wait, {signal})
+                    await this.timeout(Math.ceil(wait), {signal})
                 }
 
                 checkTarget();
 
+                // Empty frames still consume their gap. A delivered event supersedes frame arrival.
+                deliveredAt = clock.now();
                 const sample = {active: [], changed: [], events: [], frame: index, t: frame.t};
 
                 for (const step of frame.events) {
@@ -660,7 +668,9 @@ class EventSimulator extends Base {
 
                     sample.active = activePoints.map(point => point.id);
                     sample.changed.push(...changedPoints.map(point => point.id));
-                    sample.events.push({active: activePoints, changed: changedPoints, elapsedMs: performance.now() - start, type: event.type});
+                    // The native timestamp precedes any synchronous listener work.
+                    deliveredAt = event.timeStamp;
+                    sample.events.push({active: activePoints, changed: changedPoints, elapsedMs: Math.max(0, deliveredAt - start), type: event.type});
                     receipt.trusted = event.isTrusted;
 
                     if (step.terminal) {
@@ -669,6 +679,8 @@ class EventSimulator extends Base {
                         receipt.terminal = step.terminal
                     }
                 }
+
+                previousTime = frame.t
             }
 
             receipt.status  = 'complete';

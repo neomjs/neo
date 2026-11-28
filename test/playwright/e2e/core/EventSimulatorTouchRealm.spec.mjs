@@ -73,3 +73,125 @@ test.describe('Neo.main.addon.EventSimulator: touch contacts across documents', 
         })
     })
 });
+
+test.describe('Neo.main.addon.EventSimulator: gesture replay timing', () => {
+    const holdDuration = 400,
+          stallMs      = 180;
+
+    test.beforeEach(async ({page}) => {
+        await page.goto('/examples/dashboard/dock/');
+        await page.waitForFunction(() => globalThis.Neo?.worker?.Manager?.windowId, null, {timeout: 30000})
+    });
+
+    /**
+     * @summary Stalls a document capture callback while independently recording the correlated native event times.
+     * @param {import('@playwright/test').Page} page
+     * @param {Object} options
+     * @returns {Promise<Object>}
+     */
+    function replayHold(page, {previousSequence = false, retry = false, timeoutMs} = {}) {
+        return page.evaluate(async ({holdDuration, previousSequence, retry, stallMs, timeoutMs}) => {
+            const [{default: EventSimulator}, {normalizeGestureRequest}] = await Promise.all([
+                import('/src/main/addon/EventSimulator.mjs'), import('/src/ai/client/gestureTrace.mjs')
+            ]);
+
+            const target     = 'touch-timing-target',
+                  node       = document.createElement('div'),
+                  controller = new AbortController(),
+                  delivered  = [],
+                  stallAt    = previousSequence ? 2 : 1,
+                  frame      = (t, id, state) => ({t, contacts: [{id, state, x: 5, y: 5}]}),
+                  drive      = (frames, timeoutMs) => EventSimulator.driveGesture(normalizeGestureRequest({
+                      frames, provider: 'engine', target, timeoutMs, windowId: Neo.worker.Manager.windowId
+                  }));
+
+            node.id = target;
+            node.setAttribute('data-neo-id', target);
+            Object.assign(node.style, {height: '40px', width: '40px'});
+            document.body.append(node);
+
+            const onTouch = event => {
+                if (event.target !== node) return;
+
+                delivered.push({active: Array.from(event.touches, touch => touch.identifier),
+                    changed  : Array.from(event.changedTouches, touch => touch.identifier),
+                    timeStamp: event.timeStamp, type: event.type});
+
+                if (delivered.length === stallAt) {
+                    const releaseAt = performance.now() + stallMs;
+
+                    while (performance.now() < releaseAt) {
+                        // A synchronous listener holds the real Main thread until this callback returns.
+                    }
+                }
+            };
+
+            try {
+                for (const type of ['touchstart', 'touchend', 'touchcancel']) {
+                    document.addEventListener(type, onTouch, {capture: true, passive: true, signal: controller.signal})
+                }
+
+                const prior   = previousSequence ? [frame(0, 'prior', 'down'), frame(20, 'prior', 'up')] : [],
+                      start   = previousSequence ? 40 : 0,
+                      receipt = await drive([...prior, frame(start, 'hold', 'down'), frame(start + holdDuration, 'hold', 'up')], timeoutMs),
+                      events  = delivered.slice(),
+                      fresh   = retry ? await drive([frame(0, 'fresh', 'down'), frame(20, 'fresh', 'up')]) : null;
+
+                return {events, fresh, freshEvents: delivered.slice(events.length), receipt}
+            } finally {
+                controller.abort();
+                node.remove()
+            }
+        }, {holdDuration, previousSequence, retry, stallMs, timeoutMs})
+    }
+
+    /**
+     * @summary Compares the actual hold interval with the corresponding replay receipt.
+     * @param {Object} report
+     * @returns {Number}
+     */
+    function assertHoldInterval({events, receipt}) {
+        const [down, up]                 = events.slice(-2),
+              observed                   = receipt.observed.flatMap(frame => frame.events),
+              [recordedDown, recordedUp] = observed.slice(-2),
+              deliveredMs                = up.timeStamp - down.timeStamp,
+              reportedMs                 = recordedUp.elapsedMs - recordedDown.elapsedMs;
+
+        expect([down.type, up.type]).toEqual(['touchstart', 'touchend']);
+        expect(Math.abs(reportedMs - deliveredMs)).toBeLessThan(2);
+        expect(deliveredMs).toBeGreaterThanOrEqual(holdDuration - 10);
+
+        return deliveredMs
+    }
+
+    test('reports the hold dispatch times when the down callback blocks', async ({page}) => {
+        const report = await replayHold(page);
+
+        expect(report.receipt).toMatchObject({success: true, sequences: ['end'], terminal: 'end', trusted: false});
+        expect(report.events).toHaveLength(2);
+        expect(assertHoldInterval(report)).toBeLessThan(holdDuration + stallMs * 0.75)
+    });
+
+    test('preserves the delivered hold when the previous terminal callback blocks', async ({page}) => {
+        const report = await replayHold(page, {previousSequence: true});
+
+        expect(report.receipt).toMatchObject({success: true, sequences: ['end', 'end'], terminal: 'end'});
+        expect(report.events.map(({type, changed}) => [type, changed])).toEqual([
+            ['touchstart', [1]], ['touchend', [1]], ['touchstart', [2]], ['touchend', [2]]
+        ]);
+        assertHoldInterval(report)
+    });
+
+    test('cancels an open hold at the replay deadline and accepts a fresh replay', async ({page}) => {
+        const {events, fresh, freshEvents, receipt} = await replayHold(page, {previousSequence: true, retry: true, timeoutMs: 500});
+
+        expect(receipt).toMatchObject({status: 'interrupted', success: false, sequences: ['end', 'none'], terminal: 'none',
+            error: {code: 'GESTURE_TIMEOUT'}, cleanup: {attempted: true, succeeded: true}});
+        expect(receipt.observed.flatMap(frame => frame.events).map(event => event.type)).toEqual(['touchstart', 'touchend', 'touchstart']);
+        expect(events.map(({type, active, changed}) => [type, active, changed])).toEqual([
+            ['touchstart', [1], [1]], ['touchend', [], [1]], ['touchstart', [2], [2]], ['touchcancel', [], [2]]
+        ]);
+        expect(fresh).toMatchObject({success: true, sequences: ['end'], terminal: 'end', cleanup: {attempted: false}});
+        expect(freshEvents.map(({type}) => type)).toEqual(['touchstart', 'touchend'])
+    })
+});
