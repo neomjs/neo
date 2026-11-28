@@ -10,7 +10,8 @@ async function readGrid(app) {
         'store.count', 'store.totalCount', 'store.currentPage',
         'store.pipeline.connection.lastRequest', 'isLoading'
     ]);
-    const props = grid.properties;
+    const props = grid?.properties;
+    if (!props) return {count: null, total: null, page: null, request: null, loading: false};
     return {
         count  : props['store.count'], total: props['store.totalCount'], page: props['store.currentPage'],
         request: props['store.pipeline.connection.lastRequest'], loading: !!props.isLoading
@@ -82,8 +83,9 @@ for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) 
                 await page.getByRole('button', {name: 'Dark theme', exact: true}).click();
                 await expect(page.getByRole('button', {name: 'Light theme', exact: true})).toBeVisible()
             }
+            await expect(page.locator('.neo-grid-container')).toHaveCSS('color-scheme', dark ? 'dark' : 'light');
             await expect(page.getByRole('columnheader', {name: 'Order', exact: true})
-                .locator('.neo-button-text')).toHaveCSS('font-weight', dark ? '400' : '600');
+                .locator('.neo-button-text')).toHaveCSS('font-weight', '600');
             await expect(page.locator('.server-side-scope')).toBeVisible();
             await expect(page.locator('.server-side-page-total')).toHaveText('Total: 100,000 rows');
             await widenObservationWindow(app);

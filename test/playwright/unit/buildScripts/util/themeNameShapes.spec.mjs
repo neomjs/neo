@@ -22,7 +22,7 @@ test.describe('themeNameShapes — canonical kindOf() classification and closed 
         expect(SCHEME_PROPERTY).toBe('--neo-color-scheme');
         expect(PALETTE_SLOTS).toHaveLength(7);
         expect(PALETTE_GRADES).toHaveLength(11);
-        expect(PALETTE_EXTRAS.size).toBe(8);
+        expect(PALETTE_EXTRAS.size).toBe(9);
         expect(ROLE_CATEGORIES).toHaveLength(13);
         expect(ROLE_SECOND_SEGMENTS.size).toBe(13);
         expect(OLD_SKELETON_PREFIXES).toHaveLength(16);

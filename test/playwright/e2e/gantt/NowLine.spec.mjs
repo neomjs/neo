@@ -110,7 +110,7 @@ function measure(page, band) {
             timelineEdge  : {
                 bottom     : rect(timelineHeader).bottom,
                 borderWidth: parseFloat(timelineStyle.borderBottomWidth),
-                color      : timelineStyle.boxShadow.match(/rgba?\([^)]*\)/)?.[0] ?? null,
+                color      : timelineStyle.boxShadow.match(/(?:rgba?|oklch)\([^)]*\)/)?.[0] ?? null,
                 insetEdge  : hasBottomInset(timelineStyle.boxShadow)
             },
             plainEdges     : plainHeaders.map(button => {

@@ -74,7 +74,8 @@ const TOLERANCE = Object.freeze({
 
 /**
  * The pairs a palette keeps readable, as `[foreground, background, floor]`: text needs 4.5:1 on its
- * region, a border and the focus ring 3:1. A translucent background is measured over the canvas.
+ * region, a border and the focus ring 3:1, and `background-selected` keeps at least a 1.1:1 step on
+ * `background-accent-subtle`. A translucent background is measured over the canvas.
  * @type {Array[]}
  */
 export const CONTRAST_PAIRS = Object.freeze([
@@ -85,6 +86,7 @@ export const CONTRAST_PAIRS = Object.freeze([
     [TEXT + 'default',         BACKGROUND + 'neutral-active',  4.5],
     [TEXT + 'default',         BACKGROUND + 'accent-subtle',   4.5],
     [TEXT + 'default',         BACKGROUND + 'selected',        4.5],
+    [BACKGROUND + 'selected',  BACKGROUND + 'accent-subtle',   1.1],
     [TEXT + 'strong',          CANVAS,                         4.5],
     [TEXT + 'muted',           CANVAS,                         4.5],
     [TEXT + 'muted',           BACKGROUND + 'surface-raised',  4.5],

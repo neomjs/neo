@@ -341,8 +341,11 @@ body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy .neo-grid-head
    cell-fit contract travels with it — a canvas that escapes its cell in the workspace escapes it
    in a vessel too. */
 .workstation-data-pane {
-    background: var(--workstation-panel);
-    border    : 1px solid var(--workstation-line-soft);
+    /* Cockpit density: 26px Gantt rows and the 173px shared planning column keep 13px cell copy. */
+    --neo-grid-container-font-size: 13px;
+
+    background   : var(--workstation-panel);
+    border       : 1px solid var(--workstation-line-soft);
     border-radius: 8px;
     min-height   : 0;
     min-width    : 0;

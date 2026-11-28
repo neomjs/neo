@@ -1,0 +1,19 @@
+/* Grid column header button, every theme: raised bar surface, opaque pinned-safe hover, muted -> default chrome text. */
+[class*="neo-theme-"] {
+    --neo-grid-header-button-background-color        : var(--neo-color-background-surface-raised);
+    --neo-grid-header-button-background-color-hover  : var(--neo-color-background-accent-subtle);
+    --neo-grid-header-button-background-image        : none;
+    --neo-grid-header-button-border-color-hover      : transparent;
+    --neo-grid-header-button-border-right-color      : var(--neo-color-border-default);
+    --neo-grid-header-button-border-right-color-hover: var(--neo-color-border-default);
+    --neo-grid-header-button-box-shadow-hover        : none;
+    --neo-grid-header-button-color                   : var(--neo-color-text-muted);
+    --neo-grid-header-button-color-hover             : var(--neo-color-text-default);
+    --neo-grid-header-button-font-size               : var(--neo-font-size-caption);
+    --neo-grid-header-button-font-weight             : var(--neo-font-weight-semibold);
+    --neo-grid-header-button-glyph-color             : var(--neo-color-text-muted);
+    --neo-grid-header-button-glyph-color-hover       : var(--neo-color-text-default);
+    --neo-grid-header-button-justify-content         : start;
+    --neo-grid-header-button-padding                 : 0 10px;
+    --neo-grid-header-button-transition              : none;
+}

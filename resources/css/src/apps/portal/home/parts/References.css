@@ -20,7 +20,7 @@
         left: 0;
         width: 90px;
         z-index: 11;
-        background-color: var(--neo-toolbar-background-color);
+        background-color: var(--portal-home-base-bg); /* the section's own surface, not a toolbar's fill */
         background-image: url('../../../../../../../../resources/images/apps/portal/neo-references.png');
         background-position: center;
         background-repeat: no-repeat;
