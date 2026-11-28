@@ -1,3 +1,4 @@
 :root .neo-theme-cyberpunk { /* .neo-table-wrapper */
+    --neo-table-container-cell-padding           : initial;
     --neo-table-container-scrollbar-border-radius: 5px;
 }
