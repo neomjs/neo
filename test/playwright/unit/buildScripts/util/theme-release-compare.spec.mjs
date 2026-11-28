@@ -4,7 +4,6 @@ import os             from 'node:os';
 import path           from 'node:path';
 
 import {
-    ELEMENT_SET,
     PROPERTIES,
     alignGroup,
     contrastOn,
@@ -13,8 +12,6 @@ import {
     formatReport,
     nearSameColor,
     rankCandidates,
-    readElements,
-    resolveOwners,
     sideOutcome
 } from '../../../../../buildScripts/util/theme-release-compare.mjs';
 
@@ -41,8 +38,8 @@ const snapshot = (key, overrides = {}, extra = {}) => {
 };
 
 /**
- * @summary Unit suite for `buildScripts/util/theme-release-compare.mjs`: discovery, pairing, the report, and
- * the in-page reads against a real DOM.
+ * @summary Unit suite for `buildScripts/util/theme-release-compare.mjs`: discovery, pairing and the report. The
+ * in-page reads need a browser and live in `test/playwright/component/buildScripts/util/ThemeReleaseCompare.spec.mjs`.
  */
 test.describe('theme-release-compare — surfaces, pairing, differences and the report', () => {
     test('discovers theme-Neo surfaces under apps/ and examples/, skipping child apps and classic-only configs', () => {
@@ -172,31 +169,5 @@ test.describe('theme-release-compare — surfaces, pairing, differences and the 
         expect(report).toContain('- **examples/menu/context** · neo-theme-neo-light: scheme-unverified (released: neo-theme-neo-dark; `dev`: neo-theme-neo-light (via its theme switcher))');
         expect(report).toContain('Sampled (released/`dev`): button 6/6');
         expect(report).toContain('| `button#0 Save` | border-top-color | `a` | `b` | `--neo-button-border-color` = `var(--neo-color-border-default)` | `--neo-color-border-default` |')
-    });
-
-    test('measures the variable a label paints through, not an equal-valued role, and the one a font size reads', async ({page}) => {
-        await page.setContent(`
-            <style>
-                :root        {--neo-color-text-muted: rgb(62, 68, 88); --neo-control-font-size: 20px}
-                .neo-button  {--neo-button-label-color: var(--neo-color-text-muted); font-size: var(--neo-control-font-size)}
-                .neo-button  {& .neo-button-text {color: var(--neo-button-label-color)}}
-                .neo-toolbar {background-color: rgb(255, 255, 255)}
-            </style>
-            <div class="neo-toolbar"><div class="neo-button"><span class="neo-button-text">Save</span></div></div>`);
-
-        const elements = await page.evaluate(readElements, {elementSet: ELEMENT_SET, properties: PROPERTIES, perGroup: 6}),
-              button   = elements.find(item => item.group === 'button');
-
-        expect(button.values.color).toBe('rgba(62, 68, 88, 1)');
-        expect(button.values['font-size']).toBe('20px');
-        expect(button.backdrop.color).toBe('rgba(255, 255, 255, 1)');
-
-        const [color, fontSize] = await page.evaluate(resolveOwners, [
-            {group: 'button', index: 0, property: 'color'},
-            {group: 'button', index: 0, property: 'font-size'}
-        ]);
-
-        expect(color).toEqual({variable: '--neo-button-label-color', declared: 'var(--neo-color-text-muted)'});
-        expect(fontSize.variable).toBe('--neo-control-font-size')
     })
 });
