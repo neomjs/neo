@@ -26,26 +26,28 @@
         background-color: transparent;
     }
 
+    /* The handle and the button share one row. The handle's start padding mirrors the button's box, so the grip
+       stays centred on the sheet and the handle's focus ring never encloses the button. */
     .neo-sheet-header {
-        flex    : none;
-        position: relative;
+        align-items: center;
+        display    : flex;
+        flex       : none;
 
-        /* The handle's focus ring follows the sheet's rounded top */
+        /* The handle's focus ring follows the sheet's rounded top corner on its side */
         .neo-sheet-handle {
-            border-start-end-radius  : var(--neo-sheet-border-radius);
             border-start-start-radius: var(--neo-sheet-border-radius);
+            flex                     : 1;
+            padding-inline-start     : calc(var(--neo-sheet-toggle-size) + var(--neo-sheet-toggle-inset));
         }
     }
 
-    /* The button sits over the end of the handle's bar, so the grip stays centred on the sheet. Its box is the
-       touch target, as tall as the bar. */
+    /* Its box is the touch target, as tall as the handle's bar */
     .neo-sheet-toggle {
-        inset-block-start: 50%;
-        inset-inline-end : var(--neo-sheet-toggle-inset);
+        flex             : none;
+        margin           : 0;
+        margin-inline-end: var(--neo-sheet-toggle-inset);
         min-block-size   : var(--neo-sheet-toggle-size);
         min-inline-size  : var(--neo-sheet-toggle-size);
-        position         : absolute;
-        translate        : 0 -50%;
     }
 
     /* The content scrolls inside the sheet, and its overscroll never pulls the page */
