@@ -15,9 +15,9 @@ class HighlightJs extends Base {
         className: 'Neo.util.HighlightJs',
         /**
          * Selects the unminified bundle. `build-highlightjs` generates both variants in the workspace.
-         * @member {Boolean} debug=true
+         * @member {Boolean} debug=false
          */
-        debug: true,
+        debug: false,
         /**
          * @member {Boolean} singleton=true
          * @protected

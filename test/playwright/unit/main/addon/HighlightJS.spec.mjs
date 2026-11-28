@@ -50,12 +50,11 @@ test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
         originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument
     });
 
-    test('default loads the shared module before the line-number plugin', async () => {
+    test('default loads the shared module and line-number styles without a classic script', async () => {
         const events = [], library = {highlightBlock() {}};
         const addon  = {
-            highlightJsPath           : HighlightJS.config.highlightJsPath,
-            highlightJsLineNumbersPath: '../../node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
-            themePath                 : './resources/lib/highlightjs-custom-github-theme.css'
+            highlightJsPath: HighlightJS.config.highlightJsPath,
+            themePath      : './resources/lib/highlightjs-custom-github-theme.css'
         };
 
         expect(addon.highlightJsPath).toBeNull();
@@ -73,16 +72,16 @@ test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
         await HighlightJS.prototype.loadFiles.call(addon);
 
         expect(events).toEqual([
-            'module', addon.highlightJsLineNumbersPath, addon.themePath
-        ])
+            'module', '../../resources/lib/highlightjs-line-numbers.css', addon.themePath
+        ]);
+        expect(globalThis.hljs).toBe(library)
     });
 
     test('an explicit classic bundle path remains honored', async () => {
-        const scripts = [], library = {};
+        const scripts = [], styles = [], library = {};
         const addon   = {
-            highlightJsPath           : '/custom/highlight.js',
-            highlightJsLineNumbersPath: '/custom/lines.js',
-            themePath                 : '/custom/theme.css',
+            highlightJsPath: '/custom/highlight.js',
+            themePath      : '/custom/theme.css',
             set(data) { Object.assign(this, data) }
         };
 
@@ -92,10 +91,12 @@ test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
             if (path === addon.highlightJsPath) globalThis.hljs = library;
             else expect(globalThis.hljs).toBe(library)
         };
-        DomAccess.loadStylesheet = async href => expect(href).toBe('/custom/theme.css');
+        DomAccess.loadStylesheet = async href => styles.push(href);
 
         await HighlightJS.prototype.loadFiles.call(addon, {highlightJsPath: '/custom/highlight.js'});
-        expect(scripts).toEqual(['/custom/highlight.js', '/custom/lines.js'])
+        expect(scripts).toEqual(['/custom/highlight.js']);
+        expect(globalThis.hljs).toBe(library);
+        expect(styles).toEqual(['../../resources/lib/highlightjs-line-numbers.css', '/custom/theme.css'])
     });
 
     test('named themes retain app-relative paths and custom paths survive', () => {
@@ -112,6 +113,25 @@ test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
             '/custom/theme.css'
         ]);
         expect(addon.themePath).toBe('/custom/theme.css')
+    });
+
+    test('missing, empty and already-numbered leaves are no-ops', () => {
+        const addon = {isReady: true};
+        globalThis.hljs = {highlightBlock() {throw new Error('leaf must not be highlighted')}};
+
+        for (const node of [null, {textContent: ''}, {textContent: 'one', querySelector: () => ({})}]) {
+            document.getElementById = () => node;
+            expect(() => HighlightJS.prototype.syntaxHighlight.call(addon, {vnodeId: 'code'})).not.toThrow()
+        }
+    });
+
+    test('unready highlighting queues the unchanged request without touching DOM', () => {
+        const data  = {vnodeId: 'code', windowId: 'window-a'}, calls = [],
+              addon = {isReady: false, cacheMethodCall: call => calls.push(call)};
+        document.getElementById = () => {throw new Error('not ready')};
+        HighlightJS.prototype.syntaxHighlight.call(addon, data);
+        expect(calls).toEqual([{fn: 'syntaxHighlight', data}]);
+        expect(calls[0].data).toBe(data)
     });
 
     for (const operation of ['addLine', 'removeLine']) {
