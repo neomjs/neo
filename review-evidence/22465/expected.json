@@ -1,0 +1,954 @@
+[
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(62, 99, 221)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(84, 114, 228)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "0px none rgb(0, 0, 0)",
+        "head": "0px none oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(214, 225, 255)",
+        "head": "oklch(0.875 0.061 267)",
+        "reason": "selected list item fill -> background-selected (accent-200 light, accent-800 dark; Epic #22295 rule 15)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "0px none rgb(240, 241, 244)",
+        "head": "0px none oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.39 0.14 267)",
+        "reason": "selected list item fill -> background-selected (accent-200 light, accent-800 dark; Epic #22295 rule 15)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "list container & item fill -> background-surface (#22465)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(14, 15, 13)",
+        "head": "3px none oklch(0.39 0.034 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(214, 225, 255)",
+        "head": "oklch(0.875 0.061 267)",
+        "reason": "selected list item fill -> background-selected (accent-200 light, accent-800 dark; Epic #22295 rule 15)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(62, 99, 221)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(214, 225, 255)",
+        "head": "rgba(0, 0, 0, 0.1)",
+        "reason": "active list item fill -> translucent background-neutral-active (ADR 0044 decision 3)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "0px none rgb(0, 0, 0)",
+        "head": "0px none oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(13, 15, 18)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container & item fill -> background-surface (#22465)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "dark list item fill -> background-surface, retiring identical #282c37 rest/hover (#22465)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.7 0.031 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.39 0.14 267)",
+        "reason": "selected list item fill -> background-selected (accent-200 light, accent-800 dark; Epic #22295 rule 15)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(84, 114, 228)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(24, 36, 73)",
+        "head": "rgba(255, 255, 255, 0.1)",
+        "reason": "active list item fill -> translucent background-neutral-active (ADR 0044 decision 3)"
+    },
+    {
+        "component": "list",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "0px none rgb(240, 241, 244)",
+        "head": "0px none oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "menu-list",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "menu-list",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "menu-list",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "menu-list",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "menu-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "menu-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "menu-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "menu-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "list container & item fill -> background-surface (#22465)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(14, 15, 13)",
+        "head": "3px none oklch(0.39 0.034 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(14, 15, 13)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(214, 225, 255)",
+        "head": "oklch(0.875 0.061 267)",
+        "reason": "selected list item fill -> background-selected (accent-200 light, accent-800 dark; Epic #22295 rule 15)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(62, 99, 221)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "0px none rgb(0, 0, 0)",
+        "head": "0px none oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "dark list item fill -> background-surface, retiring identical #282c37 rest/hover (#22465)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.7 0.031 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "list & tree-list item glyph (and pseudo-element currentColor) -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.39 0.14 267)",
+        "reason": "selected list item fill -> background-selected (accent-200 light, accent-800 dark; Epic #22295 rule 15)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(84, 114, 228)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "tree-list",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "0px none rgb(240, 241, 244)",
+        "head": "0px none oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "list container & item fill -> background-surface (#22465)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(214, 225, 255)",
+        "head": "oklch(0.875 0.061 267)",
+        "reason": "selected list item fill -> background-selected (accent-200 light, accent-800 dark; Epic #22295 rule 15)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(62, 99, 221)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "list container text (and inherited currentColor) -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "dark list item fill -> background-surface, retiring identical #282c37 rest/hover (#22465)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(24, 36, 73)",
+        "head": "oklch(0.39 0.14 267)",
+        "reason": "selected list item fill -> background-selected (accent-200 light, accent-800 dark; Epic #22295 rule 15)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(84, 114, 228)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    },
+    {
+        "component": "value-picker",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(84, 114, 228)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "selected list item text (and inherited currentColor) -> text-default (13.11:1 light, 8.83:1 dark; ADR 0044 §5)"
+    }
+]
