@@ -57,5 +57,11 @@
             padding   : var(--neo-textfield-input-padding);
             width     : auto;
         }
+
+        /* The wrapper centres its triggers instead of stretching them, so each keeps one row's height as its hit
+           area while the chips grow the wrapper */
+        .neo-field-trigger {
+            height: var(--neo-textfield-input-height);
+        }
     }
 }

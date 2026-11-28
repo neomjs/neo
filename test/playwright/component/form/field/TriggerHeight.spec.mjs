@@ -344,6 +344,32 @@ test.describe('Neo.form.field trigger and input-box height stretching (#22505)',
         expect(matFocused.triggers[0].height).toBeCloseTo(54, 0);
     });
 
+    test('keeps the ChipField picker trigger at its token height, centred, with no chips and with chips that wrap', async ({page}) => {
+        const
+            store   = {data: Array.from({length: 8}, (_, i) => ({id: String(i + 1), name: `Tag ${i + 1}`}))},
+            emptyId = await mountField(page, {importPath: '../form/field/Chip.mjs', ntype: 'chipfield', labelText: 'Tags', store}),
+            wrapId  = await mountField(page, {
+                importPath: '../form/field/Chip.mjs',
+                ntype     : 'chipfield',
+                labelText : 'Tags',
+                store,
+                value     : ['1', '2', '3', '4', '5', '6', '7', '8']
+            }),
+            token   = await page.evaluate(id => parseFloat(getComputedStyle(document.getElementById(id)).getPropertyValue('--neo-textfield-input-height')), emptyId);
+
+        for (const id of [emptyId, wrapId]) {
+            const g       = await readFieldGeometry(page, id),
+                  trigger = g.triggers.at(-1);
+
+            // The hit area keeps the token height, centred on the wrapper, whatever the chips do to the wrapper
+            expect(trigger.height).toBeCloseTo(token, 0);
+            expect(Math.abs((trigger.y + trigger.height / 2) - (g.wrapper.y + g.wrapper.height / 2))).toBeLessThanOrEqual(1)
+        }
+
+        // The control arm: the chips did wrap, so the wrapper is taller than one row
+        expect((await readFieldGeometry(page, wrapId)).wrapper.height).toBeGreaterThan(token * 1.5)
+    });
+
     test('theme-equality stage cells disable vbox flex-1 vertical stretching', async ({page}) => {
         await page.goto('/test/playwright/component/apps/theme-equality/index.html');
         await page.waitForSelector('#theme-equality-viewport[data-ready="true"]', {timeout: 30000});
