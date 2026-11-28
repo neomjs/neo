@@ -63,7 +63,7 @@
         }
 
         .signup-problems-hint {
-            color: var(--secondary-text-color, #888);
+            color: var(--neo-examples-form-validation-hint-color);
         }
 
         li {

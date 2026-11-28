@@ -1,5 +1,5 @@
 .neo-examples-configuration-viewport {
-    background-color: var(--body-background-color);
+    background-color: var(--neo-workbench-background-color);
     transition      : width .5s ease-in-out;
 
     .neo-workbench-stage {
@@ -35,13 +35,13 @@
         width         : 100%;
 
         .neo-workbench-stage-title {
-            color      : var(--label-color, inherit);
+            color      : var(--neo-workbench-color);
             font-size  : 16px;
             font-weight: 700;
         }
 
         .neo-workbench-stage-subtitle {
-            color      : var(--secondary-text-color, #888);
+            color      : var(--neo-workbench-caption-color);
             font-family: monospace;
             font-size  : 12px;
             margin-top : 2px;
@@ -49,7 +49,7 @@
 
         /* A label keeps one line; a description longer than the stage is wide wraps instead of clipping */
         .neo-workbench-stage-desc {
-            color      : var(--label-color, inherit);
+            color      : var(--neo-workbench-color);
             font-size  : 13px;
             margin-top : 4px;
             white-space: normal;
@@ -113,7 +113,7 @@
             padding      : 6px 12px;
 
             .neo-workbench-code-title {
-                color         : var(--secondary-text-color, #888);
+                color         : var(--neo-workbench-caption-color);
                 font-size     : 11px;
                 font-weight   : 700;
                 letter-spacing: 0.05em;
@@ -135,9 +135,9 @@
         }
 
         .neo-workbench-code-pre {
-            background-color: var(--body-background-color);
+            background-color: var(--neo-workbench-code-background-color);
             box-sizing      : border-box;
-            color           : var(--label-color, inherit);
+            color           : var(--neo-workbench-color);
             flex            : 1 1 auto;
             font-family     : ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size       : 12px;
@@ -162,7 +162,7 @@
     }
 
     .neo-inspector-group-title {
-        color         : var(--secondary-text-color, #888);
+        color         : var(--neo-workbench-caption-color);
         font-size     : 11px;
         font-weight   : 700;
         letter-spacing: 0.05em;

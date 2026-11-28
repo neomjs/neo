@@ -1,0 +1,3 @@
+[class*="neo-theme-"] { /* .neo-examples-form-validation */
+    --neo-examples-form-validation-hint-color: var(--neo-color-text-muted);
+}

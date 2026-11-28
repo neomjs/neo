@@ -1,0 +1,6 @@
+:root .neo-theme-cyberpunk { /* .neo-examples-configuration-viewport */
+    --neo-workbench-background-color     : var(--neo-cyber-background-color);
+    --neo-workbench-caption-color        : #8b949e;
+    --neo-workbench-code-background-color: var(--neo-cyber-alt-background-color);
+    --neo-workbench-color                : var(--neo-cyber-color);
+}
