@@ -178,11 +178,12 @@ export const EXCLUSIONS = [{
  */
 export const LOCAL_ONLY = [{
     kind  : 'cause',
-    reason: 'They test the WebSocket Bridge itself: its sessions, a child app\'s connect and writer arbitration',
+    reason: 'They need a real WebSocket Bridge to test sessions, child app connection, writer arbitration and replay cleanup',
     specs : [
         'neural-link/ChildappConnect.spec.mjs',
         'neural-link/Fixture.spec.mjs',
         'write-guard/DisconnectReleaseNL.spec.mjs',
+        'write-guard/GestureWriterLockNL.spec.mjs',
         'write-guard/MultiWriterNL.spec.mjs'
     ]
 }, {

@@ -101,6 +101,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'grid/RowSlotRemapDuplication.spec.mjs',
     'grid/ScrollPagesNL.spec.mjs',
     'grid/SearchToolbarNL.spec.mjs',
+    'grid/SelectionModesExample.spec.mjs',
     'grid/SelectionMultiBody.spec.mjs',
     'grid/StoreUpdateRowsNL.spec.mjs',
     'grid/StreamingExample.spec.mjs',

@@ -10,4 +10,5 @@
     --neo-dialog-icon-color                          : var(--neo-color-text-muted);
     --neo-dialog-icon-color-hover                    : var(--neo-color-text-default);
     --neo-dialog-modal-mask-background-color         : var(--neo-color-background-scrim);
+    --neo-dialog-sheet-border-radius                 : var(--neo-radius-extra-large);
 }

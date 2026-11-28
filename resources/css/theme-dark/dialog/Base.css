@@ -9,4 +9,5 @@
     --neo-dialog-header-button-background-color-hover: var(--neo-button-background-color-hover);
     --neo-dialog-icon-color-hover                    : var(--neo-dialog-icon-color);
     --neo-dialog-modal-mask-background-color         : rgba(100, 100, 100, 0.5);
+    --neo-dialog-sheet-border-radius                  : 16px;
 }

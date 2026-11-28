@@ -3496,8 +3496,13 @@
             "rule": "neo-prefix+css-property-suffix+state-last"
         },
         "--selectfield-input-font": {
-            "to": "--neo-selectfield-input-font",
-            "rule": "neo-prefix"
+            "split": [
+                "--neo-selectfield-input-font-family",
+                "--neo-selectfield-input-font-size",
+                "--neo-selectfield-input-font-weight",
+                "--neo-selectfield-input-line-height"
+            ],
+            "reason": "The font shorthand is now four longhands: family, size, weight and line height."
         },
         "--selectfield-input-height": {
             "to": "--neo-selectfield-input-height",
@@ -4595,8 +4600,13 @@
             "rule": "neo-prefix"
         },
         "--textfield-input-font": {
-            "to": "--neo-textfield-input-font",
-            "rule": "neo-prefix"
+            "split": [
+                "--neo-textfield-input-font-family",
+                "--neo-textfield-input-font-size",
+                "--neo-textfield-input-font-weight",
+                "--neo-textfield-input-line-height"
+            ],
+            "reason": "The font shorthand is now four longhands: family, size, weight and line height."
         },
         "--textfield-input-height": {
             "to": "--neo-textfield-input-height",

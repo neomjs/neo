@@ -17,11 +17,11 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
         const proxy           = page.locator('.neo-dragproxy');
         const assertUnchanged = async () => expect(await read()).toEqual(initial);
 
-        // A real pointer move displays a displaced preview without committing the event.
+        // A real pointer move (including sweeps completing inside Pointer#delay = 100ms) displays a displaced preview without committing the event.
         const x = original.x + original.width / 2, y = original.y + original.height / 2;
         await page.mouse.move(x, y);
         await page.mouse.down();
-        await page.mouse.move(x + 60, y, {steps: 12});
+        await page.mouse.move(x + 60, y, {steps: 3});
         await expect(proxy).toBeVisible();
         await expect.poll(async () => (await proxy.boundingBox())?.x).toBeGreaterThan(original.x + 20);
         expect((await proxy.boundingBox()).width).toBeCloseTo(original.width, 0);
@@ -38,7 +38,7 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
         const rx     = handle.x + handle.width / 2, ry = original.y + original.height * .8;
         await page.mouse.move(rx, ry);
         await page.mouse.down();
-        await page.mouse.move(rx + 60, ry, {steps: 12});
+        await page.mouse.move(rx + 60, ry, {steps: 3});
         await expect(proxy).toBeVisible();
         await expect.poll(async () => (await proxy.boundingBox())?.width).toBeGreaterThan(original.width + 20);
         expect((await proxy.boundingBox()).x).toBeCloseTo(original.x, 0);

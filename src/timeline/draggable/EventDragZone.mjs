@@ -124,6 +124,30 @@ class EventDragZone extends DragZone {
      * @protected
      */
     grabOffset = 0
+    /**
+     * Token identifying the in-flight `dragStart` invocation while `super.dragStart` awaits main-thread setup.
+     * @member {Object|null} #activeStart=null
+     * @private
+     */
+    #activeStart = null
+    /**
+     * Latest proxy style computed by {@link #dragMove}, re-applied once an auto-mounting proxy settles.
+     * @member {Object|null} #latestProxyStyle=null
+     * @private
+     */
+    #latestProxyStyle = null
+    /**
+     * Latest `drag:move` payload received while {@link #dragStart} is still awaiting `super.dragStart`.
+     * @member {Object|null} #pendingMoveData=null
+     * @private
+     */
+    #pendingMoveData = null
+    /**
+     * Proxies that already registered a post-mount style sync continuation.
+     * @member {WeakSet} #syncedProxies
+     * @private
+     */
+    #syncedProxies = new WeakSet()
 
     /**
      * @summary Syncs `moveHorizontal` and `moveVertical` flags when `orientation` changes.
@@ -310,10 +334,29 @@ class EventDragZone extends DragZone {
         };
 
         if (me.dragProxy) {
+            const
+                proxy = me.dragProxy,
+                style = me.getDragProxyStyle(next, data);
+
+            me.#latestProxyStyle = style;
+
             Neo.applyDeltas(me.windowId, [{
-                id   : me.dragProxy.id,
-                style: me.getDragProxyStyle(next, data)
-            }])
+                id: proxy.id,
+                style
+            }]);
+
+            if (!me.moveInMainThread && !proxy.mounted && proxy.mountedPromise && !me.#syncedProxies.has(proxy)) {
+                me.#syncedProxies.add(proxy);
+
+                proxy.mountedPromise.then(() => {
+                    if (me.dragProxy === proxy && !proxy.isDestroyed && me.#latestProxyStyle) {
+                        Neo.applyDeltas(me.windowId, [{
+                            id   : proxy.id,
+                            style: me.#latestProxyStyle
+                        }])
+                    }
+                }).catch(() => null)
+            }
         }
 
         me.fire('dragMove', {
@@ -339,8 +382,8 @@ class EventDragZone extends DragZone {
 
     /**
      * @summary Runs the base `DragZone#dragStart` handshake (`getMainThreadConfigs()`), focuses the dragged bar
-     * (`preventScroll: true`, `modality: 'pointer'`) so touch long-press gestures match mouse focus, and captures
-     * the initial record snapshot and grab offset.
+     * (`preventScroll: true`, `modality: 'pointer'`) so touch long-press gestures match mouse focus, captures the
+     * initial record snapshot and press grab offset, and applies any `drag:move` frame buffered during setup.
      * @param {Object} data
      * @param {AbortSignal} [signal] Discards the snapshot when the press ended during setup.
      */
@@ -354,15 +397,28 @@ class EventDragZone extends DragZone {
             return
         }
 
-        if (me.owner?.cls) {
-            await super.dragStart({
-                clientX: data.clientX ?? 0,
-                clientY: data.clientY ?? 0,
-                ...data,
-                path      : data.path       || [],
-                targetPath: data.targetPath || []
-            }, signal);
-            if (signal?.aborted) return
+        const startToken  = me.#activeStart = {};
+        let   pendingMove = null;
+        me.#pendingMoveData = null;
+
+        try {
+            if (me.owner?.cls) {
+                await super.dragStart({
+                    clientX: data.clientX ?? 0,
+                    clientY: data.clientY ?? 0,
+                    ...data,
+                    path      : data.path       || [],
+                    targetPath: data.targetPath || []
+                }, signal);
+                if (signal?.aborted || me.#activeStart !== startToken) return
+            }
+
+            pendingMove = me.#pendingMoveData
+        } finally {
+            if (me.#activeStart === startToken) {
+                me.#activeStart     = null;
+                me.#pendingMoveData = null
+            }
         }
 
         const barId = me.getDraggedBarId();
@@ -386,7 +442,7 @@ class EventDragZone extends DragZone {
         me.grabOffset  = me.resizeEdge ? 0 : (rawPointer - barStartOffset);
         me.pendingDrop = null;
 
-        me.dragMove(data)
+        me.dragMove(pendingMove || data)
     }
 
     /**
@@ -484,11 +540,15 @@ class EventDragZone extends DragZone {
 
     /**
      * @summary Entry point invoked by `Neo.manager.DomEvent` when a `'drag:move'` event carries `data.dragZoneId === this.id`.
+     * Buffers the latest frame received while {@link #dragStart} is still awaiting `super.dragStart` so pre-delay
+     * catch-up moves apply once `initialSnapshot` is ready.
      * @param {Object} [data={}]
      */
     onDragMove(data={}) {
         if (this.initialSnapshot) {
             this.dragMove(data)
+        } else if (this.#activeStart) {
+            this.#pendingMoveData = data
         }
     }
 
@@ -524,10 +584,13 @@ class EventDragZone extends DragZone {
      * @protected
      */
     resetDragState() {
-        this.initialSnapshot = null;
-        this.pendingDrop     = null;
-        this.grabOffset      = 0;
-        this.resizeEdge      = null
+        this.#activeStart      = null;
+        this.#latestProxyStyle = null;
+        this.#pendingMoveData  = null;
+        this.initialSnapshot   = null;
+        this.pendingDrop       = null;
+        this.grabOffset        = 0;
+        this.resizeEdge        = null
     }
 
     /**

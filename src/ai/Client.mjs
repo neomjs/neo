@@ -329,10 +329,11 @@ class Client extends Base {
      * `(agentId, sessionId)` writer key before calling {@link Neo.ai.WriteGuard#releaseAgent} +
      * {@link Neo.ai.TransactionService#sweep}; a half-stamped frame is dropped so it can neither release a
      * whole agent (or every agent sharing a session id) nor sweep a transaction stack it cannot key.
+     * A dispatched replay holds the disconnected writer's lease until Main settles its contact cleanup.
      * @param {Object} [frame={}]
      * @param {String} [frame.agentId]
      * @param {String} [frame.sessionId]
-     * @returns {{released: Number, swept: Boolean}}
+     * @returns {Object|Promise<Object>} Counts of released locks and swept transaction state.
      */
     handleAgentDisconnected(frame = {}) {
         const
@@ -343,14 +344,16 @@ class Client extends Base {
             return {released: 0, swept: false}
         }
 
-        // The transaction lifecycle must not outlive the lock lifecycle: release the agent's held write-locks
-        // AND sweep its open transaction + undo stack on the same `agent_disconnected` frame — otherwise a
-        // disconnect (or worker restart) leaks an open transaction. `sweep` is the transaction-side counterpart
-        // to `releaseAgent`; both key on the same `(agentId, sessionId)` pair validated above.
-        const {released} = writeGuard.releaseAgent({agentId, sessionId}),
-              {swept     = false} = transactionService?.sweep({id: {agentId, sessionId}}) ?? {};
+        const writer  = {agentId, sessionId},
+              pending = this.services.interaction.cancelWriterGestures(writer),
+              release = () => {
+                  const {released} = writeGuard.releaseAgent(writer),
+                        {swept = false} = transactionService?.sweep({id: writer}) ?? {};
 
-        return {released, swept}
+                  return {released, swept}
+              };
+
+        return pending ? pending.then(release) : release()
     }
 
     /**
@@ -371,7 +374,7 @@ class Client extends Base {
      */
     async onSocketMessage({data}) {
         if (data?.type === 'agent_disconnected') {
-            this.handleAgentDisconnected(data);
+            await this.handleAgentDisconnected(data);
             return
         }
 
