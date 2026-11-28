@@ -69,7 +69,7 @@ test.describe('Neo.ai.client.InteractionService', () => {
         })).resolves.toBe(true)
     });
 
-    test('Client registration routes drive_drag through the InteractionService', () => {
+    test('Client registration routes drag and gesture through the InteractionService', () => {
         const
             map     = {get_window: {}},
             service = {};
@@ -77,8 +77,81 @@ test.describe('Neo.ai.client.InteractionService', () => {
         expect(registerInteractionServiceMethods(map, service)).toBe(map);
         expect(map).toMatchObject({
             drive_drag    : service,
+            drive_gesture : service,
             simulate_event: service
         })
+    });
+
+    test('driveGesture refuses a malformed late frame and an unavailable provider before touching Main', async () => {
+        const calls = [],
+              host  = {resolveDomRect() {calls.push('geometry')}},
+              trace = {provider: 'engine', target: 'chart', windowId: 'popup', frames: [
+                  {t: 0,  contacts: [{id: 'A', x: 5, y: 10, state: 'down'}]},
+                  {t: 10, contacts: [{id: 'A', x: 5, y: 10, state: 'up'}]}
+              ]};
+
+        Neo.Main.importAddon = () => calls.push('import');
+        await expect(InteractionService.prototype.driveGesture.call(host, {
+            ...trace, frames: [trace.frames[0], {t: 10, contacts: [{id: 'B', x: 5, y: 10, state: 'up'}]}]
+        })).resolves.toMatchObject({status: 'invalid', observed: [], terminal: 'none'});
+        await expect(InteractionService.prototype.driveGesture.call(host, {...trace, provider: 'browser'}))
+            .resolves.toMatchObject({status: 'unavailable', provider: 'browser', observed: [], trusted: null});
+        expect(calls).toEqual([])
+    });
+
+    test('driveGesture sends one complete normalized plan to the target window', async () => {
+        const originalWorker = Neo.currentWorker,
+              calls          = [],
+              receipt        = {provider: 'engine', success: true, terminal: 'end', observed: [], phases: [], sequences: ['end'], trusted: false},
+              host           = {resolveDomRect(...args) {calls.push(args)}};
+
+        Neo.currentWorker = {...originalWorker, isSharedWorker: true};
+        Neo.Main.importAddon = args => calls.push(args);
+        Neo.main.addon.EventSimulator = {driveGesture(plan) {calls.push(plan); return receipt}};
+
+        try {
+            await expect(InteractionService.prototype.driveGesture.call(host, {
+                provider: 'engine', target: 'chart', windowId: 'popup', preset: {kind: 'hold', at: {x: 5, y: 10}, durationMs: 50}
+            })).resolves.toBe(receipt);
+            expect(calls).toEqual([
+                ['chart', 'popup'], {name: 'EventSimulator', windowId: 'popup'},
+                expect.objectContaining({target: 'chart', windowId: 'popup', frames: [
+                    expect.objectContaining({t: 0, events: [expect.objectContaining({type: 'touchstart'})]}),
+                    expect.objectContaining({t: 50, events: [expect.objectContaining({type: 'touchend', terminal: 'end'})]})
+                ]})
+            ])
+        } finally {
+            Neo.currentWorker = originalWorker
+        }
+    });
+
+    test('driveGesture refuses a foreign dedicated-window id and an incomplete Main receipt', async () => {
+        const originalWorker   = Neo.currentWorker,
+              originalWindowId = Neo.config.windowId,
+              calls            = [],
+              host             = {resolveDomRect() {calls.push('geometry')}},
+              trace            = {
+                  provider: 'engine', target: 'chart', windowId: 'real',
+                  preset  : {kind: 'hold', at: {x: 5, y: 10}, durationMs: 50}
+              };
+
+        Neo.currentWorker = {isSharedWorker: false};
+        Neo.config.windowId = 'real';
+        Neo.Main.importAddon = () => calls.push('import');
+        Neo.main.addon.EventSimulator = {driveGesture: () => ({success: true})};
+
+        try {
+            await expect(InteractionService.prototype.driveGesture.call(host, {...trace, windowId: 'other'}))
+                .resolves.toMatchObject({error: {code: 'GESTURE_WINDOW_MISMATCH'}, observed: []});
+            expect(calls).toEqual([]);
+
+            await expect(InteractionService.prototype.driveGesture.call(host, trace))
+                .resolves.toMatchObject({error: {code: 'INVALID_GESTURE_RESPONSE'}, observationAvailable: false, terminal: 'none'});
+            expect(calls).toEqual(['geometry', 'import'])
+        } finally {
+            Neo.currentWorker = originalWorker;
+            Neo.config.windowId = originalWindowId
+        }
     });
 
     test('resolveWindow reads the current owning Main realm when no projected geometry exists', async () => {

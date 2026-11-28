@@ -1,0 +1,5 @@
+/* Grid icon-link column, every theme. */
+[class*="neo-theme-"] {
+    --neo-grid-column-icon-link-font-size      : var(--neo-font-size-body);
+    --neo-grid-column-icon-link-label-font-size: var(--neo-control-font-size-medium);
+}

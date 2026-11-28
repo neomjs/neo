@@ -1,0 +1,6 @@
+/* Grid footer toolbar, every theme: raised bar surface, default text, and 10px cell-aligned inline inset. */
+[class*="neo-theme-"] {
+    --neo-grid-footer-toolbar-background-color: var(--neo-color-background-surface-raised);
+    --neo-grid-footer-toolbar-color           : var(--neo-color-text-default);
+    --neo-grid-footer-toolbar-padding         : var(--neo-space-1) 10px;
+}

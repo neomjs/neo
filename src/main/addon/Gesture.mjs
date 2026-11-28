@@ -48,6 +48,17 @@ class Gesture extends Base {
     #observer = null
     /** @member {Number} #nextGestureId */
     #nextGestureId = 0
+    /** @member {WeakMap} #transformClaims */
+    #transformClaims = new WeakMap()
+
+    /**
+     * @summary Installs the local pinch and rotate recognizer on the existing contact stream.
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        this.on('contact', this.trackTransform, this)
+    }
 
     /**
      * @summary Replaces the phases observed by one component at a node without disturbing other subscribers.
@@ -174,6 +185,150 @@ class Gesture extends Base {
     }
 
     /**
+     * @summary Tracks one transform on its admitted Main claim. A survivor can seed a fresh pair,
+     * with a new gesture id and contact labels, while keeping its original contact-down time.
+     * @param {Object} frame
+     * @protected
+     */
+    trackTransform({claim, kind, contacts, changed, elapsed}) {
+        const {family} = claim;
+
+        if (family !== 'pinch' && family !== 'rotate') {
+            return
+        }
+
+        let cohort = this.#transformClaims.get(claim);
+
+        if (!cohort) {
+            if (!contacts.length) return;
+
+            cohort = {down: new Map(), gesture: null};
+            this.#transformClaims.set(claim, cohort)
+        }
+
+        for (const {id} of contacts) {
+            if (!cohort.down.has(id)) cohort.down.set(id, elapsed)
+        }
+
+        const {gesture} = cohort;
+
+        if (kind === 'cancel' || contacts.length < 2) {
+            if (gesture) {
+                this.cancelTransformFrame(gesture);
+                cohort.gesture = null;
+                this.publish(claim, `${family}:${kind === 'cancel' ? 'cancel' : 'end'}`, {
+                    ...gesture.latest,
+                    changed : changed.flatMap(id => gesture.ids.has(id) ? [gesture.ids.get(id)] : []),
+                    contacts: [],
+                    elapsed : elapsed - gesture.startedAt
+                })
+            }
+
+            if (kind === 'cancel' || !contacts.length) {
+                this.#transformClaims.delete(claim)
+            } else {
+                for (const id of cohort.down.keys()) {
+                    if (!contacts.some(contact => contact.id === id)) cohort.down.delete(id)
+                }
+            }
+
+            return
+        }
+
+        const ordered  = [...contacts].sort((left, right) => left.id - right.id),
+              members  = ordered.map(({id}) => id),
+              [a, b]   = ordered,
+              dx       = b.x - a.x,
+              dy       = b.y - a.y,
+              distance = Math.hypot(dx, dy),
+              angle    = Math.atan2(dy, dx),
+              // Close contacts have no stable bearing. A new valid vector becomes the baseline.
+              basis    = Number.isFinite(distance) && distance >= 0.01 ? {angle, distance, members} : null;
+
+        if (!gesture && !basis) {
+            return
+        }
+
+        const current = gesture ?? {
+            basis    : null,
+            ids      : new Map(),
+            pending  : new Set(),
+            raf      : null,
+            rotation : 0,
+            scale    : 1,
+            startedAt: Math.min(cohort.down.get(a.id), cohort.down.get(b.id))
+        };
+
+        if (basis && current.basis && members.length === current.basis.members.length &&
+            members.every((id, index) => current.basis.members[index] === id)) {
+            const scale = current.scale * (distance / current.basis.distance),
+                  delta = (angle - current.basis.angle) * 180 / Math.PI;
+
+            if (Number.isFinite(scale) && scale > 0) current.scale = scale;
+            current.rotation += delta > 180 ? delta - 360 : delta < -180 ? delta + 360 : delta
+        }
+
+        current.basis = basis;
+
+        const mapped = ordered.map(point => {
+            if (!current.ids.has(point.id)) current.ids.set(point.id, current.ids.size);
+
+            return {...point, id: current.ids.get(point.id)}
+        });
+
+        current.latest = {
+            contacts: mapped,
+            elapsed : elapsed - current.startedAt,
+            x       : mapped.reduce((total, point) => total + point.x / mapped.length, 0),
+            y       : mapped.reduce((total, point) => total + point.y / mapped.length, 0),
+            ...(family === 'pinch' ? {scale: current.scale} : {rotation: current.rotation})
+        };
+
+        const labels = changed.flatMap(id => current.ids.has(id) ? [current.ids.get(id)] : []);
+
+        if (!gesture) {
+            if (this.publish(claim, `${family}:start`, {...current.latest, changed: labels})) {
+                cohort.gesture = current
+            }
+        } else {
+            labels.forEach(id => current.pending.add(id));
+            this.queueTransformFrame(claim, current)
+        }
+    }
+
+    /**
+     * @summary Publishes the latest geometry once per frame and holds changed identities across samples.
+     * @param {Object} claim
+     * @param {Object} gesture
+     * @protected
+     */
+    queueTransformFrame(claim, gesture) {
+        if (gesture.raf !== null) return;
+
+        gesture.raf = this.#document.defaultView.requestAnimationFrame(() => {
+            gesture.raf = null;
+            if (this.#transformClaims.get(claim)?.gesture !== gesture) return;
+
+            const changed = [...gesture.pending];
+
+            gesture.pending.clear();
+            this.publish(claim, `${claim.family}:move`, {...gesture.latest, changed})
+        })
+    }
+
+    /**
+     * @summary Prevents a queued motion frame from crossing the terminal of its gesture.
+     * @param {Object} gesture
+     * @protected
+     */
+    cancelTransformFrame(gesture) {
+        if (gesture.raf !== null) {
+            this.#document.defaultView.cancelAnimationFrame(gesture.raf);
+            gesture.raf = null
+        }
+    }
+
+    /**
      * @summary Observes input only while this window has at least one registration.
      * @protected
      */
@@ -292,7 +447,7 @@ class Gesture extends Base {
                 // An uncancelable TouchEvent is also possible on an eligible horizontal stroke.
                 // Pointer cancellation ends the claim; Touch still owns the physical cohort's lifetime.
                 if (sequence) {
-                    this.cancelSequence(sequence);
+                    this.cancelSequence(sequence, event.timeStamp);
                     this.syncObserver()
                 }
             } else if (type === 'pointerup') {
@@ -401,7 +556,7 @@ class Gesture extends Base {
             }
 
             if (kind === 'cancel') {
-                this.cancelClaim(claim, changedIds);
+                this.cancelClaim(claim, changedIds, timeStamp);
                 continue
             }
 
@@ -436,9 +591,11 @@ class Gesture extends Base {
      * @summary Cancels an owner exactly once and removes it from the current physical sequence.
      * @param {Object} claim
      * @param {Number[]} [changed]
+     * @param {Number} [timeStamp] Native time, or the owning window's clock for lifecycle cancellation.
      * @protected
      */
-    cancelClaim(claim, changed=[...claim.ids.values()]) {
+    cancelClaim(claim, changed=[...claim.ids.values()], timeStamp=this.#document.defaultView?.performance?.now() ?? performance.now()) {
+        claim.sequence.elapsed = Math.max(claim.sequence.elapsed, timeStamp - claim.sequence.startedAt);
         claim.sequence.claims.delete(claim.family);
         claim.live  = false;
         claim.frame = {changed, contacts: [], elapsed: claim.sequence.elapsed, pointerType: claim.sequence.pointerType, trusted: claim.sequence.trusted};
@@ -452,11 +609,12 @@ class Gesture extends Base {
 
     /**
      * @param {Object} sequence
+     * @param {Number} [timeStamp]
      * @protected
      */
-    cancelSequence(sequence) {
+    cancelSequence(sequence, timeStamp) {
         for (const claim of sequence.claims.values()) {
-            this.cancelClaim(claim)
+            this.cancelClaim(claim, undefined, timeStamp)
         }
 
         this.releaseCapture(sequence)

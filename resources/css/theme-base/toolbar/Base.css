@@ -1,0 +1,14 @@
+/* Toolbar, every theme: each variable bound to a role (ADR 0044 decision 4). A theme re-values one in its own
+   toolbar/Base.css only where its design language deviates. The rules in src/toolbar/Base.css read these. */
+[class*="neo-theme-"] {
+    /* .neo-toolbar – chrome: a raised bar in both schemes */
+    --neo-toolbar-background-color: var(--neo-color-background-surface-raised);
+    /* Listed literal: on space-1 a toolbar is 40px high instead of 42px. It binds with the first density scope */
+    --neo-toolbar-padding         : 5px;
+
+    /* A toolbar's buttons: the medium control, whatever an ancestor raises a button to */
+    --neo-toolbar-button-font-size: var(--neo-control-font-size-medium);
+    --neo-toolbar-button-height   : var(--neo-control-height-medium);
+    --neo-toolbar-button-min-width: var(--neo-control-height-medium);
+    --neo-toolbar-button-padding  : 0 var(--neo-control-padding-inline-medium);
+}

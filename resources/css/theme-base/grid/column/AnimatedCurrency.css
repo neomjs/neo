@@ -1,0 +1,5 @@
+/* Grid animated currency column, every theme: symmetric 60% status flash mixes over row surfaces. */
+[class*="neo-theme-"] {
+    --neo-grid-cell-animated-negative-background-color: color-mix(in srgb, var(--neo-color-border-danger) 60%, transparent);
+    --neo-grid-cell-animated-positive-background-color: color-mix(in srgb, var(--neo-color-border-success) 60%, transparent);
+}

@@ -1,0 +1,8 @@
+/* Grid progress column, every theme: accent bar fill over `background-disabled` track and role inset shadow. */
+[class*="neo-theme-"] {
+    --neo-grid-cell-progress-border-radius        : 2px;
+    --neo-grid-cell-progress-box-shadow           : inset 0 var(--neo-space-0-5) var(--neo-space-1) var(--neo-color-shadow);
+    --neo-grid-cell-progress-height               : 10px;
+    --neo-grid-cell-progress-track-background-color: var(--neo-color-background-disabled);
+    --neo-grid-cell-progress-value-background-color: var(--neo-color-background-accent);
+}
