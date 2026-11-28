@@ -1,0 +1,17 @@
+/* Tooltip, every theme: each variable bound to a role (ADR 0044 decision 4, rule 24 of #22295). A theme re-values one
+   in its own tooltip/Base.css only where its design language deviates; an inverse bubble is such a file. The shared
+   tooltip stamps the hovered target's theme class on itself, so this rule matches the tooltip element. The rules in
+   src/tooltip/Base.css read these. */
+[class*="neo-theme-"] {
+    /* .neo-tooltip – the accent bubble theme Neo has painted since 14.0, in both schemes */
+    --neo-tooltip-background-color: var(--neo-color-background-accent);
+    --neo-tooltip-color           : var(--neo-color-text-on-accent);
+    --neo-tooltip-border          : none;
+    --neo-tooltip-box-shadow      : none;
+
+    /* The small control's box */
+    --neo-tooltip-border-radius   : var(--neo-radius-small);
+    --neo-tooltip-font-size       : var(--neo-control-font-size-medium);
+    --neo-tooltip-height          : var(--neo-control-height-small);
+    --neo-tooltip-padding         : var(--neo-space-0-5) var(--neo-space-2) 0;
+}
