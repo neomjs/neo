@@ -114,15 +114,20 @@ class DateUtil extends Base {
      * @returns {Number}
      */
     static getWeekOfYear(targetDate) {
-        let date      = new Date(Date.UTC(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate())),
-            dayNumber = (date.getUTCDay() + 6) % 7,
-            firstDay;
+        // Date.UTC(year, ...) reads the years 0-99 as 1900-1999, setUTCFullYear() keeps the full year
+        let date = new Date(0),
+            dayNumber, firstDay;
+
+        date.setUTCFullYear(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+        dayNumber = (date.getUTCDay() + 6) % 7;
 
         // The Thursday of the ISO week decides which ISO year the week belongs to
         date.setUTCDate(date.getUTCDate() - dayNumber + 3);
-        firstDay = Date.UTC(date.getUTCFullYear(), 0, 1);
 
-        return Math.floor((date.valueOf() - firstDay) / (7 * 24 * 3600 * 1000)) + 1
+        firstDay = new Date(date.valueOf());
+        firstDay.setUTCMonth(0, 1);
+
+        return Math.floor((date.valueOf() - firstDay.valueOf()) / (7 * 24 * 3600 * 1000)) + 1
     }
 
     /**

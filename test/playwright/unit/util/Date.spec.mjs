@@ -86,6 +86,32 @@ test.describe('Neo.util.Date', () => {
         expect(DateUtil.getWeekOfYear(new Date(2021, 0, 4, 0, 30))).toBe(1)
     });
 
+    test('getWeekOfYear keeps the full year for years below 100', () => {
+        // The Date constructor and Date.UTC() read the years 0-99 as 1900-1999, so the dates are built via setFullYear()
+        let localDate = (year, month, day) => {
+            let date = new Date(2000, 0, 1, 12, 0);
+
+            date.setFullYear(year, month, day);
+
+            return date
+        };
+
+        // 0099-01-01 (a Thursday) is in week 1 of the ISO week year 99
+        expect(DateUtil.getWeekOfYear(localDate(99, 0, 1))).toBe(1);
+
+        // 0099-12-31 (a Thursday) is in week 53 of the ISO week year 99
+        expect(DateUtil.getWeekOfYear(localDate(99, 11, 31))).toBe(53);
+
+        // 0100-01-01 (a Friday) and 0100-01-03 (a Sunday) still belong to week 53 of the ISO week year 99
+        expect(DateUtil.getWeekOfYear(localDate(100, 0, 1))).toBe(53);
+        expect(DateUtil.getWeekOfYear(localDate(100, 0, 3))).toBe(53);
+
+        // 0100-01-04 (a Monday) starts week 1 of the ISO week year 100
+        expect(DateUtil.getWeekOfYear(localDate(100, 0, 4))).toBe(1);
+
+        expect(DateUtil.getWeekOfYear(localDate(50, 5, 15))).toBe(24)
+    });
+
     test('getWeekOfYear does not change the passed date', () => {
         let date = new Date(2026, 10, 29, 23, 30);
 
