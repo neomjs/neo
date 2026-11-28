@@ -1,0 +1,15 @@
+=== main neo-theme-neo-dark: 7 visible change groups (ΔE ≥ 0.3)
+  11   button.icon-right.neo-button.neo-draggable | border-right-color | oklch(0.39 0.034 270) -> oklch(0.303 0.034 257) | ΔE 8.7
+   6   div.neo-dock-top.neo-flex-align-center.neo-flex-container | box-shadow | oklch(0.39 0.034 270) -> oklch(0.303 0.034 257) | ΔE 8.7
+   1   div.neo-container.neo-dashboard.neo-dashboard-dock-query-host | background-color | oklch(0.168 0.008 270) -> oklch(0.163 0.008 257) | ΔE 0.5
+   1   div.neo-container.neo-dashboard.neo-dashboard-dock-edge-zone | background-color | oklch(0.168 0.008 270) -> oklch(0.163 0.008 257) | ΔE 0.5
+   1   div.neo-container.neo-dashboard-dock-edge-row.neo-flex-align-stretch | background-color | oklch(0.168 0.008 270) -> oklch(0.163 0.008 257) | ΔE 0.5
+   1   div.neo-container.neo-dashboard-dock-split.neo-dashboard-dock-split-horizontal | background-color | oklch(0.168 0.008 270) -> oklch(0.163 0.008 257) | ΔE 0.5
+   1   div.neo-container.neo-dashboard-dock-edge-band.neo-dashboard-dock-edge-band-right | background-color | oklch(0.168 0.008 270) -> oklch(0.163 0.008 257) | ΔE 0.5
+=== popout neo-theme-neo-dark: 2 visible change groups (ΔE ≥ 0.3)
+   1   div.neo-container.neo-dashboard.neo-dashboard-dock-edge-zone | background-color | oklch(0.168 0.008 270) -> oklch(0.163 0.008 257) | ΔE 0.5
+   1   div.neo-dock-top.neo-flex-align-center.neo-flex-container | box-shadow | oklch(0.39 0.034 270) -> oklch(0.303 0.034 257) | ΔE 8.7
+=== main neo-theme-neo-light: 1 visible change groups (ΔE ≥ 0.3)
+  24   i | color | oklch(0.168 0.008 270) -> oklch(0.163 0.008 257) | ΔE 0.5
+=== popout neo-theme-neo-light: 1 visible change groups (ΔE ≥ 0.3)
+   6   i | color | oklch(0.168 0.008 270) -> oklch(0.163 0.008 257) | ΔE 0.5
