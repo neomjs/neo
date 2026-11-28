@@ -505,6 +505,18 @@ test.describe('Workstation independent roots: native held gesture', () => {
                     await page.mouse.move(target.x + target.width / 2 - main.x, target.y + target.height / 2 - main.y, {steps: 24});
                     await expect.poll(async () => (await app.callMethod(coordinators[0].id, 'toJSON')).activeTargetZone?.windowId,
                         {message: 'the same held gesture reaches A\'s own popup', timeout: 15000}).toBe(popupA.windowId);
+                    await expect.poll(() => observer.evaluate(async ({id, windowId}) => {
+                        const coordinator = Neo.get(id),
+                              targetZone  = coordinator.activeTargetZone,
+                              payload     = targetZone?.currentDragPayload;
+
+                        if (targetZone?.windowId !== windowId || payload?.draggedItem?.dockItemId !== 'feed') return false;
+
+                        const settled = await targetZone.awaitRemoteDragEmbodiment(payload.draggedItem);
+
+                        return settled && coordinator.activeTargetZone === targetZone && targetZone.currentDragPayload === payload
+                    }, {id: coordinators[0].id, windowId: popupA.windowId}),
+                    {message: 'A\'s exact preview and header proxy render before mouseup', timeout: 15000}).toBe(true);
                     expect((await app.callMethod(coordinators[0].id, 'toJSON')).pointerGestureToken).toBe(token);
                     await page.mouse.up();
                     held = false;
