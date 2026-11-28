@@ -118,6 +118,7 @@ test('the five-theme menu switches by pointer and keyboard and restores trigger 
 
     await page.keyboard.press('Enter');
     await expectChoices(menu, 'Cyberpunk');
+    await expect(cyberpunk).toBeFocused();
     await page.keyboard.press('Home');
     await expect(neoLight).toBeFocused();
     await page.keyboard.press('ArrowDown');
@@ -130,6 +131,7 @@ test('the five-theme menu switches by pointer and keyboard and restores trigger 
 
     await page.keyboard.press('Enter');
     await expectChoices(menu, 'Neo Dark');
+    await expect(neoDark).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(menu).toBeHidden();
     await expect(switcher).toHaveAttribute('aria-expanded', 'false');

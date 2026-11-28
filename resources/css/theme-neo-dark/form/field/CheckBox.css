@@ -1,8 +1,0 @@
-:where(.neo-theme-neo-dark) { /* .neo-checkboxfield */
-    --neo-checkboxfield-color           : var(--neo-gray-200);
-    --neo-checkboxfield-color-selected   : var(--neo-purple-300);
-    --neo-checkboxfield-icon-font-family: var(--fa-style-family-classic);
-    --neo-checkboxfield-icon-font-size  : 14px;
-    --neo-checkboxfield-icon-margin     : 0;
-    --neo-checkboxfield-label-top-margin: 0 0 3px;
-}

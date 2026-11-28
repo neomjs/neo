@@ -1,3 +1,5 @@
 :root .neo-theme-cyberpunk { /* .neo-switchfield */
+    --neo-switchfield-knobsize           : initial;
     --neo-switchfield-track-border-radius: 999px;
+    --neo-switchfield-width              : initial;
 }

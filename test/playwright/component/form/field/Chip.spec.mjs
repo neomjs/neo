@@ -1,4 +1,5 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}    from '@playwright/test';
+import {themeSheetHrefs} from '../../../util/themeSheets.mjs';
 
 let componentId, componentSequence = 0;
 
@@ -253,14 +254,7 @@ test.describe('Neo.form.field.Chip', () => {
     });
 
     test('neo-light and neo-dark both resolve chip tokens through the field layout', async ({page}) => {
-        await loadStylesheets(page, [
-            '/dist/development/css/theme-neo-light/Global.css',
-            '/dist/development/css/theme-neo-light/component/Chip.css',
-            '/dist/development/css/theme-neo-light/form/field/Text.css',
-            '/dist/development/css/theme-neo-dark/Global.css',
-            '/dist/development/css/theme-neo-dark/component/Chip.css',
-            '/dist/development/css/theme-neo-dark/form/field/Text.css'
-        ]);
+        await loadStylesheets(page, themeSheetHrefs(['neo-theme-neo-light', 'neo-theme-neo-dark'], ['component.Chip', 'form.field.Text']));
 
         await page.evaluate(id => Neo.worker.App.setConfigs({
             id,
@@ -312,11 +306,7 @@ test.describe('Neo.form.field.Chip', () => {
     });
 
     test('once the chips and the input fill the row, the triggers stay at its end rather than wrap', async ({page}) => {
-        await loadStylesheets(page, [
-            '/dist/development/css/theme-neo-light/Global.css',
-            '/dist/development/css/theme-neo-light/component/Chip.css',
-            '/dist/development/css/theme-neo-light/form/field/Text.css'
-        ]);
+        await loadStylesheets(page, themeSheetHrefs(['neo-theme-neo-light'], ['component.Chip', 'form.field.Text']));
 
         await page.evaluate(id => Neo.worker.App.setConfigs({id, theme: 'neo-theme-neo-light', value: ['alpha', 'beta']}), componentId);
 
@@ -354,11 +344,7 @@ test.describe('Neo.form.field.Chip', () => {
     });
 
     test('narrower than the input\'s 80 px, the input shrinks and stays clear of the triggers', async ({page}) => {
-        await loadStylesheets(page, [
-            '/dist/development/css/theme-neo-light/Global.css',
-            '/dist/development/css/theme-neo-light/component/Chip.css',
-            '/dist/development/css/theme-neo-light/form/field/Text.css'
-        ]);
+        await loadStylesheets(page, themeSheetHrefs(['neo-theme-neo-light'], ['component.Chip', 'form.field.Text']));
 
         const
             field = page.locator(`#${componentId}`),

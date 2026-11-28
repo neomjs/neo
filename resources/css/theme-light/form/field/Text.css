@@ -1,4 +1,5 @@
 :root .neo-theme-light { /* .neo-textfield */
+    --neo-textfield-alert-color                    : darkorange;
     --neo-textfield-border-color                   : #ddd;
     --neo-textfield-border-color-active            : #1c60a0;
     --neo-textfield-border-color-alert             : darkorange;
@@ -8,14 +9,18 @@
     --neo-textfield-border-color-readonly          : #ddd;
     --neo-textfield-border-radius                  : 3px;
     --neo-textfield-border-width                   : 1px;
+    --neo-textfield-error-color                    : brown;
     --neo-textfield-input-background-color         : #fff;
     --neo-textfield-input-background-color-disabled: #fff;
     --neo-textfield-input-background-color-readonly: #fbfbfb;
     --neo-textfield-input-color                    : #000;
     --neo-textfield-input-color-disabled           : #000;
     --neo-textfield-input-color-readonly           : #000;
-    --neo-textfield-input-font                     : 400 13px/17px Arial;
+    --neo-textfield-input-font-family              : Arial;
+    --neo-textfield-input-font-size                : 13px;
+    --neo-textfield-input-font-weight              : 400;
     --neo-textfield-input-height                   : 25px;
+    --neo-textfield-input-line-height              : 17px;
     --neo-textfield-input-padding                  : 3px 6px 2px;
     --neo-textfield-input-placeholder-color        : #333;
     --neo-textfield-input-placeholder-opacity      : 0.6;
