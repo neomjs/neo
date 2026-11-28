@@ -650,23 +650,21 @@ class SortZone extends DragZone {
     }
 
     /**
-     * Handles the completion of the drag operation. Invoked exactly once per drag via the
+     * @summary Settles the original live subtree and its layout in one covering Main operation.
+     * Invoked exactly once per drag via the
      * {@link #onDragEnd} re-entry latch; subclasses extend this method, not `onDragEnd`.
      *
-     * This method is responsible for:
-     * 1.  **Finalizing the Drop:** If valid, it moves the DOM nodes to their final positions (via `Neo.applyDeltas`).
-     * 2.  **Cleanup:** Removes the drag placeholder and resets internal state flags (`isWindowDragging`, `currentIndex`, etc.).
-     * 3.  **Layout Restoration:** Resets the styles of all items (clearing the absolute positioning used during the drag)
-     *     so they return to the container's natural layout flow.
-     * 4.  **State Synchronization:** Calls `owner.moveTo()` to update the container's `items` array to reflect the new order.
+     * Local live proxies return to their old owner slot before the ordinary unpin/reorder deltas.
+     * Drop commits once; cancellation only restores layout. Terminal metadata travels with the
+     * covering render, and Main's DragDrop addon composes its existing delta descriptors.
      *
      * @param {Object} data - The drag end event data.
      */
     async processDragEnd(data) {
-        let me                  = this,
-            {itemStyles, owner} = me,
-            ownerStyle          = owner.style || {},
-            itemStyle;
+        let me                            = this,
+            {itemStyles, owner, windowId} = me,
+            ownerStyle                    = owner.style || {},
+            itemStyle, terminalPrelude, terminalProxy, terminalPlaceholder, terminalComponent, terminalFailure;
 
         await me.timeout(10);
 
@@ -686,7 +684,7 @@ class SortZone extends DragZone {
                     if (index > -1 && !me.isWindowDragging) {
                         // Only move DOM if not window dragging or if it's a remote drag being finalized locally
                         if (!me.isRemoteDragging || (me.isRemoteDragging && !me.isWindowDragging)) {
-                             deltas.push({
+                            deltas.push({
                                 action: 'moveNode',
                                 id    : component.id,
                                 index,    // Native siblings use owner order, including items excluded from sorting.
@@ -700,72 +698,169 @@ class SortZone extends DragZone {
                         id    : me.dragPlaceholder.id
                     });
 
-                    // Manual DOM restoration
-                    await Neo.applyDeltas(me.windowId, deltas)
+                    if (index > -1 && !me.isWindowDragging && !me.isRemoteDragging &&
+                        component !== me.dragPlaceholder && me.dragProxy) {
+                        terminalProxy       = me.dragProxy;
+                        terminalPlaceholder = me.dragPlaceholder;
+                        terminalComponent   = component;
+                        terminalPrelude     = [...deltas, {action: 'removeNode', id: terminalProxy.id}]
+                    } else {
+                        await Neo.applyDeltas(me.windowId, deltas)
+                    }
                 }
             }
 
-            // A drop that re-projected the source can destroy the owner and its items while this latch waited:
-            // a destroyed component has nothing left to restore
-            if (!owner.isDestroyed) {
-                ownerStyle.height   = me.ownerStyle.height    || null;
-                ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
-                ownerStyle.position = me.ownerStyle.position  || null;
-                ownerStyle.width    = me.ownerStyle.width     || null;
+            const participants = terminalPrelude ? [...new Set([owner, ...(me.pinnedItems || me.sortableItems || []), me.dragComponent])]
+                .filter(item => item && !item.isDestroyed && item !== terminalPlaceholder)
+                .map(item => ({item, previous: item.silentVdomUpdate})) : [];
+            participants.forEach(({item}) => {item.silentVdomUpdate = true});
+            try {
+                // A drop that re-projected the source can destroy the owner and its items while this latch waited:
+                // a destroyed component has nothing left to restore
+                if (!owner.isDestroyed) {
+                    ownerStyle.height   = me.ownerStyle.height    || null;
+                    ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
+                    ownerStyle.position = me.ownerStyle.position  || null;
+                    ownerStyle.width    = me.ownerStyle.width     || null;
 
-                owner.style = ownerStyle
-            }
-
-            (me.pinnedItems || me.sortableItems)?.forEach((item, index) => {
-                if (item.isDestroyed || (me.isWindowDragging && item === me.dragComponent)) {
-                    return
+                    owner.style = ownerStyle
                 }
 
-                itemStyle = item.wrapperStyle || {};
+                (me.pinnedItems || me.sortableItems)?.forEach((item, index) => {
+                    if (item.isDestroyed || item === terminalPlaceholder || (me.isWindowDragging && item === me.dragComponent)) {
+                        return
+                    }
 
-                Object.assign(itemStyle, {
-                    height  : itemStyles[index].height || null,
-                    left    : null,
-                    margin  : null,
-                    position: null,
-                    top     : null,
-                    width   : itemStyles[index].width || null
+                    itemStyle = item.wrapperStyle || {};
+
+                    Object.assign(itemStyle, {
+                        height  : itemStyles[index].height || null,
+                        left    : null,
+                        margin  : null,
+                        position: null,
+                        top     : null,
+                        width   : itemStyles[index].width || null
+                    });
+
+                    if (item === me.sortableItems[me.startIndex]) {
+                        itemStyle.visibility = null
+                    }
+
+                    item.wrapperStyle = itemStyle
                 });
 
-                if (item === me.sortableItems[me.startIndex]) {
-                    itemStyle.visibility = null
+                // Restore visibility of the dragged component (it's not in sortableItems if placeholder is used)
+                if (me.dragComponent && !me.dragComponent.isDestroyed) {
+                    let style = me.dragComponent.wrapperStyle || {};
+                    style.visibility = null;
+                    me.dragComponent.wrapperStyle = style;
                 }
 
-                item.wrapperStyle = itemStyle
-            });
+                if (!data.cancelled && !me.isWindowDragging && !me.isRemoteDragging && me.startIndex !== me.currentIndex) {
+                    let fromIndex, toIndex;
 
-            // Restore visibility of the dragged component (it's not in sortableItems if placeholder is used)
-            if (me.dragComponent && !me.dragComponent.isDestroyed) {
-                let style = me.dragComponent.wrapperStyle || {};
-                style.visibility = null;
-                me.dragComponent.wrapperStyle = style;
+                    if (me.dragPlaceholder) {
+                        const component = me.dragComponent;
+                        fromIndex = me.owner.items.indexOf(component);
+                        toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
+                    } else {
+                        fromIndex = me.owner.items.indexOf(me.sortableItems[me.startIndex]);
+                        toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
+                    }
+
+                    me.traceEvent({t: 'end', from: fromIndex, to: toIndex});
+
+                    // A committed cross-container drop can re-project the workspace and destroy the
+                    // source owner while this latch completes — the local reorder is moot then, and
+                    // calling into a destroyed owner chain throws.
+                    me.owner?.isDestroyed || me.moveTo(fromIndex, toIndex);
+                } else {
+                    me.traceEvent({t: data.cancelled ? 'cancel' : 'end', from: me.startIndex, to: me.currentIndex, noop: true});
+                }
+            } catch (error) {
+                if (!terminalPrelude) throw error;
+                // A commit callback can throw after changing the model. Settle the current state
+                // without retrying that callback, then surface its original failure.
+                terminalFailure = error
+            } finally {
+                // Real components count nested silent scopes; release our level back to the prior value.
+                participants.forEach(({item, previous}) => {!item.isDestroyed && (item.silentVdomUpdate = previous)})
             }
 
-            if (!data.cancelled && !me.isWindowDragging && !me.isRemoteDragging && me.startIndex !== me.currentIndex) {
-                let fromIndex, toIndex;
-
-                if (me.dragPlaceholder) {
-                    const component = me.dragComponent;
-                    fromIndex = me.owner.items.indexOf(component);
-                    toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
-                } else {
-                    fromIndex = me.owner.items.indexOf(me.sortableItems[me.startIndex]);
-                    toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
+            if (terminalPrelude) {
+                try {
+                    if (owner.isDestroyed || me.isDestroyed) {
+                        // A committed callback can retire the owner before it has a render to carry this work.
+                        // Cleanup is still owned, but restoring into the retired owner would resurrect its content.
+                        await Neo.applyDeltas(windowId, terminalPrelude.filter(delta => delta.action === 'removeNode'))
+                    } else {
+                        const originalMeta = owner.getVdomUpdateMeta,
+                              hadOwnMeta   = Object.hasOwn(owner, 'getVdomUpdateMeta');
+                        let   pending      = true;
+                        const terminalMeta = () => {
+                            const meta = originalMeta?.call(owner);
+                            if (!pending) return meta;
+                            if (meta != null && Object.hasOwn(meta, 'sortZoneTerminal') && !Array.isArray(meta.sortZoneTerminal)) {
+                                throw new TypeError(`SortZone terminal metadata for "${owner.id}" must be an array`)
+                            }
+                            pending = false;
+                            // A model callback may have removed the original while committing.
+                            const prelude = owner.items.includes(terminalComponent) ? terminalPrelude :
+                                terminalPrelude.filter(delta => delta.action !== 'moveNode');
+                            return {...meta, sortZoneTerminal: [...meta?.sortZoneTerminal || [], ...prelude]}
+                        };
+                        owner.getVdomUpdateMeta = terminalMeta;
+                        try {
+                            owner.denseUpdate = true;
+                            if (owner.updateDepth !== -1) owner.updateDepth = Math.max(owner.updateDepth, 2);
+                            await owner.promiseUpdate()
+                        } finally {
+                            if (!owner.isDestroyed && owner.getVdomUpdateMeta === terminalMeta) {
+                                if (hadOwnMeta) owner.getVdomUpdateMeta = originalMeta;
+                                else delete owner.getVdomUpdateMeta
+                            }
+                        }
+                    }
+                } catch (error) {
+                    terminalFailure = terminalFailure ? new AggregateError([terminalFailure, error], 'Drag commit and terminal render failed') : error;
+                    // A render can reject before or after Main. Its promise is not a delivery receipt.
+                    // Return a still-owned original before retiring its live proxy; never resurrect a retired owner.
+                    // This is awaited failure cleanup, not render rollback: the original rejection stays visible.
+                    try {
+                        let canRestore = !owner.isDestroyed && !terminalComponent.isDestroyed && owner.items.includes(terminalComponent);
+                        if (canRestore) {
+                            const childIds = await Neo.main.DomAccess.getChildNodeIds({id: terminalProxy.id, windowId});
+                            // An already-applied batch may have failed during vnode adoption. Do not undo its reorder.
+                            canRestore = childIds?.includes(terminalComponent.id) && !owner.isDestroyed &&
+                                !terminalComponent.isDestroyed && owner.items.includes(terminalComponent)
+                        }
+                        if (canRestore) {
+                            await Neo.applyDeltas(windowId, terminalPrelude.filter(delta => delta.action === 'moveNode'));
+                            // moveNode can no-op if its destination was unmounted. Do not delete live content then.
+                            const childIds = await Neo.main.DomAccess.getChildNodeIds({id: terminalProxy.id, windowId});
+                            if (childIds?.includes(terminalComponent.id)) {
+                                throw new Error('Live drag component remains in its proxy after terminal recovery')
+                            }
+                        }
+                        await Neo.applyDeltas(windowId, terminalPrelude.filter(delta => delta.action === 'removeNode'))
+                    } catch (cleanupError) {
+                        // Keep the worker handles when Main itself could not clean up, rather than deleting
+                        // the last references to live content whose physical location is unknown.
+                        throw new AggregateError([terminalFailure, cleanupError], 'Drag terminal render and cleanup failed')
+                    }
                 }
 
-                me.traceEvent({t: 'end', from: fromIndex, to: toIndex});
-
-                // A committed cross-container drop can re-project the workspace and destroy the
-                // source owner while this latch completes — the local reorder is moot then, and
-                // calling into a destroyed owner chain throws.
-                me.owner?.isDestroyed || me.moveTo(fromIndex, toIndex);
-            } else {
-                me.traceEvent({t: data.cancelled ? 'cancel' : 'end', from: me.startIndex, to: me.currentIndex, noop: true});
+                // Success removes both physical nodes in the owner operation; failure cleanup awaits its own writes.
+                terminalPlaceholder.destroy();
+                terminalProxy.destroy();
+                if (!me.isDestroyed) {
+                    if (me.dragPlaceholder === terminalPlaceholder) me.dragPlaceholder = null;
+                    if (me.dragProxy === terminalProxy) me.dragProxy = null
+                }
+                if (me.isDestroyed) {
+                    if (terminalFailure) throw terminalFailure;
+                    return
+                }
             }
 
             // activeTrace stays set until the next onDragStart replaces it: subclasses record
@@ -792,6 +887,7 @@ class SortZone extends DragZone {
 
             const focusOwner = me.dragFocusOwner;
             me.dragFocusOwner = null;
+            if (terminalFailure) throw terminalFailure;
 
             // A hidden element cannot take focus: the restore waits until the re-show above has rendered
             const reshown = focusOwner && !focusOwner.isDestroyed && await focusOwner.promiseUpdate().then(() => true, () => false);

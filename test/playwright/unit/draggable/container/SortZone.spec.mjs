@@ -13,6 +13,7 @@ import Neo                from '../../../../../src/Neo.mjs';
 import * as core          from '../../../../../src/core/_export.mjs';
 import InstanceManager    from '../../../../../src/manager/Instance.mjs';
 import VdomHelper         from '../../../../../src/vdom/Helper.mjs';
+import DomApiVnodeCreator from '../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import Component          from '../../../../../src/component/Base.mjs';
 import Container          from '../../../../../src/container/Base.mjs';
 import DragProxyContainer from '../../../../../src/draggable/DragProxyContainer.mjs';
@@ -21,27 +22,54 @@ import SortZone           from '../../../../../src/draggable/container/SortZone.
 import TabHeaderSortZone  from '../../../../../src/draggable/tab/header/toolbar/SortZone.mjs';
 import Rectangle          from '../../../../../src/util/Rectangle.mjs';
 
+const savedDocument  = globalThis.document, savedWindow = globalThis.window,
+      savedDomAccess = Neo.main.DomAccess, savedDragDrop = Neo.main.addon.DragDrop;
+globalThis.document = Object.assign(new EventTarget(), {body: {}, documentElement: {}});
+globalThis.window = new EventTarget();
+delete Neo.main.DomAccess;
+delete Neo.main.addon.DragDrop;
+const {default: MainDragDrop} = await import('../../../../../src/main/addon/DragDrop.mjs');
+Neo.main.DomAccess = savedDomAccess;
+Neo.main.addon.DragDrop = savedDragDrop;
+if (savedDocument === undefined) delete globalThis.document; else globalThis.document = savedDocument;
+if (savedWindow === undefined) delete globalThis.window; else globalThis.window = savedWindow;
+
 /**
  * @summary A live proxy restores in owner order, including rendered siblings excluded from sorting.
- * The actual proxy constructor and start/end queue run; only native geometry, mount admission and delta transport are stubbed.
+ * Local drags use the actual renderer, proxy constructor and start/end queue; only native geometry and delta transport are stubbed.
  */
 test.describe('SortZone live proxy owner slots (#20861)', () => {
-    const realApplyDeltas = Neo.applyDeltas, realGetDomRect = Container.prototype.getDomRect;
-    let owner, zone, detached, deltas, commits, events, realAddon;
+    const testApp = Neo.appsByName[appName][0];
+    let owner, zone, detached, deltas, commits, events, prior;
 
-    const createOwner = async (excludeFirst=false) => {
+    const restore = (object, key, descriptor) => {
+        if (descriptor) Object.defineProperty(object, key, descriptor);
+        else delete object[key]
+    };
+
+    const settle = () => Promise.all([
+        owner.promiseUpdate(), ...owner.items.map(item => item.promiseUpdate()), zone?.dragPlaceholder?.promiseUpdate()
+    ]);
+
+    const createOwner = async (excludeFirst=false, {render=true}={}) => {
         owner = Neo.create(Container, {
             appName, layout: {ntype: 'hbox'}, dragResortable: true,
+            style: {height: '100px', width: '300px', minWidth: '300px', position: 'relative'},
             items: ['live-slot-A', 'live-slot-B', 'live-slot-C'].map((id, index) => ({
-                ntype: 'component', id, cls: excludeFirst && index === 0 ? [] : ['sortable']
+                ntype: 'component', id, cls: excludeFirst && index === 0 ? [] : ['sortable'], wrapperStyle: {visibility: null}
             })),
             sortZoneConfig: {
                 module         : SortZone, dragHandleSelector: '.sortable',
                 getPinnedItems : ownerItems => ownerItems,
-                dragProxyConfig: {module: DragProxyContainer, mounted: true},
+                dragProxyConfig: {module: DragProxyContainer},
                 timeout        : () => Promise.resolve()
             }
         });
+        if (render) {
+            await owner.initVnode(true);
+            expect(owner.mounted).toBe(true);
+            expect(owner.vnodeInitialized).toBe(true)
+        }
         await expect.poll(() => owner.sortZone).toBeTruthy();
         zone = owner.sortZone;
         const moveTo = owner.moveTo.bind(owner);
@@ -58,6 +86,7 @@ test.describe('SortZone live proxy owner slots (#20861)', () => {
             {id: dragged.id, cls: ['sortable'], rect: new Rectangle(200, 0, 100, 100)},
             {id: owner.id, cls: [], rect: new Rectangle(0, 0, 300, 100)}
         ]});
+        await settle();
 
         const placeholderId = zone.dragPlaceholder.id;
         expect(zone.dragProxy).toBeInstanceOf(DragProxyContainer);
@@ -81,9 +110,31 @@ test.describe('SortZone live proxy owner slots (#20861)', () => {
 
     test.beforeEach(() => {
         deltas = []; commits = []; events = [];
-        realAddon = Neo.main.addon.DragDrop;
+        const app = testApp;
+        prior = {
+            apps       : Object.getOwnPropertyDescriptor(Neo, 'apps'),
+            appsByName : Object.getOwnPropertyDescriptor(Neo, 'appsByName'),
+            applyDeltas: Object.getOwnPropertyDescriptor(Neo, 'applyDeltas'),
+            updateBatch: Object.getOwnPropertyDescriptor(VdomHelper, 'updateBatch'),
+            getDomRect : Object.getOwnPropertyDescriptor(Container.prototype, 'getDomRect'),
+            addon      : Object.getOwnPropertyDescriptor(Neo.main.addon, 'DragDrop'),
+            config     : Object.fromEntries(['allowVdomUpdatesInTests', 'useDomApiRenderer', 'useVdomWorker', 'windowId']
+                .map(key => [key, Object.getOwnPropertyDescriptor(Neo.config, key)])),
+            app, appDescriptors: Object.getOwnPropertyDescriptors(app)
+        };
+        Neo.apps = {...Neo.apps, 1: app};
+        Neo.appsByName = {...Neo.appsByName, [appName]: [app]};
+        Object.assign(Neo.config, {allowVdomUpdatesInTests: true, useDomApiRenderer: true, useVdomWorker: false, windowId: 1});
+        const updateBatch = VdomHelper.updateBatch;
+        // Explicit Main boundary; App-worker metadata transport has its own native acceptance.
+        VdomHelper.updateBatch = function(data) {
+            const response = updateBatch.call(this, data);
+            MainDragDrop.prototype.onDeltaUpdate(response);
+            return response
+        };
         Neo.applyDeltas = async (windowId, batch) => {
-            deltas.push(...batch.map(({action, id, index, parentId, vnode}) => ({action, id: id || vnode?.id, index, parentId})))
+            deltas.push(...(Array.isArray(batch) ? batch : [batch])
+                .map(({action, id, index, parentId, vnode}) => ({action, id: id || vnode?.id, index, parentId})))
         };
         Neo.main.addon.DragDrop = {
             registerZone       : async () => {}, unregisterZone: async () => {},
@@ -95,13 +146,26 @@ test.describe('SortZone live proxy owner slots (#20861)', () => {
             : new Rectangle(owner.items.findIndex(item => item.id === id) * 100, 0, 100, 100)))
     });
 
-    test.afterEach(() => {
-        owner?.destroy();
-        detached?.destroy();
-        owner = zone = detached = null;
-        Neo.applyDeltas = realApplyDeltas;
-        Container.prototype.getDomRect = realGetDomRect;
-        Neo.main.addon.DragDrop = realAddon
+    test.afterEach(async () => {
+        try {
+            if (owner?.mounted && owner.vnodeInitialized && Neo.config.allowVdomUpdatesInTests) await settle()
+        } finally {
+            zone?.destroy();
+            owner?.destroy();
+            detached?.destroy();
+            owner = zone = detached = null;
+            restore(Neo, 'applyDeltas', prior.applyDeltas);
+            restore(VdomHelper, 'updateBatch', prior.updateBatch);
+            restore(Container.prototype, 'getDomRect', prior.getDomRect);
+            restore(Neo.main.addon, 'DragDrop', prior.addon);
+            Object.entries(prior.config).forEach(([key, descriptor]) => restore(Neo.config, key, descriptor));
+            Reflect.ownKeys(prior.app).forEach(key => {
+                if (!Object.hasOwn(prior.appDescriptors, key)) delete prior.app[key]
+            });
+            Object.defineProperties(prior.app, prior.appDescriptors);
+            restore(Neo, 'apps', prior.apps);
+            restore(Neo, 'appsByName', prior.appsByName)
+        }
     });
 
     for (const excluded of [false, true]) for (const cancelled of [false, true]) {
@@ -125,13 +189,17 @@ test.describe('SortZone live proxy owner slots (#20861)', () => {
         const {dragged, items, placeholderId} = await start(true);
         await zone.onDragMove({clientX: 100, clientY: 50});
         expect(zone.currentIndex).toBe(0);
+        await settle();
+        deltas.length = 0;
         await zone.onDragEnd({});
+        await owner.promiseUpdate();
 
         expectCleanup(placeholderId);
         expect(commits).toEqual([{from: 2, to: 1}]);
         expect(owner.items).toEqual([items[0], items[2], items[1]]);
         expect(deltas.filter(delta => delta.action === 'moveNode')).toEqual([
-            {action: 'moveNode', id: dragged.id, index: 2, parentId: owner.id}
+            {action: 'moveNode', id: dragged.id, index: 2, parentId: owner.id},
+            {action: 'moveNode', id: dragged.id, index: 1, parentId: owner.id}
         ])
     });
 
@@ -148,7 +216,9 @@ test.describe('SortZone live proxy owner slots (#20861)', () => {
     });
 
     test('the remote-owned placeholder keeps its owner slot and is still cleaned up', async () => {
-        await createOwner();
+        // This control owns the existing remote-placeholder semantics, not remote rendering.
+        Neo.config.allowVdomUpdatesInTests = false;
+        await createOwner(false, {render: false});
         const items = [...owner.items], placeholder = Neo.create(Component, {appName});
         owner.add(placeholder);
         const placeholderId = placeholder.id;
@@ -262,7 +332,7 @@ test.describe('Neo.draggable.container.SortZone', () => {
         Container.prototype.getDomRect = (ids) => {
             // Return a dummy rect for each requested ID (owner + items)
             return Promise.resolve(ids.map(() => ({
-                x: 0, y: 0, width: 100, height: 100, top: 0, left: 0, right: 100, bottom: 100,
+                x    : 0, y: 0, width: 100, height: 100, top: 0, left: 0, right: 100, bottom: 100,
                 clone: () => ({x: 0, y: 0, width: 100, height: 100})
             })));
         };
@@ -282,7 +352,7 @@ test.describe('Neo.draggable.container.SortZone', () => {
                 module: SortZone, // Pass module directly
                 // We use a selector to identify sortable items, mimicking the real usage
                 dragHandleSelector: '.neo-draggable',
-                timeout: () => Promise.resolve()
+                timeout           : () => Promise.resolve()
             }
         });
 
