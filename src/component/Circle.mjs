@@ -158,6 +158,12 @@ class Circle extends Component {
      */
     dragStartAbortController = null;
 
+    /** @member {Number|null} #itemDragId The active ID from the legacy Main drag route. */
+    #itemDragId = null
+
+    /** @member {Object|null} #rotationGesture The angle and item index before the admitted pair started. */
+    #rotationGesture = null
+
     /**
      * @param {Object} config
      */
@@ -208,6 +214,12 @@ class Circle extends Component {
                 local  : true,
                 passive: false
             }
+        }, {
+            'rotate:start' : me.onGestureRotate,
+            'rotate:move'  : me.onGestureRotate,
+            'rotate:end'   : me.onGestureRotate,
+            'rotate:cancel': me.onGestureRotate,
+            scope          : me
         }]);
 
         me.store = Neo.create(Collection, {
@@ -221,6 +233,20 @@ class Circle extends Component {
         me.updateTitle(true);
 
         me.update()
+    }
+
+    /**
+     * @summary Restores the last committed angle if the Circle detaches during a rotation.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (!value && this.#rotationGesture) {
+            this.onGestureRotate({gestureId: this.#rotationGesture.gestureId, phase: 'cancel'})
+        }
     }
 
     /**
@@ -257,7 +283,7 @@ class Circle extends Component {
         value && import('../draggable/DragZone.mjs').then(module => {
             DragZone = module.default;
 
-            if (!me.dragListenersAdded) {
+            if (!me.isDestroying && !me.isDestroyed && me.draggable && !me.dragListenersAdded) {
                 domListeners.push(
                     {'drag:end'  : me.onDragEnd,   scope: me, delegate: 'neo-circle-item'},
                     {'drag:start': me.onDragStart, scope: me, delegate: 'neo-circle-item'}
@@ -366,7 +392,9 @@ class Circle extends Component {
      * @protected
      */
     afterSetRotateZ(value, oldValue) {
-        oldValue && this.vnodeInitialized && this.rotate()
+        if (oldValue !== undefined && this.vnodeInitialized && !this.isDestroying) {
+            this.rotate()
+        }
     }
 
     /**
@@ -695,6 +723,8 @@ class Circle extends Component {
      * @param {Object} data
      */
     onDragEnd(data) {
+        if (!this.dragStartAbortController || (data.gestureId != null && data.gestureId !== this.#itemDragId)) return;
+
         this.resetDragStart();
         this.dragZone?.dragEnd(data)
     }
@@ -704,8 +734,14 @@ class Circle extends Component {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me          = this,
-            dragElement = me.getItemEl(data.currentTarget);
+        const me = this;
+
+        if (me.#rotationGesture) {
+            me.cancelItemDrag(data.gestureId);
+            return
+        }
+
+        const dragElement = me.getItemEl(data.currentTarget);
 
         if (!dragElement) return;
 
@@ -726,36 +762,94 @@ class Circle extends Component {
 
         me.dragStartAbortController?.abort();
         me.dragStartAbortController = new AbortController();
+        me.#itemDragId              = data.gestureId ?? null;
         me.dragZone.dragElement     = dragElement;
         me.dragZone.dragStart(data, me.dragStartAbortController.signal)
     }
 
     /**
+     * @summary Applies the same angle bounds and item index to wheel and touch input.
+     * @param {Number} angle
+     * @protected
+     */
+    applyInputRotation(angle) {
+        if (this.maxItems <= 0) return;
+
+        const itemAngle = 360 / this.maxItems,
+              maxAngle  = Math.max(0, (this.store.getCount() - this.maxItems) * itemAngle),
+              rotateZ   = Math.max(0, Math.min(maxAngle, angle));
+
+        this.rotationIndex = Math.floor(rotateZ / itemAngle);
+        this.rotateZ       = rotateZ
+    }
+
+    /**
+     * @summary Applies cumulative rotation from the admitted pair and rolls back on cancellation.
+     * @param {Object} data Gesture data from the owning Main window.
+     */
+    onGestureRotate({gestureId, phase, rotation}) {
+        const gesture = this.#rotationGesture;
+
+        if (phase === 'start') {
+            if (gesture) return;
+
+            this.#rotationGesture = {gestureId, angle: this.rotateZ, index: this.rotationIndex};
+            this.cancelItemDrag(this.#itemDragId, this.dragStartAbortController);
+            return
+        }
+
+        if (!gesture || gesture.gestureId !== gestureId) return;
+
+        if (phase === 'end' || phase === 'cancel') this.#rotationGesture = null;
+
+        if (phase === 'cancel') {
+            this.rotationIndex = gesture.index;
+            this.rotateZ       = gesture.angle
+        } else if (Number.isFinite(rotation)) {
+            this.applyInputRotation(gesture.angle + rotation)
+        }
+    }
+
+    /**
+     * @summary Keeps the normal local wheel action available outside an admitted pair.
      * @param {Object} data
      */
-    onMouseWheel(data) {
-        let me        = this,
-            deltaY    = data.deltaY,
-            itemAngle = 360 / me.maxItems,
-            maxAngle  = Math.max(0, (me.store.getCount() - me.maxItems) * itemAngle),
-            rotateZ   = me.rotateZ;
+    onMouseWheel({deltaY}) {
+        if (!this.#rotationGesture) {
+            this.applyInputRotation(this.rotateZ + (Math.abs(deltaY) > 1 ? deltaY : 0))
+        }
+    }
 
-        if (deltaY >  1 || deltaY < -1) {
-            rotateZ += deltaY
+    /**
+     * @summary Yields a matching legacy drag to rotation and aborts its pending proxy setup.
+     * @param {Number|null} gestureId The legacy drag ID, independent of the rotation ID.
+     * @param {AbortController|null} [controller] Present when Circle already accepted the item drag.
+     * @protected
+     */
+    cancelItemDrag(gestureId, controller) {
+        const {windowId} = this,
+              finish     = () => {
+                  if (controller && this.dragStartAbortController === controller && !this.isDestroying && !this.isDestroyed) {
+                      this.dragZone?.onDragCancel({gestureId, windowId})
+                  }
+              };
+
+        controller?.abort();
+
+        if (gestureId == null) {
+            finish();
+            return
         }
 
-        if (rotateZ < 0) {
-            rotateZ = 0;
-        } else if (rotateZ > maxAngle) {
-            rotateZ = maxAngle
-        }
+        Neo.main.addon.DragDrop.cancelDrag({gestureId, windowId}).then(cancelled => {
+            if (!cancelled) finish()
+        }, error => {
+            finish();
 
-        if (!(me.rotateZ === 0 && rotateZ === 0) && !(me.rotateZ === maxAngle && rotateZ === maxAngle)) {
-            me.rotateZ       = rotateZ;
-            me.rotationIndex = Math.floor(rotateZ / itemAngle);
-
-            me.rotate()
-        }
+            if (error !== Neo.isDestroyed && error?.name !== 'PortDisconnectedError') {
+                console.error('Circle: item drag cancellation failed', error)
+            }
+        })
     }
 
     /**
@@ -764,35 +858,34 @@ class Circle extends Component {
      */
     resetDragStart() {
         this.dragStartAbortController?.abort();
-        this.dragStartAbortController = null
+        this.dragStartAbortController = null;
+        this.#itemDragId              = null
     }
 
     /**
      *
      */
     rotate() {
-        let me             = this,
-            circleCenterEl = me.vdom.cn[0],
-            transform = [
-                `rotateX(${me.rotateX}deg)`,
-                `rotateY(${me.rotateY}deg)`,
-                `rotateZ(${me.rotateZ}deg)`
-            ].join(' ');
+        const me             = this,
+              circleCenterEl = me.vdom.cn[0],
+              paint          = () => {
+                  if (me.isDestroying || me.isDestroyed) return;
+
+                  me.updateItemAngle(true);
+                  circleCenterEl.style.transform = `rotateX(${me.rotateX}deg) rotateY(${me.rotateY}deg) rotateZ(${me.rotateZ}deg)`;
+                  me.update()
+              };
 
         if (me.circleCenterHasTransitionCls) {
             NeoArray.add(circleCenterEl.cls, 'no-transition');
 
             me.circleCenterHasTransitionCls = false;
 
-            me.promiseUpdate().then(() => {
-                me.updateItemAngle(true);
-                circleCenterEl.style.transform = transform;
-                me.update()
+            me.promiseUpdate().then(paint, error => {
+                if (error !== Neo.isDestroyed) console.error('Circle: rotation update failed', error)
             })
         } else {
-            me.updateItemAngle(true);
-            circleCenterEl.style.transform = transform;
-            me.update()
+            paint()
         }
     }
 
