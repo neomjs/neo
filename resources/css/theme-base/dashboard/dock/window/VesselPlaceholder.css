@@ -1,0 +1,6 @@
+/* A detached dock window's placeholder, every theme: each variable bound to a role (ADR 0044 decision 4). The
+   rules in src/dashboard/dock/window/VesselPlaceholder.css read these. */
+[class*="neo-theme-"] {
+    --neo-dock-vessel-placeholder-background-color : var(--neo-color-background-surface);
+    --neo-dock-vessel-placeholder-color            : var(--neo-color-text-default);
+}
