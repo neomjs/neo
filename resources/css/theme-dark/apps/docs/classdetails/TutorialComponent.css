@@ -1,4 +1,9 @@
 :root .neo-theme-dark {
-    --docs-classdetails-tutorialcomponent-background-color: #323232;
-    --docs-classdetails-tutorialcomponent-color           : #bbb;
+    --neo-docs-classdetails-tutorialcomponent-background-color          : #323232;
+    --neo-docs-classdetails-tutorialcomponent-color                     : #bbb;
+    --neo-docs-classdetails-tutorialcomponent-header-background-clip: text;
+    --neo-docs-classdetails-tutorialcomponent-header-box-shadow     : 0 5px 10px rgba(0,0,0,.4);
+    --neo-docs-classdetails-tutorialcomponent-header-color          : rgba(0,0,0,0.6);
+    --neo-docs-classdetails-tutorialcomponent-header-text-shadow    : 2px 2px 3px rgba(200,200,200,0.1);
+    --neo-docs-classdetails-tutorialcomponent-link-color            : #bbb;
 }

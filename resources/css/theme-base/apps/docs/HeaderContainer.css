@@ -1,0 +1,11 @@
+/* Docs top header bar and logo typography, bound to roles and listed geometry/keyword literals (ADR 0044). */
+[class*="neo-theme-"] {
+    --neo-docs-header-container-background-color         : var(--neo-color-background-surface-raised);
+    --neo-docs-header-container-background-image         : none;
+    --neo-docs-header-container-logo-padding             : 10px;
+    --neo-docs-header-container-logo-text-background-clip: border-box;
+    --neo-docs-header-container-logo-text-color          : var(--neo-color-text-default);
+    --neo-docs-header-container-logo-text-font-size      : var(--neo-font-size-heading-2);
+    --neo-docs-header-container-logo-text-font-weight    : var(--neo-font-weight-bold);
+    --neo-docs-header-container-logo-text-shadow         : none;
+}

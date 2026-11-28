@@ -1,4 +1,7 @@
 :root .neo-theme-dark { /* .neo-docs-classdetails-headercontainer */
-    --docs-classdetails-headercomponent-background-color: #323232;
-    --docs-classdetails-headerpanel-border-right        : 0;
+    --neo-docs-classdetails-header-text-background-clip : text;
+    --neo-docs-classdetails-header-text-color           : rgba(0,0,0,0.6);
+    --neo-docs-classdetails-header-text-shadow          : 2px 2px 3px rgba(200,200,200,0.1);
+    --neo-docs-classdetails-headercomponent-background-color: #323232;
+    --neo-docs-classdetails-headercontainer-box-shadow  : 0 5px 10px rgba(0,0,0,.4);
 }
