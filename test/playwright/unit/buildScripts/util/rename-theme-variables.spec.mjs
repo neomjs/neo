@@ -44,7 +44,83 @@ test.describe('rename-theme-variables — canonical map validation, fail-closed 
 
         const guidelines = fs.readFileSync(path.join(repoRoot, '.github/CODING_GUIDELINES.md'), 'utf8');
         expect(guidelines).toContain('var(--neo-calendar-week-background-color)');
-        expect(guidelines).toContain('var(--neo-calendar-week-border-color)')
+        expect(guidelines).toContain('var(--neo-calendar-week-border-color)');
+
+        // Every target a run writes or a split names still exists: declared or read under resources/css or src
+        // (dashless setCssVariable keys included), so a later move that splits or drops a name has to record it.
+        const
+            names = new Set(),
+            read  = (dir, ext) => {
+                for (const item of fs.readdirSync(dir, {withFileTypes: true})) {
+                    const file = path.join(dir, item.name);
+
+                    if (item.isDirectory()) {
+                        read(file, ext)
+                    } else if (file.endsWith(ext)) {
+                        const text = fs.readFileSync(file, 'utf8');
+
+                        for (const [name] of text.matchAll(/--neo-[\w-]+/g)) names.add(name);
+
+                        if (ext === '.mjs') {
+                            for (const call of scanSetCssVariableCalls(text)) {
+                                call.kind === 'literal' && names.add(call.key.startsWith('--') ? call.key : '--' + call.key)
+                            }
+                        }
+                    }
+                }
+            };
+
+        read(path.join(repoRoot, 'resources/css'), '.css');
+        read(path.join(repoRoot, 'src'), '.mjs');
+
+        expect([...entries].flatMap(([oldName, {split, to}]) =>
+            (split ?? (to ? [to] : [])).filter(name => !names.has(name)).map(name => `${oldName} -> ${name}`))).toEqual([])
+    });
+
+    test('RECORDS a split or dropped name: never rewritten, reported with what it became, and every CLI run exits 1', () => {
+        const
+            root    = path.join(tmpRoot, 'split-drop'),
+            mapPath = path.join(root, 'map.json'),
+            splitTo = ['--neo-fixture-input-font-family', '--neo-fixture-input-font-size'],
+            write   = (rel, text) => {
+                fs.mkdirSync(path.dirname(path.join(root, rel)), {recursive: true});
+                fs.writeFileSync(path.join(root, rel), text, 'utf8')
+            };
+
+        write('map.json', JSON.stringify({rules: {r: 'fixture rule'}, entries: {
+            '--fixture-input-font': {split: splitTo, rule: 'r', reason: 'shorthand split (fixture)'},
+            '--fixture-gone'      : {dropped: true, reason: 'no reader (fixture)'},
+            '--fixture-color'     : {to: '--neo-fixture-color', rule: 'r'}
+        }}));
+        write('resources/css/src/Field.css', '.f { font: var(--fixture-input-font); color: var(--fixture-color); box-shadow: var(--fixture-gone); }\n');
+
+        const summary = runThemeVariableRename({mapPath, root}),
+              css     = fs.readFileSync(path.join(root, 'resources/css/src/Field.css'), 'utf8');
+
+        expect(css).toBe('.f { font: var(--fixture-input-font); color: var(--neo-fixture-color); box-shadow: var(--fixture-gone); }\n');
+        expect(summary.unmigrated).toBe(2);
+        expect(summary.remainingMatches).toEqual([
+            expect.objectContaining({token: '--fixture-input-font', split: splitTo}),
+            expect.objectContaining({token: '--fixture-gone', dropped: 'no reader (fixture)'})
+        ]);
+
+        for (const extra of [[], ['--check']]) {
+            const proc = spawnSync(process.execPath, [cliPath, '--root', root, '--map', mapPath, ...extra], {encoding: 'utf8'});
+
+            expect(proc.status, extra.join(' ') || 'normal run').toBe(1);
+            expect(proc.stderr).toContain('--fixture-input-font split into --neo-fixture-input-font-family, --neo-fixture-input-font-size');
+            expect(proc.stderr).toContain('--fixture-gone dropped: no reader (fixture)')
+        }
+
+        for (const [entry, message] of [
+            [{split: ['--neo-fixture-a'], rule: 'r'},                      /at least two distinct --neo- names/],
+            [{split: ['--neo-fixture-a', '--fixture-b'], rule: 'r'},       /at least two distinct --neo- names/],
+            [{dropped: true, rule: 'r'},                                   /needs "dropped": true and a one-line reason/],
+            [{to: '--neo-fixture-x', dropped: true, reason: 'both'},       /exactly one of "to", "split" or "dropped"/]
+        ]) {
+            write('bad.json', JSON.stringify({rules: {r: 'fixture rule'}, entries: {'--fixture-bad': entry}}));
+            expect(() => loadRenameMap(path.join(root, 'bad.json'))).toThrow(message)
+        }
     });
 
     test('REWRITES .css, .html, .mjs (including nested-object dashless setCssVariable), .github/CODING_GUIDELINES.md, and learn/apps/docs/examples *.md once while preserving release-note history', () => {
