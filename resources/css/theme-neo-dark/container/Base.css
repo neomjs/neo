@@ -1,4 +1,0 @@
-:where(.neo-theme-neo-dark) { /* .neo-container */
-    --neo-container-background-color: var(--neo-sem-color-bg-neutral-default);
-    --neo-container-color           : var(--neo-sem-color-text-neutral-default);
-}

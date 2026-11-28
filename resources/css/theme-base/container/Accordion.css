@@ -1,0 +1,6 @@
+/* Accordion, every theme: raised title banner, default title text, and small item radius. */
+[class*="neo-theme-"] {
+    --neo-accordion-item-border-radius    : var(--neo-radius-small);
+    --neo-accordion-title-background-color: var(--neo-color-background-surface-raised);
+    --neo-accordion-title-color           : var(--neo-color-text-default);
+}

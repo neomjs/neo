@@ -1,0 +1,4 @@
+/* Viewport canvas, every theme: root page background bound to background-canvas (Epic #22295 rule 20). */
+[class*="neo-theme-"] {
+    --neo-viewport-background-color: var(--neo-color-background-canvas);
+}
