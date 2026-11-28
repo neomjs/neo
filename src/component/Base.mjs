@@ -395,6 +395,19 @@ class Component extends Abstract {
     #tooltipSetupToken = null
 
     /**
+     * Whether a container item declares its theme. Other component owners manage their own propagation.
+     * @member {Boolean|null} ownsTheme=null
+     * @protected
+     */
+    ownsTheme = null
+    /**
+     * Distinguishes a parent update from an application's theme assignment.
+     * @member {Boolean} #applyingParentTheme=false
+     * @private
+     */
+    #applyingParentTheme = false
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -964,19 +977,71 @@ class Component extends Abstract {
 
     /**
      * Triggered after the theme config got changed
-     * @summary Keeps a local theme carrier unless the logical parent is also the physical DOM parent.
+     * @summary Carries an explicitly chosen theme on this component, and an inherited one when its DOM parent cannot supply it.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetTheme(value, oldValue) {
+        this.syncThemeClass(value, oldValue)
+    }
+
+    /**
+     * @summary Applies a container's theme without turning its child into a new theme boundary.
+     * @param {String|null} theme
+     * @param {Object} [config] Additional configs in the same adoption batch
+     * @protected
+     */
+    applyParentTheme(theme, config) {
+        this.#applyingParentTheme = true;
+        try {
+            if (config) {
+                this.set({...config, theme})
+            } else {
+                this.theme = theme
+            }
+        } finally {
+            this.#applyingParentTheme = false
+        }
+    }
+
+    /**
+     * @summary Records who chose the theme even when its value matches the previous one.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetTheme(value, oldValue) {
+        if (this.ownsTheme === null) {
+            return value
+        }
+        const release = this.ownsTheme && !value && !this.#applyingParentTheme;
+        this.ownsTheme = Boolean(value) && !this.#applyingParentTheme;
+        this.#applyingParentTheme = false;
+        if (release || (!value && this.isConfiguring)) {
+            value = this.parent?.theme ?? value
+        }
+        if (value && value === oldValue) {
+            this.syncThemeClass(value, oldValue)
+        }
+        return value
+    }
+
+    /**
+     * @summary Keeps a class on explicit and physically detached theme boundaries.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    syncThemeClass(value, oldValue) {
         if (value || oldValue !== undefined) {
             let me            = this,
                 {cls, parent} = me,
-                inheritsTheme = value === parent?.theme && me.parentId === parent?.id,
+                inheritsTheme = !me.ownsTheme && value === parent?.theme && me.parentId === parent?.id,
                 needsUpdate   = false;
 
-            if (oldValue && cls.includes(oldValue)) {
+            if (oldValue && (oldValue !== value || inheritsTheme) && cls.includes(oldValue)) {
                 NeoArray.remove(cls, oldValue);
                 needsUpdate = true
             }
@@ -984,8 +1049,8 @@ class Component extends Abstract {
             // `parentComponent` can preserve logical focus / controller ancestry while `parentId`
             // roots a floating embodiment elsewhere. CSS inheritance crosses only the physical DOM
             // edge, so omit the local carrier exclusively when both parent roles are the same component.
-            if (!inheritsTheme) {
-                value && NeoArray.add(cls, value);
+            if (value && !inheritsTheme && !cls.includes(value)) {
+                NeoArray.add(cls, value);
                 needsUpdate = true
             }
 

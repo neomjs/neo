@@ -305,16 +305,11 @@ class Container extends Component {
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
 
-        // Live items follow a theme change, including a cleared theme during adoption. `createItem`
-        // resolves a raw config's theme in order: the item's own theme, itemDefaults, the class
-        // default, then this container's. Leave raw configs alone to preserve that precedence.
-        //
-        // An item still holding the replaced theme was inheriting it; any other theme is the item's
-        // own, and overwriting it would make an adopted subtree disagree with a config-built one.
         (value || oldValue !== undefined) && this.items?.forEach(item => {
-            const inherited = !item.theme || item.theme === oldValue;
-
-            if (inherited && !Neo.isString(item) && Neo.typeOf(item) !== 'Object') {
+            if (!(item instanceof Neo.core.Base)) return;
+            if (item.applyParentTheme && item.ownsTheme != null) {
+                !item.ownsTheme && item.applyParentTheme(value)
+            } else if (!item.theme || item.theme === oldValue) {
                 item.theme = value
             }
         })
@@ -412,7 +407,8 @@ class Container extends Component {
         switch (Neo.typeOf(item)) {
             case 'NeoClass': {
                 item = Neo.create({
-                    theme: item.config.theme || me.theme,
+                    ownsTheme: false,
+                    theme    : item.config.theme || (item.prototype.applyParentTheme ? null : me.theme),
                     ...defaults,
                     module: item,
                     ...config
@@ -423,8 +419,10 @@ class Container extends Component {
             case 'NeoInstance': {
                 parent = item.parent;
 
-                // Read before the move re-parents it: a theme the instance only inherited follows it to this container.
-                const inheritsTheme = !item.theme || item.theme === parent?.theme;
+                // A prebuilt instance can carry a copy of its owner's theme (e.g. grid.View).
+                // On its first adoption, an equal owner/destination theme keeps the legacy inheritance.
+                const inheritsTheme = item.applyParentTheme && item.ownsTheme != null ? !item.ownsTheme :
+                    !item.theme || item.theme === (parent || me).theme;
 
                 if (parent && parent !== me) {
                     if (removeFromPreviousParent) {
@@ -449,12 +447,23 @@ class Container extends Component {
                 // Carried inside the existing batch: a separate assignment afterwards would run a second
                 // reactive cycle across the subtree. An explicit `theme` in `config` still wins, as any
                 // other key does.
-                item.set(inheritsTheme ? {theme: me.theme, ...config} : config);
+                if (item.applyParentTheme) {
+                    item.ownsTheme = !inheritsTheme
+                }
+                if (inheritsTheme && item.applyParentTheme) {
+                    item.applyParentTheme(me.theme, config)
+                } else {
+                    item.set(inheritsTheme ? {theme: me.theme, ...config} : config)
+                }
+                if (!inheritsTheme && item.applyParentTheme) {
+                    item.syncThemeClass(item.theme, item.theme)
+                }
                 item.getStateProvider?.()?.createBindings(item);
                 break
             }
 
             case 'Object': {
+                config.ownsTheme = false;
                 if (defaults) {
                     Neo.assignDefaults(item, defaults)
                 }
@@ -472,7 +481,7 @@ class Container extends Component {
                     // The item config's own theme first — the precedence every other item config key
                     // has — then itemDefaults, the class default, the parent. A nested theme is how
                     // a light scope lives inside a dark host, and the shared tooltip reads it.
-                    item.theme     = item.theme || defaults.theme || module.config.theme || me.theme
+                    item.theme     = item.theme || defaults.theme || module.config.theme || (module.prototype.applyParentTheme ? null : me.theme)
                 }
 
                 if (item.handlerScope === 'this') {
@@ -496,8 +505,9 @@ class Container extends Component {
 
             case 'String': {
                 item = Neo.create({
-                    module: Component,
-                    vdom  : {text: item},
+                    module   : Component,
+                    ownsTheme: false,
+                    vdom     : {text: item},
                     ...config
                 });
 
