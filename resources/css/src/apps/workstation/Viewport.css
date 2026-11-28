@@ -100,6 +100,7 @@ body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy [class*="neo-t
     --neo-board-card-drag-border-color    : var(--workstation-signal);
     --neo-board-card-border-color-hover   : color-mix(in srgb, var(--workstation-signal) 38%, var(--workstation-line));
     --neo-board-card-muted-color          : var(--workstation-ink-dim);
+    --neo-board-card-muted-color-selected : var(--workstation-ink-dim);
     --neo-board-card-background-selected  : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
     --neo-board-card-border-color-selected: var(--workstation-signal);
     --neo-board-color                     : var(--workstation-ink);

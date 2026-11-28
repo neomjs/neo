@@ -28,6 +28,7 @@
     --neo-board-card-border-color-selected: var(--neo-color-border-accent);
     --neo-board-card-color                : var(--neo-color-text-default);
     --neo-board-card-muted-color          : var(--neo-color-text-muted);
+    --neo-board-card-muted-color-selected : var(--neo-color-text-default);
     --neo-board-card-box-shadow           : var(--neo-elevation-1);
     --neo-board-card-drag-border-color    : var(--neo-color-border-accent);
     --neo-board-slot-background           : color-mix(in srgb, var(--neo-color-background-accent) 10%, transparent);

@@ -38,6 +38,11 @@
         border-color     : var(--neo-board-card-border-color-selected, var(--neo-board-accent-color));
         border-left-color: var(--neo-board-card-accent-color, var(--neo-board-card-border-color-selected, var(--neo-board-accent-color)));
 
+        .neo-board-card-menu-button,
+        .neo-board-card-text {
+            color: var(--neo-board-card-muted-color-selected, var(--neo-board-card-muted-color));
+        }
+
         @media (hover: hover) {
             &:hover {
                 box-shadow: 0 0 0 1px var(--neo-board-card-border-color-selected, var(--neo-board-accent-color)), var(--neo-board-card-box-shadow);
