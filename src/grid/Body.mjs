@@ -126,6 +126,8 @@ class GridBody extends Component {
          */
         gridContainer: null,
         /**
+         * Shows the modified-cell corner for tracked fields. A theme can also set
+         * `--neo-grid-cell-color-modified` and `--neo-grid-cell-font-style-modified` to style the value.
          * @member {Boolean} highlightModifiedCells_=false
          * @reactive
          */
@@ -640,11 +642,12 @@ class GridBody extends Component {
     afterSetStore(value, oldValue) {
         let me = this,
             listeners = {
-                filter: me.onStoreFilter,
-                load: me.onStoreLoad,
-                recordChange: me.onStoreRecordChange,
-                rowsChange: me.onStoreRowsChange,
-                scope: me
+                filter              : me.onStoreFilter,
+                load                : me.onStoreLoad,
+                recordBaselineChange: me.onStoreRecordBaselineChange,
+                recordChange        : me.onStoreRecordChange,
+                rowsChange          : me.onStoreRowsChange,
+                scope               : me
             };
 
         oldValue?.un(listeners);
@@ -1598,6 +1601,19 @@ class GridBody extends Component {
                     reason !== Neo.isDestroyed && !Neo.currentWorker?.isDeparture?.(reason, windowId) &&
                         console.error('grid.Body: scroll-to-top dispatch failed', {reason, windowId})
                 })
+        }
+    }
+
+    /**
+     * @summary Repaints the mounted row when an accepted baseline did not already trigger a value-change repaint.
+     * @param {Object} data
+     * @param {Neo.data.Record} data.record
+     * @param {Boolean} data.valueChanged
+     * @protected
+     */
+    onStoreRecordBaselineChange({record, valueChanged}) {
+        if (this.highlightModifiedCells && !valueChanged) {
+            this.items.find(item => item.record === record)?.createVdom(false, false)
         }
     }
 

@@ -4,7 +4,16 @@
     position  : relative;
 
     .neo-grid-cell {
+        --neo-grid-cell-active-modified-color: initial;
+
         &.neo-is-modified {
+            &:not(:has(> .neo-grid-editor)) {
+                --neo-grid-cell-active-modified-color: var(--neo-grid-cell-color-modified);
+
+                color     : var(--neo-grid-cell-active-modified-color, inherit);
+                font-style: var(--neo-grid-cell-font-style-modified, inherit);
+            }
+
             &:after {
                 border-color: transparent var(--neo-grid-cell-ismodified-color) transparent transparent;
                 border-style: solid;
@@ -91,12 +100,12 @@
              /* selection.CellModel */
              &.neo-selected {
                  background-color: var(--neo-grid-cellmodel-cell-background-color-selected) !important;
-                 color           : var(--neo-grid-cellmodel-cell-color-selected) !important;
+                 color           : var(--neo-grid-cell-active-modified-color, var(--neo-grid-cellmodel-cell-color-selected)) !important;
              }
 
              &.selected-column-cell {
                  background-color: var(--neo-grid-cellmodel-column-cell-background-color-selected);
-                 color           : var(--neo-grid-cellmodel-column-cell-color-selected);
+                 color           : var(--neo-grid-cell-active-modified-color, var(--neo-grid-cellmodel-column-cell-color-selected));
              }
 
              /* Content-sized rows: the text of a wrapText column, whose height the grid view measures. As a flex item
@@ -117,7 +126,7 @@
          &.neo-selected {
              .neo-grid-cell {
                  background-color: var(--neo-grid-rowmodel-cell-background-color-selected);
-                 color           : var(--neo-grid-rowmodel-cell-color-selected);
+                 color           : var(--neo-grid-cell-active-modified-color, var(--neo-grid-rowmodel-cell-color-selected));
              }
          }
      }
@@ -142,14 +151,14 @@
         &.neo-selected {
             .neo-grid-cell {
                 background-color: var(--neo-grid-cellrowmodel-row-cell-background-color-selected);
-                color           : var(--neo-grid-cellrowmodel-row-cell-color-selected);
+                color           : var(--neo-grid-cell-active-modified-color, var(--neo-grid-cellrowmodel-row-cell-color-selected));
             }
         }
 
         .neo-grid-cell {
             &.neo-selected {
                 background-color: var(--neo-grid-cellrowmodel-cell-background-color-selected);
-                color           : var(--neo-grid-cellrowmodel-cell-color-selected);
+                color           : var(--neo-grid-cell-active-modified-color, var(--neo-grid-cellrowmodel-cell-color-selected));
             }
         }
     }
