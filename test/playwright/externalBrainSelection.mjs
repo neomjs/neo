@@ -190,6 +190,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'workstation/WorkstationPopupReturnNL.spec.mjs',
     'workstation/WorkstationPopupTabDragNL.spec.mjs',
     'workstation/WorkstationPopupTargetCloseNL.spec.mjs',
+    'workstation/WorkstationProductPaletteNL.spec.mjs',
     'workstation/WorkstationRailsOutermostNL.spec.mjs',
     'workstation/WorkstationReclaimEmbodimentNL.spec.mjs',
     'workstation/WorkstationReopenedPopupReturnNL.spec.mjs',

@@ -832,9 +832,10 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
 
         const passing = run();
 
+        // The Engine's own product palettes are measured too, so the count and the list depend on the Engine
         expect(passing.status).toBe(0);
-        expect(passing.stdout).toContain(
-            '2 product palette(s), measured on their theme\'s: neo-theme-neo-light + probe (light), neo-theme-neo-dark + probe (dark).'
+        expect(passing.stdout).toMatch(
+            /\d+ product palette\(s\), measured on their theme's: .*neo-theme-neo-light \+ probe \(light\), neo-theme-neo-dark \+ probe \(dark\)/
         );
 
         fs.writeFileSync(file, `${BOTH} {\n    --neo-color-text-default: var(--neo-color-background-canvas);\n}\n`);
