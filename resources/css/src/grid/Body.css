@@ -128,7 +128,7 @@
         &:not(.neo-selected) {
             &:hover,
             &.neo-hover {
-                .neo-grid-cell {
+                .neo-grid-cell:not(.neo-selected):not(.selected-column-cell) {
                     background-color: var(--neo-grid-cell-background-color-hover);
                 }
             }

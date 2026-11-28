@@ -198,6 +198,7 @@ test.describe('Neo.main.addon.EventSimulator — touch contacts', () => {
         documentRef.body = Object.assign(new EventTarget(), {nodeType: 1, ownerDocument: documentRef});
         Object.assign(source, {
             dataset              : {neoId: 'chart'}, id: 'chart', ownerDocument: documentRef, isConnected: true,
+            parentElement        : documentRef.body,
             getBoundingClientRect: () => ({left: 120, top: 210, width: 80, height: 70})
         });
         documentRef.getElementById = id => id === 'chart' ? node : null;
@@ -272,6 +273,90 @@ test.describe('Neo.main.addon.EventSimulator — touch contacts', () => {
             release();
             await expect(inFlight).resolves.toMatchObject({success: true, terminal: 'end'});
             expect(host.driveActive).toBe(false)
+        })
+    });
+
+    test('refuses a same-ID replacement since target ownership was read', async () => {
+        await withReplayHost(async (host, events, source) => {
+            const plan       = heldGesture(),
+                  targetPath = host.getGestureTarget(plan),
+                  useDomIds  = Neo.config.useDomIds;
+
+            expect(host.getGestureTarget({...plan, windowId: 'another-window'})).toBeNull();
+            expect(targetPath.map(({id}) => id)).toEqual(['chart', null]);
+
+            try {
+                Neo.config.useDomIds = !useDomIds;
+                expect(host.getGestureTarget(plan)).toEqual(targetPath)
+            } finally {
+                Neo.config.useDomIds = useDomIds
+            }
+
+            source.isConnected = false;
+            node = Object.assign(new EventTarget(), source, {isConnected: true});
+
+            expect(host.getGestureTarget(plan)[0].generation).not.toBe(targetPath[0].generation);
+            await expect(host.driveGesture({...plan, replayId: 'original', targetPath})).resolves.toMatchObject({
+                success: false, status: 'unavailable', terminal: 'none', observed: [],
+                error  : {code: 'GESTURE_TARGET_OWNER_MISMATCH'}, cleanup: {attempted: false}
+            });
+            expect(events).toEqual([]);
+            expect(host.driveActive).toBe(false)
+        })
+    });
+
+    test('cleans up a replay when the same target moves under a different owner', async () => {
+        await withReplayHost(async (host, events, source) => {
+            const plan       = heldGesture(),
+                  targetPath = host.getGestureTarget(plan);
+
+            host.timeout = async () => {
+                source.parentElement = {dataset: {neoId: 'other-owner'}, id: 'other-owner', parentElement: documentRef.body}
+            };
+
+            const result = await host.driveGesture({...plan, replayId: 'moving', targetPath});
+
+            expect(result).toMatchObject({success: false, terminal: 'none', sequences: ['none'],
+                error: {code: 'GESTURE_TARGET_OWNER_MISMATCH'}, cleanup: {attempted: true, succeeded: true}});
+            expect(events.map(({event}) => event.type)).toEqual(['touchstart', 'touchcancel']);
+            expect(events[1].id).toBe(documentRef.body);
+            expect(events[1].event.changedTouches[0].target).toBe(source)
+        })
+    });
+
+    test('cancels only the matching replay and keeps the input lock through contact cleanup', async () => {
+        await withReplayHost(async (host, events) => {
+            const plan       = heldGesture(),
+                  targetPath = host.getGestureTarget(plan),
+                  original   = {replayId: 'original', windowId: plan.windowId};
+            let resume, lockedAtCleanup;
+
+            host.timeout = (time, {signal}) => new Promise((resolve, reject) => {
+                resume = resolve;
+                signal.addEventListener('abort', () => reject(signal.reason), {once: true})
+            });
+            documentRef.addEventListener('touchcancel', () => {lockedAtCleanup = host.driveActive}, {once: true});
+
+            const inFlight = host.driveGesture({...plan, ...original, targetPath});
+
+            expect(events.map(({event}) => event.type)).toEqual(['touchstart']);
+            expect(host.cancelGesture({...original, windowId: 'another-window'})).toBe(false);
+            expect(host.cancelGesture({...original, replayId: 'unrelated'})).toBe(false);
+            expect(host.cancelGesture(original)).toBe(true);
+            expect(host.cancelGesture(original)).toBe(false);
+            await expect(host.driveGesture(plan)).resolves.toMatchObject({error: {code: 'GESTURE_BUSY'}});
+            await expect(inFlight).resolves.toMatchObject({success: false, terminal: 'none',
+                error: {code: 'GESTURE_WRITER_DEPARTED'}, cleanup: {attempted: true, succeeded: true}});
+            expect(lockedAtCleanup).toBe(true);
+            expect(host.driveActive).toBe(false);
+            expect(events.map(({event}) => event.type)).toEqual(['touchstart', 'touchcancel']);
+
+            const successor = host.driveGesture({...plan, replayId: 'successor', targetPath});
+
+            expect(host.cancelGesture(original)).toBe(false);
+            resume();
+            await expect(successor).resolves.toMatchObject({success: true, terminal: 'end'});
+            expect(events.map(({event}) => event.type)).toEqual(['touchstart', 'touchcancel', 'touchstart', 'touchend'])
         })
     });
 

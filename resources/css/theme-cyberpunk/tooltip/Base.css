@@ -1,0 +1,12 @@
+/* Cyberpunk declares none of the roles theme-base binds the tooltip to, so it keeps its own bubble: the panel
+   and text of its own palette, with the cyan edge and glow its dialog wears, square like its buttons. */
+:root .neo-theme-cyberpunk { /* .neo-tooltip */
+    --neo-tooltip-background-color: var(--neo-cyber-alt-background-color);
+    --neo-tooltip-border          : 1px solid var(--neo-cyber-cyan);
+    --neo-tooltip-border-radius   : 0;
+    --neo-tooltip-box-shadow      : var(--neo-cyber-glow);
+    --neo-tooltip-color           : var(--neo-cyber-color);
+    --neo-tooltip-font-size       : 14px;
+    --neo-tooltip-height          : 24px;
+    --neo-tooltip-padding         : 2px 8px 0;
+}

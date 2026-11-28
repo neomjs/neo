@@ -71,15 +71,16 @@ test.describe('Neo.plugin.Resizable boundary container', () => {
 /**
  * A stub plugin past drag:start, resizing into `style` as a dialog does
  * @param {Number|undefined} opacity The owner's opacity before the gesture
+ * @param {Function} [getDomRect] Measures the resize boundary, optionally held by the test
  * @returns {Object}
  */
-function startedGesture(opacity) {
+function startedGesture(opacity, getDomRect=async () => ({})) {
     const plugin = {
         addBodyCursorCls   : Neo.emptyFn,
         closeGesture       : Resizable.prototype.closeGesture,
         delegationCls      : 'neo-dialog',
         dragZone           : {dragEnd: Neo.emptyFn, dragProxy: {style: {height: '300px', width: '750px'}}, dragStart: Neo.emptyFn},
-        owner              : {focus: Neo.emptyFn, getDomRect: async () => ({}), style: {left: '40px', top: '20px', ...opacity === undefined ? {} : {opacity}}},
+        owner              : {focus: Neo.emptyFn, getDomRect, style: {left: '40px', top: '20px', ...opacity === undefined ? {} : {opacity}}},
         removeAllNodes     : Neo.emptyFn,
         removeBodyCursorCls: Neo.emptyFn,
         styleConfig        : 'style'
@@ -87,10 +88,56 @@ function startedGesture(opacity) {
 
     Resizable.prototype.onDragStart.call(plugin, {path: []});
 
+    plugin.dragZone.onDragCancel = () => {
+        Resizable.prototype.onDragCancel.call(plugin);
+        plugin.dragZone.dragProxy = null
+    };
+
     return plugin
 }
 
 test.describe('Neo.plugin.Resizable gesture ends', () => {
+    test('suspension fences pending bounds and a release after resume', async () => {
+        let releaseBounds;
+
+        const plugin = startedGesture(0.8, () => new Promise(resolve => {releaseBounds = resolve})),
+              signal = plugin.resizeAbortController.signal;
+
+        Resizable.prototype.afterSetSuspended.call(plugin, true, false);
+        expect(signal.aborted).toBe(true);
+
+        Resizable.prototype.afterSetSuspended.call(plugin, false, true);
+        releaseBounds({width: 1200});
+        await Promise.resolve();
+        Resizable.prototype.onDragEnd.call(plugin, {});
+
+        expect(plugin.boundaryContainerRect).toBeNull();
+        expect(plugin.dragZone.dragProxy).toBeNull();
+        expect(plugin.owner.style).toEqual({left: '40px', top: '20px', opacity: 0.8})
+    });
+
+    test('a release before proxy creation cancels the pending resize', () => {
+        const plugin = startedGesture(0.8),
+              signal = plugin.resizeAbortController.signal;
+
+        plugin.dragZone.dragProxy = null;
+        Resizable.prototype.onDragEnd.call(plugin, {});
+
+        expect(signal.aborted).toBe(true);
+        expect(plugin.owner.style).toEqual({left: '40px', top: '20px', opacity: 0.8})
+    });
+
+    test('suspending a pressed handle preserves the owner opacity', () => {
+        const plugin = {owner: {style: {opacity: 0.8}}, removeAllNodes: Neo.emptyFn};
+
+        Resizable.prototype.onMouseDown.call(plugin, {});
+        expect(plugin.isDragging).toBe(true);
+
+        Resizable.prototype.afterSetSuspended.call(plugin, true, false);
+        expect(plugin.isDragging).toBe(false);
+        expect(plugin.owner.style.opacity).toBe(0.8)
+    });
+
     for (const opacity of [0.8, undefined]) {
         // null removes the key on a single-node owner, where a deleted key keeps the gesture's 0.3
         const kept = {opacity: opacity ?? null};
