@@ -1,0 +1,1216 @@
+{
+  "initial": {
+    "head": "5785f7251e6e79bce7415d6a0453ecfa707839e1",
+    "indexFingerprint": "8faf6dad1ad677cc68c70367afcc0f3b0c4bb983cceab16719890c8e6c58c2e8"
+  },
+  "route": "/examples/grid/bigData/index.html",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "passes": [
+    {
+      "theme": "neo-theme-dark",
+      "rows": [
+        {
+          "id": "neo-grid-body-1__row-0",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-2",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-1",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-3",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-2",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-4",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-3",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-5",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-4",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-6",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-5",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-7",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-6",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-8",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-7",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-9",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-8",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-10",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-9",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-11",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-10",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-12",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-11",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-13",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-12",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-14",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-13",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-15",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-14",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-16",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-15",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-17",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-16",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-18",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-17",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-19",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-18",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-20",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-19",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-21",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-20",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-22",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-21",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-23",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-22",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-24",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-23",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-25",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-24",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-26",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-25",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-27",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-26",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-28",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-27",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-29",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-28",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-30",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-29",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-31",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-30",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-32",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-31",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-33",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "rows": 32,
+        "rowCarriers": 0,
+        "matchingButtons": 32
+      }
+    },
+    {
+      "theme": "neo-theme-light",
+      "rows": [
+        {
+          "id": "neo-grid-body-1__row-0",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-2",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-1",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-3",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-2",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-4",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-3",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-5",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-4",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-6",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-5",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-7",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-6",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-8",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-7",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-9",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-8",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-10",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-9",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-11",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-10",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-12",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-11",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-13",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-12",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-14",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-13",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-15",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-14",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-16",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-15",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-17",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-16",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-18",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-17",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-19",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-18",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-20",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-19",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-21",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-20",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-22",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-21",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-23",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-22",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-24",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-23",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-25",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-24",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-26",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-25",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-27",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-26",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-28",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-27",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-29",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-28",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-30",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-29",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-31",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-30",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-32",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-31",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-33",
+              "themes": [
+                "neo-theme-light"
+              ]
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "rows": 32,
+        "rowCarriers": 0,
+        "matchingButtons": 32
+      }
+    },
+    {
+      "theme": "neo-theme-dark",
+      "rows": [
+        {
+          "id": "neo-grid-body-1__row-0",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-2",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-1",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-3",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-2",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-4",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-3",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-5",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-4",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-6",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-5",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-7",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-6",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-8",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-7",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-9",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-8",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-10",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-9",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-11",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-10",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-12",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-11",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-13",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-12",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-14",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-13",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-15",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-14",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-16",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-15",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-17",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-16",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-18",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-17",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-19",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-18",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-20",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-19",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-21",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-20",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-22",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-21",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-23",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-22",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-24",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-23",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-25",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-24",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-26",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-25",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-27",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-26",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-28",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-27",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-29",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-28",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-30",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-29",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-31",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-30",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-32",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "neo-grid-body-1__row-31",
+          "themes": [],
+          "buttons": [
+            {
+              "id": "neo-button-33",
+              "themes": [
+                "neo-theme-dark"
+              ]
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "rows": 32,
+        "rowCarriers": 0,
+        "matchingButtons": 32
+      }
+    }
+  ],
+  "errors": [],
+  "consoleErrors": [
+    {
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "location": {
+        "url": "http://127.0.0.1:55990/favicon.ico",
+        "line": 0,
+        "column": 0,
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "failedResponses": [],
+  "result": "FAIL",
+  "browser": "158.0.8127.38",
+  "final": {
+    "head": "5785f7251e6e79bce7415d6a0453ecfa707839e1",
+    "indexFingerprint": "8faf6dad1ad677cc68c70367afcc0f3b0c4bb983cceab16719890c8e6c58c2e8"
+  },
+  "failure": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ [\n+   {\n+     location: {\n+       column: 0,\n+       columnNumber: 0,\n+       line: 0,\n+       lineNumber: 0,\n+       url: 'http://127.0.0.1:55990/favicon.ico'\n+     },\n+     message: 'Failed to load resource: the server responded with a status of 404 (Not Found)'\n+   }\n+ ]\n- []\n"
+}
