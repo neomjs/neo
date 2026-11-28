@@ -259,11 +259,11 @@ const readInlineTitleChrome = button => button.evaluate(node => {
         fontFamily     : style.fontFamily,
         fontSize       : style.fontSize,
         fontWeight     : style.fontWeight,
-        height         : buttonBox.height,
-        inset          : titleBox.left - buttonBox.left,
+        height         : Math.round(buttonBox.height * 100) / 100,
+        inset          : Math.round((titleBox.left - buttonBox.left) * 100) / 100,
         lineHeight     : style.lineHeight,
         padding        : rootStyle.padding,
-        textTransform: style.textTransform
+        textTransform  : style.textTransform
     }
 });
 
