@@ -88,6 +88,7 @@ body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy [class*="neo-t
        ground, and focus, selection and the landing slot speak the signal colour. Shadows, the WIP signal and
        sizes stay the theme's. */
     --neo-board-accent-color              : var(--workstation-signal);
+    --neo-board-on-accent-color           : var(--workstation-panel);
     --neo-board-avatar-background         : color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
     --neo-board-avatar-color              : var(--workstation-ink);
     --neo-board-background                : var(--workstation-panel);

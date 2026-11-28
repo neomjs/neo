@@ -1,0 +1,7 @@
+[class*="neo-theme-"] {
+    --neo-board-icon-button-border-radius  : var(--neo-radius-small);
+    --neo-board-badge-border-radius        : var(--neo-radius-full);
+    --neo-board-card-tag-border-radius     : var(--neo-radius-full);
+    --neo-board-card-progress-border-radius: var(--neo-radius-full);
+    --neo-board-card-due-date-border-radius: var(--neo-radius-small);
+}

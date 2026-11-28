@@ -1,6 +1,5 @@
-/* Neo.board.Container: a row of columns over one store. Surfaces and sizes come from the board tokens the themes
-   set (theme-neo-dark / theme-neo-light → board/Container.css), so an app palette mapped onto those
-   tokens carries the whole board. */
+/* Neo.board.Container: columns over one store. The shared Board bindings supply role-based defaults
+   for surfaces and sizes; an app palette can project its values through the same hooks. */
 .neo-board {
     background : var(--neo-board-background);
     box-sizing : border-box;

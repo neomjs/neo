@@ -49,4 +49,7 @@
     --neo-board-lane-border-color      : var(--neo-panel-border-color, #ddd);
     --neo-board-lane-color             : #2b2b2b;
     --neo-board-lane-column-max-height : 280px;
+    --neo-board-on-accent-color: initial;
+    --neo-board-wip-badge-background-color: initial;
+    --neo-board-overdue-indicator-color: initial;
 }
