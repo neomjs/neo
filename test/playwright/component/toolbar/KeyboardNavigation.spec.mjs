@@ -94,6 +94,55 @@ test.describe('Neo.toolbar.Base — keyboardNavigation', () => {
         await expect(down).toBeFocused()
     });
 
+    test('a retained route toolbar follows its painted axis after a viewport change', async ({page}) => {
+        await page.setViewportSize({width: 390, height: 844});
+        await createToolbar(page, {
+            id                : 'kb-toolbar-adaptive',
+            keyboardNavigation: true,
+            items             : [
+                {text: 'Home', route: 'kb-home'},
+                {text: 'Search', route: 'kb-search'},
+                {text: 'Account', route: 'kb-account'}
+            ]
+        });
+        await page.addStyleTag({content: '@media (min-width: 800px) { #kb-toolbar-adaptive { flex-direction: column } }'});
+
+        const toolbar = page.getByRole('toolbar'),
+              home    = toolbar.getByRole('link', {name: 'Home'}),
+              search  = toolbar.getByRole('link', {name: 'Search'}),
+              account = toolbar.getByRole('link', {name: 'Account'}),
+              start   = page.url();
+
+        await expect(toolbar).toHaveCSS('flex-direction', 'row');
+        await expect(search).toHaveAttribute('tabindex', '-1');
+        await home.focus();
+        await page.keyboard.press('ArrowRight');
+        await expect(search).toBeFocused();
+
+        const focusedNode = await search.evaluateHandle(node => node);
+
+        try {
+            await page.setViewportSize({width: 1024, height: 844});
+            await expect(toolbar).toHaveCSS('flex-direction', 'column');
+            expect(await search.evaluate((node, previous) => node === previous, focusedNode)).toBe(true);
+            await expect(search).toBeFocused();
+
+            await page.keyboard.press('ArrowRight');
+            await expect(search, 'the old axis no longer moves focus').toBeFocused();
+
+            await page.keyboard.press('ArrowDown');
+            await expect(account).toBeFocused();
+            await expect(page).toHaveURL(start);
+
+            await page.keyboard.press('Enter');
+            await expect(page).toHaveURL(/#kb-account$/);
+            await page.goBack();
+            await expect(page).toHaveURL(start)
+        } finally {
+            await focusedNode.dispose()
+        }
+    });
+
     test('without keyboardNavigation a toolbar keeps every button a Tab stop', async ({page}) => {
         const id    = await createToolbar(page, {id: 'plain-toolbar', items: [{text: 'First'}, {text: 'Second'}]}),
               root  = page.locator(`#${id}`),

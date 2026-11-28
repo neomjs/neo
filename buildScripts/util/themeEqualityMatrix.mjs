@@ -850,6 +850,26 @@ export const COMPONENT_MATRIX = Object.freeze([
         parts              : ['.neo-toolbar']
     },
     {
+        id                 : 'navigation-toolbar',
+        package            : 'toolbar',
+        cellId             : 'navigation-toolbar',
+        stateTargetSelector: '.neo-button[aria-current="page"]',
+        stateTargets       : {
+            hover : ['.neo-button[aria-current="page"]', '.neo-button:not([aria-current])'],
+            active: ['.neo-button[aria-current="page"]', '.neo-button:not([aria-current])']
+        },
+        states: ['default', 'hover', 'active', 'focus'],
+        parts : [
+            '.neo-toolbar-navigation',
+            '.neo-button[aria-current="page"]',
+            '.neo-button[aria-current="page"] .neo-button-glyph',
+            '.neo-button[aria-current="page"] .neo-button-text',
+            '.neo-button:not([aria-current])',
+            '.neo-button:not([aria-current]) .neo-button-glyph',
+            '.neo-button:not([aria-current]) .neo-button-text'
+        ]
+    },
+    {
         id                 : 'breadcrumb',
         package            : 'toolbar',
         cellId             : 'breadcrumb',

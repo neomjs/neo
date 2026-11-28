@@ -3,6 +3,7 @@ import DomAccess   from '../DomAccess.mjs';
 import DomEvents   from '../DomEvents.mjs';
 import Observable  from '../../core/Observable.mjs';
 import TapPress    from '../gesture/TapPress.mjs';
+import Transform   from '../gesture/Transform.mjs';
 import Translation from '../gesture/Translation.mjs';
 
 const pointerEvents = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture'],
@@ -11,8 +12,9 @@ const pointerEvents = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel
       releaseMenuMs = 250;
 
 /**
- * @summary Tracks contact ownership for subscribed nodes in one Main document.
- * The contact stream stays in Main. A recognizer observes `contact` frames and publishes semantic
+ * @summary Tracks contact ownership for subscribed nodes in one Main document, and owns the recognizers
+ * that read it: `Neo.main.gesture.TapPress` for tap and press, `Neo.main.gesture.Transform` for pinch and
+ * rotation. The contact stream stays in Main. A recognizer reads `contact` frames and publishes semantic
  * phases through the selected claim. Native events continue through the existing raw path.
  * @class Neo.main.addon.Gesture
  * @extends Neo.main.addon.Base
@@ -83,31 +85,34 @@ class Gesture extends Base {
     #observer = null
     /** @member {Number} #nextGestureId */
     #nextGestureId = 0
-    /** @member {WeakMap} #transformClaims */
-    #transformClaims = new WeakMap()
+    /** @member {Neo.main.gesture.Transform|null} #transform */
+    #transform = null
     /** @member {Neo.main.gesture.Translation|null} #translation */
     #translation = null
 
     /**
-     * @summary Creates the owned recognizers and subscribes to internal contact frames.
+     * @summary Creates the owned recognizers: tap and press, which the contact pipeline calls, and
+     * pinch, rotation, pan and swipe, which observe `contact` frames.
      * @param {Object} config
      */
     construct(config) {
         super.construct(config);
 
-        const publish = this.publish.bind(this);
+        let me      = this,
+            publish = me.publish.bind(me);
 
-        this.#tapPress = Neo.create(TapPress, {
-            cancel  : claim => this.cancelClaim(claim, [...new Set([...claim.ids.values(), ...claim.frame.changed])]),
-            doc     : this.#document,
+        me.#tapPress = Neo.create(TapPress, {
+            cancel  : claim => me.cancelClaim(claim, [...new Set([...claim.ids.values(), ...claim.frame.changed])]),
+            doc     : me.#document,
             publish,
-            settings: this
+            settings: me
         });
 
-        const translation = this.#translation = Neo.create(Translation, {doc: this.#document, publish, settings: this});
+        me.#transform   = Neo.create(Transform,   {doc: me.#document, publish});
+        me.#translation = Neo.create(Translation, {doc: me.#document, publish, settings: me});
 
-        this.on('contact', this.trackTransform, this);
-        this.on('contact', translation.track, translation)
+        me.on('contact', me.#transform.track,   me.#transform);
+        me.on('contact', me.#translation.track, me.#translation)
     }
 
     /**
@@ -178,15 +183,20 @@ class Gesture extends Base {
         return true
     }
 
-    /** @summary Cancels active claims and releases document listeners before destroying the recognizer. */
+    /** @summary Cancels active claims and releases document listeners before destroying the recognizers. */
     destroy() {
-        this.stopListening();
-        this.#tapPress?.destroy();
-        this.#nodes.clear();
+        let me = this;
 
-        const translation = this.#translation;
-        this.un('contact', translation.track, translation);
-        translation.destroy();
+        me.stopListening();
+        me.#tapPress?.destroy();
+        me.#nodes.clear();
+
+        [me.#transform, me.#translation].forEach(recognizer => {
+            if (recognizer) {
+                me.un('contact', recognizer.track, recognizer);
+                recognizer.destroy()
+            }
+        });
 
         super.destroy()
     }
@@ -247,150 +257,6 @@ class Gesture extends Base {
         });
 
         return true
-    }
-
-    /**
-     * @summary Tracks one transform on its admitted Main claim. A survivor can seed a fresh pair,
-     * with a new gesture id and contact labels, while keeping its original contact-down time.
-     * @param {Object} frame
-     * @protected
-     */
-    trackTransform({claim, kind, contacts, changed, elapsed}) {
-        const {family} = claim;
-
-        if (family !== 'pinch' && family !== 'rotate') {
-            return
-        }
-
-        let cohort = this.#transformClaims.get(claim);
-
-        if (!cohort) {
-            if (!contacts.length) return;
-
-            cohort = {down: new Map(), gesture: null};
-            this.#transformClaims.set(claim, cohort)
-        }
-
-        for (const {id} of contacts) {
-            if (!cohort.down.has(id)) cohort.down.set(id, elapsed)
-        }
-
-        const {gesture} = cohort;
-
-        if (kind === 'cancel' || contacts.length < 2) {
-            if (gesture) {
-                this.cancelTransformFrame(gesture);
-                cohort.gesture = null;
-                this.publish(claim, `${family}:${kind === 'cancel' ? 'cancel' : 'end'}`, {
-                    ...gesture.latest,
-                    changed : changed.flatMap(id => gesture.ids.has(id) ? [gesture.ids.get(id)] : []),
-                    contacts: [],
-                    elapsed : elapsed - gesture.startedAt
-                })
-            }
-
-            if (kind === 'cancel' || !contacts.length) {
-                this.#transformClaims.delete(claim)
-            } else {
-                for (const id of cohort.down.keys()) {
-                    if (!contacts.some(contact => contact.id === id)) cohort.down.delete(id)
-                }
-            }
-
-            return
-        }
-
-        const ordered  = [...contacts].sort((left, right) => left.id - right.id),
-              members  = ordered.map(({id}) => id),
-              [a, b]   = ordered,
-              dx       = b.x - a.x,
-              dy       = b.y - a.y,
-              distance = Math.hypot(dx, dy),
-              angle    = Math.atan2(dy, dx),
-              // Close contacts have no stable bearing. A new valid vector becomes the baseline.
-              basis    = Number.isFinite(distance) && distance >= 0.01 ? {angle, distance, members} : null;
-
-        if (!gesture && !basis) {
-            return
-        }
-
-        const current = gesture ?? {
-            basis    : null,
-            ids      : new Map(),
-            pending  : new Set(),
-            raf      : null,
-            rotation : 0,
-            scale    : 1,
-            startedAt: Math.min(cohort.down.get(a.id), cohort.down.get(b.id))
-        };
-
-        if (basis && current.basis && members.length === current.basis.members.length &&
-            members.every((id, index) => current.basis.members[index] === id)) {
-            const scale = current.scale * (distance / current.basis.distance),
-                  delta = (angle - current.basis.angle) * 180 / Math.PI;
-
-            if (Number.isFinite(scale) && scale > 0) current.scale = scale;
-            current.rotation += delta > 180 ? delta - 360 : delta < -180 ? delta + 360 : delta
-        }
-
-        current.basis = basis;
-
-        const mapped = ordered.map(point => {
-            if (!current.ids.has(point.id)) current.ids.set(point.id, current.ids.size);
-
-            return {...point, id: current.ids.get(point.id)}
-        });
-
-        current.latest = {
-            contacts: mapped,
-            elapsed : elapsed - current.startedAt,
-            x       : mapped.reduce((total, point) => total + point.x / mapped.length, 0),
-            y       : mapped.reduce((total, point) => total + point.y / mapped.length, 0),
-            ...(family === 'pinch' ? {scale: current.scale} : {rotation: current.rotation})
-        };
-
-        const labels = changed.flatMap(id => current.ids.has(id) ? [current.ids.get(id)] : []);
-
-        if (!gesture) {
-            if (this.publish(claim, `${family}:start`, {...current.latest, changed: labels})) {
-                cohort.gesture = current
-            }
-        } else {
-            labels.forEach(id => current.pending.add(id));
-            this.queueTransformFrame(claim, current)
-        }
-    }
-
-    /**
-     * @summary Publishes the latest geometry once per frame and holds changed identities across samples.
-     * @param {Object} claim
-     * @param {Object} gesture
-     * @protected
-     */
-    queueTransformFrame(claim, gesture) {
-        if (gesture.raf !== null) return;
-
-        gesture.raf = this.#document.defaultView.requestAnimationFrame(() => {
-            gesture.raf = null;
-            if (this.#transformClaims.get(claim)?.gesture !== gesture) return;
-
-            const changed = [...gesture.pending];
-
-            gesture.pending.clear();
-            this.publish(claim, `${claim.family}:move`, {...gesture.latest, changed})
-        })
-    }
-
-    /**
-     * @summary Prevents a queued motion frame from crossing the terminal of its gesture.
-     * @param {Object} gesture
-     * @protected
-     */
-    cancelTransformFrame(gesture) {
-        if (gesture.raf !== null) {
-            this.#document.defaultView.cancelAnimationFrame(gesture.raf);
-            gesture.raf = null
-        }
     }
 
     /**

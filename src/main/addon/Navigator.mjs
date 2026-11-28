@@ -192,6 +192,7 @@ class Navigator extends Base {
     }
 
     /**
+     * @summary Moves focus using explicit keys or the subject's current painted axis.
      * @param {KeyboardEvent} keyEvent
      * @param {Object} data
      */
@@ -207,43 +208,37 @@ class Navigator extends Base {
             return
         }
 
-        const
-            me              = this,
-            {subject, wrap} = data,
-            firstItem       = subject.querySelector(data.selector);
+        const me = this;
 
-        if (!data.nextKey && firstItem) {
+        let {key, target}                         = keyEvent,
+            {nextKey, previousKey, subject, wrap} = data,
+            newActiveElement;
+
+        const firstItem = (!nextKey || !previousKey) && key.startsWith('Arrow')
+            ? subject.querySelector(data.selector)
+            : null;
+
+        if (firstItem) {
             const
                 containerStyle = getComputedStyle(subject),
-                itemStyle      = getComputedStyle(firstItem);
+                itemStyle      = getComputedStyle(firstItem),
+                horizontal     = containerStyle.display === 'flex' && containerStyle.flexDirection === 'row'
+                    || itemStyle.display === 'inline' || itemStyle.display === 'inline-block';
 
-            // Detect what the next and prev keys should be.
-            // Child elements layed out horizontally.
-            if (containerStyle.display === 'flex' && containerStyle.flexDirection === 'row'
-                || itemStyle.display === 'inline' || itemStyle.display === 'inline-block') {
-                data.previousKey = 'ArrowLeft';
-                data.nextKey     = 'ArrowRight'
-            }
-            // Child elements layed out vertically.
-            else {
-                data.previousKey = 'ArrowUp';
-                data.nextKey     = 'ArrowDown'
-            }
+            previousKey ||= horizontal ? 'ArrowLeft' : 'ArrowUp';
+            nextKey     ||= horizontal ? 'ArrowRight' : 'ArrowDown'
         }
-
-        let {key, target} = keyEvent,
-            newActiveElement;
 
         switch (key) {
             // Move to the previous navigable item
-            case data.previousKey:
+            case previousKey:
                 newActiveElement = me.navigateGetAdjacent(-1, data);
                 if (!newActiveElement && wrap) {
                     newActiveElement = me.navigateGetLast(data)
                 }
                 break;
             // Move to the next navigable item
-            case data.nextKey:
+            case nextKey:
                 newActiveElement = me.navigateGetAdjacent(1, data);
                 if (!newActiveElement && wrap) {
                     newActiveElement = subject.querySelector(data.selector)

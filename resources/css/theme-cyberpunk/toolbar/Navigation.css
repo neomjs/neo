@@ -1,0 +1,21 @@
+:where(.neo-theme-cyberpunk) {
+    --neo-navigation-toolbar-background-color                : Canvas;
+    --neo-navigation-toolbar-badge-inline-offset             : .5rem;
+    --neo-navigation-toolbar-badge-top                       : .25rem;
+    --neo-navigation-toolbar-border-color                    : GrayText;
+    --neo-navigation-toolbar-border-width                    : 1px;
+    --neo-navigation-toolbar-button-background-color-active  : color-mix(in srgb, CanvasText 10%, transparent);
+    --neo-navigation-toolbar-button-background-color-hover   : color-mix(in srgb, CanvasText 5%, transparent);
+    --neo-navigation-toolbar-button-background-color-selected: Highlight;
+    --neo-navigation-toolbar-button-border-radius            : .5rem;
+    --neo-navigation-toolbar-button-color                    : CanvasText;
+    --neo-navigation-toolbar-button-color-hover              : CanvasText;
+    --neo-navigation-toolbar-button-color-selected           : HighlightText;
+    --neo-navigation-toolbar-button-gap                      : .25rem;
+    --neo-navigation-toolbar-button-glyph-font-size          : .875rem;
+    --neo-navigation-toolbar-button-min-height               : 48px;
+    --neo-navigation-toolbar-button-padding                  : .25rem;
+    --neo-navigation-toolbar-gap                             : .25rem;
+    --neo-navigation-toolbar-inline-size                     : 6.75rem;
+    --neo-navigation-toolbar-padding                         : .5rem;
+}

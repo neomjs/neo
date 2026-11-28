@@ -32,6 +32,7 @@ import Label                 from '../../../../../src/component/Label.mjs';
 import List                  from '../../../../../src/list/Base.mjs';
 import Markdown              from '../../../../../src/component/Markdown.mjs';
 import MenuList              from '../../../../../src/menu/List.mjs';
+import Navigation            from '../../../../../src/toolbar/Navigation.mjs';
 import NumberContainer       from '../../../../../src/filter/NumberContainer.mjs';
 import NumberField           from '../../../../../src/form/field/Number.mjs';
 import PageContainer         from '../../../../../src/app/content/PageContainer.mjs';
@@ -615,6 +616,13 @@ export const onStart = () => {
                     width : 260,
                     items : [{text: 'Tool'}]
                 }),
+                cell('navigation-toolbar', {
+                    module: Navigation,
+                    items : [
+                        {id: 'eq-current-destination', iconCls: 'fa fa-calendar', route: '/schedule', text: 'Schedule'},
+                        {iconCls: 'fa fa-inbox', route: '/inbox', text: 'Inbox'}
+                    ]
+                }),
                 cell('breadcrumb', {
                     module   : Breadcrumb,
                     activeKey: 'leaf',
@@ -690,9 +698,11 @@ export const onStart = () => {
     });
 
     const markReady = () => {
-        const vp = Neo.getComponent('theme-equality-viewport');
+        const vp          = Neo.getComponent('theme-equality-viewport'),
+              destination = Neo.getComponent('eq-current-destination');
 
-        if (vp?.mounted && !vp.isVdomUpdating) {
+        if (vp?.mounted && !vp.isVdomUpdating && destination?.mounted) {
+            destination.ariaCurrent = 'page';
             vp.vdom['data-ready'] = 'true';
             vp.update()
         } else {

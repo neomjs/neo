@@ -1,0 +1,21 @@
+[class*="neo-theme-"] {
+    --neo-navigation-toolbar-background-color                : var(--neo-color-background-surface-raised);
+    --neo-navigation-toolbar-badge-inline-offset             : var(--neo-space-2);
+    --neo-navigation-toolbar-badge-top                       : var(--neo-space-1);
+    --neo-navigation-toolbar-border-color                    : var(--neo-color-border-default);
+    --neo-navigation-toolbar-border-width                    : var(--neo-border-width-thin);
+    --neo-navigation-toolbar-button-background-color-active  : var(--neo-color-background-neutral-active);
+    --neo-navigation-toolbar-button-background-color-hover   : var(--neo-color-background-neutral-hover);
+    --neo-navigation-toolbar-button-background-color-selected: var(--neo-color-background-selected);
+    --neo-navigation-toolbar-button-border-radius            : var(--neo-radius-medium);
+    --neo-navigation-toolbar-button-color                    : var(--neo-color-text-muted);
+    --neo-navigation-toolbar-button-color-hover              : var(--neo-color-text-default);
+    --neo-navigation-toolbar-button-color-selected           : var(--neo-color-text-default);
+    --neo-navigation-toolbar-button-gap                      : var(--neo-space-1);
+    --neo-navigation-toolbar-button-glyph-font-size          : var(--neo-font-size-small);
+    --neo-navigation-toolbar-button-min-height               : var(--neo-control-height-large);
+    --neo-navigation-toolbar-button-padding                  : var(--neo-space-1);
+    --neo-navigation-toolbar-gap                             : var(--neo-space-1);
+    --neo-navigation-toolbar-inline-size                     : calc(var(--neo-space-24) + var(--neo-space-3));
+    --neo-navigation-toolbar-padding                         : var(--neo-space-2);
+}

@@ -330,6 +330,23 @@ class Toolbar extends Container {
     }
 
     /**
+     * @summary Returns the Main-thread Navigator subscription for this toolbar's direct, enabled buttons.
+     * @returns {Object}
+     * @protected
+     */
+    getNavigatorConfig() {
+        let me = this;
+
+        return {
+            appName : me.appName,
+            id      : me.id,
+            selector: `[${Neo.config.useDomIds ? 'id' : 'data-neo-id'}="${me.id}"] > .neo-button:not([disabled])`,
+            windowId: me.windowId,
+            wrap    : true
+        }
+    }
+
+    /**
      * Subscribes this toolbar's direct, enabled buttons to `Neo.main.addon.Navigator` while it is
      * mounted, and ends the subscription when it unmounts.
      * @param {Boolean} mounted
@@ -339,14 +356,7 @@ class Toolbar extends Container {
         let me = this;
 
         if (mounted && !me.navigator) {
-            me.navigator = {
-                appName: me.appName,
-                id     : me.id,
-                // Direct items only: a nested toolbar navigates its own buttons
-                selector: `[${Neo.config.useDomIds ? 'id' : 'data-neo-id'}="${me.id}"] > .neo-button:not([disabled])`,
-                windowId: me.windowId,
-                wrap    : true
-            };
+            me.navigator = me.getNavigatorConfig();
 
             Neo.main.addon.Navigator.subscribe(me.navigator)
         } else if (!mounted && me.navigator) {
