@@ -449,6 +449,7 @@
  "Neo.list.ValuePicker": "Neo.list.Buffered",
  "Neo.list.plugin.Animate": "Neo.plugin.Base",
  "Neo.list.plugin.ItemEditing": "Neo.plugin.Base",
+ "Neo.list.plugin.SwipeActions": "Neo.plugin.Base",
  "Neo.main.DeltaUpdates": "Neo.core.Base",
  "Neo.main.DomAccess": "Neo.core.Base",
  "Neo.main.DomEvents": "Neo.core.Base",

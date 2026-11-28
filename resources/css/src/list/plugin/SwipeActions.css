@@ -1,0 +1,3 @@
+.neo-list-swipe-actions > .neo-list-item {
+    touch-action: pan-y pinch-zoom;
+}

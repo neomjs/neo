@@ -1,0 +1,9 @@
+[class*="neo-theme-"] {
+    --neo-swipe-example-background-color  : var(--neo-color-background-surface);
+    --neo-swipe-example-count-color       : var(--neo-color-text-muted);
+    --neo-swipe-example-padding           : var(--neo-space-4);
+    --neo-swipe-example-row-border        : var(--neo-border-width-thin) solid var(--neo-color-border-default);
+    --neo-swipe-example-title-font-size   : var(--neo-font-size-heading-3);
+    --neo-swipe-example-title-font-weight : var(--neo-font-weight-semibold);
+    --neo-swipe-example-toolbar-height    : var(--neo-control-height-large);
+}

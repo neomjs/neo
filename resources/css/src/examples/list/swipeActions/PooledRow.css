@@ -1,0 +1,21 @@
+.neo-swipe-example-row {
+    block-size: 100%;
+    position  : relative;
+
+    .neo-swipe-example-front {
+        background-color: var(--neo-swipe-example-background-color);
+        block-size      : 100%;
+        gap             : var(--neo-swipe-example-row-gap);
+        inline-size     : 100%;
+        padding-inline  : var(--neo-swipe-example-padding);
+        z-index         : 1;
+    }
+
+    .neo-swipe-example-archive {
+        border-radius   : 0;
+        inline-size     : var(--neo-swipe-example-action-inline-size);
+        inset-block     : 0;
+        inset-inline-end: 0;
+        position       : absolute;
+    }
+}

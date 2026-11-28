@@ -39,6 +39,26 @@ test.describe('Neo.component.Toast', () => {
     test.afterAll(() => {
         ToastManager.updateItemsInPosition = originalUpdateItemsInPosition;
     });
+
+    test('an opt-in native action is consumed exactly once', () => {
+        const toast       = Neo.create(Toast, {appName, msg: 'Archived', removeDelay: 0});
+        let   activations = 0;
+
+        try {
+            expect(toast.getVdomInner().cn[3].removeDom).toBe(true);
+            toast.action = {text: 'Undo', handler: () => activations++};
+            expect(toast.getVdomInner().cn[3]).toMatchObject({tag: 'button', type: 'button', text: 'Undo', removeDom: false});
+
+            toast.onToastAction({});
+            toast.onToastAction({});
+
+            expect(activations).toBe(1);
+            expect(toast.getVdomInner().cn[3].removeDom).toBe(true)
+        } finally {
+            cleanupToast(toast)
+        }
+    });
+
     test('closable: true and removeDelay > 0 renders close button and auto-dismisses after timeout (#4514)', async () => {
         const toast = Neo.create(Toast, {
             appName,

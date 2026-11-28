@@ -1,0 +1,4 @@
+[class*="neo-theme-"] {
+    --neo-swipe-example-action-inline-size: var(--neo-space-20);
+    --neo-swipe-example-row-gap           : var(--neo-space-2);
+}
