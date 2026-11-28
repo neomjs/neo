@@ -1,0 +1,45 @@
+.neo-specimen {
+    box-sizing: border-box;
+    overflow  : auto;
+    padding   : 24px;
+
+    h1 {
+        margin: 0 0 16px;
+    }
+
+    h2 {
+        margin: 0 0 10px;
+    }
+
+    .neo-specimen-themes {
+        display  : flex;
+        flex-wrap: wrap;
+        gap      : 8px;
+        margin   : 0 0 24px;
+    }
+
+    .neo-specimen-stage {
+        align-items          : start;
+        display              : grid;
+        gap                  : 24px;
+        grid-template-columns: minmax(0, 416px) minmax(0, 320px);
+    }
+
+    .neo-specimen-form {
+        gap    : 6px;
+        padding: 0;
+
+        > .neo-button {
+            align-self: flex-start;
+            min-height: 32px;
+        }
+    }
+
+    @media (max-width: 680px) {
+        padding: 16px;
+
+        .neo-specimen-stage {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+}
