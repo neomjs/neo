@@ -125,6 +125,12 @@ test('a short swipe reveals an action and vertical touch keeps native scrolling'
         expect(horizontal.at(-1)?.type).toBe('touchend');
         expect(horizontal.map(({type}) => type)).not.toContain('pointercancel');
         await expect(archive).toBeVisible();
+        await expect.poll(() => row.evaluate(node => {
+            const front  = node.querySelector('.neo-swipe-example-front').getBoundingClientRect(),
+                  action = node.querySelector('.neo-swipe-example-archive').getBoundingClientRect();
+
+            return front.right <= action.left + 1
+        })).toBe(true);
         await expect(app.count).toHaveText('500 items');
         await expect(app.toast).toHaveCount(0);
         await page.screenshot({path: testInfo.outputPath('short-swipe-revealed-390x844.png')});

@@ -245,7 +245,6 @@ class SwipeActions extends Base {
             ToastManager.createToast({
                 action  : {text: 'Undo', handler: receipt.undo},
                 appName : owner.appName,
-                closable: true,
                 msg     : receipt.message || 'Action applied',
                 position: 'bc',
                 windowId: owner.windowId
