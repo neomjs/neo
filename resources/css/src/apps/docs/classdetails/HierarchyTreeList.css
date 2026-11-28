@@ -1,5 +1,5 @@
 .docs-classhierarchy-treelist.neo-list {
-    border-color: #3c3f41;
+    border-color: var(--neo-docs-classhierarchy-treelist-border-color);
 
     .neo-list-item {
         .neo-list-item-content:before {

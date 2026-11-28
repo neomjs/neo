@@ -1,0 +1,4 @@
+/* Docs class-hierarchy tree list container border, bound to roles (ADR 0044). */
+[class*="neo-theme-"] {
+    --neo-docs-classhierarchy-treelist-border-color: var(--neo-color-border-default);
+}

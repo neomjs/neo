@@ -1,0 +1,8 @@
+/* Docs class-summary header bar, elevation, and title ink, bound to roles (ADR 0044). */
+[class*="neo-theme-"] {
+    --neo-docs-classdetails-header-text-background-clip     : border-box;
+    --neo-docs-classdetails-header-text-color               : var(--neo-color-text-default);
+    --neo-docs-classdetails-header-text-shadow              : none;
+    --neo-docs-classdetails-headercomponent-background-color: var(--neo-color-background-surface-raised);
+    --neo-docs-classdetails-headercontainer-box-shadow      : var(--neo-elevation-1);
+}

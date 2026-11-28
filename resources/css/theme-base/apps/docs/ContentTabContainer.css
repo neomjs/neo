@@ -1,0 +1,5 @@
+/* Docs content tab header bar and destructive close glyph hover, bound to roles (ADR 0044). */
+[class*="neo-theme-"] {
+    --neo-docs-content-tabcontainer-tab-header-toolbar-background-color : var(--neo-color-background-surface-raised);
+    --neo-docs-content-tabcontainer-tab-header-toolbar-glyph-color-hover: var(--neo-color-text-danger);
+}

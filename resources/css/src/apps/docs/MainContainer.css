@@ -1,6 +1,6 @@
 .neo-docs-maincontainer {
     .neo-docs-navigation-tab-container {
-        background-color: var(--docs-navigation-tab-container-background-color);
+        background-color: var(--neo-docs-navigation-tab-container-background-color);
 
         .neo-tab-body-container {
             border-right: none;

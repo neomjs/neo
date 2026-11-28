@@ -1,0 +1,10 @@
+/* Docs tutorial sticky header bar, heading ink, and body links, bound to roles (ADR 0044). */
+[class*="neo-theme-"] {
+    --neo-docs-classdetails-tutorialcomponent-background-color      : var(--neo-color-background-surface-raised);
+    --neo-docs-classdetails-tutorialcomponent-color                 : var(--neo-color-text-default);
+    --neo-docs-classdetails-tutorialcomponent-header-background-clip: border-box;
+    --neo-docs-classdetails-tutorialcomponent-header-box-shadow     : var(--neo-elevation-1);
+    --neo-docs-classdetails-tutorialcomponent-header-color          : var(--neo-color-text-default);
+    --neo-docs-classdetails-tutorialcomponent-header-text-shadow    : none;
+    --neo-docs-classdetails-tutorialcomponent-link-color            : var(--neo-color-text-accent);
+}

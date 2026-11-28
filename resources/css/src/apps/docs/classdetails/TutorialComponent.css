@@ -3,9 +3,9 @@
     padding: 10px;
 
     .neo-header-text-container {
-        background-color: var(--docs-classdetails-tutorialcomponent-background-color);
-        box-shadow      : 0 5px 10px rgba(0,0,0,.4);
-        color           : var(--docs-classdetails-tutorialcomponent-color);
+        background-color: var(--neo-docs-classdetails-tutorialcomponent-background-color);
+        box-shadow      : var(--neo-docs-classdetails-tutorialcomponent-header-box-shadow);
+        color           : var(--neo-docs-classdetails-tutorialcomponent-color);
         padding-left    : 10px;
         position        : sticky;
         top             : -10px;
@@ -13,19 +13,19 @@
     }
 
     .neo-header-text {
-        background-clip: text;
-        color          : rgba(0,0,0,0.6);
+        background-clip: var(--neo-docs-classdetails-tutorialcomponent-header-background-clip);
+        color          : var(--neo-docs-classdetails-tutorialcomponent-header-color);
         font-size      : 28px;
         font-weight    : 800;
-        text-shadow    : 2px 2px 3px rgba(200,200,200,0.1);
+        text-shadow    : var(--neo-docs-classdetails-tutorialcomponent-header-text-shadow);
     }
 
     a {
-        color: #bbb;
+        color: var(--neo-docs-classdetails-tutorialcomponent-link-color);
     }
 
     a:visited {
-        color: #bbb;
+        color: var(--neo-docs-classdetails-tutorialcomponent-link-color);
     }
 
     hr {

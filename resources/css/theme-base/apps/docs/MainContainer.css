@@ -1,0 +1,4 @@
+/* Docs navigation sidebar tab container surface, bound to roles (ADR 0044). */
+[class*="neo-theme-"] {
+    --neo-docs-navigation-tab-container-background-color: var(--neo-color-background-surface);
+}
