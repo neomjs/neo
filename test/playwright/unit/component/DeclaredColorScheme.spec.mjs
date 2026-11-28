@@ -139,19 +139,24 @@ test.describe('A component answers a theme its themeMap does not name by the dec
         currentWorker.on = (name, fn) => name === 'themeMapLoaded' && listeners.push(fn);
 
         try {
-            const editors = {
-                auto    : create(MonacoEditor, {theme: 'neo-theme-fixture-dark'}),
-                pinned  : create(MonacoEditor, {theme: 'neo-theme-fixture-dark', themeMap: {'neo-theme-fixture-dark': 'hc-black'}}),
-                explicit: create(MonacoEditor, explicit)
-            };
+            const named   = {options: {theme: 'hc-black'}, theme: 'neo-theme-neo-dark'},
+                  editors = {
+                      auto    : create(MonacoEditor, {theme: 'neo-theme-fixture-dark'}),
+                      pinned  : create(MonacoEditor, {theme: 'neo-theme-fixture-dark', themeMap: {'neo-theme-fixture-dark': 'hc-black'}}),
+                      explicit: create(MonacoEditor, explicit),
+                      named   : create(MonacoEditor, named)
+                  };
 
             Object.entries(editors).forEach(([name, editor]) => {editor.afterSetEditorTheme = value => sent.push([name, value])});
 
             Neo.cssMap = {fileInfo: FILE_INFO};
             listeners.forEach(fn => fn());
 
-            expect(sent, 'one theme per window: the last editor built paints').toEqual([['auto', 'vs-dark'], ['pinned', 'hc-black'], ['explicit', 'hc-black']]);
-            expect(read(editors.explicit), 'the late map ends where a warm boot starts').toEqual(read(warm))
+            expect(sent, 'one theme per window: each editor sends its creation theme, the last one built paints').toEqual([
+                ['auto', 'vs-dark'], ['pinned', 'hc-black'], ['explicit', 'hc-black'], ['named', 'hc-black']
+            ]);
+            expect(read(editors.explicit), 'the late map ends where a warm boot starts').toEqual(read(warm));
+            expect(read(editors.named), 'a theme the map names, too').toEqual(read(create(MonacoEditor, named)))
         } finally {
             currentWorker.on = on
         }

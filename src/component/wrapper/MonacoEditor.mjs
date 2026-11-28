@@ -177,14 +177,22 @@ class MonacoEditor extends Base {
             scope       : me
         });
 
-        // Monaco paints one theme per window. On a late theme map every editor sends its theme again, an unchanged
-        // one included, so the editors end on the theme the last one built sets, as when the map arrives first.
-        reapplyOnThemeMap(me, () => {
-            let {editorTheme} = me;
+        reapplyOnThemeMap(me, () => me.applyLateColorScheme())
+    }
 
-            me.applyColorScheme();
-            me.editorTheme === editorTheme && me.afterSetEditorTheme(editorTheme)
-        })
+    /**
+     * @summary Brings an editor built before the theme map arrived to where a warm boot builds it. An editor with an
+     * explicit `options.theme` keeps it. Monaco paints one theme per window, so an editor the map does not change
+     * sends its creation theme again: the editors end on the theme the last one built sets, as when the map arrives
+     * first.
+     * @protected
+     */
+    applyLateColorScheme() {
+        let me            = this,
+            {editorTheme} = me;
+
+        me.options.theme || me.applyColorScheme();
+        me.editorTheme === editorTheme && me.afterSetEditorTheme(me.getInitialOptions().theme)
     }
 
     /**
