@@ -1,0 +1,7 @@
+/* Cyberpunk declares no status badge: `initial` leaves every reader on the fallback it had before theme-base. */
+:root .neo-theme-cyberpunk { /* .neo-status-badge */
+    --neo-status-badge-align-items: initial;
+    --neo-status-badge-font-size  : initial;
+    --neo-status-badge-line-height: initial;
+    --neo-status-badge-padding    : initial;
+}

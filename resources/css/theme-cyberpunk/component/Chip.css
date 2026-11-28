@@ -1,0 +1,5 @@
+/* Cyberpunk declares no chip: `initial` leaves every reader on the fallback it had before theme-base. */
+:root .neo-theme-cyberpunk { /* .neo-chip */
+    --neo-chip-align-items: initial;
+    --neo-chip-height     : initial;
+}

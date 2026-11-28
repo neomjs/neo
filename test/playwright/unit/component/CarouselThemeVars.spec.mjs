@@ -12,8 +12,7 @@ const
     themes    = [
         {name: 'theme-light',     selector: ':root .neo-theme-light',        path: path.join(repoRoot, 'resources/css/theme-light/component/Carousel.css')},
         {name: 'theme-dark',      selector: ':root .neo-theme-dark',         path: path.join(repoRoot, 'resources/css/theme-dark/component/Carousel.css')},
-        {name: 'theme-neo-light', selector: ':where(.neo-theme-neo-light)',  path: path.join(repoRoot, 'resources/css/theme-neo-light/component/Carousel.css')},
-        {name: 'theme-neo-dark',  selector: ':where(.neo-theme-neo-dark)',   path: path.join(repoRoot, 'resources/css/theme-neo-dark/component/Carousel.css')},
+        {name: 'theme-base',      selector: '[class*="neo-theme-"]',         path: path.join(repoRoot, 'resources/css/theme-base/component/Carousel.css')},
         {name: 'theme-cyberpunk', selector: ':root .neo-theme-cyberpunk',    path: path.join(repoRoot, 'resources/css/theme-cyberpunk/component/Carousel.css')}
     ],
     flat      = file => flattenCss(fs.readFileSync(path.join(repoRoot, 'resources/css', file), 'utf8'));
@@ -48,7 +47,7 @@ test.describe('Neo.component.Carousel theme variable files', () => {
         expect(src).not.toContain('--neo-button-');
     });
 
-    test('all five theme value sheets declare every consumed --carousel-* token with zero nested selectors', () => {
+    test('every theme value sheet declares every consumed --carousel-* token with zero nested selectors', () => {
         const
             src      = fs.readFileSync(srcPath, 'utf8'),
             consumed = [...extractConsumedTokens(src)].sort();
@@ -60,7 +59,7 @@ test.describe('Neo.component.Carousel theme variable files', () => {
                 content = fs.readFileSync(theme.path, 'utf8'),
                 defined = [...extractDefinedTokens(content)].sort();
 
-            expect(content.trimStart().startsWith(theme.selector), `${theme.name} uses ${theme.selector}`).toBe(true);
+            expect(content.replace(/^\s*\/\*[\s\S]*?\*\/\s*/, '').startsWith(theme.selector), `${theme.name} uses ${theme.selector}`).toBe(true);
             expect(defined, `${theme.name} defines all consumed --carousel-* tokens`).toEqual(consumed);
             expect(findSelectorBlocks(theme.path), `${theme.name} declares variables only`).toEqual([]);
         }

@@ -156,7 +156,7 @@ test.describe('theme-equality headless Chromium integration', () => {
         fs.writeFileSync(dialogFile, dialogNext);
 
         // 3. Chip close-button hover (`--neo-chip-close-button-color-hover` on `.neo-chip-close-button:hover`)
-        const chipFile = path.join(head.cssDir, 'theme-neo-light/component/Chip.css'),
+        const chipFile = path.join(head.cssDir, 'theme-base/component/Chip.css'),
               chipOrig = fs.readFileSync(chipFile, 'utf8'),
               chipNext = chipOrig.replace(
                   /--neo-chip-close-button-color-hover\s*:\s*[^;]+;/,
@@ -273,7 +273,7 @@ test.describe('theme-equality headless Chromium integration', () => {
         const base = makeTempCheckout(),
               head = makeTempCheckout();
 
-        const chipFile = path.join(head.cssDir, 'theme-neo-light/component/Chip.css'),
+        const chipFile = path.join(head.cssDir, 'theme-base/component/Chip.css'),
               chipOrig = fs.readFileSync(chipFile, 'utf8'),
               chipNext = chipOrig.replace(
                   /--neo-chip-close-button-color-hover\s*:\s*[^;]+;/,
