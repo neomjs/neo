@@ -176,6 +176,43 @@ export function readThemeMapFile(themeMapPath) {
 }
 
 /**
+ * @summary Each theme class's declared light or dark scheme: the `--neo-color-scheme` of a rule in one of
+ * its folders' `Global.css` whose selector names the class, since every theme declares its scheme there
+ * once per class. The build writes it into `theme-map.json`, so a component that hands
+ * a renderer a light or dark hint reads the theme's own answer instead of keeping a map of theme names.
+ * A theme that declares none is left out, and its components fall back to light.
+ * @param {Object} options
+ * @param {String[]} options.cssRoots Ordered CSS source roots; a later root's `Global.css` wins.
+ * @param {Object<String, String[]>} options.themes Theme class → folders, as `resolveThemeClassMap()` returns it.
+ * @returns {Object<String, ('dark'|'light')>}
+ */
+export function resolveThemeSchemes({cssRoots, themes}) {
+    const schemes = {};
+
+    for (const [themeClass, folders] of Object.entries(themes)) {
+        const namesClass = new RegExp(`\\.${themeClass}(?![\\w-])`);
+
+        for (const cssRoot of cssRoots) {
+            for (const folder of folders) {
+                const file = path.join(cssRoot, folder, 'Global.css');
+
+                if (!fs.existsSync(file)) continue;
+
+                for (const [, selector, body] of readCss(file).matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+                    const scheme = /--neo-color-scheme\s*:\s*(light|dark)\b/.exec(body)?.[1];
+
+                    if (scheme && namesClass.test(selector)) {
+                        schemes[themeClass] = scheme
+                    }
+                }
+            }
+        }
+    }
+
+    return schemes
+}
+
+/**
  * @summary Resolves the `class → folders` theme map from `theme-map.json` seeds when available
  * and merges live `Global.css` `.neo-theme-*` declarations across `cssRoots` (covering fresh CI
  * checkouts before `build-themes`, unbuilt consumer workspaces, and isolated `--root` fixtures).
