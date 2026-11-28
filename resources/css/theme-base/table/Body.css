@@ -1,0 +1,18 @@
+/* Table body, every theme: three-grade accent ladder across hover (`accent-subtle`),
+   row/column companion selection (`selected`), and active cell selection (`selected-strong`),
+   keeping sticky `td.neo-locked` cells opaque over horizontally scrolling columns. */
+[class*="neo-theme-"] {
+    --neo-table-cell-background-color-hover                    : var(--neo-color-background-accent-subtle);
+    --neo-table-cell-ismodified-color                          : var(--neo-color-border-warning);
+    --neo-table-cell-ismodified-size                           : 10px;
+    --neo-table-cellmodel-cell-background-color-selected       : var(--neo-color-background-selected-strong);
+    --neo-table-cellmodel-cell-color-selected                  : var(--neo-color-text-default);
+    --neo-table-cellmodel-column-cell-background-color-selected: var(--neo-color-background-selected);
+    --neo-table-cellmodel-column-cell-color-selected           : var(--neo-color-text-default);
+    --neo-table-cellrowmodel-cell-background-color-selected    : var(--neo-color-background-selected-strong);
+    --neo-table-cellrowmodel-cell-color-selected               : var(--neo-color-text-default);
+    --neo-table-cellrowmodel-row-cell-background-color-selected: var(--neo-color-background-selected);
+    --neo-table-cellrowmodel-row-cell-color-selected           : var(--neo-color-text-default);
+    --neo-table-rowmodel-cell-background-color-selected        : var(--neo-color-background-selected);
+    --neo-table-rowmodel-cell-color-selected                   : var(--neo-color-text-default);
+}

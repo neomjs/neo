@@ -167,7 +167,7 @@ test.describe('theme-equality headless Chromium integration', () => {
         fs.writeFileSync(chipFile, chipNext);
 
         // 4. Table row-ancestor hover (`--neo-table-cell-background-color-hover` on `.neo-table-row:hover .neo-table-cell`)
-        const tableFile = path.join(head.cssDir, 'theme-neo-light/table/Body.css'),
+        const tableFile = path.join(head.cssDir, 'theme-base/table/Body.css'),
               tableOrig = fs.readFileSync(tableFile, 'utf8'),
               tableNext = tableOrig.replace(
                   /--neo-table-cell-background-color-hover\s*:\s*[^;]+;/,

@@ -1,9 +1,10 @@
-import Base       from './Base.mjs';
-import DomAccess  from '../DomAccess.mjs';
-import DomEvents  from '../DomEvents.mjs';
-import Observable from '../../core/Observable.mjs';
-import TapPress   from '../gesture/TapPress.mjs';
-import Transform  from '../gesture/Transform.mjs';
+import Base        from './Base.mjs';
+import DomAccess   from '../DomAccess.mjs';
+import DomEvents   from '../DomEvents.mjs';
+import Observable  from '../../core/Observable.mjs';
+import TapPress    from '../gesture/TapPress.mjs';
+import Transform   from '../gesture/Transform.mjs';
+import Translation from '../gesture/Translation.mjs';
 
 const pointerEvents = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture'],
       touchEvents   = ['touchstart', 'touchmove', 'touchend', 'touchcancel'],
@@ -27,6 +28,8 @@ class Gesture extends Base {
          * @protected
          */
         mixins: [Observable],
+        /** @member {Number} panDistance=6 Minimum translation in CSS px before pan starts. */
+        panDistance: 6,
         /** @member {Boolean} preloadFilesDelay=false */
         preloadFilesDelay: false,
         /** @member {Number} pressHoldMs=500 Hold time in milliseconds before a press starts. */
@@ -42,6 +45,20 @@ class Gesture extends Base {
         repeatDistance: 24,
         /** @member {Number} repeatInterval=350 Maximum time in milliseconds between repeated tap lifts. */
         repeatInterval: 350,
+        /** @member {Number} swipeDirectionRatio=1.2 Required dominant-to-cross-axis travel ratio. */
+        swipeDirectionRatio: 1.2,
+        /** @member {Number} swipeDistance=30 Minimum travel in CSS px on the dominant axis. */
+        swipeDistance: 30,
+        /** @member {Number} swipeNoise=2 Maximum reverse jitter in CSS px on the dominant axis. */
+        swipeNoise: 2,
+        /** @member {Number} swipeReleaseWindow=120 Time window in ms for measuring release velocity. */
+        swipeReleaseWindow: 120,
+        /** @member {Number} swipeRestMs=50 Maximum elapsed ms since meaningful advance towards the lift. */
+        swipeRestMs: 50,
+        /** @member {Number} swipeSampleLimit=32 Total contact samples retained for release qualification. */
+        swipeSampleLimit: 32,
+        /** @member {Number} swipeVelocity=0.25 Minimum release velocity on the dominant axis in CSS px/ms. */
+        swipeVelocity: 0.25,
         /** @member {Number} tapDuration=250 Maximum time in milliseconds from first contact to final lift. */
         tapDuration: 250,
         /** @member {Number} tapTolerance=8 Maximum movement in CSS px from a tap contact's start. */
@@ -70,30 +87,32 @@ class Gesture extends Base {
     #nextGestureId = 0
     /** @member {Neo.main.gesture.Transform|null} #transform */
     #transform = null
+    /** @member {Neo.main.gesture.Translation|null} #translation */
+    #translation = null
 
     /**
      * @summary Creates the owned recognizers: tap and press, which the contact pipeline calls, and
-     * pinch and rotation, which observe `contact` frames.
+     * pinch, rotation, pan and swipe, which observe `contact` frames.
      * @param {Object} config
      */
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me      = this,
+            publish = me.publish.bind(me);
 
         me.#tapPress = Neo.create(TapPress, {
             cancel  : claim => me.cancelClaim(claim, [...new Set([...claim.ids.values(), ...claim.frame.changed])]),
             doc     : me.#document,
-            publish : me.publish.bind(me),
+            publish,
             settings: me
         });
 
-        me.#transform = Neo.create(Transform, {
-            doc    : me.#document,
-            publish: me.publish.bind(me)
-        });
+        me.#transform   = Neo.create(Transform,   {doc: me.#document, publish});
+        me.#translation = Neo.create(Translation, {doc: me.#document, publish, settings: me});
 
-        me.on('contact', me.#transform.track, me.#transform)
+        me.on('contact', me.#transform.track,   me.#transform);
+        me.on('contact', me.#translation.track, me.#translation)
     }
 
     /**
@@ -166,18 +185,19 @@ class Gesture extends Base {
 
     /** @summary Cancels active claims and releases document listeners before destroying the recognizers. */
     destroy() {
-        let me        = this,
-            transform = me.#transform;
+        let me = this;
 
         me.stopListening();
         me.#tapPress?.destroy();
-
-        if (transform) {
-            me.un('contact', transform.track, transform);
-            transform.destroy()
-        }
-
         me.#nodes.clear();
+
+        [me.#transform, me.#translation].forEach(recognizer => {
+            if (recognizer) {
+                me.un('contact', recognizer.track, recognizer);
+                recognizer.destroy()
+            }
+        });
+
         super.destroy()
     }
 
@@ -548,7 +568,7 @@ class Gesture extends Base {
             }
 
             const changedIds = [],
-                  release    = (claim.family === 'tap' || claim.family === 'press') && kind === 'end' ? [] : null;
+                  release    = kind === 'end' ? [] : null;
 
             for (const contact of changed) {
                 const {identifier, target} = contact;
@@ -591,12 +611,14 @@ class Gesture extends Base {
                 }
             }
 
+            const lifted = release?.map(({id, x, y}) => ({id, x: x - left, y: y - top}));
+
             claim.frame = {changed: changedIds, contacts, elapsed: sequence.elapsed, pointerType: sequence.pointerType, trusted: sequence.trusted};
-            this.#tapPress.track(claim, kind, release?.map(({id, x, y}) => ({id, x: x - left, y: y - top})));
+            this.#tapPress.track(claim, kind, lifted);
 
             if (!claim.live) continue;
 
-            this.fire('contact', {claim, kind, ...claim.frame});
+            this.fire('contact', {claim, kind, ...claim.frame, ...(lifted && {lifted})});
 
             if (!contacts.length) {
                 sequence.claims.delete(claim.family);
