@@ -52,6 +52,38 @@ test('local gesture listeners share a window registration until the last observe
     }
 });
 
+test('a scroll-start pan policy reaches Main and changes the registration identity', async () => {
+    const id        = 'pan-boundary-target',
+          windowId  = 'pan-boundary-window',
+          component = {appName, id, mounted: true, vdom: {id}, windowId},
+          calls     = [],
+          original  = Neo.currentWorker.getAddon,
+          observe   = () => {},
+          boundary  = {'pan:start': {fn: observe, atScrollStart: true}},
+          ordinary  = {'pan:start': observe};
+
+    Neo.currentWorker.getAddon = async () => ({
+        register(data) { calls.push(data) },
+        unregister() {}
+    });
+
+    try {
+        DomEvent.updateDomListeners(component, [boundary], []);
+        await expect.poll(() => calls.length).toBe(1);
+        expect(calls[0].gestureOptions).toEqual({pan: {atScrollStart: true}});
+
+        DomEvent.updateDomListeners(component, [ordinary], [boundary]);
+        await expect.poll(() => calls.length).toBe(2);
+        expect(calls[1].registrationId).not.toBe(calls[0].registrationId);
+        expect(calls[1]).not.toHaveProperty('gestureOptions')
+    } finally {
+        clearTimeout(DomEvent.mountTimeouts[id]);
+        delete DomEvent.mountTimeouts[id];
+        DomEvent.updateDomListeners(component, [], [boundary, ordinary]);
+        Neo.currentWorker.getAddon = original
+    }
+});
+
 test('unmount fences a registration waiting for the Main addon', async () => {
     const id        = 'unmounting-gesture-target',
           component = {appName, id, mounted: true, vdom: {id}, windowId: 'gesture-window'},

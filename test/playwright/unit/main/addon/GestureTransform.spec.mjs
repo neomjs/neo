@@ -82,6 +82,33 @@ function createClaim(family) {
     }
 }
 
+test('an opted-in touch pan reads the scroll offset only at first contact', () => {
+    const id    = 'boundary-pan',
+          node  = {id, dataset: {neoId: id}, scrollTop: 80},
+          event = {composedPath: () => [node], isTrusted: true, timeStamp: 0},
+          read  = DomEvents.getEventData;
+
+    DomEvents.getEventData = () => ({path: []});
+
+    try {
+        addon.register({componentId: id, id, registrationId: 1, events: ['pan:start'], gestureOptions: {pan: {atScrollStart: true}}});
+
+        const midList = addon.createSequence(event, 'touch');
+        expect(midList.claims.has('pan')).toBe(false);
+
+        node.scrollTop = 0;
+        expect(midList.claims.has('pan')).toBe(false);
+        expect(addon.createSequence(event, 'touch').claims.has('pan')).toBe(true);
+        expect(addon.createSequence(event, 'mouse').claims.has('pan')).toBe(false);
+
+        addon.register({componentId: id, id, registrationId: 2, events: ['pan:start']});
+        node.scrollTop = 80;
+        expect(addon.createSequence(event, 'touch').claims.has('pan')).toBe(true)
+    } finally {
+        DomEvents.getEventData = read
+    }
+});
+
 test('rotation uses stable pair order and accumulates 270 degrees before one paint', () => {
     const {send} = createClaim('rotate'),
           center = point(0, 100, 100),

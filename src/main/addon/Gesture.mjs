@@ -649,7 +649,8 @@ class Gesture extends Base {
     }
 
     /**
-     * @summary Pins each family to its innermost registered start surface.
+     * @summary Pins each family to its innermost eligible start surface.
+     * A boundary Pan samples the scroll host on initial touch, before any movement changes the offset.
      * @param {Event} event
      * @param {String} pointerType
      * @param {Number} [pointerId]
@@ -664,7 +665,9 @@ class Gesture extends Base {
 
             for (const owner of this.#nodes.get(id)?.values() ?? []) {
                 for (const family of owner.families) {
-                    if (!sequence.claims.has(family)) {
+                    const atScrollStart = family === 'pan' && owner.gestureOptions?.pan?.atScrollStart;
+
+                    if (!sequence.claims.has(family) && (!atScrollStart || (pointerType === 'touch' && node.scrollTop <= 0))) {
                         sequence.claims.set(family, {family, gestureId: null, ids: new Map(), live: true, nextId: 0, node, owner, sequence})
                     }
                 }
