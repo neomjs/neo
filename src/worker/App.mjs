@@ -237,7 +237,9 @@ class App extends Base {
     }
 
     /**
-     * @param {Object} data
+     * @summary Stores the theme map, themes the windows that waited for it, and fires `themeMapLoaded`: components
+     * built before it arrived re-resolve a theme they map by its declared scheme (`Neo.util.Theme#reapplyOnThemeMap`).
+     * @param {Object} data `resources/theme-map.json`: `themes` (class → folders) and `schemes` (class → scheme)
      */
     createThemeMap(data) {
         Neo.ns('Neo.cssMap.fileInfo', true);
@@ -254,7 +256,8 @@ class App extends Base {
             this.initWindowThemes(windowId)
         });
 
-        this.resolveThemeFilesCache()
+        this.resolveThemeFilesCache();
+        this.fire('themeMapLoaded', {schemes: data.schemes || {}})
     }
 
     /**

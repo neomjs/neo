@@ -1,4 +1,5 @@
-import Component from './Base.mjs';
+import Component                              from './Base.mjs';
+import {reapplyOnThemeMap, resolveThemeValue} from '../util/Theme.mjs';
 
 /**
  * @class Neo.component.Canvas
@@ -300,6 +301,21 @@ class Canvas extends Component {
     }
 
     /**
+     * @summary Sends the resolved color scheme to whatever renders this canvas. Subclasses with a renderer
+     * implement it; {@link #construct} has it called again once the theme map arrives.
+     * @protected
+     */
+    applyColorScheme() {}
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        reapplyOnThemeMap(this)
+    }
+
+    /**
      * @param {...*} args
      */
     destroy(...args) {
@@ -359,13 +375,13 @@ class Canvas extends Component {
      * component's own theme first, so a canvas declaring one is not overruled by the scope it sits in.
      *
      * Pure and synchronous, so a renderer registration can carry the answer rather than correct it
-     * afterwards, and an unmapped theme yields `'light'` — adding a theme cannot silently repaint an
-     * existing app.
+     * afterwards. A theme {@link #themeMap} does not name answers with the scheme it declares
+     * (`--neo-color-scheme`, read by the theme build), and `'light'` until the theme map arrives.
      * @returns {'dark'|'light'}
      * @protected
      */
     resolveColorScheme() {
-        return this.themeMap[this.getTheme()] ?? 'light'
+        return resolveThemeValue(this.getTheme(), this.themeMap, {dark: 'dark', light: 'light'}) ?? 'light'
     }
 }
 

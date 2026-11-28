@@ -176,7 +176,14 @@ class SharedCanvas extends Canvas {
      */
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
+        this.applyColorScheme()
+    }
 
+    /**
+     * @summary Sends the resolved color scheme to the renderer, once the canvas is ready.
+     * @protected
+     */
+    applyColorScheme() {
         if (this.isCanvasReady) {
             this.renderer.setTheme({canvasId: this.getCanvasId(), theme: this.resolveColorScheme(), windowId: this.windowId})
         }

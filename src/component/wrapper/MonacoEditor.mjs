@@ -1,4 +1,5 @@
-import Base from '../../component/Base.mjs';
+import Base                                   from '../../component/Base.mjs';
+import {reapplyOnThemeMap, resolveThemeValue} from '../../util/Theme.mjs';
 
 /**
  * Using this wrapper component requires to import the related main thread addon: Neo.main.addon.MonacoEditor
@@ -108,6 +109,12 @@ class MonacoEditor extends Base {
          */
         readOnly_: false,
         /**
+         * The editor theme for a Neo theme that {@link #themeMap} does not name, by the color scheme that
+         * theme declares.
+         * @member {Object} schemeMap
+         */
+        schemeMap: {dark: 'vs-dark', light: 'vs'},
+        /**
          * @member {Boolean} scrollBeyondLastLine_=false
          * @reactive
          */
@@ -122,9 +129,9 @@ class MonacoEditor extends Base {
          *
          * A map rather than a substring test on the theme name, because the name does not carry the
          * answer: `neo-theme-cyberpunk` is dark — `--neo-global-background-color: #0d1117`, and its own
-         * `--neo-color-scheme` says `dark` — and is named neither. Every theme declares that token,
-         * but the main-thread reader for it is protected and absent from the app remote manifest, so
-         * a component in the App Worker cannot ask. Same shape and same reason as the sibling
+         * `--neo-color-scheme` says `dark` — and is named neither. The theme build reads that token into
+         * the theme map, so a theme this map does not name answers through {@link #schemeMap} once the
+         * map reaches the App worker. Same shape and same reason as the sibling
          * {@link Neo.component.wrapper.Mermaid#themeMap}, and a config rather than a constant so a
          * consumer can extend it for a theme Neo does not ship — or map one onto a high-contrast
          * editor theme, which a two-way guess could never express.
@@ -168,7 +175,9 @@ class MonacoEditor extends Base {
             editorChange: me.onContentChange,
             resize      : me.layoutEditor,
             scope       : me
-        })
+        });
+
+        reapplyOnThemeMap(me)
     }
 
     /**
@@ -357,6 +366,14 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetTheme(value, oldValue) {
+        this.applyColorScheme()
+    }
+
+    /**
+     * @summary Sets the editor theme the resolved Neo theme maps onto. Also called once the theme map arrives.
+     * @protected
+     */
+    applyColorScheme() {
         this.editorTheme = this.resolveEditorTheme()
     }
 
@@ -386,7 +403,7 @@ class MonacoEditor extends Base {
         let me    = this,
             theme = me.useThemeAwareness && me.getTheme();
 
-        return me.themeMap[theme] ?? me.editorTheme
+        return (theme ? resolveThemeValue(theme, me.themeMap, me.schemeMap) : undefined) ?? me.editorTheme
     }
 
     /**
