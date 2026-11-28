@@ -120,19 +120,29 @@ test('translation accumulates coalesced steps, rebases the centroid, and qualifi
             sample(pan, 'cancel', 60, [], [7]);
             await new Promise(resolve => requestAnimationFrame(resolve));
 
-            const swipe = (moveAt, endAt, moveX, endX, endY=15) => {
+            const swipe = (moves, [endAt, endX, endY=15]) => {
                 const claim = fake('swipe');
 
                 sample(claim, 'start', 0, [point(4, 20)], [4]);
-                sample(claim, 'move', moveAt, [point(4, moveX)], [4]);
+
+                for (const [time, x, y] of moves) {
+                    sample(claim, 'move', time, [point(4, x, y)], [4])
+                }
+
                 sample(claim, 'end', endAt, [], [4], [point(4, endX, endY)])
             };
 
-            swipe(30, 60, 65, 100);
-            swipe(220, 440, 65, 100);
-            swipe(0, 0, 65, 100);
-            swipe(60, 280, 100, 100);
-            swipe(30, 60, 65, 100, 95);
+            swipe([[30, 65]], [60, 100]);
+            swipe([[220, 65]], [440, 100]);
+            swipe([[0, 65]], [0, 100]);
+            swipe([[60, 100]], [280, 100]);
+            swipe([[30, 65]], [60, 100, 95]);
+            swipe([[40, 120], [70, 90]], [90, 70]);
+            swipe([[30, 120], [55, 120], [80, 120]], [100, 120]);
+            swipe([[30, 120], [55, 120.75], [80, 119.5]], [110, 121]);
+            swipe([[30, 20, -65], [45, 20, -64]], [57, 20, -64]);
+            swipe([[30, 120]], [80, 120]);
+            swipe([[30, 120]], [81, 120]);
             return records
         });
 
@@ -145,7 +155,9 @@ test('translation accumulates coalesced steps, rebases the centroid, and qualifi
         expect(pan[3]).toMatchObject({contacts: [], changed: [1], elapsed: 60});
 
         const swipes = frames.filter(event => event.type === 'swipe');
-        expect(swipes).toHaveLength(1);
+        expect(swipes.map(({direction, elapsed}) => [direction, elapsed])).toEqual([
+            ['right', 60], ['up', 57], ['right', 80]
+        ]);
         expect(swipes[0]).toMatchObject({contacts: [], changed: [0], direction: 'right', elapsed: 60, x: 100, y: 15});
         expect(swipes[0].phase).toBeUndefined();
         expect(swipes[0].velocityX).toBeCloseTo(80 / 60)

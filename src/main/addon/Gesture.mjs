@@ -5,7 +5,9 @@ import Observable from '../../core/Observable.mjs';
 
 const pointerEvents = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture'],
       touchEvents   = ['touchstart', 'touchmove', 'touchend', 'touchcancel'],
-      passive       = {capture: true, passive: true};
+      passive       = {capture: true, passive: true},
+      swipeNoise    = 2,
+      swipeRestMs   = 50;
 
 /**
  * @summary Tracks contact ownership for subscribed nodes in one Main document.
@@ -679,7 +681,8 @@ class Gesture extends Base {
 
     /**
      * @summary Reports a single directional swipe at the observed one-contact lift position.
-     * A steady hold or a reversal before release cannot qualify from old velocity samples.
+     * Recent samples must sustain motion toward the lift. Within the release window, tolerate
+     * two CSS pixels of coordinate jitter and require meaningful advance within 50 ms of lift.
      * @param {Object} frame
      * @protected
      */
@@ -722,12 +725,35 @@ class Gesture extends Base {
               horizontal = Math.abs(dx) >= Math.abs(dy),
               main       = horizontal ? dx : dy,
               cross      = horizontal ? dy : dx,
-              speed      = horizontal ? velocityX : velocityY;
+              speed      = horizontal ? velocityX : velocityY,
+              sign       = Math.sign(main);
 
         if (!Number.isFinite(velocityX) || !Number.isFinite(velocityY) || Math.abs(main) < this.swipeDistance ||
-            Math.abs(main) < this.swipeDirectionRatio * Math.abs(cross) || speed * Math.sign(main) < this.swipeVelocity) {
+            Math.abs(main) < this.swipeDirectionRatio * Math.abs(cross) || speed * sign < this.swipeVelocity) {
             return
         }
+
+        const axis     = horizontal ? 'x' : 'y';
+        let   advanced = sign * recent[axis],
+              furthest   = advanced,
+              lastMotion = recent.elapsed;
+
+        for (const sample of [...state.samples, {...point, elapsed}]) {
+            if (sample.elapsed < recent.elapsed) continue;
+
+            const position = sign * sample[axis];
+
+            if (furthest - position > swipeNoise) return;
+
+            furthest = Math.max(furthest, position);
+
+            if (position - advanced >= Math.max(swipeNoise, this.swipeVelocity * (sample.elapsed - lastMotion))) {
+                advanced   = position;
+                lastMotion = sample.elapsed
+            }
+        }
+
+        if (elapsed - lastMotion > swipeRestMs) return;
 
         const direction = horizontal ? (main > 0 ? 'right' : 'left') : (main > 0 ? 'down' : 'up');
 
