@@ -20,7 +20,6 @@ import Neo                from '../../../../../src/Neo.mjs';
 import * as core          from '../../../../../src/core/_export.mjs';
 import DateField          from '../../../../../src/form/field/Date.mjs';
 import DateSelector       from '../../../../../src/component/DateSelector.mjs';
-import DateUtil           from '../../../../../src/util/Date.mjs';
 import DomApiVnodeCreator from '../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../../src/vdom/Helper.mjs';
 
@@ -77,16 +76,15 @@ test.describe('Neo.form.field.Date and Neo.component.DateSelector WAI-ARIA seman
     });
 
     test('DateSelector renders WAI-ARIA grid, columnheader aria-label, roving gridcell tabIndex, nav button keyboard handlers, and selection states', async () => {
-        const todayStr = DateUtil.convertToyyyymmdd(new Date()),
-              selector = Neo.create(DateSelector, {
-                  appName,
-                  id           : 'test-date-selector-aria',
-                  locale       : 'en-US',
-                  maxValue     : '2026-05-20',
-                  minValue     : '2026-05-10',
-                  useAnimations: false,
-                  value        : '2026-05-15'
-              });
+        const selector = Neo.create(DateSelector, {
+            appName,
+            id           : 'test-date-selector-aria',
+            locale       : 'en-US',
+            maxValue     : '2026-05-20',
+            minValue     : '2026-05-10',
+            useAnimations: false,
+            value        : '2026-05-15'
+        });
 
         try {
             await selector.initVnode();
@@ -180,17 +178,59 @@ test.describe('Neo.form.field.Date and Neo.component.DateSelector WAI-ARIA seman
             selector.onNavButtonKeyDown({path: [{cls: ['neo-prev-button']}]});
             await selector.promiseUpdate();
             expect(selector.value).toBe('2026-05-16');
-
-            // Today's cell carries aria-current="date" when viewing the current month
-            selector.value = todayStr;
-            await selector.promiseUpdate();
-
-            const todayCell = selector.getVdomChild(`${selector.id}__${todayStr}`);
-            expect(todayCell['aria-current']).toBe('date');
-            expect(todayCell['aria-selected']).toBe(true);
-            expect(todayCell.tabIndex).toBe(0);
         } finally {
             selector.destroy();
+        }
+    });
+
+    test('a rebuilt grid and a new selector use the current local day after midnight', async () => {
+        const NativeDate = globalThis.Date,
+              dayBefore  = '2041-01-19',
+              dayAfter   = '2041-01-20',
+              instances  = [],
+              create     = config => {
+                  const instance = Neo.create(DateSelector, {appName, useAnimations: false, ...config});
+                  instances.push(instance);
+                  return instance
+              };
+
+        let now = new NativeDate(2041, 0, 19, 23, 59, 59).getTime();
+
+        globalThis.Date = class Date extends NativeDate {
+            static now() {
+                return now
+            }
+
+            constructor(...args) {
+                super(...(args.length ? args : [now]))
+            }
+        };
+
+        try {
+            const selector = create({value: dayBefore}),
+                  cell     = day => selector.getVdomChild(`${selector.id}__${day}`);
+
+            await selector.initVnode();
+            selector.mounted = true;
+            expect(cell(dayBefore)['aria-current']).toBe('date');
+            expect(cell(dayBefore).cn[0].cls).toContain('neo-today');
+
+            now = new NativeDate(2041, 0, 20, 0, 0, 1).getTime();
+            selector.recreateDayViewContent();
+            await selector.promiseUpdate();
+
+            expect(selector.value).toBe(dayBefore);
+            expect(cell(dayBefore)['aria-selected']).toBe(true);
+            expect(cell(dayBefore).tabIndex).toBe(0);
+            expect(cell(dayBefore)['aria-current']).toBeUndefined();
+            expect(cell(dayBefore).cn[0].cls).not.toContain('neo-today');
+            expect(cell(dayAfter)['aria-current']).toBe('date');
+            expect(cell(dayAfter).cn[0].cls).toContain('neo-today');
+            expect(create({}).value).toBe(dayAfter);
+            expect(create({value: new Date(2041, 0, 15, 12)}).value).toBe('2041-01-15')
+        } finally {
+            globalThis.Date = NativeDate;
+            instances.forEach(instance => instance.destroy())
         }
     });
 });

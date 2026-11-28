@@ -6,13 +6,7 @@ import MonthYearSelector from './MonthYearSelector.mjs';
 import NeoArray          from '../util/Array.mjs';
 import VDomUtil          from '../util/VDom.mjs';
 
-const todayDate = new Date();
-
-const today = {
-    day  : todayDate.getDate(),
-    month: todayDate.getMonth(),
-    year : todayDate.getFullYear()
-};
+const defaultToday = Symbol('DateSelector default day');
 
 /**
  * @class Neo.component.DateSelector
@@ -155,10 +149,11 @@ class DateSelector extends Component {
          */
         useMonthYearSelector_: true,
         /**
-         * @member {String} value_=DateUtil.convertToyyyymmdd(new Date())
+         * The committed calendar day. The default is the local day when this selector is created.
+         * @member {String} value_
          * @reactive
          */
-        value_: DateUtil.convertToyyyymmdd(todayDate),
+        value_: defaultToday,
         /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
@@ -527,13 +522,16 @@ class DateSelector extends Component {
     }
 
     /**
-     * Triggered before the value config gets changed
-     * @param {String} value
+     * @summary Resolves the initial local-day default and normalizes explicit Date values.
+     * @param {String|Date|Symbol|null} value
      * @param {String} oldValue
      * @protected
      */
     beforeSetValue(value, oldValue) {
-        // If the value is set as a Date, try to convert it into a string
+        if (value === defaultToday) {
+            value = new Date()
+        }
+
         if (Neo.typeOf(value) === 'Date') {
             return DateUtil.convertToyyyymmdd(value)
         }
@@ -755,7 +753,7 @@ class DateSelector extends Component {
     }
 
     /**
-     * @summary Builds the calendar day grid with WAI-ARIA `grid`, `row`, `gridcell`, `aria-selected`, `aria-disabled`, `aria-current`, and `aria-label` semantics.
+     * @summary Builds the calendar day grid and marks the current local day independently of selection.
      * @param {Boolean} silent=false true to update the vdom silently
      * @param {Object} [containerEl]
      */
@@ -765,6 +763,9 @@ class DateSelector extends Component {
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
+            today           = new Date(),
+            todayDay        = today.getDate(),
+            isCurrentMonth  = today.getFullYear() === currentYear && today.getMonth() === currentMonth,
             fullDateFormat  = new Intl.DateTimeFormat(me.locale, {dateStyle: 'full'}),
             maxDate         = me.maxValue && me.dateFromValue(me.maxValue),
             minDate         = me.minValue && me.dateFromValue(me.minValue),
@@ -835,7 +836,7 @@ class DateSelector extends Component {
                     firstEnabledCellConfig = config
                 }
 
-                if (today.year === currentYear && today.month === currentMonth && today.day === day) {
+                if (isCurrentMonth && day === todayDay) {
                     config['aria-current'] = 'date';
                     config.cn[0].cls.push('neo-today')
                 }
