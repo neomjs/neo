@@ -70,8 +70,21 @@ test.describe('Neo.container.Base — an item config\'s own theme survives creat
         expect(item.cls, 'inherited from the physical parent: no local carrier').not.toContain('neo-theme-neo-dark')
     });
 
+    test('an ntype added under a themed host resolves its theme without declaring a config at creation', () => {
+        const dark = 'neo-theme-neo-dark', light = 'neo-theme-neo-light';
+        container = Neo.create(Container, {appName, theme: dark});
+        const item = container.add({ntype: 'component'});
+
+        expect(item.theme).toBeNull();
+        expect(item.getTheme()).toBe(dark);
+        expect(item.cls).not.toContain(dark);
+        container.theme = light;
+        expect(item.theme).toBe(light);
+        expect(item.cls).not.toContain(light)
+    });
+
     test('an explicit island survives its host matching it and switching back', () => {
-        const dark = 'neo-theme-material-dark', light = 'neo-theme-neo-light';
+        const dark = 'neo-theme-neo-dark', light = 'neo-theme-neo-light';
         container = Neo.create(Container, {
             appName, theme: dark, items: [{ntype: 'container', items: [
                 {module: Container, theme: light, items: [{ntype: 'component'}]},
@@ -86,7 +99,7 @@ test.describe('Neo.container.Base — an item config\'s own theme survives creat
             expect(sibling.theme).toBe(theme);
             expect(island.cls).toContain(light);
             expect(island.theme).toBe(light);
-            expect(leaf.theme).toBe(light);
+            expect(leaf.getTheme()).toBe(light);
             expect(leaf.cls).not.toContain(light)
         }
     });
@@ -100,7 +113,7 @@ test.describe('Neo.container.Base — an item config\'s own theme survives creat
             ]
         });
         const [explicit, classItem, ntypeItem, host] = container.items, [defaultItem] = host.items;
-        container.theme = 'neo-theme-material-dark';
+        container.theme = 'neo-theme-neo-dark';
         for (const item of [explicit, classItem, ntypeItem, defaultItem]) {
             expect(item.theme).toBe(light);
             expect(item.cls).toContain(light)
@@ -108,10 +121,11 @@ test.describe('Neo.container.Base — an item config\'s own theme survives creat
     });
 
     test('a live same-value choice owns its scope through adoption and clearing resumes inheritance', () => {
-        const light = 'neo-theme-neo-light', dark = 'neo-theme-material-dark';
-        container = Neo.create(Container, {appName, theme: light, items: [{ntype: 'component'}]});
+        const light = 'neo-theme-neo-light', dark = 'neo-theme-neo-dark';
+        container = Neo.create(Container, {appName, theme: light, items: [{module: Component}]});
         const [item] = container.items, destination = Neo.create(Container, {appName, theme: light});
         try {
+            expect(item.theme).toBe(light);
             expect(item.cls).not.toContain(light);
             item.theme = light;
             expect(item.cls).toContain(light);
@@ -132,7 +146,7 @@ test.describe('Neo.container.Base — an item config\'s own theme survives creat
     });
 
     test('a prebuilt view with a matching owner theme follows the destination after its first adoption', () => {
-        const light = 'neo-theme-neo-light', dark = 'neo-theme-material-dark';
+        const light = 'neo-theme-neo-light', dark = 'neo-theme-neo-dark';
         const view  = Neo.create(Container, {appName, theme: light});
         container = Neo.create(Container, {appName, theme: light, items: [view]});
         expect(view.cls).not.toContain(light);

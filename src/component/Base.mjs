@@ -1017,11 +1017,15 @@ class Component extends Abstract {
         if (this.ownsTheme === null) {
             return value
         }
-        const release = this.ownsTheme && !value && !this.#applyingParentTheme;
-        this.ownsTheme = Boolean(value) && !this.#applyingParentTheme;
-        this.#applyingParentTheme = false;
-        if (release || (!value && this.isConfiguring)) {
-            value = this.parent?.theme ?? value
+        if (this.isConfiguring) {
+            this.ownsTheme &&= Boolean(value)
+        } else {
+            const release = this.ownsTheme && !value && !this.#applyingParentTheme;
+            this.ownsTheme = Boolean(value) && !this.#applyingParentTheme;
+            this.#applyingParentTheme = false;
+            if (release) {
+                value = this.parent?.theme ?? value
+            }
         }
         if (value && value === oldValue) {
             this.syncThemeClass(value, oldValue)
