@@ -76,6 +76,129 @@ test.describe('Grid cell editing over nested and tree records', () => {
         await expect(firstname, 'the original value clears the marker').not.toHaveClass(/neo-is-modified/)
     });
 
+    test('opt-in modified value paint follows a recycled cell and clears when its current value is accepted', async ({page}) => {
+        const grid          = page.locator(NESTED),
+              view          = grid.locator('.neo-grid-view'),
+              worker        = page.workers().find(item => item.url().includes('/worker/App')),
+              recordId      = await recordIdOf(page, NESTED, 'country', 'IT'),
+              country       = nested.cell(page, 'country', recordId),
+              age           = nested.cell(page, 'user.age', recordId),
+              team          = nested.cell(page, 'user.team', recordId),
+              corner        = () => country.evaluate(node => getComputedStyle(node, '::after').borderRightWidth),
+              scrollTo      = offset => worker.evaluate(value => Neo.get('grid-cell-editing-nested').view.scrollToOffset(value), offset),
+              selectCountry = async () => {
+                  if (await country.getAttribute('aria-selected') !== 'true') {
+                      await country.click()
+                  }
+
+                  await expect(country).toHaveAttribute('aria-selected', 'true');
+                  await expect(view).toBeFocused()
+              };
+
+        expect(await worker.evaluate(() => {
+            const {store} = Neo.get('grid-cell-editing-nested');
+
+            store.add(Array.from({length: 394}, (_, index) => ({
+                id     : index + 7,
+                country: 'FR',
+                user   : {firstname: `Extra ${index + 7}`, lastname: 'Row', age: 20, joined: new Date('2024-12-01'), team: 'core'}
+            })));
+            return store.count
+        })).toBe(400);
+
+        await country.dblclick();
+        await expect.poll(() => nested.editingIn(page, 'country', recordId)).toBe(true);
+        await page.locator(nested.INPUT).fill('CA');
+        await page.keyboard.press('Enter');
+        await expect(page.locator(nested.EDITOR)).toHaveCount(0);
+        await expect(country).toHaveText('CA');
+        await expect(country).toHaveClass(/neo-is-modified/);
+        await expect.poll(corner).toBe('10px');
+        await selectCountry();
+        await expect(country).toHaveCSS('font-style', 'normal');
+
+        const stock = await country.evaluate(node => {
+            const {backgroundColor, color} = getComputedStyle(node);
+            return {backgroundColor, color}
+        });
+
+        const modifiedColor = await grid.evaluate(node => {
+            const probe = document.createElement('span');
+
+            node.style.setProperty('--neo-grid-cell-color-modified', 'var(--neo-color-text-strong)');
+            node.style.setProperty('--neo-grid-cell-font-style-modified', 'italic');
+            probe.style.color = 'var(--neo-color-text-strong)';
+            node.append(probe);
+            const color = getComputedStyle(probe).color;
+            probe.remove();
+            return color
+        });
+
+        expect(modifiedColor).not.toBe(stock.color);
+        await expect(country).toHaveCSS('color', modifiedColor);
+        await expect(country).toHaveCSS('font-style', 'italic');
+        await expect(country).toHaveCSS('background-color', stock.backgroundColor);
+        await expect(country).toHaveAttribute('aria-selected', 'true');
+        await expect(view).toBeFocused();
+
+        await age.click();
+        await expect(country).not.toHaveAttribute('aria-selected', 'true');
+        await expect(country).toHaveCSS('color', modifiedColor);
+        await expect(country).toHaveCSS('font-style', 'italic');
+
+        const slotId = await country.getAttribute('id'),
+              slot   = grid.locator(`[id="${slotId}"]`);
+
+        await scrollTo(2500);
+        await expect(country).toHaveCount(0);
+        await expect(slot).toHaveAttribute('data-record-id', /.+/);
+        await expect(slot).not.toHaveAttribute('data-record-id', recordId);
+        await expect(slot).not.toHaveClass(/neo-is-modified/);
+        await expect(slot).toHaveCSS('font-style', 'normal');
+
+        await scrollTo(0);
+        await expect(country).toHaveText('CA');
+        await expect(country).toHaveClass(/neo-is-modified/);
+        await expect(country).toHaveCSS('font-style', 'italic');
+        await expect.poll(corner).toBe('10px');
+
+        await worker.evaluate(() => Neo.get('grid-cell-editing-nested').store.get(3).set({'user.age': 42, 'user.team': 'docs'}));
+        await expect(age).toHaveText('42');
+        await expect(team).toHaveText('Docs');
+        await expect(age).toHaveCSS('font-style', 'italic');
+        await expect(team).toHaveCSS('color', modifiedColor);
+
+        await selectCountry();
+        const accepted = await worker.evaluate(() => {
+            const {store} = Neo.get('grid-cell-editing-nested'),
+                  record  = store.get(3);
+            let valueChanges = 0;
+
+            store.on('recordChange', ({record: changed, fields}) => {
+                if (changed === record) valueChanges += fields.length
+            });
+            record.reset({country: record.get('country')});
+
+            return {
+                country : record.get('country'),
+                modified: ['country', 'user.age', 'user.team'].map(field => record.isModifiedField(field)),
+                valueChanges
+            }
+        });
+
+        expect(accepted).toEqual({country: 'CA', modified: [false, true, true], valueChanges: 0});
+        await expect(country).toHaveText('CA');
+        await expect(country).not.toHaveClass(/neo-is-modified/);
+        await expect(country).toHaveCSS('font-style', 'normal');
+        await expect(country).toHaveCSS('color', stock.color);
+        await expect(country).toHaveCSS('background-color', stock.backgroundColor);
+        await expect(country).toHaveAttribute('aria-selected', 'true');
+        await expect(view).toBeFocused();
+        await expect.poll(corner).toBe('0px');
+        await expect(age).toHaveClass(/neo-is-modified/);
+        await expect(team).toHaveClass(/neo-is-modified/)
+    });
+
     test('Tab commits a nested field into the next one, and Escape there keeps its value', async ({page}) => {
         const recordId = await recordIdOf(page, NESTED, 'user.firstname', 'First 2');
 

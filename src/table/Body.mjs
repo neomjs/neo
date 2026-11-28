@@ -156,11 +156,12 @@ class TableBody extends Component {
     afterSetStore(value, oldValue) {
         let me        = this,
             listeners = {
-                filter      : me.onStoreFilter,
-                load        : me.onStoreLoad,
-                recordChange: me.onStoreRecordChange,
-                rowsChange  : me.onStoreRowsChange,
-                scope       : me
+                filter              : me.onStoreFilter,
+                load                : me.onStoreLoad,
+                recordBaselineChange: me.onStoreRecordBaselineChange,
+                recordChange        : me.onStoreRecordChange,
+                rowsChange          : me.onStoreRowsChange,
+                scope               : me
             };
 
         oldValue?.un(listeners);
@@ -839,6 +840,18 @@ class TableBody extends Component {
         }
 
         needsUpdate && me.update()
+    }
+
+    /**
+     * @summary Repaints tracking indicators after a reset. A value-change repaint covers only the cells it edited.
+     * @param {Object} data
+     * @param {Neo.data.Record} data.record
+     * @protected
+     */
+    onStoreRecordBaselineChange({record}) {
+        if (this.highlightModifiedCells) {
+            this.onStoreRowsChange({keys: [this.store.getKey(record)]})
+        }
     }
 
     /**

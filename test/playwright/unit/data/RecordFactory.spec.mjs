@@ -42,6 +42,86 @@ test.describe('Neo.data.RecordFactory', () => {
         expect(record.version).toBe(1);
     });
 
+    test('accepts tracked values without publishing business changes for baseline-only resets', () => {
+        const initial = {id: 'a', name: 'Alpha', amount: 2, other: 3, details: {city: 'Berlin'}},
+              store   = Neo.create(Store, {
+                  model: {trackModifiedFields: true, fields: [
+                      {name: 'id'}, {name: 'name', minLength: 2}, {name: 'amount', type: 'Integer'}, {name: 'other', type: 'Integer'},
+                      {name: 'details', fields: [{name: 'city'}]},
+                      {name: 'double', calculate: data => 2 * data.amount},
+                      {name: 'total', calculate: data => data.amount + data.other}
+                  ]},
+                  data: [initial]
+              }),
+              record = store.get('a'),
+              baselineChanges = [],
+              storeChanges = [],
+              observed = [],
+              dirty = (...fields) => fields.map(field => record.isModifiedField(field));
+
+        store.on('recordBaselineChange', ({record, valueChanged}) => baselineChanges.push([record, valueChanged]));
+        store.on('recordChange', ({fields}) => storeChanges.push(fields.map(field => field.name)));
+        const stop = RecordFactory.observeRecord(record, ({fields}) => observed.push(fields.map(field => field.name)));
+
+        try {
+            record.set({name: 'Beta', amount: 4, other: 7, details: {city: 'Bonn'}});
+            storeChanges.length = observed.length = 0;
+            const version = record.version,
+                  epoch   = RecordFactory.getWriteEpoch(record);
+
+            record.reset({amount: '4', details: {city: 'Bonn'}});
+            expect(dirty('amount', 'details.city', 'double', 'name', 'other', 'total')).toEqual([false, false, false, true, true, true]);
+            expect(record.version).toBeGreaterThan(version);
+            expect(RecordFactory.getWriteEpoch(record)).toBe(epoch);
+            expect(baselineChanges).toEqual([[record, false]]);
+            expect(storeChanges).toEqual([]);
+            expect(observed).toEqual([]);
+
+            record.reset({name: 'X'});
+            expect(record.name).toBe('Beta');
+            expect(record.isModifiedField('name')).toBe(true);
+            expect(baselineChanges).toHaveLength(1);
+            expect(storeChanges).toEqual([]);
+
+            record.reset({amount: 6});
+            expect([record.amount, record.double, record.total]).toEqual([6, 12, 13]);
+            expect(dirty('amount', 'double', 'total')).toEqual([false, false, true]);
+            expect(baselineChanges).toEqual([[record, false], [record, true]]);
+            expect(storeChanges).toEqual([['amount', 'double', 'total']]);
+            expect(observed).toEqual(storeChanges);
+
+            record.set({name: 'Alpha', other: 3});
+            expect(record.isModified).toBe(false);
+        } finally {
+            stop();
+            store.destroy()
+        }
+    });
+
+    test('forwards a lazy filtered record baseline to the owning Store without changing its projection', () => {
+        const store = Neo.create(Store, {
+            autoInitRecords: false,
+            model          : {trackModifiedFields: true, fields: [{name: 'id'}, {name: 'name'}, {name: 'visible', type: 'Boolean'}]},
+            data           : [{id: 'a', name: 'Alpha', visible: false}, {id: 'b', name: 'Beta', visible: true}],
+            filters        : [{property: 'visible', value: true}]
+        });
+
+        try {
+            const record = store.allItems.get('a'),
+                  events = [];
+            store.on('recordBaselineChange', ({record}) => events.push(record));
+            record.name = 'Accepted';
+            record.reset({name: 'Accepted'});
+
+            expect(record.isModifiedField('name')).toBe(false);
+            expect(events).toEqual([record]);
+            expect(store.count).toBe(1);
+            expect(store.getAt(0).id).toBe('b');
+        } finally {
+            store.destroy()
+        }
+    });
+
     for (const trackModifiedFields of [false, true]) {
         test(`scoped field adoption restores exact values, calculated fields and version (tracking=${trackModifiedFields})`, () => {
             const schema = Neo.create(Model, {trackModifiedFields, fields: [

@@ -678,6 +678,7 @@ class Store extends Collection {
             model = me.#ownsModel ? me.model : null;
 
         me.allItems?.un('recordChange', me.onAllItemsRecordChange, me);
+        me.allItems?.un('recordBaselineChange', me.onRecordBaselineChange, me);
         me.#resolvedModel = null;
         me.#streamingReads.clear();
         me.isStreaming = false;
@@ -733,6 +734,7 @@ class Store extends Collection {
         config.data = null;
         const allItems = super.createAllItems(config);
         allItems.on('recordChange', this.onAllItemsRecordChange, this);
+        allItems.on('recordBaselineChange', this.onRecordBaselineChange, this);
         return allItems
     }
 
@@ -1707,6 +1709,20 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Publishes a reset of a current record's tracking baseline without sorting, filtering, or emitting a
+     * `recordChange`. A lazily hydrated record can publish through the unfiltered Store that owns it.
+     * @param {Object} data
+     * @param {Neo.data.Record} data.record
+     * @param {Boolean} data.valueChanged Whether the reset also published an ordinary value change.
+     * @protected
+     */
+    onRecordBaselineChange(data) {
+        if (!this.isDestroyed && this.getRow(this.getKey(data.record)) === data.record) {
+            this.fire('recordBaselineChange', data)
+        }
+    }
+
+    /**
      * @summary Forwards current projection-owned edits; notification lifetime is independent of filter reapplication.
      * @param {Object} data
      * @protected
@@ -2360,6 +2376,13 @@ class Store extends Collection {
  * @param {String[]} fields The fields the batch wrote, also to the rows a subclass added
  * ({@link Neo.data.Store#writeRows}), and the model's calculated fields, which may read them
  * @param {Array}    keys   The changed rows' keys, in batch order, then those of the rows a subclass added
+ */
+
+/**
+ * Fires when a tracked record accepts a new editing baseline.
+ * @event recordBaselineChange
+ * @param {Neo.data.Record} record The current record.
+ * @param {Boolean} valueChanged Whether the reset also published ordinary value changes.
  */
 
 export default Neo.setupClass(Store);

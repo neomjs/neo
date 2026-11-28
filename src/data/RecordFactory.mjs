@@ -337,12 +337,24 @@ class RecordFactory extends Base {
                     }
 
                     /**
-                     * Bulk-update multiple record fields at once
+                     * @summary Accepts the supplied fields as the new baseline, then applies their values.
+                     * A baseline-only reset can change dirty indicators without publishing a field change.
                      * @param {Object} fields
                      */
                     reset(fields) {
+                        const version = this.version;
+
                         this.setOriginal(fields);
-                        this.set(fields)
+                        const baselineVersion = this.version;
+
+                        this.set(fields);
+
+                        if (baselineVersion !== version) {
+                            Neo.get(model.storeId)?.onRecordBaselineChange({
+                                record      : this,
+                                valueChanged: this.version !== baselineVersion
+                            })
+                        }
                     }
 
                     /**
@@ -728,9 +740,11 @@ class RecordFactory extends Base {
             value = field.convert(value, record)
         }
 
-        let fieldName = field.name,
+        let fieldName                                 = field.name,
             {mapping, maxLength, minLength, nullable} = field,
-            oldValue  = recordConfig?.[fieldName] || record[fieldName],
+            oldValue                                  = recordConfig?.[fieldName] || (useOriginalData
+                ? Neo.ns(fieldName, false, record[originalDataSymbol])
+                : record[fieldName]),
             type      = field.type?.toLowerCase();
 
         // only trigger mappings for initial values
@@ -850,6 +864,8 @@ class RecordFactory extends Base {
             return
         }
 
+        const original = useOriginalData ? record[originalDataSymbol] : null;
+
         Object.entries(fields).forEach(([key, value]) => {
             fieldExists = fieldsMap.has(key);
 
@@ -865,8 +881,8 @@ class RecordFactory extends Base {
                     })
                 })
             } else if (fieldExists) {
-                oldValue = record[key];
-                value    = me.parseRecordValue({record, field: model.getField(key), value});
+                oldValue = original ? Neo.ns(key, false, original) : record[key];
+                value    = me.parseRecordValue({record, field: model.getField(key), value, useOriginalData});
 
                 if (!Neo.isEqual(oldValue, value)) {
                     me.setRecordData({fieldName: key, model, record, useOriginalData, value});
@@ -892,7 +908,7 @@ class RecordFactory extends Base {
             calculatedFieldsMap.forEach((value, key) => {
                 if (value.virtual) return;
 
-                oldValue = record[key];
+                oldValue = original ? Neo.ns(key, false, original) : record[key];
                 value    = me.parseRecordValue({record, field: model.getField(key), useOriginalData});
 
                 if (!Neo.isEqual(oldValue, value)) {
