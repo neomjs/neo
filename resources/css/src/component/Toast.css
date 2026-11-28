@@ -56,6 +56,16 @@
             line-height: 1.5;
             margin-left: auto;
         }
+
+        .neo-toast-action {
+            background     : transparent;
+            border         : 0;
+            color          : inherit;
+            cursor         : pointer;
+            font           : inherit;
+            padding        : 0.25em 0.5em;
+            text-decoration: underline;
+        }
     }
 }
 
@@ -92,6 +102,10 @@
 }
 
 /* Toast positions */
+.neo-toast:is(.neo-toast-bl, .neo-toast-bc, .neo-toast-br) {
+    top: auto;
+}
+
 .neo-toast-tr {
     right: 1rem;
     left : auto;

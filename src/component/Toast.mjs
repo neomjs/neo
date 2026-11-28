@@ -48,6 +48,12 @@ class Toast extends Component {
          */
         ntype: 'toast',
         /**
+         * Optional native action. The callback is consumed once and the toast closes after activation.
+         * @member {Object|null} action_=null
+         * @reactive
+         */
+        action_: null,
+        /**
          * @member {String[]} baseCls=['neo-toast']
          * @protected
          */
@@ -120,7 +126,8 @@ class Toast extends Component {
                     {cls: ['neo-toast-title'], removeDom: true},
                     {cls: 'neo-toast-msg'}
                 ]},
-                {cls: ['neo-toast-close', 'fa', 'fa-close'], removeDom: true}
+                {cls: ['neo-toast-close', 'fa', 'fa-close'], removeDom: true},
+                {tag: 'button', type: 'button', cls: ['neo-toast-action'], removeDom: true}
             ]}
         ]}
     }
@@ -146,12 +153,48 @@ class Toast extends Component {
 
         let me = this;
 
-        // click listener for close
         me.addDomListeners([
-            {click: {fn: me.destroy, delegate: '.neo-toast-close', scope: me}}
+            {click: {fn: me.destroy, delegate: '.neo-toast-close', scope: me}},
+            {click: {fn: me.onToastAction, delegate: '.neo-toast-action', scope: me}}
         ]);
 
         ToastManager.register(me)
+    }
+
+    /**
+     * @summary Shows one native button only when the toast has an actionable label and callback.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetAction(value, oldValue) {
+        const button = this.getVdomInner().cn[3],
+              text   = typeof value?.text === 'string' ? value.text.trim() : '';
+
+        button.text = text;
+        button.removeDom = !text || typeof value.handler !== 'function';
+        oldValue !== undefined && this.update()
+    }
+
+    /**
+     * @summary Consumes the action before calling it so a repeated activation cannot run it twice.
+     * @param {Object} data
+     * @protected
+     */
+    onToastAction(data) {
+        const {action} = this;
+
+        if (typeof action?.handler !== 'function') return;
+
+        this.action = null;
+
+        try {
+            action.handler(data)
+        } finally {
+            if (!this.isDestroyed) {
+                this.destroy()
+            }
+        }
     }
 
     /**
@@ -263,11 +306,12 @@ class Toast extends Component {
     }
 
     /**
-     * Initiates the toast fade-out sequence and unregisters/destroys the instance on `animationend`.
+     * @summary Fades the toast before unregistering it and removing it from the DOM.
      * Guards against duplicate invocations when manual close and {@link #removeDelay} overlap.
-     * @param {...*} args
+     * @param {Boolean} [updateParentVdom=true] Whether to remove the rendered node.
+     * @param {Boolean} [silent=false] Whether to update the parent VDOM silently.
      */
-    async destroy(...args) {
+    async destroy(updateParentVdom=true, silent=false) {
         let me = this;
 
         if (me.isDestroyed || me.cls.includes('neo-toast-fade-out')) {
@@ -280,7 +324,7 @@ class Toast extends Component {
             animationend: function () {
                 ToastManager.removeToast(me.id);
                 ToastManager.unregister(me);
-                superDestroy(...args);
+                superDestroy(updateParentVdom, silent);
             }
         });
 

@@ -1,0 +1,27 @@
+.neo-swipe-example-toolbar {
+    min-block-size: var(--neo-swipe-example-toolbar-height);
+    padding-inline: var(--neo-swipe-example-padding);
+}
+
+.neo-swipe-example-title {
+    font-size  : var(--neo-swipe-example-title-font-size);
+    font-weight: var(--neo-swipe-example-title-font-weight);
+}
+
+.neo-swipe-example-count {
+    background-color: var(--neo-swipe-example-background-color);
+    color           : var(--neo-swipe-example-count-color);
+    padding         : var(--neo-swipe-example-padding);
+}
+
+.neo-swipe-example-feed {
+    background-color: var(--neo-swipe-example-background-color);
+    min-block-size  : 0;
+
+    > .neo-list-item {
+        border-block-end: var(--neo-swipe-example-row-border);
+        box-sizing      : border-box;
+        overflow        : hidden;
+        padding         : 0;
+    }
+}

@@ -137,7 +137,9 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
         expect(list.store.get(list.getItemRecordId(list.getItemId(3)))).toBe(list.store.get(3));
 
         // An id the list cannot resolve still answers null rather than a half-converted value.
-        expect(list.getItemRecordId(`${list.getLogicalIdPrefix()}not-a-key`)).toBe(null)
+        expect(list.getItemRecordId(`${list.getLogicalIdPrefix()}not-a-key`)).toBe(null);
+        expect(list.getItemRecordId('floating-menu__1')).toBe(null);
+        expect(list.getItemRecordId('floating-menu__archive')).toBe(null)
     });
 
     test('5,000 records mount only viewport + buffer rows with honest semantic positions', async () => {
@@ -162,6 +164,28 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
         expect(rows.map(row => row.data.recordId)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
         expect(rows.map(row => row['aria-posinset'])).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
         expect(rows.every(row => row['aria-setsize'] === 5000)).toBe(true)
+    });
+
+    test('a physical slot gets a new binding when it rebinds away and back to the same record', async () => {
+        await createList();
+
+        const current = () => renderedRows(list)[0],
+              initial = current();
+
+        expect(initial.data.recordId).toBe(0);
+        list.createItems(true);
+        expect(current().data.slotBinding).toBe(initial.data.slotBinding);
+
+        list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 400});
+        await expect.poll(() => current().data.recordId).not.toBe(0);
+        const rebound = current();
+        expect(rebound.id).toBe(initial.id);
+        expect(rebound.data.slotBinding).not.toBe(initial.data.slotBinding);
+
+        list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 0});
+        await expect.poll(() => current().data.recordId).toBe(0);
+        expect(current().id).toBe(initial.id);
+        expect(current().data.slotBinding).not.toBe(initial.data.slotBinding)
     });
 
     test('empty and plain-text lists keep the inherited semantic contract', async () => {

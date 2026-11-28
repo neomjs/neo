@@ -124,6 +124,10 @@ class Buffered extends ComponentList {
      * @protected
      */
     slotRecordIds = []
+    /** @member {Array<Number>} #slotBindings Current assignment identity for each mounted physical slot. */
+    #slotBindings = []
+    /** @member {Number} #nextSlotBinding Monotonic stamp, also across Store replacement. */
+    #nextSlotBinding = 0
     /**
      * Last observed viewport height. Before the first resize delivery a numeric component height,
      * or one row as the fail-visible fallback, seeds the pool.
@@ -217,6 +221,7 @@ class Buffered extends ComponentList {
         me.recordSlotMap.clear();
         me.scrollTop      = 0;
         me.slotRecordIds  = [];
+        me.#slotBindings  = [];
 
         super.afterSetStore(value, oldValue)
     }
@@ -263,6 +268,8 @@ class Buffered extends ComponentList {
      */
     assignPoolSlots(records, start, poolSize) {
         let me          = this,
+            previous    = me.slotRecordIds,
+            bindings    = me.#slotBindings,
             assignments = records.slice(0, poolSize).map((record, poolIndex) => ({
                 logicalIndex: start + poolIndex,
                 poolIndex,
@@ -271,12 +278,18 @@ class Buffered extends ComponentList {
 
         me.recordSlotMap = new Map();
         me.slotRecordIds = Array(poolSize).fill(null);
+        bindings.length  = assignments.length;
 
         assignments.forEach(item => {
-            const recordId = me.getRecordId(item.record);
+            const recordId    = me.getRecordId(item.record),
+                  {poolIndex} = item;
 
-            me.recordSlotMap.set(me.toRecordMapKey(recordId), item.poolIndex);
-            me.slotRecordIds[item.poolIndex] = recordId
+            if (!bindings[poolIndex] || previous[poolIndex] !== recordId) {
+                bindings[poolIndex] = ++me.#nextSlotBinding
+            }
+
+            me.recordSlotMap.set(me.toRecordMapKey(recordId), poolIndex);
+            me.slotRecordIds[poolIndex] = recordId
         });
 
         return assignments
@@ -418,7 +431,7 @@ class Buffered extends ComponentList {
     }
 
     /**
-     * One semantic pool row. The physical id is slot-owned; logical identity is explicit data.
+     * One semantic pool row. The binding stamp lets a contact detect recycling even when the same record returns.
      * @param {Object} item `{record, logicalIndex, poolIndex}`
      * @returns {Object}
      * @protected
@@ -434,7 +447,8 @@ class Buffered extends ComponentList {
             ...(item.data || {}),
             logicalIndex,
             poolIndex,
-            recordId
+            recordId,
+            slotBinding: me.#slotBindings[poolIndex]
         };
         item['aria-posinset'] = logicalIndex + 1;
         item['aria-setsize']  = me.store.getCount();
@@ -527,7 +541,8 @@ class Buffered extends ComponentList {
         } else if (nodeOrId.startsWith(slotPrefix)) {
             value = this.slotRecordIds[Number(nodeOrId.slice(slotPrefix.length))]
         } else {
-            return super.getItemRecordId(nodeOrId)
+            // Floating row menus can bubble through the owning component without sharing its slot ids.
+            return null
         }
 
         // A refused key canonicalizes to undefined and falls through to the null contract below,
