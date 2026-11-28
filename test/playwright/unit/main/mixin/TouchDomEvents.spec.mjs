@@ -16,10 +16,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
-import Helix          from '../../../../../src/component/Helix.mjs';
 import TouchDomEvents from '../../../../../src/main/mixin/TouchDomEvents.mjs';
-
-const lockWheel = Symbol.for('lockWheel');
 
 /**
  * @summary Builds an isolated host carrying the real TouchDomEvents methods and captured App messages.
@@ -40,35 +37,15 @@ function createTouchHost() {
         onTouchStart     : TouchDomEvents.prototype.onTouchStart,
         sendMessageToApp : data => sent.push(data),
         syncTrackedTouch : TouchDomEvents.prototype.syncTrackedTouch,
-        testPathInclusion: () => false
+        testPathInclusion: (event, classes) => event.composedPath?.().some(node =>
+            classes.some(cls => node.classList?.contains(cls))
+        )
     }
 }
 
-/**
- * @summary Builds a minimal Helix stub bound to real `onTouchMove` and `onMouseWheel`.
- * @returns {Object}
- */
-function createHelixStub() {
-    return {
-        [lockWheel]      : false,
-        mouseWheelDeltaX : 5,
-        mouseWheelDeltaY : 50,
-        mouseWheelEnabled: true,
-        _rotationAngle   : 780,
-        _translateZ      : -5000,
-        get rotationAngle() {return this._rotationAngle},
-        get translateZ()    {return this._translateZ},
-        fire        : () => {},
-        onMouseWheel: Helix.prototype.onMouseWheel,
-        onTouchMove : Helix.prototype.onTouchMove,
-        refresh     : () => {}
-    }
-}
-
-test.describe('Neo.main.mixin.TouchDomEvents & Helix partial-lift touch safety', () => {
-    test('lifting a second finger preserves the tracked contact delta on the next move and keeps Helix finite', () => {
-        const host  = createTouchHost(),
-              helix = createHelixStub();
+test.describe('Neo.main.mixin.TouchDomEvents', () => {
+    test('lifting a second finger preserves the tracked contact and its next raw movement', () => {
+        const host = createTouchHost();
 
         // Put down contact 13 at (200, 200)
         host.onTouchStart({
@@ -84,6 +61,7 @@ test.describe('Neo.main.mixin.TouchDomEvents & Helix partial-lift touch safety',
                 {identifier: 13, clientX: 200, clientY: 200}
             ]
         });
+        expect(host.lastTouch.identifier).toBe(13);
 
         // Lift only contact 27; contact 13 remains down at (200, 200)
         host.onTouchEnd({
@@ -97,17 +75,9 @@ test.describe('Neo.main.mixin.TouchDomEvents & Helix partial-lift touch safety',
             touches: [{identifier: 13, clientX: 212, clientY: 192}]
         });
 
-        const movePayload = host.sent.at(-1);
-
-        expect(movePayload.deltaX).toBe(12);
-        expect(movePayload.deltaY).toBe(-8);
-
-        helix.onTouchMove({...movePayload});
-
-        expect(Number.isFinite(helix.rotationAngle)).toBe(true);
-        expect(Number.isFinite(helix.translateZ)).toBe(true);
-        expect(helix.rotationAngle).toBe(780 + 12 * 1.5 * 5);
-        expect(helix.translateZ).toBe(-5000 + (-8) * 3 * 50)
+        expect(host.firstTouch.identifier).toBe(13);
+        expect(host.lastTouch.identifier).toBe(13);
+        expect(host.sent.at(-1)).toEqual({type: 'touchmove', deltaX: 12, deltaY: -8})
     });
 
     test('lifting the tracked finger while another remains re-anchors by identifier without a jump delta', () => {
@@ -130,6 +100,8 @@ test.describe('Neo.main.mixin.TouchDomEvents & Helix partial-lift touch safety',
             type   : 'touchend',
             touches: [{identifier: 27, clientX: 400, clientY: 320}]
         });
+        expect(host.firstTouch.identifier).toBe(27);
+        expect(host.lastTouch.identifier).toBe(27);
         expect(host.sent.at(-1).type).toBe('touchend');
         expect(host.sent.at(-1).deltaX).toBeUndefined();
 
@@ -141,20 +113,42 @@ test.describe('Neo.main.mixin.TouchDomEvents & Helix partial-lift touch safety',
 
         expect(host.sent.at(-1)).toMatchObject({type: 'touchmove', deltaX: 6, deltaY: 4});
 
-        // Final lift clears both anchors
+        // Cancellation clears both anchors so the next sequence measures from its own start
         host.onTouchCancel({type: 'touchcancel', touches: []});
+        expect(host.firstTouch).toBeNull();
+        expect(host.lastTouch).toBeNull();
+        expect(host.sent.at(-1)).toEqual({type: 'touchcancel'});
+
+        host.onTouchStart({
+            type   : 'touchstart',
+            touches: [{identifier: 27, clientX: 100, clientY: 100}]
+        });
+        host.onTouchMove({
+            type   : 'touchmove',
+            touches: [{identifier: 27, clientX: 97, clientY: 105}]
+        });
+        expect(host.sent.at(-1)).toEqual({type: 'touchmove', deltaX: -3, deltaY: 5});
+
+        host.onTouchEnd({type: 'touchend', touches: []});
         expect(host.firstTouch).toBeNull();
         expect(host.lastTouch).toBeNull()
     });
 
-    test('Helix#onTouchMove ignores events without finite deltas instead of poisoning rotationAngle/translateZ', () => {
-        const helix = createHelixStub();
+    test('a touch move through a Helix node forwards raw movement without canceling the browser default', () => {
+        const host  = createTouchHost(),
+              helix = {classList: {contains: cls => cls === 'neo-helix'}},
+              event = new Event('touchmove', {cancelable: true});
 
-        helix.onTouchMove({type: 'touchmove'});
-        helix.onTouchMove({type: 'touchmove', deltaX: NaN, deltaY: 4});
-        helix.onTouchMove({type: 'touchmove', deltaX: 4, deltaY: undefined});
+        event.composedPath = () => [{}, helix];
+        event.touches      = [{identifier: 13, clientX: 102, clientY: 115}];
 
-        expect(helix.rotationAngle).toBe(780);
-        expect(helix.translateZ).toBe(-5000)
+        host.onTouchStart({
+            type   : 'touchstart',
+            touches: [{identifier: 13, clientX: 100, clientY: 100}]
+        });
+        host.onTouchMove(event);
+
+        expect(host.sent.at(-1)).toEqual({type: 'touchmove', deltaX: 2, deltaY: 15});
+        expect(event.defaultPrevented).toBe(false)
     });
 });

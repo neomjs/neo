@@ -91,10 +91,6 @@ class TouchDomEvents extends Base {
         if (touch) {
             me.lastTouch = touch
         }
-
-        if (me.testPathInclusion(event, ['neo-helix'])) {
-            event.preventDefault()
-        }
     }
 
     /**
