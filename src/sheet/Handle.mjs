@@ -5,8 +5,8 @@ import DragZone  from '../draggable/DragZone.mjs';
  * @summary The drag handle of a sheet: a focusable separator that resizes its `target` on the main thread while a
  * pointer drags it, then reports where and how fast the drag ended, so that its owner can settle on a snap point.
  *
- * The handle owns input, never snap state. `Neo.main.draggable.Resize` writes the target's `height` on every pointer
- * frame, inside its `min-height` and `max-height`, and measures the release velocity; App sees no frame in between.
+ * The handle owns input, never snap state. `Neo.main.draggable.Resize` previews the size on every pointer frame,
+ * inside the target's height bounds, and measures the release velocity; App sees no frame in between.
  * On release the handle fires `release` with that height and velocity. The owner resolves the snap point, for
  * example with {@link Neo.sheet.Handle.resolveSnapIndex}, and calls {@link #settle}. A cancelled drag is restored on
  * Main at once and fires `cancel`.
@@ -58,6 +58,12 @@ class Handle extends Component {
             Home: 'onHome',
             Up  : 'onArrowUp'
         },
+        /**
+         * An optional CSS custom property for Main's transient height preview. The target's CSS must read it.
+         * Without a custom property, Main writes the target's inline height.
+         * @member {String|null} previewProperty=null
+         */
+        previewProperty: null,
         /**
          * @member {String} role='separator'
          * @protected
@@ -281,19 +287,20 @@ class Handle extends Component {
     }
 
     /**
-     * Builds the main-thread resize descriptor: Main writes the target's height on every pointer frame, growing as
+     * Builds the main-thread resize descriptor: Main previews the target's height on every pointer frame, growing as
      * the pointer moves up, and keeps the start height until the owner settles the release.
      * @returns {Object|null}
      * @protected
      */
     getResizeConfig() {
-        let {target} = this;
+        let {previewProperty, target} = this;
 
         return target ? {
             awaitWorkerSettlement: true,
             axis                 : 'height',
             parentId             : 'document.body',
             preview              : true,
+            ...(previewProperty && {previewProperty}),
             resizeNext           : true,
             targetId             : target.vdom?.id || target.id
         } : null

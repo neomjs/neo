@@ -68,6 +68,47 @@
         }
     }
 
+    > .neo-sheet-handle {
+        display: none;
+    }
+
+    /* The sheet overlays the desktop geometry so switching presentation preserves its placement. */
+    &.neo-dialog-sheet {
+        --neo-dialog-sheet-min-height: 50dvh;
+        --neo-dialog-sheet-max-height: 90dvh;
+        --neo-dialog-sheet-height    : var(--neo-dialog-sheet-min-height);
+
+        border-start-end-radius  : var(--neo-dialog-sheet-border-radius, 0);
+        border-start-start-radius: var(--neo-dialog-sheet-border-radius, 0);
+        bottom    : 0 !important;
+        box-sizing: border-box;
+        height    : var(--neo-dialog-sheet-preview-height, var(--neo-dialog-sheet-height)) !important;
+        left      : 0 !important;
+        max-height: var(--neo-dialog-sheet-max-height) !important;
+        max-width : none !important;
+        min-height: var(--neo-dialog-sheet-min-height) !important;
+        top       : auto !important;
+        transform : none !important;
+        width     : 100% !important;
+
+        &.neo-dialog-sheet-expanded {
+            --neo-dialog-sheet-height: var(--neo-dialog-sheet-max-height);
+        }
+
+        > .neo-sheet-handle {
+            display: flex;
+        }
+
+        .neo-header-toolbar .neo-dialog-desktop-action {
+            display: none;
+        }
+
+        > .neo-container:not(.neo-toolbar) {
+            min-height: 0;
+            overflow-y: auto;
+        }
+    }
+
     &.neo-panel {
         .neo-footer-toolbar {
             border    : none;

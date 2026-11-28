@@ -65,35 +65,39 @@ class ViewportController extends Component {
     }
 
     /**
-     * @summary Opens the shared contact editor with the actual action as its focus-return target.
+     * @summary Opens the shared editor in the opener's window and uses that action for focus return.
      * @param {Neo.data.Record} record
      * @param {Neo.button.Base} opener
      * @protected
      */
     async openEditor(record, opener) {
         const me                  = this,
-              {appName, windowId} = opener,
-              theme               = me.component.theme || opener.theme;
+              {appName, windowId} = opener;
+
+        const [{default: EditUserDialog}, {innerWidth}] = await me.trap(Promise.all([
+            import('./EditUserDialog.mjs'),
+            Neo.Main.getWindowData({windowId})
+        ]));
+
+        const presentation = EditUserDialog.getPresentation(innerWidth),
+              theme        = me.component.theme || opener.theme;
 
         if (!me.dialog) {
-            const {default: EditUserDialog} = await import('./EditUserDialog.mjs');
+            me.dialog = Neo.create({
+                module         : EditUserDialog,
+                animateTargetId: opener.id,
+                appName,
+                presentation,
+                record,
+                stateProvider  : {parent: me.getStateProvider()},
+                theme,
+                windowId
+            });
 
-            if (!me.dialog) {
-                me.dialog = Neo.create({
-                    module         : EditUserDialog,
-                    animateTargetId: opener.id,
-                    appName,
-                    record,
-                    stateProvider  : {parent: me.getStateProvider()},
-                    theme,
-                    windowId
-                });
-
-                return
-            }
+            return
         }
 
-        me.dialog.set({animateTargetId: opener.id, record, theme});
+        me.dialog.set({animateTargetId: opener.id, presentation, record, theme});
         me.dialog.show()
     }
 

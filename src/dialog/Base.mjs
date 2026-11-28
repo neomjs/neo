@@ -1,4 +1,5 @@
 import ComponentManager from '../manager/Component.mjs';
+import Handle           from '../sheet/Handle.mjs';
 import NeoArray         from '../util/Array.mjs';
 import Panel            from '../container/Panel.mjs';
 import Toolbar          from './header/Toolbar.mjs';
@@ -7,6 +8,10 @@ import VDomUtil         from '../util/VDom.mjs';
 let DragZone;
 
 /**
+ * @summary A floating window or bottom-anchored sheet that keeps its mounted content across presentations.
+ *
+ * The floating presentation owns window placement. The compact presentation keeps the same items and uses
+ * a sheet grip to resize from the bottom edge.
  * @class Neo.dialog.Base
  * @extends Neo.container.Panel
  */
@@ -18,6 +23,13 @@ class Dialog extends Panel {
      * @static
      */
     static closeActions = ['close', 'hide']
+
+    /**
+     * @member {String[]} presentations=['dialog','sheet']
+     * @protected
+     * @static
+     */
+    static presentations = ['dialog', 'sheet']
 
     static config = {
         /**
@@ -142,6 +154,13 @@ class Dialog extends Panel {
          */
         modal_: false,
         /**
+         * Presents the same mounted form as a floating dialog or a bottom-anchored sheet with a resize grip.
+         * A caller can switch it through `responsive` and supply the initial value before the first mount.
+         * @member {String} presentation_='dialog'
+         * @reactive
+         */
+        presentation_: 'dialog',
+        /**
          * @member {Boolean} resizable_=true
          * @reactive
          */
@@ -195,6 +214,22 @@ class Dialog extends Panel {
      * @member {Object|null} #boundarySize=null
      */
     #boundarySize = null
+
+    /**
+     * A newer gesture or a hidden dialog invalidates a pending snap measurement.
+     * @member {Number} #sheetGesture=0
+     */
+    #sheetGesture = 0
+    /**
+     * The shared grip, created the first time this dialog presents as a sheet.
+     * @member {Neo.sheet.Handle|null} #sheetHandle=null
+     */
+    #sheetHandle = null
+    /**
+     * The current compact position: 0 for the lower position, 1 for the upper position.
+     * @member {Number} #sheetSnapIndex=0
+     */
+    #sheetSnapIndex = 0
 
     /**
      * The geometry a move or a resize writes into `style`: a boundary check measured before one of them landed must
@@ -280,6 +315,10 @@ class Dialog extends Panel {
         let me = this,
             cls;
 
+        if (!value && oldValue !== undefined) {
+            me.onDragCancel()
+        }
+
         if (oldValue !== undefined && me.headerToolbar) {
             cls = me.headerToolbar.cls;
             NeoArray[value ? 'add' : 'remove'](cls, 'neo-draggable');
@@ -289,7 +328,7 @@ class Dialog extends Panel {
         value && import('../draggable/DragZone.mjs').then(module => {
             DragZone = module.default;
 
-            if (!me.dragListenersAdded) {
+            if (!me.isDestroyed && me.draggable && !me.dragListenersAdded) {
                 const dragListeners = [
                     {'drag:cancel': me.onDragCancel, scope: me, delegate: '.neo-header-toolbar'},
                     {'drag:end'   : me.onDragEnd,    scope: me, delegate: '.neo-header-toolbar'},
@@ -356,7 +395,10 @@ class Dialog extends Panel {
         NeoArray.toggle(me.vdom.cls, 'neo-modal', value);
         me.update();
 
-        me.vnodeInitialized && me.syncModalMask()
+        if (me.vnodeInitialized) {
+            me.syncModalMask();
+            me.presentation === 'sheet' && me.syncTrapFocus()
+        }
     }
 
     /**
@@ -379,6 +421,33 @@ class Dialog extends Panel {
 
             // The container may have changed size while the dialog was away
             me.keepInBoundary && me.constrainToBoundary()
+        } else if (oldValue) {
+            me.retireSheetGesture()
+        }
+    }
+
+    /**
+     * @summary Changes the root layout in place and invalidates any measurement from the previous presentation.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    async afterSetPresentation(value, oldValue) {
+        let me    = this,
+            sheet = value === 'sheet';
+
+        if (sheet || oldValue !== undefined) {
+            me.#boundaryChecks++;
+            sheet && me.onDragCancel();
+            me.toggleCls('neo-dialog-sheet', sheet);
+            me.isConstructed && me.syncSheetHandle();
+            me.syncDesktopResize();
+            me.syncTrapFocus();
+
+            if (!sheet && me.mounted && me.keepInBoundary) {
+                // Wait for Main to see the restored floating box before measuring it.
+                await me.#afterAnimation(me.promiseUpdate())
+            }
         }
     }
 
@@ -388,25 +457,42 @@ class Dialog extends Panel {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetResizable(value, oldValue) {
-        if (value && !this.getPlugin('resizable')) {
-            import('../plugin/Resizable.mjs').then(module => {
-                let me        = this,
-                    {appName} = me,
-                    plugins   = me.plugins || [];
+    async afterSetResizable(value, oldValue) {
+        const me = this;
+
+        if (value && !me.getPlugin('resizable')) {
+            const {default: Resizable} = await me.trap(import('../plugin/Resizable.mjs'));
+
+            if (me.resizable && !me.getPlugin('resizable')) {
+                const plugins = me.plugins || [];
 
                 plugins.push({
-                    module       : module.default,
-                    appName,
+                    module       : Resizable,
+                    appName      : me.appName,
                     delegationCls: 'neo-dialog',
                     // A move writes the dialog's geometry into `style` (onDragEnd), which would mask a resize in
                     // `wrapperStyle`
                     styleConfig  : 'style',
-                    ...me.resizablePluginConfig
+                    ...me.resizablePluginConfig,
+                    suspended: me.presentation === 'sheet'
                 });
 
                 me.plugins = plugins
-            })
+            }
+        }
+
+        me.syncDesktopResize()
+    }
+
+    /**
+     * @summary Suspends desktop resizing without changing the caller's options.
+     * @protected
+     */
+    syncDesktopResize() {
+        const plugin = this.getPlugin('resizable');
+
+        if (plugin) {
+            plugin.suspended = !this.resizable || this.presentation === 'sheet'
         }
     }
 
@@ -613,6 +699,16 @@ class Dialog extends Panel {
     }
 
     /**
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetPresentation(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'presentation')
+    }
+
+    /**
      * @param {Boolean} animate=!!this.animateTargetId
      */
     close(animate=!!this.animateTargetId) {
@@ -620,7 +716,7 @@ class Dialog extends Panel {
 
         me.revertFocus();
 
-        if (animate) {
+        if (animate && me.presentation !== 'sheet') {
             me.#afterAnimation(me.animateHide())
         } else {
             // destroy() takes the mask along and retires the instance and its timers
@@ -734,6 +830,7 @@ class Dialog extends Panel {
     destroy(...args) {
         let me = this;
 
+        me.retireSheetGesture();
         me.dragStartAbortController?.abort();
         me.dragZone?.un('dragCancel', me.onDragCancel, me);
         me.mounted && me.modal && me.syncModalMask(me.id, false);
@@ -842,12 +939,13 @@ class Dialog extends Panel {
             maximize: () => ({
                 action            : 'maximize',
                 actionLabel       : 'maximize',
+                cls               : ['neo-dialog-desktop-action'],
                 iconCls           : me.maximizeCls,
                 ntype             : 'toolbar-action-button',
                 pressedActionLabel: 'restore',
                 pressedIconCls    : me.restoreCls
             }),
-            minimize: () => ({action: 'minimize', iconCls: me.minimizeCls})
+            minimize: () => ({action: 'minimize', cls: ['neo-dialog-desktop-action'], iconCls: me.minimizeCls})
         }
     }
 
@@ -859,7 +957,9 @@ class Dialog extends Panel {
     async hide(animate=!!this.animateTargetId) {
         let me = this;
 
-        if (animate && me.mounted && !me.mountFlight) {
+        me.retireSheetGesture();
+
+        if (animate && me.presentation !== 'sheet' && me.mounted && !me.mountFlight) {
             me.#afterAnimation(me.animateHide())
         } else {
             super.hide();
@@ -902,6 +1002,7 @@ class Dialog extends Panel {
             id: me.getHeaderToolbarId()
         });
 
+        me.syncSheetHandle();
         me.#syncBoundaryListener()
     }
 
@@ -942,9 +1043,13 @@ class Dialog extends Panel {
         let me = this,
             bounded, initialTransitionProperty, proxyId, style;
 
-        if (!me.maximized) {
-            me.dragStartAbortController = null;
-            me.dragStartOpacity         = undefined;
+        if (!me.dragZone?.dragProxy) {
+            me.onDragCancel();
+            return
+        }
+
+        if (me.presentation !== 'sheet' && !me.maximized) {
+            const gesture = me.dragStartAbortController;
 
             // A drop at the edge can land a pixel or two past it, and the container may have changed size during the
             // move: a keepInBoundary dialog lands inside it
@@ -952,9 +1057,12 @@ class Dialog extends Panel {
             proxyId = me.dragZone.dragProxy.id;
 
             me.getDomRect(bounded ? [proxyId, me.boundaryContainerId] : proxyId).then(result => {
-                if (me.isDestroyed) {
+                if (me.isDestroyed || me.presentation === 'sheet' || gesture?.signal.aborted) {
                     return
                 }
+
+                me.dragStartAbortController = null;
+                me.dragStartOpacity         = undefined;
 
                 let [proxyRect, bounds] = bounded ? result : [result],
                     // A hidden or gone container leaves the drop where the proxy is
@@ -1003,7 +1111,7 @@ class Dialog extends Panel {
      * @param data
      */
     onDragMove(data) {
-        this.dragZone.dragMove(data)
+        this.isDragging && this.dragZone?.dragMove(data)
     }
 
     /**
@@ -1014,7 +1122,7 @@ class Dialog extends Panel {
             {appName, id, windowId} = me,
             style                   = me.style || {};
 
-        if (!me.maximized) {
+        if (me.draggable && me.presentation !== 'sheet' && !me.maximized) {
             me.dragStartAbortController?.abort();
             me.dragStartAbortController = new AbortController();
             me.dragStartOpacity         = style.opacity;
@@ -1042,7 +1150,7 @@ class Dialog extends Panel {
                 me.dragZone.boundaryContainerId = me.boundaryContainerId
             }
 
-            me.dragZone.dragStart(data, me.dragStartAbortController.signal);
+            me.dragZone.dragStart(data, me.dragStartAbortController.signal, data.gestureId);
 
             style.opacity = 0.7;
 
@@ -1051,8 +1159,7 @@ class Dialog extends Panel {
     }
 
     /**
-     * Holds the boundary check while an animation moves or sizes the dialog, and runs it on the geometry the animation
-     * leaves
+     * Holds the boundary check while animated or newly projected geometry reaches Main.
      * @param {Promise} animation
      * @returns {Promise<void>}
      */
@@ -1101,7 +1208,8 @@ class Dialog extends Panel {
     #isGeometryHeld() {
         let me = this;
 
-        return me.isDestroyed || !me.mounted || me.hidden || me.maximized || me.isDragging || me.#animations > 0 ||
+        return me.isDestroyed || !me.mounted || me.hidden || me.presentation === 'sheet' || me.maximized ||
+            me.isDragging || me.#animations > 0 ||
             Boolean(me.getPlugin('resizable')?.isDragging)
     }
 
@@ -1131,6 +1239,47 @@ class Dialog extends Panel {
     }
 
     /**
+     * @summary Chooses a resting height from the same CSS limits that Main uses for the live resize.
+     * @param {Object} data
+     * @param {Number} data.height The preview height in px at release
+     * @param {Number} data.velocity The release velocity in px/ms
+     * @protected
+     */
+    onSheetRelease({height, velocity}) {
+        let me = this;
+
+        if (me.mounted && !me.hidden && me.presentation === 'sheet') {
+            me.settleSheetSnap(async () => {
+                let styles = await Neo.main.DomAccess.getComputedStyle({
+                        id: me.vdom.id, style: ['min-height', 'max-height'], windowId: me.windowId
+                    }),
+                    heights = ['min-height', 'max-height'].map(property => parseFloat(styles[property]));
+
+                return Number.isFinite(height) && heights.every(Number.isFinite)
+                    ? Handle.resolveSnapIndex({heights, size: height, velocity})
+                    : me.#sheetSnapIndex
+            })
+        } else {
+            me.retireSheetGesture()
+        }
+    }
+
+    /**
+     * @summary Moves between the two resting heights from the grip's keyboard controls.
+     * @param {Object} data
+     * @param {Number} [data.delta] Direction of the step
+     * @param {String} [data.to] First or last position
+     * @protected
+     */
+    onSheetStep({delta, to}) {
+        let me = this;
+
+        if (me.mounted && !me.hidden && me.presentation === 'sheet') {
+            me.settleSheetSnap(() => to ? Number(to === 'last') : Math.min(1, Math.max(0, me.#sheetSnapIndex + delta)))
+        }
+    }
+
+    /**
      * Lifecycle override: show() mounts a dialog through initVnode(), so the revert of the initial
      * offscreen positioning from .neo-floating has to ride that method. An override parked on a
      * differently named lifecycle method would never run, leaving a dialog shown without an
@@ -1141,6 +1290,13 @@ class Dialog extends Panel {
     async initVnode(mount) {
         let me             = this,
             {wrapperStyle} = me;
+
+        // A dialog opened as a sheet skips the centering animation. Give its first wide
+        // presentation a desktop placement when the caller has not supplied one.
+        if (me.presentation === 'sheet' && !me.hasBeenMounted && me.animateTargetId &&
+            !wrapperStyle.left && !wrapperStyle.top && !me.style.left && !me.style.top) {
+            me.wrapperStyle = {...wrapperStyle, left: '50%', top: '50%', transform: 'translate(-50%, -50%)'}
+        }
 
         // If there is no animation target, we need to ensure that the initial offscreen positioning
         // from .neo-floating gets reverted
@@ -1160,6 +1316,43 @@ class Dialog extends Panel {
     }
 
     /**
+     * @summary Invalidates old measurements and releases any terminal that Main is holding for this dialog.
+     * @protected
+     */
+    retireSheetGesture() {
+        this.#sheetGesture++;
+        this.#sheetHandle?.settle(true)
+    }
+
+    /**
+     * @summary Paints the chosen position before clearing the transient preview. A late release cannot settle a
+     * newer gesture or write into the floating presentation.
+     * @param {Function} resolveIndex Resolves the next compact position
+     * @protected
+     */
+    async settleSheetSnap(resolveIndex) {
+        let me         = this,
+            generation = ++me.#sheetGesture;
+
+        try {
+            const index = await resolveIndex();
+
+            if (generation === me.#sheetGesture && index !== me.#sheetSnapIndex) {
+                me.#sheetSnapIndex = index;
+                me.#sheetHandle.valueNow = index;
+                me.toggleCls('neo-dialog-sheet-expanded', index === 1);
+                await me.promiseUpdate()
+            }
+        } catch (error) {
+            error !== Neo.isDestroyed && console.error('Neo.dialog.Base: settling the sheet resize failed', error)
+        } finally {
+            if (generation === me.#sheetGesture) {
+                me.#sheetHandle.settle(true)
+            }
+        }
+    }
+
+    /**
      * Shows the dialog and writes `hidden`. An animated show is a mount flight of its own, one at a time.
      * A dialog that is mounted or in flight goes through component.Base#show, which does not mount it again.
      * @param {Boolean} animate=!!this.animateTargetId
@@ -1167,7 +1360,13 @@ class Dialog extends Panel {
     show(animate=!!this.animateTargetId) {
         let me = this;
 
-        if (animate && !me.mounted && !me.mountFlight) {
+        if (me.presentation === 'sheet' && !me.mounted && !me.mountFlight) {
+            const target = me.animateTarget;
+
+            target && me.set({appName: target.appName, windowId: target.windowId})
+        }
+
+        if (animate && me.presentation !== 'sheet' && !me.mounted && !me.mountFlight) {
             me._hidden = false;
             me.startMountFlight(me.#afterAnimation(me.animateShow()))
         } else {
@@ -1185,6 +1384,39 @@ class Dialog extends Panel {
      */
     syncMaximizeAction() {
         this.headerToolbar?.getAction?.('maximize')?.set({pressed: this.maximized})
+    }
+
+    /**
+     * @summary Creates the grip ahead of the header and disconnects its resize target in the floating presentation.
+     * @protected
+     */
+    syncSheetHandle() {
+        let me = this;
+
+        if (me.presentation === 'sheet') {
+            if (!me.#sheetHandle) {
+                me.#sheetHandle = me.insert(0, {
+                    module   : Handle,
+                    ariaLabel: 'Resize dialog',
+                    flex     : 'none',
+                    listeners: {
+                        cancel   : me.retireSheetGesture,
+                        dragStart: me.retireSheetGesture,
+                        release  : me.onSheetRelease,
+                        step     : me.onSheetStep,
+                        scope    : me
+                    },
+                    previewProperty: '--neo-dialog-sheet-preview-height',
+                    target         : me,
+                    valueMax       : 1
+                })
+            } else {
+                me.#sheetHandle.target = me
+            }
+        } else if (me.#sheetHandle) {
+            me.retireSheetGesture();
+            me.#sheetHandle.target = null
+        }
     }
 
     /**
@@ -1242,7 +1474,9 @@ class Dialog extends Panel {
             {id, windowId} = me;
 
         if (me.mounted) {
-            Neo.main.DomAccess.trapFocus({id, trap: me.trapFocus, windowId})
+            const trap = me.trapFocus || (me.modal && me.presentation === 'sheet');
+
+            Neo.main.DomAccess.trapFocus({id, trap, windowId})
         }
     }
 
