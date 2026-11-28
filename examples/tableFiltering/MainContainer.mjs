@@ -92,7 +92,7 @@ class MainContainer extends Viewport {
                     store: {
                         autoLoad   : true,
                         keyProperty: 'code',
-                        url        : '../../resources/examples/data/countries.json',
+                        url        : new URL(Neo.config.basePath + 'resources/examples/data/countries.json', Neo.config.url.base).href,
 
                         model: {
                             fields: [{
