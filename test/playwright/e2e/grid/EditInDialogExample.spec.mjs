@@ -116,6 +116,8 @@ test.describe('Grid edit-in-a-dialog example', () => {
         await expect(dialog).toHaveClass(/\bneo-responsive\b/);
         await expect(dialog).toHaveClass(/\bneo-dialog-sheet\b/);
         await expect(dialog).toHaveClass(/\bneo-theme-dark\b/);
+        await expect(dialog).toHaveCSS('border-top-left-radius', '16px');
+        await expect(dialog).toHaveCSS('border-top-right-radius', '16px');
         await expect(dialog.getByRole('separator', {name: 'Resize dialog'})).toBeVisible();
         await expect(dialog.getByRole('button', {name: 'maximize', exact: true})).toHaveCount(0);
 
@@ -156,6 +158,8 @@ test.describe('Grid edit-in-a-dialog example', () => {
         await page.keyboard.press('Space');
         await expect(dialog).toBeVisible();
         await expect(dialog).toHaveClass(/neo-theme-light/);
+        await expect(dialog).toHaveCSS('border-top-left-radius', '16px');
+        await expect(dialog).toHaveCSS('border-top-right-radius', '16px');
 
         const firstnameInput = dialog.locator('.neo-textfield').filter({hasText: 'First Name'}).locator('input.neo-textfield-input');
         await expect(firstnameInput).toBeFocused({timeout: 5000});
@@ -206,6 +210,25 @@ test.describe('Grid edit-in-a-dialog example', () => {
         await expect(dialog).toBeHidden();
         await expect(editBtn).toBeFocused();
         expect(await page.evaluate(() => window.editFocusDialogInDom)).toEqual([false])
+    });
+
+    test('a sheet returning to a smaller desktop fits the floating dialog inside the viewport', async ({page}) => {
+        await page.setViewportSize({width: 1200, height: 850});
+        await page.goto(URL);
+
+        const edit   = page.locator('.neo-grid-row').first().getByRole('button', {name: 'Edit', exact: true}),
+              dialog = page.locator('.neo-dialog'),
+              right  = () => dialog.evaluate(node => node.getBoundingClientRect().right);
+
+        await edit.click();
+        await expect(dialog).not.toHaveClass(/neo-animating/);
+        await expect.poll(right).toBeGreaterThan(700);
+
+        await page.setViewportSize({width: 390, height: 844});
+        await expect(dialog).toHaveClass(/\bneo-dialog-sheet\b/);
+        await page.setViewportSize({width: 700, height: 850});
+        await expect(dialog).not.toHaveClass(/\bneo-dialog-sheet\b/);
+        await expect.poll(right).toBeLessThanOrEqual(700)
     });
 
     test('an open dialog keeps its provider, focus, and composition through a sheet round trip', async ({browser, context, page}) => {

@@ -432,7 +432,7 @@ class Dialog extends Panel {
      * @param {String} oldValue
      * @protected
      */
-    afterSetPresentation(value, oldValue) {
+    async afterSetPresentation(value, oldValue) {
         let me    = this,
             sheet = value === 'sheet';
 
@@ -442,7 +442,12 @@ class Dialog extends Panel {
             me.toggleCls('neo-dialog-sheet', sheet);
             me.isConstructed && me.syncSheetHandle();
             me.syncDesktopResize();
-            me.syncTrapFocus()
+            me.syncTrapFocus();
+
+            if (!sheet && me.mounted && me.keepInBoundary) {
+                // Wait for Main to see the restored floating box before measuring it.
+                await me.#afterAnimation(me.promiseUpdate())
+            }
         }
     }
 
@@ -1154,8 +1159,7 @@ class Dialog extends Panel {
     }
 
     /**
-     * Holds the boundary check while an animation moves or sizes the dialog, and runs it on the geometry the animation
-     * leaves
+     * Holds the boundary check while animated or newly projected geometry reaches Main.
      * @param {Promise} animation
      * @returns {Promise<void>}
      */

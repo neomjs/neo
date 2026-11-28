@@ -356,7 +356,31 @@ test.describe('dialog.Base keepInBoundary', () => {
         dialog.held.shift()();
         await settle();
 
-        expect(geometry(dialog.style)).toEqual({})
+        expect(geometry(dialog.style)).toEqual({});
+        dialog.held.shift()();
+        await settle()
+    });
+
+    test('the floating return checks the boundary after Main applies the presentation', async () => {
+        const dialog = await create(null, {x: 390, y: 100, width: 420, height: 300}),
+              frame  = Promise.withResolvers();
+
+        dialog.promiseUpdate = () => frame.promise;
+        dialog.presentation = 'sheet';
+        notify(dialog, 710, 800);
+
+        dialog.presentation = 'dialog';
+        notify(dialog, 700, 800);
+        await settle();
+
+        expect(dialog.measures).toBe(0);
+        expect(geometry(dialog.style)).toEqual({});
+
+        frame.resolve();
+        await settle();
+
+        expect(dialog.measures).toBe(1);
+        expect(geometry(dialog.style)).toEqual({left: '280px', top: '100px'})
     });
 
     test('the same resize plugin suspends for the sheet and respects the caller setting on return', async () => {

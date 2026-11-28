@@ -78,6 +78,8 @@
         --neo-dialog-sheet-max-height: 90dvh;
         --neo-dialog-sheet-height    : var(--neo-dialog-sheet-min-height);
 
+        border-start-end-radius  : var(--neo-dialog-sheet-border-radius, 0);
+        border-start-start-radius: var(--neo-dialog-sheet-border-radius, 0);
         bottom    : 0 !important;
         box-sizing: border-box;
         height    : var(--neo-dialog-sheet-preview-height, var(--neo-dialog-sheet-height)) !important;
