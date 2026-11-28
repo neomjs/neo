@@ -863,9 +863,10 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
     transition: left var(--neo-dock-transition-duration-fast) var(--neo-dock-transition-timing-function), top var(--neo-dock-transition-duration-fast) var(--neo-dock-transition-timing-function), opacity var(--neo-dock-transition-duration-fast) var(--neo-dock-transition-timing-function), border-color var(--neo-dock-transition-duration-fast) var(--neo-dock-transition-timing-function), background var(--neo-dock-transition-duration-fast) var(--neo-dock-transition-timing-function);
     /* The directional glyph: a chevron built from borders — no font/icon dependency. */
 }
+/* The glyph reads its own colour: a mark the user reads on the chip, not the zone's border line */
 .neo-dashboard-dock-drop-indicator::before,
 .neo-dashboard-dock-drop-chip::before {
-    border-color: var(--neo-dock-preview-accept-color, #4493f8);
+    border-color: var(--neo-dock-drop-indicator-glyph-color, var(--neo-dock-preview-accept-color, #4493f8));
     border-style: solid;
     border-width: 0 2px 2px 0;
     content: "";
@@ -889,7 +890,7 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
 }
 
 .neo-dashboard-dock-drop-indicator-center::before {
-    border: 2px solid var(--neo-dock-preview-accept-color, #4493f8);
+    border: 2px solid var(--neo-dock-drop-indicator-glyph-color, var(--neo-dock-preview-accept-color, #4493f8));
     border-radius: var(--neo-dock-drop-indicator-center-border-radius);
     height: 10px;
     width: 10px;

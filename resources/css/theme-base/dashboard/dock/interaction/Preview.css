@@ -1,0 +1,7 @@
+/* Dock drag preview, every theme: each variable bound to a role (ADR 0044 decision 4); the insertion guide's 2px
+   is a listed literal, as `none` and `small` are equally near. The rules in src/dashboard/dock/interaction/Preview.css
+   read these. */
+[class*="neo-theme-"] {
+    --neo-dock-preview-affordance-border-radius      : var(--neo-radius-small);
+    --neo-dock-preview-insertion-guide-border-radius : 2px;
+}

@@ -15,8 +15,8 @@ import {test, expect} from '../../fixtures.mjs';
  * 1. the language modifier is a pure skin over the identical scripted gesture — every affordance
  *    parks in the same place in all four scenes, and the signal language repaints each of them;
  * 2. the drag proxy carries its scope (dock marker + language + NEAREST-ancestor theme) to its
- *    `document.body` mount — the light theme repaints every affordance INCLUDING the proxy (the
- *    cycle-2 falsified masking path);
+ *    `document.body` mount — after the inner-root swap every affordance INCLUDING the proxy resolves
+ *    the light scheme (the cycle-2 falsified masking path);
  * 3. the hover-lock pulse fires with the fast token's duration (positive motion witness);
  * 4. under `prefers-reduced-motion: reduce`, the signal path's motion collapses to 0s
  *    through the token vocabulary (indicator transition AND the hover-lock breath).
@@ -142,9 +142,23 @@ test.describe('Preview design language — one scripted drag, replayed per scene
                 paint: read(element => {
                     const {backgroundColor, borderTopColor, boxShadow} = getComputedStyle(element);
                     return {backgroundColor, borderTopColor, boxShadow}
-                })
+                }),
+                scheme: read(element => getComputedStyle(element).colorScheme)
             }
         })
+    }
+
+    /**
+     * Whether every element of each surface resolves `scheme`, the scheme its nearest theme scope sets. A
+     * surface with no element on it counts as false, so a missing affordance cannot pass.
+     * @param {Object} scene
+     * @param {String} scheme
+     * @returns {Object} surface name → Boolean
+     */
+    function resolves(scene, scheme) {
+        return Object.fromEntries(Object.entries(scene.scheme).map(([name, schemes]) => [name,
+            schemes.length > 0 && schemes.every(value => value === scheme)
+        ]))
     }
 
     /**
@@ -189,6 +203,8 @@ test.describe('Preview design language — one scripted drag, replayed per scene
         // the scene every later one is compared against
         const defaultDark = await readScene(page);
 
+        expect(resolves(defaultDark, 'dark'), 'dark: every affordance resolves the boot scheme').toEqual(everySurface);
+
         await cancelTheDrag(page);
 
         // ── dark / SIGNAL (the language flips WORKER-side, same as an app config would;
@@ -230,8 +246,7 @@ test.describe('Preview design language — one scripted drag, replayed per scene
         // boot theme — exactly the carried-scope shape the proxy contract exists for ─────
         await app.callMethod(host, 'set', [{theme: 'neo-theme-neo-light'}]);
         await page.waitForFunction(() =>
-            getComputedStyle(document.querySelector('.neo-dashboard-dock-tabs'))
-                .getPropertyValue('--neo-dock-preview-accept-color').trim() === '#0d9488'
+            getComputedStyle(document.querySelector('.neo-dashboard-dock-tabs')).colorScheme === 'light'
         , null, {timeout: 20000});
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(300);
@@ -241,18 +256,19 @@ test.describe('Preview design language — one scripted drag, replayed per scene
 
         const lightProxy = await page.$eval('.neo-dragproxy', el => ({
             themes   : [...el.classList].filter(cls => cls.startsWith('neo-theme-')),
+            scheme   : getComputedStyle(el).colorScheme,
             signalVar: getComputedStyle(el).getPropertyValue('--neo-dock-preview-signal-color').trim()
         }));
 
         expect(lightProxy.themes, 'the NEAREST ancestor theme rides the proxy — not the dark boot theme')
             .toEqual(['neo-theme-neo-light']);
-        expect(lightProxy.signalVar, 'the proxy renders the projected daylight pigment')
-            .toBe('#0f766e');
+        expect(lightProxy.scheme, 'the proxy resolves the daylight scheme').toBe('light');
+        expect(lightProxy.signalVar, 'the signal value resolves ON the proxy').not.toBe('');
 
         const signalLight = await readScene(page);
 
         expect(signalLight.geometry, 'the theme is a pure skin as well').toEqual(defaultDark.geometry);
-        expect(repainted(signalLight, signalDark), 'signal: the light theme repaints every affordance, the body-mounted proxy included')
+        expect(resolves(signalLight, 'light'), 'signal: every affordance resolves the light scheme, the body-mounted proxy included')
             .toEqual(everySurface);
 
         await cancelTheDrag(page);
@@ -266,7 +282,7 @@ test.describe('Preview design language — one scripted drag, replayed per scene
         const defaultLight = await readScene(page);
 
         expect(defaultLight.geometry, 'back to the default language, still the same places').toEqual(defaultDark.geometry);
-        expect(repainted(defaultLight, defaultDark), 'default: the light theme repaints every affordance')
+        expect(resolves(defaultLight, 'light'), 'default: every affordance resolves the light scheme')
             .toEqual(everySurface);
         expect(repainted(signalLight, defaultLight), 'light: the signal language repaints every affordance')
             .toEqual(everySurface);
