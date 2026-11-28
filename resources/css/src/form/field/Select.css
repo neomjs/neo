@@ -189,7 +189,7 @@
         word-break : break-word;
     }
 
-    &.neo-invalid:not(.neo-focus, .neo-disabled) .neo-selectfield-input {
+    &.neo-invalid:not(.neo-disabled) .neo-selectfield-input {
         border-color: var(--neo-selectfield-error-color);
     }
 
