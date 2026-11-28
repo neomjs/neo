@@ -6,7 +6,8 @@
     padding         : 24px;
 
     .neo-context-files-header {
-        gap: 8px 12px;
+        background-color: var(--neo-context-files-header-background-color);
+        gap             : 8px 12px;
     }
 
     .neo-context-files-title {

@@ -1,8 +1,10 @@
+/* Context Files uses a raised header over its canvas and neutral ink for passive glyphs. */
 [class*="neo-theme-"] {
     --neo-context-files-background-color       : var(--neo-color-background-canvas);
     --neo-context-files-border-color           : var(--neo-color-border-default);
     --neo-context-files-color                  : var(--neo-color-text-default);
     --neo-context-files-detail-color           : var(--neo-color-text-muted);
     --neo-context-files-folder-background-color: var(--neo-color-background-accent-subtle);
+    --neo-context-files-header-background-color: var(--neo-color-background-surface-raised);
     --neo-context-files-icon-color             : var(--neo-color-text-muted);
 }
