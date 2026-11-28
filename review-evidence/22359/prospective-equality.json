@@ -1,0 +1,131 @@
+{
+  "method": "Same isolated archive/compiled PR CSS combination as prospective-checkout.json. Real theme-equality page and its normal equality-runner stylesheet selection. Showing 12 existing specimens by changing only the test stage/cell layout, with no product rules or component style changes. Font names read from CDP painted glyphs.",
+  "modes": {
+    "neo-light": {
+      "theme": "neo-theme-neo-light",
+      "fonts": {
+        "button": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 7
+          }
+        ],
+        "grid": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 7
+          }
+        ],
+        "field": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 3
+          }
+        ]
+      },
+      "urlCount": 290,
+      "visible": 12
+    },
+    "material-light": {
+      "theme": "neo-theme-material-light",
+      "fonts": {
+        "button": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 7
+          }
+        ],
+        "grid": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 7
+          }
+        ],
+        "field": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 3
+          }
+        ]
+      },
+      "urlCount": 216,
+      "visible": 12
+    },
+    "neo-dark": {
+      "theme": "neo-theme-neo-dark",
+      "fonts": {
+        "button": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 7
+          }
+        ],
+        "grid": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 7
+          }
+        ],
+        "field": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 3
+          }
+        ]
+      },
+      "urlCount": 290,
+      "visible": 12
+    },
+    "material-dark": {
+      "theme": "neo-theme-material-dark",
+      "fonts": {
+        "button": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 7
+          }
+        ],
+        "grid": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 7
+          }
+        ],
+        "field": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 3
+          }
+        ]
+      },
+      "urlCount": 216,
+      "visible": 12
+    }
+  },
+  "errors": [],
+  "browser": "158.0.8127.38"
+}

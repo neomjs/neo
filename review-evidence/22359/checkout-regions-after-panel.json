@@ -1,0 +1,336 @@
+{
+  "head": "429e55d0e2c9d9be2536e9a4b49cc056c8355b32",
+  "method": "Normal Checkout, unmodified DOM/CSS, Chrome screenshots at 1 CSS px per pixel; an exposed point on each surface; glyph families from CDP.",
+  "modes": {
+    "neo-light": {
+      "regions": {
+        "canvas": {
+          "tag": "DIV",
+          "classes": "neo-examples-form-checkout neo-viewport neo-theme-neo-light neo-flex-container neo-flex-align-center neo-flex-direction-column neo-flex-pack-start neo-flex-wrap-nowrap",
+          "point": [
+            8,
+            6
+          ],
+          "background": "rgb(255, 255, 255)",
+          "border": "0px none rgb(0, 0, 0)",
+          "rgb": [
+            255,
+            255,
+            255
+          ],
+          "lightness": 1
+        },
+        "card": {
+          "tag": "DIV",
+          "classes": "checkout-card neo-panel neo-container neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "point": [
+            288,
+            267
+          ],
+          "background": "rgb(255, 255, 255)",
+          "border": "1px solid rgb(221, 221, 221)",
+          "rgb": [
+            255,
+            255,
+            255
+          ],
+          "lightness": 1
+        },
+        "raised": {
+          "tag": "FIELDSET",
+          "classes": "neo-fieldset neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "point": [
+            313,
+            428
+          ],
+          "background": "rgb(255, 255, 255)",
+          "border": "1px solid oklch(0.875 0.012 270)",
+          "rgb": [
+            255,
+            255,
+            255
+          ],
+          "lightness": 1
+        },
+        "field": {
+          "tag": "INPUT",
+          "classes": "neo-textfield-input",
+          "point": [
+            331,
+            459
+          ],
+          "background": "rgb(255, 255, 255)",
+          "border": "0px none oklch(0.168 0.008 270)",
+          "rgb": [
+            255,
+            255,
+            255
+          ],
+          "lightness": 1
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "postScriptName": "Helvetica-Bold",
+            "glyphCount": 19
+          }
+        ],
+        "button": [
+          {
+            "postScriptName": "Helvetica-Bold",
+            "glyphCount": 11
+          }
+        ]
+      }
+    },
+    "material-light": {
+      "regions": {
+        "canvas": {
+          "tag": "DIV",
+          "classes": "neo-examples-form-checkout neo-viewport neo-theme-material-light neo-flex-container neo-flex-align-center neo-flex-direction-column neo-flex-pack-start neo-flex-wrap-nowrap",
+          "point": [
+            8,
+            6
+          ],
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "0px none rgb(0, 0, 0)",
+          "rgb": [
+            255,
+            255,
+            255
+          ],
+          "lightness": 1
+        },
+        "card": {
+          "tag": "DIV",
+          "classes": "checkout-card neo-panel neo-container neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "point": [
+            288,
+            198
+          ],
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "0px none rgb(0, 0, 0)",
+          "rgb": [
+            255,
+            255,
+            255
+          ],
+          "lightness": 1
+        },
+        "raised": {
+          "tag": "FIELDSET",
+          "classes": "neo-fieldset neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "point": [
+            312,
+            366
+          ],
+          "background": "oklch(0.954 0.015 312.6)",
+          "border": "1px solid oklch(0.835 0.012 313.3)",
+          "rgb": [
+            243,
+            237,
+            247
+          ],
+          "lightness": 0.9536
+        },
+        "field": {
+          "tag": "INPUT",
+          "classes": "neo-textfield-input",
+          "point": [
+            329,
+            396
+          ],
+          "background": "oklch(0.916 0.014 314.5)",
+          "border": "0px none oklch(0.187 0.012 300.4)",
+          "rgb": [
+            231,
+            225,
+            234
+          ],
+          "lightness": 0.9171
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "postScriptName": "Times-Bold",
+            "glyphCount": 19
+          }
+        ],
+        "button": [
+          {
+            "postScriptName": "Roboto-Medium",
+            "glyphCount": 11
+          }
+        ]
+      }
+    },
+    "neo-dark": {
+      "regions": {
+        "canvas": {
+          "tag": "DIV",
+          "classes": "neo-examples-form-checkout neo-viewport neo-theme-neo-dark neo-flex-container neo-flex-align-center neo-flex-direction-column neo-flex-pack-start neo-flex-wrap-nowrap",
+          "point": [
+            8,
+            6
+          ],
+          "background": "rgb(13, 15, 18)",
+          "border": "0px none rgb(240, 241, 244)",
+          "rgb": [
+            13,
+            15,
+            18
+          ],
+          "lightness": 0.1676
+        },
+        "card": {
+          "tag": "DIV",
+          "classes": "checkout-card neo-panel neo-container neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "point": [
+            288,
+            267
+          ],
+          "background": "rgb(13, 15, 18)",
+          "border": "1px solid rgb(67, 73, 92)",
+          "rgb": [
+            13,
+            15,
+            18
+          ],
+          "lightness": 0.1676
+        },
+        "raised": {
+          "tag": "FIELDSET",
+          "classes": "neo-fieldset neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "point": [
+            313,
+            428
+          ],
+          "background": "oklch(0.28 0.022 270)",
+          "border": "1px solid oklch(0.39 0.034 270)",
+          "rgb": [
+            37,
+            41,
+            52
+          ],
+          "lightness": 0.2818
+        },
+        "field": {
+          "tag": "INPUT",
+          "classes": "neo-textfield-input",
+          "point": [
+            331,
+            459
+          ],
+          "background": "oklch(0.168 0.008 270)",
+          "border": "0px none oklch(0.96 0.004 270)",
+          "rgb": [
+            14,
+            15,
+            19
+          ],
+          "lightness": 0.1692
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "postScriptName": "Helvetica-Bold",
+            "glyphCount": 19
+          }
+        ],
+        "button": [
+          {
+            "postScriptName": "Helvetica-Bold",
+            "glyphCount": 11
+          }
+        ]
+      }
+    },
+    "material-dark": {
+      "regions": {
+        "canvas": {
+          "tag": "DIV",
+          "classes": "neo-examples-form-checkout neo-viewport neo-theme-material-dark neo-flex-container neo-flex-align-center neo-flex-direction-column neo-flex-pack-start neo-flex-wrap-nowrap",
+          "point": [
+            8,
+            6
+          ],
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "0px none rgb(255, 255, 255)",
+          "rgb": [
+            18,
+            18,
+            18
+          ],
+          "lightness": 0.1822
+        },
+        "card": {
+          "tag": "DIV",
+          "classes": "checkout-card neo-panel neo-container neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "point": [
+            288,
+            198
+          ],
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "0px none rgb(255, 255, 255)",
+          "rgb": [
+            18,
+            18,
+            18
+          ],
+          "lightness": 0.1822
+        },
+        "raised": {
+          "tag": "FIELDSET",
+          "classes": "neo-fieldset neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "point": [
+            312,
+            366
+          ],
+          "background": "oklch(0.286 0.013 298.7)",
+          "border": "1px solid oklch(0.405 0.01 301.4)",
+          "rgb": [
+            43,
+            41,
+            48
+          ],
+          "lightness": 0.2859
+        },
+        "field": {
+          "tag": "INPUT",
+          "classes": "neo-textfield-input",
+          "point": [
+            329,
+            396
+          ],
+          "background": "oklch(0.33 0.012 298.9)",
+          "border": "0px none oklch(0.916 0.014 314.5)",
+          "rgb": [
+            54,
+            52,
+            59
+          ],
+          "lightness": 0.3298
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "postScriptName": "Times-Bold",
+            "glyphCount": 19
+          }
+        ],
+        "button": [
+          {
+            "postScriptName": "Roboto-Medium",
+            "glyphCount": 11
+          }
+        ]
+      }
+    }
+  },
+  "errors": [],
+  "browser": "158.0.8127.38"
+}

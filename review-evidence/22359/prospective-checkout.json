@@ -1,0 +1,579 @@
+{
+  "method": "Prospective checkout, isolated archive 429e55d0e2c9d9be2536e9a4b49cc056c8355b32 + CSS source diffs from #22446 e785ef7751106020a8455ca4cc2999f4b5c64512 and #22464 f63bb248dcd932201dcf5bb67726815e5d22a7c7 plus its themeCssLayers.mjs change. Isolated development theme build and map. Built app with ?theme, actual Full name input populated before capture, no injected component styles or DOM overrides, device scale factor 1. CDP platform fonts and screenshot sRGB-to-OKLab lightness on owned exposed pixels.",
+  "table": {
+    "material-light": {
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-material-light",
+      "surfaces": {
+        "canvas": {
+          "selector": ".neo-examples-form-checkout.neo-viewport",
+          "id": "neo-viewport-1",
+          "cls": "neo-examples-form-checkout neo-viewport neo-theme-material-light neo-flex-container neo-flex-align-center neo-flex-direction-column neo-flex-pack-start neo-flex-wrap-nowrap",
+          "bg": "oklch(0.984 0.013 322)",
+          "expected": [
+            254,
+            247,
+            255
+          ],
+          "pixel": {
+            "x": 12,
+            "y": 15,
+            "rgb": [
+              254,
+              247,
+              255
+            ],
+            "L": 0.9837949113723499
+          },
+          "matches": 99
+        },
+        "surface": {
+          "selector": ".checkout-card.neo-panel.neo-container",
+          "id": "neo-panel-1",
+          "cls": "checkout-card neo-panel neo-container neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "bg": "oklch(0.954 0.015 312.6)",
+          "expected": [
+            243,
+            237,
+            247
+          ],
+          "pixel": {
+            "x": 132,
+            "y": 103,
+            "rgb": [
+              243,
+              237,
+              247
+            ],
+            "L": 0.9536261038520482
+          },
+          "matches": 64
+        },
+        "raised": {
+          "selector": ".checkout-form fieldset.neo-fieldset:not(.neo-collapsed)",
+          "id": "neo-fieldset-1",
+          "cls": "neo-fieldset neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "bg": "oklch(0.954 0.015 312.6)",
+          "expected": [
+            243,
+            237,
+            247
+          ],
+          "pixel": {
+            "x": 157,
+            "y": 246,
+            "rgb": [
+              243,
+              237,
+              247
+            ],
+            "L": 0.9536261038520482
+          },
+          "matches": 57
+        },
+        "field": {
+          "selector": ".checkout-form input[name=\"shipping.name\"]",
+          "id": "neo-textfield-1__input",
+          "cls": "neo-textfield-input",
+          "bg": "oklch(0.916 0.014 314.5)",
+          "expected": [
+            231,
+            225,
+            234
+          ],
+          "pixel": {
+            "x": 174,
+            "y": 304,
+            "rgb": [
+              231,
+              225,
+              234
+            ],
+            "L": 0.9170504372545908
+          },
+          "matches": 74
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 19
+          }
+        ],
+        "paragraph": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 180
+          }
+        ],
+        "label": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 9
+          }
+        ],
+        "input": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 9
+          }
+        ],
+        "button": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 11
+          }
+        ]
+      },
+      "sheets": [
+        "/dist/development/css/theme-base/Global.css",
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css"
+      ],
+      "sha256": "6be41e2809a1a2985263edef5937b6ca84bcac8af5f2db99ea279c32a23445e4",
+      "png": "prospective-checkout-material-light.png"
+    },
+    "material-dark": {
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-material-dark",
+      "surfaces": {
+        "canvas": {
+          "selector": ".neo-examples-form-checkout.neo-viewport",
+          "id": "neo-viewport-1",
+          "cls": "neo-examples-form-checkout neo-viewport neo-theme-material-dark neo-flex-container neo-flex-align-center neo-flex-direction-column neo-flex-pack-start neo-flex-wrap-nowrap",
+          "bg": "oklch(0.187 0.012 300.4)",
+          "expected": [
+            20,
+            18,
+            24
+          ],
+          "pixel": {
+            "x": 12,
+            "y": 15,
+            "rgb": [
+              20,
+              18,
+              24
+            ],
+            "L": 0.18737531498661264
+          },
+          "matches": 99
+        },
+        "surface": {
+          "selector": ".checkout-card.neo-panel.neo-container",
+          "id": "neo-panel-1",
+          "cls": "checkout-card neo-panel neo-container neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "bg": "oklch(0.245 0.013 298.5)",
+          "expected": [
+            33,
+            31,
+            38
+          ],
+          "pixel": {
+            "x": 132,
+            "y": 103,
+            "rgb": [
+              33,
+              31,
+              38
+            ],
+            "L": 0.24450569166963557
+          },
+          "matches": 64
+        },
+        "raised": {
+          "selector": ".checkout-form fieldset.neo-fieldset:not(.neo-collapsed)",
+          "id": "neo-fieldset-1",
+          "cls": "neo-fieldset neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "bg": "oklch(0.286 0.013 298.7)",
+          "expected": [
+            43,
+            41,
+            48
+          ],
+          "pixel": {
+            "x": 157,
+            "y": 246,
+            "rgb": [
+              43,
+              41,
+              48
+            ],
+            "L": 0.28590290783361555
+          },
+          "matches": 47
+        },
+        "field": {
+          "selector": ".checkout-form input[name=\"shipping.name\"]",
+          "id": "neo-textfield-1__input",
+          "cls": "neo-textfield-input",
+          "bg": "oklch(0.33 0.012 298.9)",
+          "expected": [
+            54,
+            52,
+            59
+          ],
+          "pixel": {
+            "x": 174,
+            "y": 304,
+            "rgb": [
+              54,
+              52,
+              59
+            ],
+            "L": 0.32978866308119853
+          },
+          "matches": 74
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 19
+          }
+        ],
+        "paragraph": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 180
+          }
+        ],
+        "label": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 9
+          }
+        ],
+        "input": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 9
+          }
+        ],
+        "button": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 11
+          }
+        ]
+      },
+      "sheets": [
+        "/dist/development/css/theme-base/Global.css",
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css"
+      ],
+      "sha256": "ee62f4e7ea71ef439494cd05c2f75a1792b0eb8ba99adaf87590e11da96db809",
+      "png": "prospective-checkout-material-dark.png"
+    },
+    "neo-light": {
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-neo-light",
+      "surfaces": {
+        "canvas": {
+          "selector": ".neo-examples-form-checkout.neo-viewport",
+          "id": "neo-viewport-1",
+          "cls": "neo-examples-form-checkout neo-viewport neo-theme-neo-light neo-flex-container neo-flex-align-center neo-flex-direction-column neo-flex-pack-start neo-flex-wrap-nowrap",
+          "bg": "oklch(0.985 0.002 270)",
+          "expected": [
+            249,
+            250,
+            251
+          ],
+          "pixel": {
+            "x": 12,
+            "y": 15,
+            "rgb": [
+              249,
+              250,
+              251
+            ],
+            "L": 0.9846253095212305
+          },
+          "matches": 99
+        },
+        "surface": {
+          "selector": ".checkout-card.neo-panel.neo-container",
+          "id": "neo-panel-1",
+          "cls": "checkout-card neo-panel neo-container neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "bg": "oklch(0.985 0.002 270)",
+          "expected": [
+            249,
+            250,
+            251
+          ],
+          "pixel": {
+            "x": 132,
+            "y": 175,
+            "rgb": [
+              249,
+              250,
+              251
+            ],
+            "L": 0.9846253095212305
+          },
+          "matches": 69
+        },
+        "raised": {
+          "selector": ".checkout-form fieldset.neo-fieldset:not(.neo-collapsed)",
+          "id": "neo-fieldset-1",
+          "cls": "neo-fieldset neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "bg": "rgb(255, 255, 255)",
+          "expected": [
+            255,
+            255,
+            255
+          ],
+          "pixel": {
+            "x": 157,
+            "y": 311,
+            "rgb": [
+              255,
+              255,
+              255
+            ],
+            "L": 0.9999999934735462
+          },
+          "matches": 47
+        },
+        "field": {
+          "selector": ".checkout-form input[name=\"shipping.name\"]",
+          "id": "neo-textfield-1__input",
+          "cls": "neo-textfield-input",
+          "bg": "rgb(255, 255, 255)",
+          "expected": [
+            255,
+            255,
+            255
+          ],
+          "pixel": {
+            "x": 175,
+            "y": 368,
+            "rgb": [
+              255,
+              255,
+              255
+            ],
+            "L": 0.9999999934735462
+          },
+          "matches": 38
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 19
+          }
+        ],
+        "paragraph": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 180
+          }
+        ],
+        "label": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 9
+          }
+        ],
+        "input": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 9
+          }
+        ],
+        "button": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 11
+          }
+        ]
+      },
+      "sheets": [
+        "/dist/development/css/theme-base/Global.css",
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css"
+      ],
+      "sha256": "1c6910a642e333dbac4ea4d808b910a375a679d56aa80e459cbd52727e0d16a0",
+      "png": "prospective-checkout-neo-light.png"
+    },
+    "neo-dark": {
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-neo-dark",
+      "surfaces": {
+        "canvas": {
+          "selector": ".neo-examples-form-checkout.neo-viewport",
+          "id": "neo-viewport-1",
+          "cls": "neo-examples-form-checkout neo-viewport neo-theme-neo-dark neo-flex-container neo-flex-align-center neo-flex-direction-column neo-flex-pack-start neo-flex-wrap-nowrap",
+          "bg": "oklch(0.168 0.008 270)",
+          "expected": [
+            14,
+            15,
+            19
+          ],
+          "pixel": {
+            "x": 12,
+            "y": 15,
+            "rgb": [
+              14,
+              15,
+              19
+            ],
+            "L": 0.16916473102040272
+          },
+          "matches": 99
+        },
+        "surface": {
+          "selector": ".checkout-card.neo-panel.neo-container",
+          "id": "neo-panel-1",
+          "cls": "checkout-card neo-panel neo-container neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "bg": "oklch(0.168 0.008 270)",
+          "expected": [
+            14,
+            15,
+            19
+          ],
+          "pixel": {
+            "x": 132,
+            "y": 175,
+            "rgb": [
+              14,
+              15,
+              19
+            ],
+            "L": 0.16916473102040272
+          },
+          "matches": 69
+        },
+        "raised": {
+          "selector": ".checkout-form fieldset.neo-fieldset:not(.neo-collapsed)",
+          "id": "neo-fieldset-1",
+          "cls": "neo-fieldset neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "bg": "oklch(0.28 0.022 270)",
+          "expected": [
+            37,
+            41,
+            52
+          ],
+          "pixel": {
+            "x": 157,
+            "y": 311,
+            "rgb": [
+              37,
+              41,
+              52
+            ],
+            "L": 0.2817815669557047
+          },
+          "matches": 47
+        },
+        "field": {
+          "selector": ".checkout-form input[name=\"shipping.name\"]",
+          "id": "neo-textfield-1__input",
+          "cls": "neo-textfield-input",
+          "bg": "oklch(0.168 0.008 270)",
+          "expected": [
+            14,
+            15,
+            19
+          ],
+          "pixel": {
+            "x": 175,
+            "y": 368,
+            "rgb": [
+              14,
+              15,
+              19
+            ],
+            "L": 0.16916473102040272
+          },
+          "matches": 38
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 19
+          }
+        ],
+        "paragraph": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 180
+          }
+        ],
+        "label": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 9
+          }
+        ],
+        "input": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 9
+          }
+        ],
+        "button": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 11
+          }
+        ]
+      },
+      "sheets": [
+        "/dist/development/css/theme-base/Global.css",
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css"
+      ],
+      "sha256": "8d8e2d2b8eb2bfb7da7f6fefa7da08c0b3faa4f3090478dfe8107f63c9f973f7",
+      "png": "prospective-checkout-neo-dark.png"
+    }
+  },
+  "errors": [],
+  "browser": "158.0.8127.38"
+}
