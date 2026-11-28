@@ -112,6 +112,51 @@ Neo.setupClass(Probe);`)).toEqual(['neo-class-base', 'neo-class-base'])
             function register(Probe) {return Neo.setupClass(Probe)}`)).toEqual(['neo-class-setup'])
     });
 
+    test('credits setup only in the class execution context and outside dormant literal branches', () => {
+        for (const statement of [
+            'function unused() { Neo.setupClass(Probe); }',
+            'if (false) Neo.setupClass(Probe);',
+            'if (true) {} else Neo.setupClass(Probe);',
+            'false && Neo.setupClass(Probe);',
+            'true || Neo.setupClass(Probe);',
+            'null === null && (false ? Neo.setupClass(Probe) : null);',
+            'while (false) Neo.setupClass(Probe);',
+            'for (; false; Neo.setupClass(Probe)) Neo.setupClass(Probe);'
+        ]) {
+            expect(rules(`export default class Probe extends Base {}
+${statement}`), statement).toEqual(['neo-class-setup'])
+        }
+
+        expect(rules(`class Probe extends Base {}
+if (true) { Neo.setupClass(Probe); }
+export default Probe;`)).toEqual([]);
+        expect(rules(`export function make() {
+            class Local extends Base {}
+            return Neo.setupClass(Local)
+        }`)).toEqual([])
+    });
+
+    test('resolves loop and switch bindings before treating Neo as the class-system namespace', () => {
+        const cases = [
+            'for (const Neo of bindings) { Neo.setupClass(Probe); }',
+            'for (let Neo = fake; enabled;) { Neo.setupClass(Probe); }',
+            'for (let Neo in bindings) { Neo.setupClass(Probe); }',
+            'switch (mode) { case 1: const Neo = fake; Neo.setupClass(Probe); break; }',
+            'for (var Neo of bindings) {} Neo.setupClass(Probe);'
+        ];
+
+        for (const statement of cases) {
+            expect(rules(`export default class Probe extends Base {}
+${statement}`), statement).toEqual(['neo-class-setup'])
+        }
+
+        expect(rules(`switch (mode) {
+            case 1: class Local extends Base {} Neo.setupClass(Local); break;
+        }`)).toEqual([]);
+        expect(rules(`for (const Neo of bindings) {}
+            export default Neo.setupClass(class extends Base {});`)).toEqual([])
+    });
+
     test('flags the documented forms that lose a default, description or tag in the generated API', () => {
         const invalid = [
             "/** @member {String[]} option=['a','b'] */",

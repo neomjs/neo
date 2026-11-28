@@ -83,25 +83,32 @@ function scopeBinding(scope, name) {
     return scope?.bindings.get(name)
 }
 
-/** @summary Collects class nodes and matches registrations to the class binding visible at each call site. */
+/** @summary Matches registrations to the visible class in the same execution context. */
 function scanClasses(ast, file) {
     const calls = [], classes = new Map(), registrations = new Map();
-    function scan(statements, parent, parameters = []) {
+
+    function scan(statements, parent, {execution = parent?.execution ?? ast, parameters = [], inactive = false,
+        inactiveNodes = [], ownVarScope = false} = {}) {
         const bindings = new Map(parameters.map(name => [name, null])),
-              scope    = {bindings, parent};
+              scope    = {bindings, execution, parent};
+
+        scope.varScope = parent && parent.execution === execution && !ownVarScope ? parent.varScope : scope;
+
         for (const statement of statements) {
-            const declaration = statement.declaration || statement;
-            if (declaration.type === 'ClassDeclaration' && declaration.id) {
+            const declaration = statement?.declaration || statement;
+            if (declaration?.type === 'ClassDeclaration' && declaration.id) {
                 bindings.set(declaration.id.name, declaration)
-            } else if (declaration.type === 'VariableDeclaration') {
+            } else if (declaration?.type === 'VariableDeclaration') {
+                const target = declaration.kind === 'var' ? scope.varScope.bindings : bindings;
+
                 for (const {id, init} of declaration.declarations) {
                     for (const name of bindingNames(id)) {
-                        bindings.set(name, id.type === 'Identifier' && init?.type === 'ClassExpression' ? init : null)
+                        target.set(name, id.type === 'Identifier' && init?.type === 'ClassExpression' ? init : null)
                     }
                 }
-            } else if (declaration.type === 'FunctionDeclaration' && declaration.id) {
+            } else if (declaration?.type === 'FunctionDeclaration' && declaration.id) {
                 bindings.set(declaration.id.name, null)
-            } else if (declaration.type === 'ImportDeclaration') {
+            } else if (declaration?.type === 'ImportDeclaration') {
                 const source = declaration.source.value,
                       neo    = source.startsWith('.') && path.posix.normalize(path.posix.join(path.posix.dirname(file), source)) === 'src/Neo.mjs';
                 for (const specifier of declaration.specifiers) {
@@ -109,42 +116,81 @@ function scanClasses(ast, file) {
                 }
             }
         }
-        for (const statement of statements) {
-            visit(statement, (node, enclosing) => {
-                if (node.type === 'ClassDeclaration' || node.type === 'ClassExpression') {
-                    const name = node.id?.name ?? enclosing?.id?.name ??
-                        (enclosing?.type === 'Property' || enclosing?.type === 'PropertyDefinition' ? keyName(enclosing) : undefined) ??
-                        (enclosing?.type === 'ExportDefaultDeclaration' ? 'default' : '<anonymous>');
-                    classes.set(node, {name, scope})
-                }
-                if (['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(node.type)) {
-                    scan(node.body.type === 'BlockStatement' ? node.body.body : [node.body], scope, node.params.flatMap(bindingNames));
-                    return false
-                }
-                if (node.type === 'CatchClause') {
-                    scan(node.body.body, scope, bindingNames(node.param));
-                    return false
-                }
-                if (node.type === 'BlockStatement' || node.type === 'StaticBlock') {
-                    scan(node.body, scope);
-                    return false
-                }
-                const callee = node.callee;
-                if (node.type === 'CallExpression' && callee?.type === 'MemberExpression' &&
-                    callee.object.name === 'Neo' && keyName(callee) === 'setupClass') {
-                    const receiver = scopeBinding(scope, 'Neo');
-                    if (receiver === undefined || receiver === NEO_IMPORT) calls.push({argument: node.arguments[0], scope})
-                }
-            })
+
+        function inspect(node, enclosing, dormant) {
+            if (!node) return;
+
+            if (node.type === 'ClassDeclaration' || node.type === 'ClassExpression') {
+                const name = node.id?.name ?? enclosing?.id?.name ??
+                    (enclosing?.type === 'Property' || enclosing?.type === 'PropertyDefinition' ? keyName(enclosing) : undefined) ??
+                    (enclosing?.type === 'ExportDefaultDeclaration' ? 'default' : '<anonymous>');
+                classes.set(node, {name, scope})
+            }
+            if (['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(node.type)) {
+                scan(node.body.type === 'BlockStatement' ? node.body.body : [node.body], scope, {
+                    execution: node, inactive: dormant, parameters: node.params.flatMap(bindingNames)
+                });
+                return
+            }
+            if (node.type === 'CatchClause') {
+                scan(node.body.body, scope, {inactive: dormant, parameters: bindingNames(node.param)});
+                return
+            }
+            if (node.type === 'BlockStatement' || node.type === 'StaticBlock') {
+                scan(node.body, scope, {inactive: dormant, ownVarScope: node.type === 'StaticBlock'});
+                return
+            }
+            if (['ForStatement', 'ForInStatement', 'ForOfStatement'].includes(node.type)) {
+                const statements = node.type === 'ForStatement' ? [node.init, node.test, node.update, node.body] : [node.left, node.right, node.body],
+                      neverRuns  = node.test?.type === 'Literal' && !node.test.value;
+
+                scan(statements, scope, {inactive: dormant, inactiveNodes: neverRuns ? [node.update, node.body] : []});
+                return
+            }
+            if (node.type === 'SwitchStatement') {
+                inspect(node.discriminant, node, dormant);
+                scan(node.cases.flatMap(({test, consequent}) => [test, ...consequent]), scope, {inactive: dormant});
+                return
+            }
+            if (node.type === 'IfStatement' || node.type === 'ConditionalExpression' || node.type === 'WhileStatement') {
+                const condition = node.test.type === 'Literal' ? Boolean(node.test.value) : undefined;
+
+                inspect(node.test, node, dormant);
+                inspect(node.consequent ?? node.body, node, dormant || condition === false);
+                inspect(node.alternate, node, dormant || condition === true);
+                return
+            }
+            if (node.type === 'LogicalExpression' && node.left.type === 'Literal') {
+                const {value}    = node.left,
+                      skipsRight = node.operator === '&&' ? !value : node.operator === '||' ? Boolean(value) : value !== null;
+
+                inspect(node.left, node, dormant);
+                inspect(node.right, node, dormant || skipsRight);
+                return
+            }
+
+            const callee = node.callee;
+            if (!dormant && node.type === 'CallExpression' && callee?.type === 'MemberExpression' &&
+                callee.object.name === 'Neo' && keyName(callee) === 'setupClass') {
+                calls.push({argument: node.arguments[0], scope})
+            }
+
+            forEachChild(node, child => inspect(child, node, dormant))
         }
+
+        for (const statement of statements) inspect(statement, null, inactive || inactiveNodes.includes(statement))
     }
+
     scan(ast.body, null);
     for (const {argument, scope} of calls) {
+        const receiver = scopeBinding(scope, 'Neo');
+        if (receiver !== undefined && receiver !== NEO_IMPORT) continue;
+
         if (argument?.type === 'ClassExpression') {
             registrations.set(argument, argument.id?.name || 'default')
         } else if (argument?.type === 'Identifier') {
             const declaration = scopeBinding(scope, argument.name);
-            if (classes.has(declaration)) registrations.set(declaration, argument.name)
+            if (classes.get(declaration)?.scope.execution === scope.execution) registrations.set(declaration, argument.name)
         }
     }
     return {classes, registrations}

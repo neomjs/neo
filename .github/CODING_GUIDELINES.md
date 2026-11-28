@@ -211,9 +211,10 @@ export default Neo.setupClass(Base);
   - empty line
 
 Runtime classes extend `Neo.core.Base` or one of its subclasses and register with
-`Neo.setupClass`. This includes internal helpers, local class declarations, and class
-expressions. `src/core/Base.mjs` defines the class-system root. Use `Neo.create` to construct
-instances so their configs and lifecycle hooks run. Registered Neo classes also support `Neo.overwrites`.
+`Neo.setupClass` in the module or factory that defines them. This includes internal helpers,
+local class declarations, and class expressions. `src/core/Base.mjs` defines the class-system root.
+Use `Neo.create` to construct instances so their configs and lifecycle hooks run. Registered classes
+also support `Neo.overwrites`.
 
 `buildScripts/util/check-coding-guidelines.mjs` checks registration and locally
 detectable superclass violations in `src`, `apps`, `examples`, and `docs/app`.
