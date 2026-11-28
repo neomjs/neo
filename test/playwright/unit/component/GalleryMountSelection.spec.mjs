@@ -112,6 +112,54 @@ test.describe('Gallery initial selection', () => {
         expect(errors).toEqual([])
     });
 
+    test('navigation uses the projected count and handles a selected business key of zero', async () => {
+        await create({amountRows: 2, maxItems: 4, orderByRow: true, selectOnMount: false, useInternalId: false},
+            Array.from({length: 6}, (_, id) => ({id, image: 'item.png'})));
+        await mount();
+
+        const {selectionModel} = view;
+
+        selectionModel.select(0);
+        view.navigateHorizontal(1);
+        expect(selectionModel.getSelection()).toEqual([1]);
+
+        selectionModel.onKeyDownLeft();
+        expect(selectionModel.getSelection()).toEqual([0]);
+
+        selectionModel.onKeyDownDown();
+        expect(selectionModel.getSelection()).toEqual([2])
+    });
+
+    test('horizontal navigation leaves an empty Gallery without a selection or a select event', async () => {
+        await create();
+        await mount();
+
+        const events = [];
+        view.on('select', event => events.push(event));
+        view.navigateHorizontal(1);
+        view.selectionModel.onKeyDownLeft();
+
+        expect(view.selectionModel.getSelection()).toEqual([]);
+        expect(events).toEqual([])
+    });
+
+    test('reselecting after an item removal does not mount the Gallery again', async () => {
+        await create({selectOnMount: false, useInternalId: false},
+            Array.from({length: 4}, (_, id) => ({id, image: 'item.png'})));
+
+        const mounts = [];
+        view.on('mounted', id => mounts.push(id));
+        await mount();
+        view.selectionModel.select(2);
+        view.destroyItems(0, 3);
+        // CountryGallery refreshes its measurements by calling the Gallery mount hook directly.
+        await view.afterSetMounted(true, false);
+        await settle();
+
+        expect(mounts).toEqual([view.id]);
+        expect(errors).toEqual([])
+    });
+
     test('a pre-mount key waits through unrelated chunks for its record', async () => {
         await create();
         const {selectionModel} = view;

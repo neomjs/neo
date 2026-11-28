@@ -1,3 +1,4 @@
+import Button        from '../../../src/button/Base.mjs';
 import Gallery       from '../../../src/component/Gallery.mjs';
 import ImageStore    from './ImageStore.mjs';
 import NumberField   from '../../../src/form/field/Number.mjs';
@@ -15,6 +16,10 @@ class MainContainer extends Viewport {
     static config = {
         className: 'Neo.examples.component.gallery.MainContainer',
         /**
+         * @member {String[]} cls
+         */
+        cls: ['neo-examples-gallery'],
+        /**
          * @member {Neo.component.Gallery|null} gallery=null
          */
         gallery: null,
@@ -31,27 +36,46 @@ class MainContainer extends Viewport {
          */
         items: [{
             ntype : 'container',
+            cls   : ['neo-examples-gallery-main'],
             flex  : 1,
-            layout: 'fit',
-            style : {position: 'relative'},
+            layout: {ntype: 'vbox', align: 'stretch'},
 
-            items : [{
-                ntype: 'component',
-                html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
-                style: {
-                    color   : '#f8fafc',
-                    position: 'absolute',
-                    right   : '20px',
-                    top     : '25px',
-                    width   : '200px',
-                    zIndex  : 1
-                }
+            items: [{
+                ntype : 'container',
+                cls   : ['neo-examples-gallery-stage'],
+                flex  : 1,
+                layout: 'fit',
+
+                items: [{
+                    ntype: 'component',
+                    cls  : ['neo-examples-gallery-metrics'],
+                    html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>'
+                }]
+            }, {
+                ntype : 'container',
+                cls   : ['neo-examples-gallery-navigation'],
+                flex  : 'none',
+                layout: {ntype: 'hbox', align: 'center', gap: '8px', pack: 'center'},
+
+                items: [{
+                    module : Button,
+                    text   : 'Move left',
+                    handler: function() {
+                        this.up('viewport').gallery.navigateHorizontal(-1)
+                    }
+                }, {
+                    module : Button,
+                    text   : 'Move right',
+                    handler: function() {
+                        this.up('viewport').gallery.navigateHorizontal(1)
+                    }
+                }]
             }]
         }, {
-            ntype : 'panel',
+            module: Panel,
+            cls   : ['neo-examples-gallery-controls'],
+            flex  : 'none',
             layout: {ntype: 'vbox', align: 'stretch'},
-            style : {maxWidth: '50%'},
-            width : 260,
 
             containerConfig: {
                 flex : null,
@@ -202,7 +226,7 @@ class MainContainer extends Viewport {
                 ntype: 'label',
                 html : [
                     '<b>Navigation Concept</b>',
-                    '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>'
+                    '<p>Tap or click an image to select it. Swipe horizontally, use the arrow keys on the gallery, or use the navigation buttons.</p>'
                 ].join(''),
 
                 style: {
@@ -223,23 +247,26 @@ class MainContainer extends Viewport {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me    = this,
+            stage = me.items[0].items[0];
 
         me.gallery = Neo.create({
-            module: Gallery,
-            id    : 'neo-gallery-1',
-            store : ImageStore,
+            module         : Gallery,
+            id             : 'neo-gallery-1',
+            store          : ImageStore,
+            swipeNavigation: true,
             ...me.galleryConfig
         });
 
-        me.items[0].items.unshift(me.gallery)
+        me.gallery.vdom.tabIndex = 0;
+        stage.items.unshift(me.gallery)
     }
 
     /**
      * @returns {Neo.data.Store}
      */
     getStore() {
-        return this.items[0].items[0].store
+        return this.gallery.store
     }
 }
 

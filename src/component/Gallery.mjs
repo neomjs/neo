@@ -16,6 +16,8 @@ const itemsMounted = Symbol.for('itemsMounted');
 class Gallery extends Component {
     /** @summary Invalidates measurements from an older mount or render window. */
     #mountGeneration = 0
+    /** @summary Tracks the inherited lifecycle, independently of repeated Gallery measurements. */
+    #lifecycleMounted = false
     /** @summary One mount's initial selection waits for a visible record, then retires. */
     #pendingInitialSelection = false
 
@@ -156,6 +158,12 @@ class Gallery extends Component {
          */
         store_: null,
         /**
+         * Enables horizontal swipe selection when the Gallery is created.
+         * The surrounding scroll container keeps vertical scrolling and pinch zoom.
+         * @member {Boolean} swipeNavigation=false
+         */
+        swipeNavigation: false,
+        /**
          * The setTimeout() ids for calls which can get cancelled
          * @member {Array} transitionTimeouts=[]
          * @protected
@@ -204,13 +212,19 @@ class Gallery extends Component {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me              = this,
+            swipeNavigation = me.swipeNavigation && !me.disableSelection;
 
         me[itemsMounted] = false;
+
+        if (swipeNavigation) {
+            me.addCls('neo-gallery-swipe-navigation')
+        }
 
         me.addDomListeners({
             click: me.onClick,
             scope: me,
+            ...(swipeNavigation && {swipe: {bubble: false, fn: me.onSwipe, local: true}}),
             wheel: {
                 bubble : false,
                 fn     : me.onMouseWheel,
@@ -278,7 +292,22 @@ class Gallery extends Component {
      * @returns {Promise<void>}
      * @protected
      */
-    async afterSetMounted(value, oldValue) {
+    afterSetMounted(value, oldValue) {
+        if (oldValue !== undefined && value !== this.#lifecycleMounted) {
+            this.#lifecycleMounted = value;
+            super.afterSetMounted(value, oldValue)
+        }
+
+        return this.syncMountedGallery(value)
+    }
+
+    /**
+     * @summary Refreshes Gallery measurements and selection after mounting or removing projected items.
+     * @param {Boolean} value Whether the Gallery is mounted.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async syncMountedGallery(value) {
         const me         = this,
               worker     = Neo.currentWorker,
               windowId   = me.windowId,
@@ -540,7 +569,7 @@ class Gallery extends Component {
         me.update();
 
         if (me.selectionModel.hasSelection() && selectedItem > startIndex && selectedItem < startIndex + countItems) {
-            me.afterSetMounted(true, false)
+            me.syncMountedGallery(true)
         }
     }
 
@@ -642,6 +671,27 @@ class Gallery extends Component {
 
         me.vdom.cn[0].style.transform = me.translate3d(me.translateX, me.translateY, me.translateZ);
         me.update()
+    }
+
+    /**
+     * @summary Selects one horizontal neighbor using the same rules as the Gallery arrow keys.
+     * @param {Number} step -1 selects left and 1 selects right.
+     */
+    navigateHorizontal(step) {
+        if (!this.disableSelection) {
+            this.selectionModel.navigateHorizontal(step)
+        }
+    }
+
+    /**
+     * @summary Follows the content revealed by a horizontal swipe.
+     * @param {Object} data The terminal swipe.
+     * @protected
+     */
+    onSwipe({direction}) {
+        if (direction === 'left' || direction === 'right') {
+            this.navigateHorizontal(direction === 'left' ? 1 : -1)
+        }
     }
 
     /**

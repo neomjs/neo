@@ -1,0 +1,62 @@
+.neo-examples-gallery {
+    .neo-examples-gallery-main,
+    .neo-examples-gallery-stage {
+        min-width: 0;
+    }
+
+    .neo-examples-gallery-stage {
+        position: relative;
+    }
+
+    .neo-examples-gallery-metrics {
+        color         : #f8fafc;
+        inset-block   : 25px auto;
+        inset-inline  : auto 20px;
+        pointer-events: none;
+        position      : absolute;
+        z-index       : 1;
+    }
+
+    .neo-examples-gallery-navigation {
+        padding: 8px;
+
+        .neo-button {
+            min-height: 44px;
+        }
+    }
+
+    .neo-examples-gallery-controls {
+        max-width: 50%;
+        width    : 260px;
+    }
+
+    .neo-gallery:focus-visible {
+        outline       : 2px solid var(--neo-sem-color-border-focus, CanvasText);
+        outline-offset: -2px;
+    }
+
+    @media (max-width: 600px) {
+        &.neo-flex-direction-row {
+            flex-direction: column;
+            overflow-y    : auto;
+        }
+
+        .neo-examples-gallery-main {
+            min-height: max-content;
+        }
+
+        .neo-examples-gallery-stage {
+            min-height: clamp(240px, 56svh, 440px);
+        }
+
+        .neo-gallery .neo-selected .neo-item-wrapper {
+            pointer-events: auto;
+            transform     : translate3d(-50%, -88%, 64px) scale(1.05);
+        }
+
+        .neo-examples-gallery-controls {
+            max-width: none;
+            width    : 100%;
+        }
+    }
+}
