@@ -309,8 +309,11 @@
         --neo-textfield-border-radius         : 8px;
         --neo-textfield-input-background-color: var(--sp-surface-raised);
         --neo-textfield-input-color           : var(--sp-ink);
-        --neo-textfield-input-font            : 500 13px/18px var(--sp-sans);
+        --neo-textfield-input-font-family     : var(--sp-sans);
+        --neo-textfield-input-font-size       : 13px;
+        --neo-textfield-input-font-weight     : 500;
         --neo-textfield-input-height          : 32px;
+        --neo-textfield-input-line-height     : 18px;
         --neo-textfield-input-padding         : 5px 10px;
         --neo-textfield-label-color           : var(--sp-muted);
         gap                               : 4px;

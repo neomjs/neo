@@ -1,0 +1,12 @@
+:root .neo-theme-cyberpunk { /* .neo-sheet */
+    --neo-sheet-background-color          : var(--neo-cyber-alt-background-color);
+    --neo-sheet-border-color              : var(--neo-cyber-border);
+    --neo-sheet-border-radius             : 0;
+    --neo-sheet-box-shadow                : 0 0 12px var(--neo-cyber-cyan);
+    --neo-sheet-color                     : var(--neo-cyber-color);
+    --neo-sheet-max-inline-size           : 640px;
+    --neo-sheet-toggle-inset              : 4px;
+    --neo-sheet-toggle-size               : 48px;
+    --neo-sheet-transition-duration       : var(--neo-duration-panel);
+    --neo-sheet-transition-timing-function: var(--neo-ease-out);
+}

@@ -11,8 +11,11 @@
     --neo-selectfield-color-disabled                : var(--neo-cyber-color);
     --neo-selectfield-error-color                   : var(--neo-cyber-red);
     --neo-selectfield-border-color-focus                   : var(--neo-cyber-cyan);
-    --neo-selectfield-input-font                    : 400 13px/17px var(--neo-global-font-family);
+    --neo-selectfield-input-font-family             : var(--neo-global-font-family);
+    --neo-selectfield-input-font-size               : 13px;
+    --neo-selectfield-input-font-weight             : 400;
     --neo-selectfield-input-height                  : 26px;
+    --neo-selectfield-input-line-height             : 17px;
     --neo-selectfield-input-padding                 : 3px 6px 2px;
     --neo-selectfield-label-color                   : var(--neo-cyber-color);
     --neo-selectfield-label-color-disabled          : var(--neo-cyber-color);

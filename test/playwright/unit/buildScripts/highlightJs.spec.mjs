@@ -16,7 +16,7 @@ const SAMPLES = {
     ruby      : 'def answer; 42; end',
     scss      : '$gap: 8px;',
     xml       : '<a href="#">link</a>',
-    yaml      : 'answer: 42'
+    yaml      : 'answer: <%= RUBY_VERSION %>'
 };
 
 test.describe('highlightJs — the bundle comes from the installed package', () => {
@@ -58,6 +58,8 @@ test.describe('highlightJs — the bundle comes from the installed package', () 
 
             expect(languages.sort()).toEqual([...LANGUAGES].sort());
             expect(Object.keys(SAMPLES).sort(), 'one sample per bundled language').toEqual([...LANGUAGES].sort());
+            expect(results.yaml).toContain('class="language-ruby"');
+            expect(results.yaml).toContain('class="hljs-variable constant_"');
 
             for (const language of LANGUAGES) {
                 if (language === 'plaintext') {

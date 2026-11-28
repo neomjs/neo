@@ -1,0 +1,14 @@
+[class*="neo-theme-"] {
+    --neo-fileuploadfield-background-color                   : var(--neo-color-background-field);
+    --neo-fileuploadfield-background-color-active            : var(--neo-color-background-neutral-active);
+    --neo-fileuploadfield-background-color-hover             : var(--neo-color-background-neutral-hover);
+    --neo-fileuploadfield-border-color                       : var(--neo-color-border-strong);
+    --neo-fileuploadfield-border-color-focus                 : var(--neo-color-border-accent);
+    --neo-fileuploadfield-border-radius                      : var(--neo-radius-small);
+    --neo-fileuploadfield-border-radius-focus                : var(--neo-radius-small);
+    --neo-fileuploadfield-color                              : var(--neo-color-text-default);
+    --neo-fileuploadfield-downloadable-state-background-color: var(--neo-color-background-disabled);
+    --neo-fileuploadfield-error-color                        : var(--neo-color-text-danger);
+    --neo-fileuploadfield-progress-color                     : var(--neo-color-text-accent);
+    --neo-fileuploadfield-success-color                      : var(--neo-color-text-success);
+}

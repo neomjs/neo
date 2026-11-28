@@ -1,0 +1,9 @@
+[class*="neo-theme-"] {
+    --neo-combobox-input-hint-color              : var(--neo-color-text-subtle);
+    --neo-combobox-input-hint-opacity            : 1;
+    --neo-combobox-list-search-background-color  : inherit;
+    --neo-combobox-list-search-color             : var(--neo-color-text-warning);
+    --neo-combobox-list-search-color-selected    : var(--neo-color-text-warning);
+    --neo-combobox-picker-container-border       : var(--neo-border-width-thin) solid var(--neo-color-border-default);
+    --neo-combobox-picker-container-border-radius: var(--neo-radius-small);
+}

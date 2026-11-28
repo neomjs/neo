@@ -11,8 +11,11 @@
     --neo-selectfield-color-disabled                : #000;
     --neo-selectfield-error-color                   : brown;
     --neo-selectfield-border-color-focus                   : #1c60a0;
-    --neo-selectfield-input-font                    : 400 13px/17px Arial;
+    --neo-selectfield-input-font-family             : Arial;
+    --neo-selectfield-input-font-size               : 13px;
+    --neo-selectfield-input-font-weight             : 400;
     --neo-selectfield-input-height                  : 25px;
+    --neo-selectfield-input-line-height             : 17px;
     --neo-selectfield-input-padding                 : 3px 6px 2px;
     --neo-selectfield-label-color                   : #666;
     --neo-selectfield-label-color-disabled          : #666;

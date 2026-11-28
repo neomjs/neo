@@ -45,6 +45,7 @@ import SearchField           from '../../../../../src/form/field/Search.mjs';
 import SectionsList          from '../../../../../src/app/content/SectionsList.mjs';
 import SegmentedButton       from '../../../../../src/button/Segmented.mjs';
 import SelectField           from '../../../../../src/form/field/Select.mjs';
+import Sheet                 from '../../../../../src/sheet/Base.mjs';
 import Sitemap               from '../../../../../src/sitemap/Component.mjs';
 import SplitButton           from '../../../../../src/button/Split.mjs';
 import Splitter              from '../../../../../src/component/Splitter.mjs';
@@ -514,6 +515,15 @@ export const onStart = () => {
                             endDate   : '2024-07-21T15:00:00Z'
                         }]
                     }
+                }),
+
+                // sheet (in flow inside its cell, so the window-fixed sheet covers no sibling stage cells)
+                cell('sheet', {
+                    module    : Sheet,
+                    items     : [{module: Component, text: 'Sheet content'}],
+                    snapIndex : 1,
+                    snapPoints: [96, 160],
+                    style     : {position: 'relative'}
                 }),
 
                 // sitemap
