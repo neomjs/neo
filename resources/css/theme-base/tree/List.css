@@ -1,0 +1,9 @@
+/* Tree list, every theme: each variable bound to a role (ADR 0044 decision 4). A theme re-values one in its own
+   tree/List.css only where its design language deviates. The rules in src/tree/List.css and
+   src/app/content/TreeList.css read these. */
+[class*="neo-theme-"] {
+    --neo-tree-list-color          : var(--neo-color-text-default);
+    --neo-tree-list-indent-base    : var(--neo-space-4);
+    --neo-tree-list-indent-step    : var(--neo-space-4);
+    --neo-tree-list-menu-item-color: var(--neo-color-text-muted);
+}

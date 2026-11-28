@@ -1,0 +1,7 @@
+/* Cyberpunk declares no tree list values: `initial` leaves every reader on the fallback it had before theme-base. */
+:root .neo-theme-cyberpunk { /* .neo-tree-list */
+    --neo-tree-list-color          : initial;
+    --neo-tree-list-indent-base    : initial;
+    --neo-tree-list-indent-step    : initial;
+    --neo-tree-list-menu-item-color: initial;
+}
