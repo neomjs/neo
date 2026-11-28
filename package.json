@@ -62,6 +62,7 @@
         "test-unit"                            : "playwright test -c test/playwright/playwright.config.unit.mjs",
         "test-unit-tz"                         : "playwright test -c test/playwright/playwright.config.unit-tz.mjs",
         "theme-census"                         : "node ./buildScripts/util/theme-census.mjs",
+        "theme-contrast"                       : "node ./buildScripts/util/check-theme-palette.mjs --contrast",
         "theme-equality"                       : "node ./buildScripts/util/theme-equality.mjs",
         "watch-themes"                         : "node ./buildScripts/helpers/watchThemes.mjs"
     },

@@ -5,14 +5,17 @@
  * slot's grades descend in lightness, the text, border and focus-ring pairs meet their contrast floors in each
  * scheme the theme declares, and every palette declares the same palette and role names as every other.
  *
- * A palette is a theme class for which a sheet declares a `--neo-palette-*` name. A theme without one is not
- * written against the roles yet: it is skipped, and it declares no colour role but the scheme. This check
- * models no cascade and reads no condition, so it holds the names it measures, every `--neo-palette-*` and
- * `--neo-color-*` name of a palette, to one reading: one value per theme class, declared on the class itself
- * (`.neo-theme-x`, `:root .neo-theme-x`, or the root that holds it), under no condition, read from measured
- * names only. It reads every sheet under `resources/css` for that, as syntax alone, and any other place that
- * declares or registers such a name fails, as does a sheet whose brackets do not balance. A scale role may be
- * re-valued by a scope or a condition, as the reduced-motion collapse does.
+ * Every palette and role name (`kindOf` `'palette'` or `'role'`) is declared in a `Global.css` only: a theme's
+ * `Global.css`, or `src/Global.css` for a scale role re-valued under a narrower scope or a condition. Any
+ * declaration or `@property` registration in another sheet fails as `[scope]`.
+ * A palette is a theme class for which a theme `Global.css` declares a `--neo-palette-*` name. A theme without
+ * one is skipped for pair and grade checks and declares no colour role but the scheme; a palette or colour-role
+ * name declared under a condition fails as `[conditional]` for every theme class, with or without a palette. Inside
+ * a `Global.css`, a palette or colour-role name sits on the theme class itself under no condition, while a narrower
+ * scope or a condition may re-value a scale role (`src/Global.css` classifies every effective selector arm and
+ * refuses an unconditional role when any arm reaches the document or a bare theme). Pass `--contrast <foreground>
+ * <background> [--theme <class-or-stem>]` (or `npm run theme-contrast -- <fg> <bg>`) to print a pair's contrast
+ * ratio in each scheme with the same compositing.
  *
  * Three things are outside this check: a value set from JavaScript, a sheet reached through `@import`, and a
  * `color-scheme` that a rule sets against the one `src` wires from `--neo-color-scheme`. The lightness numbers
@@ -22,6 +25,8 @@
 import fs                                                        from 'node:fs';
 import path                                                      from 'node:path';
 import {fileURLToPath}                                           from 'node:url';
+import postcss                                                   from 'postcss';
+import selectorParser                                            from 'postcss-selector-parser';
 import isEntryModule                                             from './isEntryModule.mjs';
 import {cssFiles}                                                from './themeCss.mjs';
 import {PALETTE_EXTRAS, PALETTE_GRADES, SCHEME_PROPERTY, kindOf} from './themeNameShapes.mjs';
@@ -319,40 +324,86 @@ function isMeasured(name) {
 }
 
 /**
- * Every place a sheet spells a custom property as a declaration (`--name:`) or a registration
- * (`@property --name {`). A `var()` read is followed by neither, and a query such as
- * `@container style(--name: value)` writes the name behind an opening parenthesis.
- * @type {RegExp}
+ * @summary Whether a custom property has a palette or role shape under the shared classifier.
+ * @param {String} name
+ * @returns {Boolean}
  */
-const SPELLED = /(?<![\w-]|\(\s*)(--[a-zA-Z0-9_-]+)\s*[:{]/g;
+function isPaletteOrRole(name) {
+    const kind = kindOf(name);
+
+    return kind === 'palette' || kind === 'role'
+}
 
 /**
- * What a brace, a semicolon or a comment mark can hide in: an escape, a comment, a string, an unquoted `url()`.
- * A string without its closing quote ends where its line ends, as a browser's tokenizer ends it.
- * @type {RegExp}
+ * @summary Whether a `resources/css`-relative path is a theme folder's `Global.css`.
+ * @param {String} cssRelPath
+ * @returns {Boolean}
  */
-const OPAQUE = /\\[^]|\/\*[^]*?\*\/|"(?:\\[^]|[^"\\\n])*"?|'(?:\\[^]|[^'\\\n])*'?|url\(\s*(?:\\[^]|[^"'()\\\s])(?:\\[^]|[^()\\])*\)/gi;
+function isThemeGlobal(cssRelPath) {
+    return /^theme-[a-z0-9-]+\/Global\.css$/.test(cssRelPath)
+}
 
 /**
- * @summary Reads a stylesheet as its syntax alone: no comment, every string and unquoted `url()` emptied, and
- * each escape that spells a name character written out. A brace, a semicolon or a comment mark inside a string
- * is then no syntax for this check either, and `.neo-theme-neo-li\67ht` is read as a browser reads it.
+ * @summary Whether a `resources/css`-relative path is `src/Global.css`.
+ * @param {String} cssRelPath
+ * @returns {Boolean}
+ */
+function isSrcGlobal(cssRelPath) {
+    return cssRelPath === 'src/Global.css'
+}
+
+/**
+ * Single-pass CSS lexical normalizer: strips comments, neutralizes unquoted `url(...)` tokens and unclosed
+ * `<bad-string-token>` lines (as a browser's CSS tokenizer ends them at `\n`) while preserving valid quoted
+ * strings intact (so quoted selector attributes such as `[class^="density-"]` keep their values), and writes
+ * out identifier escapes outside strings (`.neo-theme-neo-li\67ht` -> `.neo-theme-neo-light`).
+ * @type {RegExp}
+ */
+const CSS_TOKENS = /\/\*[^]*?\*\/|"(?:\\[^]|[^"\\\n])*"|'(?:\\[^]|[^'\\\n])*'|"(?:\\[^]|[^"\\\n])*(?=\n|$)|'(?:\\[^]|[^'\\\n])*(?=\n|$)|url\(\s*(?:\\[^]|[^"'()\\\s])(?:\\[^]|[^()\\])*\)|\\(?:([0-9a-fA-F]{1,6})\s?|([^0-9a-fA-F\s]))/gi;
+
+/**
+ * @summary Normalizes raw CSS text before bracket checking and PostCSS parsing.
+ * @param {String} raw
+ * @returns {String}
+ */
+function prepareCss(raw) {
+    return raw.replace(CSS_TOKENS, (token, hex, char) => {
+        if (token.startsWith('/*')) {
+            return ' '
+        }
+
+        if (token[0] === '"') {
+            return token.length >= 2 && token.endsWith('"') && !/(?:^|[^\\])(?:\\\\)*\\$/.test(token.slice(1, -1)) ? token : '""'
+        }
+
+        if (token[0] === '\'') {
+            return token.length >= 2 && token.endsWith('\'') && !/(?:^|[^\\])(?:\\\\)*\\$/.test(token.slice(1, -1)) ? token : '\'\''
+        }
+
+        if (/^url\(/i.test(token)) {
+            return 'url()'
+        }
+
+        const spelled = hex ? String.fromCodePoint(Math.min(parseInt(hex, 16), 0x10FFFF)) : char;
+
+        return spelled && /[\w-]/.test(spelled) ? spelled : token
+    })
+}
+
+/**
+ * @summary Reads a stylesheet with comments stripped, bad strings and unquoted `url()` tokens normalized,
+ * valid quoted strings preserved, and identifier escapes resolved.
  * @param {String} file
  * @returns {String}
  */
 function readSheet(file) {
-    return fs.readFileSync(file, 'utf8')
-        .replace(OPAQUE, token => ({'\\': token, '/': ' ', '"': '""', '\'': '\'\''})[token[0]] ?? 'url()')
-        .replace(/\\(?:([0-9a-fA-F]{1,6})\s?|([^0-9a-fA-F\s]))/g, (escape, hex, char) => {
-            const spelled = hex ? String.fromCodePoint(Math.min(parseInt(hex, 16), 0x10FFFF)) : char;
-
-            return /[\w-]/.test(spelled) ? spelled : escape
-        })
+    return prepareCss(fs.readFileSync(file, 'utf8'))
 }
 
 /**
- * @summary Whether every bracket of a sheet read by `readSheet` closes the one opened last. Where one does
- * not, a browser's blocks and this check's part ways: after `--probe: (} .a {);` it drops the rest of the sheet.
+ * @summary Whether every bracket outside quoted strings in `prepareCss` output closes the one opened last.
+ * Where one does not, a browser's blocks and this check's part ways: after `--probe: (} .a {);` it drops
+ * the rest of the sheet.
  * @param {String} css
  * @returns {Boolean}
  */
@@ -366,6 +417,12 @@ function isBalanced(css) {
 
         if (char === '\\') {
             index++
+        } else if (char === '"' || char === '\'') {
+            for (index++; index < css.length && css[index] !== char && css[index] !== '\n'; index++) {
+                if (css[index] === '\\') {
+                    index++
+                }
+            }
         } else if (closers[char]) {
             open.push(closers[char])
         } else if ((char === ')' || char === ']' || char === '}') && open.pop() !== char) {
@@ -400,52 +457,284 @@ function ownThemeClasses(header) {
 }
 
 /**
- * @summary Reads a comment-free stylesheet into one declaration map per theme class. A declaration belongs
- * to the theme classes its rule declares on, and a later one wins. That is no cascade: `onDeclaration` hears
- * every custom property the sheet declares, so a caller can refuse a name that has two values or sits in any
- * other rule. A declaration under a condition enters no map, since nothing here reads when it applies.
- * @param {String} css
- * @param {Function} [onDeclaration] Called with `(classes, name, value, conditions)` once for each custom
- * property declared: `classes` holds the theme classes its rule declares on, and is empty for a rule of any
- * other shape and for one nested in a rule; `conditions` holds the at-rules around it other than `@layer`,
- * outermost first
- * @returns {Map<String, Map<String,String>>}
+ * Representative `class` attribute values present on bare themed documents without any density or component
+ * sub-scope. Used alongside prefix checks to test `[class...]` attribute selectors.
+ * @type {String[]}
  */
-export function readThemeDeclarations(css, onDeclaration) {
+const BARE_CLASS_SAMPLES = Object.freeze([
+    'neo-body',
+    'neo-theme-neo-light',
+    'neo-theme-neo-dark',
+    'neo-theme-light',
+    'neo-theme-dark',
+    'neo-theme-cyberpunk',
+    'neo-theme-custom',
+    'neo-body neo-theme-neo-light',
+    'neo-body neo-theme-neo-dark',
+    'neo-body neo-theme-custom'
+]);
+
+/**
+ * @summary Evaluates a CSS attribute operator against one candidate attribute string.
+ * @param {String} sample
+ * @param {String} operator
+ * @param {String} value
+ * @returns {Boolean}
+ */
+function matchesAttributeOperator(sample, operator, value) {
+    switch (operator) {
+        case '=' : return sample === value;
+        case '~=': return Boolean(value) && !/\s/.test(value) && sample.split(/\s+/).includes(value);
+        case '|=': return sample === value || sample.startsWith(`${value}-`);
+        case '^=': return Boolean(value) && sample.startsWith(value);
+        case '$=': return Boolean(value) && sample.endsWith(value);
+        case '*=': return Boolean(value) && sample.includes(value);
+        default  : return true
+    }
+}
+
+/**
+ * @summary Whether a `[class...]` attribute selector can match a bare theme element (`neo-body` or any
+ * `neo-theme-<name>` other than `neo-theme-scope`). Narrower class-prefix selectors such as
+ * `[class^="density-"]` return `false`.
+ * @param {Object} node `postcss-selector-parser` attribute node
+ * @returns {Boolean}
+ */
+function classAttributeReachesBareTheme(node) {
+    if (!node.operator) {
+        return true
+    }
+
     const
-        blocks = [{classes: [], conditions: [], inRule: false}],
-        themes = new Map();
+        rawVal  = node.value ?? '',
+        val     = node.insensitive ? rawVal.toLowerCase() : rawVal,
+        samples = node.insensitive ? BARE_CLASS_SAMPLES.map(sample => sample.toLowerCase()) : BARE_CLASS_SAMPLES;
 
-    for (const [, text, mark] of css.matchAll(/([^{};]*)([{};])/g)) {
-        const {classes, conditions, inRule} = blocks.at(-1);
+    if (samples.some(sample => matchesAttributeOperator(sample, node.operator, val))) {
+        return true
+    }
 
-        if (mark === '{') {
-            const
-                header = text.trim(),
-                atRule = header.startsWith('@');
+    return val.startsWith('neo-theme-') && val !== 'neo-theme-scope' && !val.startsWith('neo-theme-scope-')
+}
 
-            blocks.push({
-                classes   : atRule ? classes : inRule ? [] : ownThemeClasses(header),
-                conditions: /^@(?!layer\b)/.test(header) ? [...conditions, header] : conditions,
-                inRule    : inRule || !atRule
-            });
+/**
+ * @summary Whether a selector subtree contains an explicit CSS nesting `&` selector.
+ * @param {Object} node
+ * @returns {Boolean}
+ */
+function containsNestingSelector(node) {
+    return node?.type === 'nesting' || Boolean(node?.nodes?.some(containsNestingSelector))
+}
 
+/**
+ * @summary Whether a single simple selector can match an element of a bare themed document (without any
+ * narrower density, feature, or `.neo-theme-scope` qualifier).
+ * @param {Object} node `postcss-selector-parser` node
+ * @param {Boolean} parentReachesBareTheme
+ * @returns {Boolean}
+ */
+function simpleReachesBareTheme(node, parentReachesBareTheme) {
+    switch (node.type) {
+        case 'universal':
+            return true;
+        case 'nesting':
+            return parentReachesBareTheme;
+        case 'tag':
+            return ['html', 'body', 'div', 'main', 'section'].includes(node.value.toLowerCase());
+        case 'id':
+            return false;
+        case 'class':
+            return node.value === 'neo-body' || (node.value.startsWith('neo-theme-') && node.value !== 'neo-theme-scope');
+        case 'attribute':
+            return node.attribute.trim().toLowerCase() === 'class' ? classAttributeReachesBareTheme(node) : false;
+        case 'pseudo': {
+            const name = node.value.toLowerCase();
+
+            if (name === ':root' || name === ':scope' || name === ':host' || name === ':host-context') {
+                return true
+            }
+
+            if (name === ':is' || name === ':where' || name === ':matches' || name === ':-webkit-any' || name === ':-moz-any') {
+                return Boolean(node.nodes?.some(arm => selectorArmReachesBareTheme(arm, parentReachesBareTheme, false)))
+            }
+
+            if (name === ':not' || name === ':has') {
+                return true
+            }
+
+            return false
+        }
+        default:
+            return true
+    }
+}
+
+/**
+ * @summary Whether one comma-separated selector arm can match a bare themed document without crossing at
+ * least one narrower scope compound.
+ * @param {Object} selectorNode `postcss-selector-parser` selector node
+ * @param {Boolean} parentReachesBareTheme
+ * @param {Boolean} injectImplicitNesting True for top-level arms of a nested CSS rule
+ * @returns {Boolean}
+ */
+function selectorArmReachesBareTheme(selectorNode, parentReachesBareTheme, injectImplicitNesting) {
+    const compounds = [[]];
+
+    for (const child of selectorNode.nodes ?? []) {
+        if (child.type === 'comment') {
             continue
         }
 
-        const [, name, value] = text.match(/^\s*(--[a-zA-Z0-9_-]+)\s*:\s*([^]+?)\s*$/) ?? [];
-
-        for (const themeClass of name ? classes : []) {
-            themes.has(themeClass) || themes.set(themeClass, new Map());
-            conditions.length || themes.get(themeClass).set(name, value)
+        if (child.type === 'combinator') {
+            compounds.at(-1).length && compounds.push([])
+        } else {
+            compounds.at(-1).push(child)
         }
-
-        name && onDeclaration?.(classes, name, value, conditions);
-
-        mark === '}' && blocks.length > 1 && blocks.pop()
     }
 
-    return themes
+    compounds.at(-1).length || compounds.pop();
+
+    if (!compounds.length) {
+        return true
+    }
+
+    if (injectImplicitNesting && !containsNestingSelector(selectorNode) && !parentReachesBareTheme) {
+        return false
+    }
+
+    return compounds.every(compound =>
+        compound.every(simple => simpleReachesBareTheme(simple, parentReachesBareTheme))
+    )
+}
+
+/**
+ * @summary Parses a CSS rule selector list and returns `true` when ANY effective selector arm reaches the
+ * document root, universal selector, or a bare theme (`:is(.neo-theme-*)`, mixed comma/`:where()` lists, etc.).
+ * Fails closed (`true`) on malformed selector syntax.
+ * @param {String} header
+ * @param {Boolean} [parentReachesBareTheme=true]
+ * @param {Boolean} [hasParentRule=false]
+ * @returns {Boolean}
+ */
+function selectorListReachesBareTheme(header, parentReachesBareTheme = true, hasParentRule = false) {
+    if (!header.trim()) {
+        return true
+    }
+
+    try {
+        const root = selectorParser().astSync(header);
+
+        if (!root.nodes?.length) {
+            return true
+        }
+
+        return root.nodes.some(arm => selectorArmReachesBareTheme(arm, parentReachesBareTheme, hasParentRule))
+    } catch {
+        return true
+    }
+}
+
+/**
+ * @summary Walks a stylesheet's PostCSS AST, invoking `onDeclaration` for every custom-property declaration
+ * (`--name: value`) and `onProperty` for every `@property --name` registration, while ignoring selector names
+ * (`.--neo-foo:hover`), container style queries, and braced token streams inside custom-property values.
+ * @param {String} css Raw or `readSheet`-normalized CSS
+ * @param {Object} [callbacks={}]
+ * @param {Function} [callbacks.onDeclaration]
+ * @param {Function} [callbacks.onProperty]
+ * @returns {{syntaxError: Boolean, themes: Map<String, Map<String,String>>}}
+ */
+function walkSheetCustomProperties(css, {onDeclaration, onProperty} = {}) {
+    const
+        normalized = prepareCss(css),
+        themes     = new Map();
+
+    let root;
+
+    try {
+        root = postcss.parse(normalized)
+    } catch {
+        return {syntaxError: true, themes}
+    }
+
+    const visit = (container, context) => {
+        for (const node of container.nodes ?? []) {
+            if (node.type === 'rule') {
+                const
+                    header      = node.selector.trim(),
+                    classes     = context.inRule ? [] : ownThemeClasses(header),
+                    reachesBare = selectorListReachesBareTheme(header, context.reachesBare, context.inRule);
+
+                visit(node, {
+                    classes,
+                    conditions: context.conditions,
+                    inRule    : true,
+                    reachesBare
+                });
+                continue
+            }
+
+            if (node.type === 'atrule') {
+                const atName = node.name.toLowerCase();
+
+                if (atName === 'property') {
+                    const name = node.params.trim().match(/^(--[a-zA-Z0-9_-]+)/)?.[1];
+
+                    name && onProperty?.(name, context.conditions, {inRule: context.inRule, scoped: context.inRule && !context.reachesBare});
+                    node.nodes && visit(node, {...context, classes: [], inRule: false, reachesBare: true});
+                    continue
+                }
+
+                const
+                    params     = node.params?.trim() ?? '',
+                    header     = params ? `@${node.name} ${params}` : `@${node.name}`,
+                    conditions = atName === 'layer' ? context.conditions : [...context.conditions, header];
+
+                node.nodes && visit(node, {...context, conditions});
+                continue
+            }
+
+            if (node.type === 'decl' && node.prop.startsWith('--')) {
+                const
+                    name  = node.prop.trim(),
+                    value = (node.value.trim() + (node.important ? ' !important' : '')).trim();
+
+                if (!/^--[a-zA-Z0-9_-]+$/.test(name)) {
+                    continue
+                }
+
+                for (const themeClass of context.classes) {
+                    themes.has(themeClass) || themes.set(themeClass, new Map());
+                    context.conditions.length || themes.get(themeClass).set(name, value)
+                }
+
+                onDeclaration?.(context.classes, name, value, context.conditions, {
+                    inRule: context.inRule,
+                    scoped: context.inRule && !context.reachesBare
+                })
+            }
+        }
+    };
+
+    visit(root, {classes: [], conditions: [], inRule: false, reachesBare: true});
+
+    return {syntaxError: false, themes}
+}
+
+/**
+ * @summary Reads a stylesheet into one declaration map per theme class. A declaration belongs to the theme
+ * classes its rule declares on, and a later one wins. That is no cascade: `onDeclaration` hears every custom
+ * property the sheet declares, so a caller can refuse a name that has two values or sits in any other rule.
+ * A declaration under a condition enters no map, since nothing here reads when it applies.
+ * @param {String} css
+ * @param {Function} [onDeclaration] Called with `(classes, name, value, conditions, meta)` once for each custom
+ * property declared: `classes` holds the theme classes its rule declares on, and is empty for a rule of any
+ * other shape and for one nested in a rule; `conditions` holds the conditional at-rules around it (excluding
+ * `@layer` and `@property`), outermost first; `meta` carries `{inRule, scoped}`
+ * @returns {Map<String, Map<String,String>>}
+ */
+export function readThemeDeclarations(css, onDeclaration) {
+    return walkSheetCustomProperties(css, {onDeclaration}).themes
 }
 
 /**
@@ -480,6 +769,66 @@ function commonReading(entries) {
     }
 
     return best
+}
+
+/**
+ * @summary Measures the contrast ratio of `foreground` over `background` for one scheme of a palette's
+ * declarations, compositing a translucent background over `--neo-color-background-canvas` and a translucent
+ * foreground over the resulting region. Returns `null` when any required entry is missing or unreadable.
+ * @param {Object} data
+ * @param {String} data.background
+ * @param {Map<String,String>} data.declarations
+ * @param {String} data.foreground
+ * @param {String} data.scheme
+ * @returns {Number|null}
+ */
+function measurePairRatio({background, declarations, foreground, scheme}) {
+    const
+        known = new Map([...declarations].filter(([name]) => isMeasured(name))),
+        color = name => {
+            const resolved = known.has(name) ? resolveValue(known.get(name), known, scheme) : null;
+
+            return resolved === null ? null : parseColor(resolved)
+        },
+        canvas = color(CANVAS),
+        front  = color(foreground),
+        back   = color(background);
+
+    if (!front || !back || !canvas || canvas.rgba[3] < 1) {
+        return null
+    }
+
+    const region = back.rgba[3] < 1 ? composite(back.rgba, canvas.rgba) : back.rgba.slice(0, 3);
+
+    return contrastRatio(composite(front.rgba, region), region)
+}
+
+/**
+ * @summary Resolves a CLI or caller colour-role/palette token (`text-default`, `color-text-default`,
+ * `neutral-500`, `--neo-color-text-default`, `--neo-palette-neutral-500`) against a palette's declarations.
+ * @param {String} input
+ * @param {Map<String,String>} declarations
+ * @returns {String|null}
+ */
+function resolveMeasuredName(input, declarations) {
+    if (typeof input !== 'string' || !input.trim()) {
+        return null
+    }
+
+    const raw = input.trim();
+
+    for (const candidate of [
+        raw,
+        `--neo-${raw}`,
+        `--neo-color-${raw}`,
+        `--neo-palette-${raw}`
+    ]) {
+        if (isMeasured(candidate) && declarations.has(candidate)) {
+            return candidate
+        }
+    }
+
+    return null
 }
 
 /**
@@ -562,9 +911,7 @@ function checkPalette({declarations, failures, relPath, themeClass}) {
         return
     }
 
-    const
-        canvas = color(CANVAS),
-        paired = new Set(CONTRAST_PAIRS.flatMap(([foreground, background]) => [foreground, background]));
+    const paired = new Set(CONTRAST_PAIRS.flatMap(([foreground, background]) => [foreground, background]));
 
     // A colour role that no pair measures is read as well: a browser drops a value that is no colour.
     for (const name of declarations.keys()) {
@@ -575,18 +922,13 @@ function checkPalette({declarations, failures, relPath, themeClass}) {
 
     for (const [foreground, background, floor] of CONTRAST_PAIRS) {
         const
-            front = color(foreground),
-            back  = color(background),
+            ratio = measurePairRatio({background, declarations, foreground, scheme}),
             label = `[pair] ${relPath} .${themeClass} (${scheme}) ${foreground} on ${background}`;
 
-        if (!front || !back || !canvas || canvas.rgba[3] < 1) {
+        if (ratio === null) {
             failures.add(`${label}: cannot measure; a role is missing, unresolved or not a colour this check reads`);
             continue
         }
-
-        const
-            region = back.rgba[3] < 1 ? composite(back.rgba, canvas.rgba) : back.rgba.slice(0, 3),
-            ratio  = contrastRatio(composite(front.rgba, region), region);
 
         // Written so that a ratio which is no number fails as well.
         if (!(ratio >= floor)) {
@@ -672,14 +1014,96 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         theme  = themeClass => themes.get(themeClass) ??
             themes.set(themeClass, {conditional: [], sheets: [], values: new Map()}).get(themeClass);
 
-    // Every sheet first, then every class: any sheet can name a theme class.
+    // Every sheet first, then every class: any theme Global.css can name a theme class.
     for (const file of cssFiles(cssRoot)) {
         const
-            css     = readSheet(file),
-            placed  = new Map(),
-            relPath = path.relative(root, file).replaceAll('\\', '/'),
-            sheets  = readThemeDeclarations(css, (classes, name, value, conditions) => {
-                classes.length && placed.set(name, (placed.get(name) ?? 0) + 1);
+            css         = readSheet(file),
+            cssRelPath  = path.relative(cssRoot, file).replaceAll('\\', '/'),
+            relPath     = path.relative(root, file).replaceAll('\\', '/'),
+            srcGlobal   = isSrcGlobal(cssRelPath),
+            themeGlobal = isThemeGlobal(cssRelPath),
+            addSyntax   = () => failures.add(
+                `[syntax] ${relPath} has a bracket that does not close the one opened last; a browser reads the rest ` +
+                `of such a sheet in another way, and this check cannot follow it`
+            );
+
+        if (!isBalanced(css)) {
+            addSyntax();
+            continue
+        }
+
+        if (!themeGlobal && !srcGlobal) {
+            const checkOutsideGlobal = name => {
+                if (isPaletteOrRole(name)) {
+                    failures.add(
+                        `[scope] ${relPath} declares or registers ${name} outside Global.css; ` +
+                        `palette and role names are declared in Global.css only`
+                    )
+                }
+            };
+
+            const {syntaxError} = walkSheetCustomProperties(css, {
+                onDeclaration: (classes, name) => checkOutsideGlobal(name),
+                onProperty   : name => checkOutsideGlobal(name)
+            });
+
+            syntaxError && addSyntax();
+            continue
+        }
+
+        if (srcGlobal) {
+            const reportSrcGlobal = name => {
+                if (isMeasured(name)) {
+                    failures.add(
+                        `[scope] ${relPath} declares or registers ${name} outside a theme Global.css; ` +
+                        `palette and colour-role names belong to a theme class in theme-<name>/Global.css`
+                    )
+                } else if (isPaletteOrRole(name)) {
+                    failures.add(
+                        `[scope] ${relPath} declares or registers ${name} without a scope or condition; ` +
+                        `src/Global.css only re-values scale roles under a scope or condition`
+                    )
+                }
+            };
+
+            const {syntaxError} = walkSheetCustomProperties(css, {
+                onDeclaration: (classes, name, value, conditions, {inRule, scoped}) => {
+                    if (isMeasured(name) || (isPaletteOrRole(name) && !(inRule && (conditions.length > 0 || scoped)))) {
+                        reportSrcGlobal(name)
+                    }
+                },
+                onProperty: name => reportSrcGlobal(name)
+            });
+
+            syntaxError && addSyntax();
+            continue
+        }
+
+        const reportThemeGlobalScope = (name, isRegistration = false) => {
+            if (isMeasured(name)) {
+                failures.add(
+                    `[scope] ${relPath} declares or registers ${name} outside a rule that declares on a theme class itself; ` +
+                    `a palette or colour-role name has one value per theme class, and nothing here can tell what another rule reaches`
+                )
+            } else if (isPaletteOrRole(name) && isRegistration) {
+                failures.add(
+                    `[scope] ${relPath} registers ${name} outside a selector rule; ` +
+                    `a scale role is declared or re-valued inside a rule of Global.css`
+                )
+            }
+        };
+
+        const {syntaxError, themes: sheets} = walkSheetCustomProperties(css, {
+            onDeclaration: (classes, name, value, conditions, {inRule}) => {
+                if (isMeasured(name) && !classes.length) {
+                    reportThemeGlobalScope(name);
+                    return
+                }
+
+                if (!isMeasured(name) && isPaletteOrRole(name) && !inRule) {
+                    reportThemeGlobalScope(name, true);
+                    return
+                }
 
                 for (const themeClass of classes) {
                     const {conditional, values} = theme(themeClass);
@@ -691,26 +1115,13 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
                         conditional.push({conditions, name, relPath})
                     }
                 }
-            });
+            },
+            onProperty: name => reportThemeGlobalScope(name, true)
+        });
 
-        isBalanced(css) || failures.add(
-            `[syntax] ${relPath} has a bracket that does not close the one opened last; a browser reads the rest ` +
-            `of such a sheet in another way, and this check cannot follow it`
-        );
-
-        // What the sheet spells beyond the declarations the reader placed on a theme class. Such a name fails
-        // whether or not a palette was found: a palette block under a selector of another shape is found nowhere.
-        for (const [, name] of css.matchAll(SPELLED)) {
-            const left = placed.get(name) ?? 0;
-
-            if (left) {
-                placed.set(name, left - 1)
-            } else if (isMeasured(name)) {
-                failures.add(
-                    `[scope] ${relPath} declares or registers ${name} outside a rule that declares on a theme class itself; ` +
-                    `a palette or colour-role name has one value per theme class, and nothing here can tell what another rule reaches`
-                )
-            }
+        if (syntaxError) {
+            addSyntax();
+            continue
         }
 
         for (const [themeClass, declarations] of sheets) {
@@ -722,14 +1133,12 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         const [palette, second] = sheets.filter(({declarations}) =>
             [...declarations.keys()].some(name => name.startsWith('--neo-palette-')));
 
-        // A theme without a palette keeps its exemption. A palette declared under a condition is still one.
-        if (palette || conditional.some(({name}) => name.startsWith('--neo-palette-'))) {
-            for (const {conditions, name, relPath} of conditional) {
-                failures.add(
-                    `[conditional] ${relPath} declares ${name} for .${themeClass} inside ${conditions.join(' ')}; ` +
-                    `this check reads no condition and cannot tell when that value paints`
-                )
-            }
+        // Every theme class, with or without a palette, refuses a palette or colour-role name under a condition.
+        for (const {conditions, name, relPath} of conditional) {
+            failures.add(
+                `[conditional] ${relPath} declares ${name} for .${themeClass} inside ${conditions.join(' ')}; ` +
+                `this check reads no condition and cannot tell when that value paints`
+            )
         }
 
         if (!palette) {
@@ -776,18 +1185,173 @@ export function collectThemePaletteFailures(options) {
     return inspectThemePalettes(options).failures
 }
 
-if (isEntryModule(import.meta.url)) {
-    const {failures, names, palettes} = inspectThemePalettes();
+/**
+ * @summary Measures the contrast ratio of a named foreground/background pair across each scheme of the matching
+ * theme palette(s), using the exact `resolveValue`, `parseColor`, alpha-compositing, and `contrastRatio` path of
+ * `checkPalette`.
+ * @param {String} foregroundInput Role or palette name (`text-default`, `color-text-default`, `--neo-color-text-default`)
+ * @param {String} backgroundInput Role or palette name (`background-selected`, `--neo-color-background-selected`)
+ * @param {Object} [options={}]
+ * @param {String} [options.root=repoRoot]
+ * @param {String} [options.theme='neo-theme-neo'] Theme class, stem (`neo`, `theme-neo`), or `'all'`
+ * @returns {{failures: String[], pairs: Array<{background: String, foreground: String, formatted: String, ratio: Number, relPath: String, scheme: String, themeClass: String}>}}
+ */
+export function measureThemePairContrast(foregroundInput, backgroundInput, {root = repoRoot, theme = 'neo-theme-neo'} = {}) {
+    const
+        cssRoot  = path.join(root, 'resources/css'),
+        failures = [],
+        pairs    = [];
 
-    if (failures.length) {
-        console.error('✗ theme palette FAILED:\n');
-        failures.forEach(failure => console.error('    ' + failure));
-        process.exit(1)
+    if (!fs.existsSync(cssRoot)) {
+        return {failures: [`[surface] missing resources/css under ${root}`], pairs}
     }
 
-    console.log(
-        `✓ theme palette — ${palettes.length} palette(s): ${palettes.join(', ') || 'none'}; the same ${names} names ` +
-        `in each, every grade at one lightness across its slots, every slot descending, ${CONTRAST_PAIRS.length} ` +
-        `pairs at their floors.`
-    )
+    const
+        normalized = String(theme ?? 'neo-theme-neo').trim().replace(/^\./, ''),
+        matches    = (themeClass, relPath) =>
+            normalized === 'all' ||
+            themeClass === normalized ||
+            themeClass.startsWith(`${normalized}-`) ||
+            themeClass === `neo-theme-${normalized}` ||
+            themeClass.startsWith(`neo-theme-${normalized}-`) ||
+            relPath.includes(`/${normalized}/`),
+        palettes   = [];
+
+    for (const file of cssFiles(cssRoot)) {
+        const cssRelPath = path.relative(cssRoot, file).replaceAll('\\', '/');
+
+        if (!isThemeGlobal(cssRelPath)) {
+            continue
+        }
+
+        const
+            relPath = path.relative(root, file).replaceAll('\\', '/'),
+            sheets  = readThemeDeclarations(readSheet(file));
+
+        for (const [themeClass, declarations] of sheets) {
+            if ([...declarations.keys()].some(name => name.startsWith('--neo-palette-')) && matches(themeClass, relPath)) {
+                palettes.push({declarations, relPath, themeClass})
+            }
+        }
+    }
+
+    if (!palettes.length) {
+        return {failures: [`[theme] no palette matches '${theme}' under resources/css`], pairs}
+    }
+
+    for (const {declarations, relPath, themeClass} of palettes) {
+        const
+            scheme     = declarations.get(SCHEME),
+            foreground = resolveMeasuredName(foregroundInput, declarations),
+            background = resolveMeasuredName(backgroundInput, declarations);
+
+        if (!foreground) {
+            failures.push(`[name] ${relPath} (.${themeClass}) does not declare '${foregroundInput}' as a palette or colour-role name`);
+            continue
+        }
+
+        if (!background) {
+            failures.push(`[name] ${relPath} (.${themeClass}) does not declare '${backgroundInput}' as a palette or colour-role name`);
+            continue
+        }
+
+        if (scheme !== 'light' && scheme !== 'dark') {
+            failures.push(`[scheme] ${relPath} (.${themeClass}) declares no ${SCHEME} of light or dark`);
+            continue
+        }
+
+        const ratio = measurePairRatio({background, declarations, foreground, scheme});
+
+        if (ratio === null) {
+            failures.push(`[pair] ${relPath} .${themeClass} (${scheme}) ${foreground} on ${background}: cannot measure`);
+            continue
+        }
+
+        pairs.push({
+            background,
+            foreground,
+            formatted: `${ratio.toFixed(2)}:1`,
+            ratio,
+            relPath,
+            scheme,
+            themeClass
+        })
+    }
+
+    return {failures, pairs}
+}
+
+/**
+ * @summary Parses CLI arguments when `--contrast` is passed and returns `{foreground, background, theme}`, or `null`
+ * when invoked in default guard mode.
+ * @param {String[]} argv
+ * @returns {{background: String|undefined, foreground: String|undefined, theme: String}|null}
+ */
+function parseContrastCli(argv) {
+    if (!argv.includes('--contrast')) {
+        return null
+    }
+
+    const positional = [];
+    let   theme      = 'neo-theme-neo';
+
+    for (let index = 0; index < argv.length; index++) {
+        const arg = argv[index];
+
+        if (arg === '--contrast') {
+            continue
+        }
+
+        if (arg === '--theme') {
+            theme = argv[++index] ?? '';
+            continue
+        }
+
+        if (arg.startsWith('--theme=')) {
+            theme = arg.slice(8);
+            continue
+        }
+
+        positional.push(arg)
+    }
+
+    return {background: positional[1], foreground: positional[0], theme}
+}
+
+if (isEntryModule(import.meta.url)) {
+    const contrastArgs = parseContrastCli(process.argv.slice(2));
+
+    if (contrastArgs) {
+        if (!contrastArgs.foreground || !contrastArgs.background) {
+            console.error('Usage: check-theme-palette.mjs --contrast <foreground> <background> [--theme <theme>]');
+            process.exit(1)
+        }
+
+        const {failures, pairs} = measureThemePairContrast(contrastArgs.foreground, contrastArgs.background, {
+            theme: contrastArgs.theme
+        });
+
+        if (failures.length) {
+            console.error('✗ theme contrast FAILED:\n');
+            failures.forEach(failure => console.error('    ' + failure));
+            process.exit(1)
+        }
+
+        console.log(`${pairs[0].foreground} on ${pairs[0].background}`);
+        pairs.forEach(({formatted, scheme, themeClass}) => console.log(`  ${themeClass} (${scheme}): ${formatted}`))
+    } else {
+        const {failures, names, palettes} = inspectThemePalettes();
+
+        if (failures.length) {
+            console.error('✗ theme palette FAILED:\n');
+            failures.forEach(failure => console.error('    ' + failure));
+            process.exit(1)
+        }
+
+        console.log(
+            `✓ theme palette — ${palettes.length} palette(s): ${palettes.join(', ') || 'none'}; the same ${names} names ` +
+            `in each, every grade at one lightness across its slots, every slot descending, ${CONTRAST_PAIRS.length} ` +
+            `pairs at their floors.`
+        )
+    }
 }
