@@ -58,7 +58,7 @@ class DemoDialog extends Dialog {
     #openingDialog = false;
 
     /**
-     * @summary Builds the contact draft and action row.
+     * @summary Builds the contact draft and docks its actions as the dialog's footer.
      * @param {Object} config
      */
     construct(config) {
@@ -67,6 +67,25 @@ class DemoDialog extends Dialog {
 
         super.construct({
             ...config,
+            headers: [{
+                module: Toolbar,
+                cls   : ['neo-footer-toolbar', 'neo-toolbar'],
+                dock  : 'bottom',
+                layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+                items : [{
+                    module : Button,
+                    handler: 'up.createDialog',
+                    text   : 'Edit another contact'
+                }, '->', {
+                    module : Button,
+                    handler: 'up.cancel',
+                    text   : 'Cancel'
+                }, {
+                    module : Button,
+                    handler: 'up.save',
+                    text   : 'Save'
+                }]
+            }],
             title       : `Edit ${record.name}`,
             wrapperStyle: config.animated !== false
                 ? {width}
@@ -100,23 +119,6 @@ class DemoDialog extends Dialog {
                 {id: 'production', name: 'Production'},
                 {id: 'operations', name: 'Operations'}
             ]}
-        }, {
-            module: Toolbar,
-            cls   : ['neo-dialog-contact-actions'],
-            layout: {ntype: 'hbox', align: 'center', gap: '0.5em', wrap: 'wrap'},
-            items : [{
-                module : Button,
-                handler: 'up.createDialog',
-                text   : 'Edit another contact'
-            }, '->', {
-                module : Button,
-                handler: 'up.cancel',
-                text   : 'Cancel'
-            }, {
-                module : Button,
-                handler: 'up.save',
-                text   : 'Save'
-            }]
         }]
     }
 
