@@ -1,5 +1,0 @@
-:where(.neo-theme-neo-dark) {
-    --neo-app-content-sidenav-background-color    : var(--neo-sem-color-bg-neutral-default);
-    --neo-app-content-sidenav-button-background-color: var(--neo-sem-color-bg-neutral-default);
-    --neo-app-content-sidenav-box-shadow: 0 5px 10px rgba(0,0,0,.5);
-}

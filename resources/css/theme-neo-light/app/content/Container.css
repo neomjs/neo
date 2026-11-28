@@ -1,5 +1,0 @@
-:where(.neo-theme-neo-light) {
-    --neo-app-content-sidenav-background-color    : #fff;
-    --neo-app-content-sidenav-button-background-color: #fff;
-    --neo-app-content-sidenav-box-shadow: 0 5px 10px rgba(0,0,0,.3);
-}

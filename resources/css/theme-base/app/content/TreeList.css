@@ -1,0 +1,6 @@
+[class*="neo-theme-"] {
+    --neo-app-content-tree-list-item-border-radius: var(--neo-radius-medium);
+    --neo-app-content-treelist-bold-color         : inherit;
+    --neo-app-content-treelist-meta-color         : var(--neo-color-text-muted);
+    --neo-app-content-treelist-ticket-title-color : var(--neo-color-text-default);
+}

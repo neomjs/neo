@@ -48,7 +48,7 @@
 
             &.neo-disabled {
                 background-color: var(--neo-app-content-sections-button-background-color-disabled);
-                opacity         : .5;
+                opacity         : var(--neo-app-content-sections-button-opacity-disabled, .5);
             }
 
             .neo-button-glyph {
