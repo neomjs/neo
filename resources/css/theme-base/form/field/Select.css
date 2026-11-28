@@ -6,7 +6,7 @@
     --neo-selectfield-border-color                   : var(--neo-color-border-strong);
     --neo-selectfield-border-color-disabled          : var(--neo-color-border-subtle);
     --neo-selectfield-border-color-focus             : var(--neo-color-border-accent);
-    --neo-selectfield-border-color-hover             : var(--neo-color-border-strong);
+    --neo-selectfield-border-color-hover             : var(--neo-color-border-strong-hover);
     --neo-selectfield-border-inline-width            : var(--neo-selectfield-border-width);
     --neo-selectfield-border-radius                  : var(--neo-radius-small);
     --neo-selectfield-border-top-width               : var(--neo-selectfield-border-width);

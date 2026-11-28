@@ -93,6 +93,8 @@ test('Material fields paint a single bottom indicator and a nested Neo field kee
     await expect(input).toHaveCSS('border-image-source', /^linear-gradient/);
     await expect(plain).toHaveCSS('--neo-textfield-focus-extent', '0%');
     await expect(plain).toHaveCSS('transition-duration', '0.2s');
+    await input.hover();
+    await expect(input).toHaveCSS('border-image-source', /^linear-gradient\(to right, oklch\(0\.835 /);
     await input.focus();
     await expect(plain).toHaveCSS('--neo-textfield-focus-extent', '50%');
     await expect(input).toHaveCSS('border-bottom-width', '2px');

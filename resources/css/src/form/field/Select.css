@@ -49,10 +49,6 @@
             color: var(--neo-selectfield-placeholder-color);
         }
 
-        &:hover:not(:disabled, :focus, :focus-visible) {
-            border-color: var(--neo-selectfield-border-color-hover);
-        }
-
         &:focus,
         &:focus-visible {
             border-bottom-width: var(--neo-selectfield-border-bottom-width-focus);
@@ -61,7 +57,8 @@
         }
     }
 
-    &.neo-hovered:not(.neo-focus, .neo-disabled) .neo-selectfield-input {
+    &:not(.neo-focus, .neo-invalid, .neo-disabled) .neo-selectfield-input:hover:not(:disabled, :focus, :focus-visible),
+    &.neo-hovered:not(.neo-focus, .neo-invalid, .neo-disabled) .neo-selectfield-input {
         border-color: var(--neo-selectfield-border-color-hover);
     }
 
@@ -192,7 +189,7 @@
         word-break : break-word;
     }
 
-    &.neo-invalid:not(.neo-disabled) .neo-selectfield-input {
+    &.neo-invalid:not(.neo-focus, .neo-disabled) .neo-selectfield-input {
         border-color: var(--neo-selectfield-error-color);
     }
 

@@ -103,7 +103,7 @@
     }
 
     &.neo-hovered {
-        &:not(&.neo-focus) {
+        &:not(&.neo-focus, &.neo-invalid, &.neo-disabled, &.neo-readonly) {
             &:not(&.label-inline) {
                 .neo-input-wrapper {
                     border-color: var(--neo-textfield-border-color-hover) !important;
@@ -518,10 +518,15 @@
 
     /* Sweep the edge once, including across triggers or the inline label's three border segments. */
     &:not(.neo-invalid, .neo-readonly, .neo-disabled) {
+        --neo-textfield-indicator-track-color: var(--neo-textfield-border-color);
         --neo-textfield-focus-paint: linear-gradient(to right,
-            var(--neo-textfield-border-color) calc(50% - var(--neo-textfield-focus-extent)),
+            var(--neo-textfield-indicator-track-color) calc(50% - var(--neo-textfield-focus-extent)),
             var(--neo-textfield-focus-indicator-color) 0 calc(50% + var(--neo-textfield-focus-extent)),
-            var(--neo-textfield-border-color) 0);
+            var(--neo-textfield-indicator-track-color) 0);
+
+        &.neo-hovered {
+            --neo-textfield-indicator-track-color: var(--neo-textfield-border-color-hover);
+        }
 
         &:not(.label-inline) > :is(.neo-textfield-input, .neo-input-wrapper) {
             border-image-source: var(--neo-textfield-focus-paint);

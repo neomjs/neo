@@ -162,6 +162,7 @@
     --neo-color-border-default              : light-dark(var(--neo-palette-neutral-300), var(--neo-palette-neutral-600));
     --neo-color-border-subtle               : light-dark(var(--neo-palette-neutral-200), var(--neo-palette-neutral-700));
     --neo-color-border-strong               : light-dark(var(--neo-palette-neutral-500), var(--neo-palette-neutral-400));
+    --neo-color-border-strong-hover         : light-dark(var(--neo-palette-neutral-600), var(--neo-palette-neutral-300));
     --neo-color-border-accent               : light-dark(var(--neo-palette-accent-500), var(--neo-palette-accent-300));
     --neo-color-border-danger               : light-dark(var(--neo-palette-danger-500), var(--neo-palette-danger-400));
     --neo-color-border-warning              : light-dark(var(--neo-palette-warning-500), var(--neo-palette-warning-400));

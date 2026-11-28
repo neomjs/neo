@@ -175,6 +175,7 @@
     --neo-color-border-subtle               : light-dark(var(--neo-palette-neutral-100), var(--neo-palette-neutral-900));
     /* border: an edge that has to be seen by itself, as on an outlined field. 3:1 on canvas and on field */
     --neo-color-border-strong               : light-dark(var(--neo-palette-neutral-500), var(--neo-palette-neutral-600));
+    --neo-color-border-strong-hover         : light-dark(var(--neo-palette-neutral-600), var(--neo-palette-neutral-500));
     --neo-color-border-accent               : var(--neo-palette-accent-600);
     --neo-color-border-danger               : light-dark(var(--neo-palette-danger-600),  var(--neo-palette-danger-400));
     --neo-color-border-warning              : light-dark(var(--neo-palette-warning-600), var(--neo-palette-warning-400));

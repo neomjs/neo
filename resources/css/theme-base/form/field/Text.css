@@ -7,7 +7,7 @@
     --neo-textfield-border-color-active              : var(--neo-color-border-accent);
     --neo-textfield-border-color-alert               : var(--neo-color-border-warning);
     --neo-textfield-border-color-disabled            : var(--neo-color-border-subtle);
-    --neo-textfield-border-color-hover               : var(--neo-color-border-strong);
+    --neo-textfield-border-color-hover               : var(--neo-color-border-strong-hover);
     --neo-textfield-border-color-invalid             : var(--neo-color-border-danger);
     --neo-textfield-border-color-readonly            : var(--neo-color-border-default);
     --neo-textfield-border-inline-width              : initial;
