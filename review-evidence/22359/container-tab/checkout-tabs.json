@@ -1,0 +1,822 @@
+{
+  "head": "10b50f7fff0b88f4d2d6910c7fa9aa9337fb2265",
+  "method": "Development theme build. Google Chrome, normal Checkout and Tab Container entry points. Each Checkout RGB sample is an exposed, element-owned pixel matching the computed fill. Fonts are CDP rendered glyph runs with the Full name input populated. No application styles or DOM changed. CSS variable values read from each consuming element.",
+  "checkout": {
+    "material-light": {
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-material-light",
+      "regions": {
+        "canvas": {
+          "selector": ".neo-examples-form-checkout.neo-viewport",
+          "token": "--neo-viewport-background-color",
+          "role": "--neo-color-background-canvas",
+          "css": "oklch(0.984 0.013 322)",
+          "tokenValue": "light-dark(oklch(0.984 0.013 322.0), oklch(0.187 0.012 300.4))",
+          "roleValue": "light-dark(oklch(0.984 0.013 322.0), oklch(0.187 0.012 300.4))",
+          "expected": [
+            254,
+            247,
+            255,
+            255
+          ],
+          "border": "0px none rgb(0, 0, 0)",
+          "sample": {
+            "x": 12,
+            "y": 15,
+            "rgb": [
+              254,
+              247,
+              255
+            ],
+            "hex": "#fef7ff",
+            "oklabL": 0.9838
+          }
+        },
+        "card": {
+          "selector": ".checkout-card.neo-panel.neo-container",
+          "token": "--neo-container-background-color",
+          "role": "--neo-color-background-surface",
+          "css": "oklch(0.954 0.015 312.6)",
+          "tokenValue": "light-dark(oklch(0.954 0.015 312.6), oklch(0.245 0.013 298.5))",
+          "roleValue": "light-dark(oklch(0.954 0.015 312.6), oklch(0.245 0.013 298.5))",
+          "expected": [
+            243,
+            237,
+            247,
+            255
+          ],
+          "border": "1px solid oklch(0.835 0.012 313.3)",
+          "sample": {
+            "x": 132,
+            "y": 105,
+            "rgb": [
+              243,
+              237,
+              247
+            ],
+            "hex": "#f3edf7",
+            "oklabL": 0.9536
+          }
+        },
+        "raised": {
+          "selector": ".checkout-form fieldset.neo-fieldset:not(.neo-collapsed)",
+          "token": "--neo-fieldset-background-color",
+          "role": "--neo-color-background-surface-raised",
+          "css": "oklch(0.954 0.015 312.6)",
+          "tokenValue": "light-dark(oklch(0.954 0.015 312.6), oklch(0.286 0.013 298.7))",
+          "roleValue": "light-dark(oklch(0.954 0.015 312.6), oklch(0.286 0.013 298.7))",
+          "expected": [
+            243,
+            237,
+            247,
+            255
+          ],
+          "border": "1px solid oklch(0.835 0.012 313.3)",
+          "sample": {
+            "x": 157,
+            "y": 249,
+            "rgb": [
+              243,
+              237,
+              247
+            ],
+            "hex": "#f3edf7",
+            "oklabL": 0.9536
+          }
+        },
+        "field": {
+          "selector": ".checkout-form input[name=\"shipping.name\"]",
+          "token": "--neo-textfield-input-background-color",
+          "role": "--neo-color-background-field",
+          "css": "oklch(0.916 0.014 314.5)",
+          "tokenValue": "light-dark(oklch(0.916 0.014 314.5), oklch(0.330 0.012 298.9))",
+          "roleValue": "light-dark(oklch(0.916 0.014 314.5), oklch(0.330 0.012 298.9))",
+          "expected": [
+            231,
+            225,
+            234,
+            255
+          ],
+          "border": "0px none oklch(0.187 0.012 300.4)",
+          "sample": {
+            "x": 174,
+            "y": 305,
+            "rgb": [
+              231,
+              225,
+              234
+            ],
+            "hex": "#e7e1ea",
+            "oklabL": 0.9171
+          }
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "familyName": "Times",
+            "postScriptName": "Times-Bold",
+            "isCustomFont": false,
+            "glyphCount": 19
+          }
+        ],
+        "paragraph": [
+          {
+            "familyName": "Times",
+            "postScriptName": "Times-Roman",
+            "isCustomFont": false,
+            "glyphCount": 180
+          }
+        ],
+        "label": [
+          {
+            "familyName": "Times",
+            "postScriptName": "Times-Roman",
+            "isCustomFont": false,
+            "glyphCount": 9
+          }
+        ],
+        "input": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 9
+          }
+        ],
+        "button": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 11
+          }
+        ]
+      },
+      "file": "checkout-material-light.png",
+      "sha256": "4f271e92f44a91d66b34b060f6e62f5edea22003de29f05574026cbb167e9b13",
+      "sheets": [
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css",
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css"
+      ]
+    },
+    "material-dark": {
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-material-dark",
+      "regions": {
+        "canvas": {
+          "selector": ".neo-examples-form-checkout.neo-viewport",
+          "token": "--neo-viewport-background-color",
+          "role": "--neo-color-background-canvas",
+          "css": "oklch(0.187 0.012 300.4)",
+          "tokenValue": "light-dark(oklch(0.984 0.013 322.0), oklch(0.187 0.012 300.4))",
+          "roleValue": "light-dark(oklch(0.984 0.013 322.0), oklch(0.187 0.012 300.4))",
+          "expected": [
+            20,
+            18,
+            24,
+            255
+          ],
+          "border": "0px none rgb(255, 255, 255)",
+          "sample": {
+            "x": 12,
+            "y": 15,
+            "rgb": [
+              20,
+              18,
+              24
+            ],
+            "hex": "#141218",
+            "oklabL": 0.1874
+          }
+        },
+        "card": {
+          "selector": ".checkout-card.neo-panel.neo-container",
+          "token": "--neo-container-background-color",
+          "role": "--neo-color-background-surface",
+          "css": "oklch(0.245 0.013 298.5)",
+          "tokenValue": "light-dark(oklch(0.954 0.015 312.6), oklch(0.245 0.013 298.5))",
+          "roleValue": "light-dark(oklch(0.954 0.015 312.6), oklch(0.245 0.013 298.5))",
+          "expected": [
+            33,
+            31,
+            38,
+            255
+          ],
+          "border": "1px solid oklch(0.405 0.01 301.4)",
+          "sample": {
+            "x": 132,
+            "y": 105,
+            "rgb": [
+              33,
+              31,
+              38
+            ],
+            "hex": "#211f26",
+            "oklabL": 0.2445
+          }
+        },
+        "raised": {
+          "selector": ".checkout-form fieldset.neo-fieldset:not(.neo-collapsed)",
+          "token": "--neo-fieldset-background-color",
+          "role": "--neo-color-background-surface-raised",
+          "css": "oklch(0.286 0.013 298.7)",
+          "tokenValue": "light-dark(oklch(0.954 0.015 312.6), oklch(0.286 0.013 298.7))",
+          "roleValue": "light-dark(oklch(0.954 0.015 312.6), oklch(0.286 0.013 298.7))",
+          "expected": [
+            43,
+            41,
+            48,
+            255
+          ],
+          "border": "1px solid oklch(0.405 0.01 301.4)",
+          "sample": {
+            "x": 157,
+            "y": 249,
+            "rgb": [
+              43,
+              41,
+              48
+            ],
+            "hex": "#2b2930",
+            "oklabL": 0.2859
+          }
+        },
+        "field": {
+          "selector": ".checkout-form input[name=\"shipping.name\"]",
+          "token": "--neo-textfield-input-background-color",
+          "role": "--neo-color-background-field",
+          "css": "oklch(0.33 0.012 298.9)",
+          "tokenValue": "light-dark(oklch(0.916 0.014 314.5), oklch(0.330 0.012 298.9))",
+          "roleValue": "light-dark(oklch(0.916 0.014 314.5), oklch(0.330 0.012 298.9))",
+          "expected": [
+            54,
+            52,
+            59,
+            255
+          ],
+          "border": "0px none oklch(0.916 0.014 314.5)",
+          "sample": {
+            "x": 174,
+            "y": 305,
+            "rgb": [
+              54,
+              52,
+              59
+            ],
+            "hex": "#36343b",
+            "oklabL": 0.3298
+          }
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "familyName": "Times",
+            "postScriptName": "Times-Bold",
+            "isCustomFont": false,
+            "glyphCount": 19
+          }
+        ],
+        "paragraph": [
+          {
+            "familyName": "Times",
+            "postScriptName": "Times-Roman",
+            "isCustomFont": false,
+            "glyphCount": 180
+          }
+        ],
+        "label": [
+          {
+            "familyName": "Times",
+            "postScriptName": "Times-Roman",
+            "isCustomFont": false,
+            "glyphCount": 9
+          }
+        ],
+        "input": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Regular",
+            "isCustomFont": true,
+            "glyphCount": 9
+          }
+        ],
+        "button": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 11
+          }
+        ]
+      },
+      "file": "checkout-material-dark.png",
+      "sha256": "2030166db98522f257027d1ac8498f9ed745e80b71a72775404acfee1e0cde39",
+      "sheets": [
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css",
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css"
+      ]
+    },
+    "neo-light": {
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-neo-light",
+      "regions": {
+        "canvas": {
+          "selector": ".neo-examples-form-checkout.neo-viewport",
+          "token": "--neo-viewport-background-color",
+          "role": "--neo-color-background-canvas",
+          "css": "oklch(0.985 0.002 270)",
+          "tokenValue": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))",
+          "roleValue": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))",
+          "expected": [
+            249,
+            250,
+            251,
+            255
+          ],
+          "border": "0px none rgb(0, 0, 0)",
+          "sample": {
+            "x": 12,
+            "y": 15,
+            "rgb": [
+              249,
+              250,
+              251
+            ],
+            "hex": "#f9fafb",
+            "oklabL": 0.9846
+          }
+        },
+        "card": {
+          "selector": ".checkout-card.neo-panel.neo-container",
+          "token": "--neo-container-background-color",
+          "role": "--neo-color-background-surface",
+          "css": "oklch(0.985 0.002 270)",
+          "tokenValue": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))",
+          "roleValue": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))",
+          "expected": [
+            249,
+            250,
+            251,
+            255
+          ],
+          "border": "1px solid oklch(0.875 0.012 270)",
+          "sample": {
+            "x": 132,
+            "y": 175,
+            "rgb": [
+              249,
+              250,
+              251
+            ],
+            "hex": "#f9fafb",
+            "oklabL": 0.9846
+          }
+        },
+        "raised": {
+          "selector": ".checkout-form fieldset.neo-fieldset:not(.neo-collapsed)",
+          "token": "--neo-fieldset-background-color",
+          "role": "--neo-color-background-surface-raised",
+          "css": "rgb(255, 255, 255)",
+          "tokenValue": "light-dark(#fff,       oklch(0.280 0.022 270.0))",
+          "roleValue": "light-dark(#fff,       oklch(0.280 0.022 270.0))",
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "border": "1px solid oklch(0.875 0.012 270)",
+          "sample": {
+            "x": 157,
+            "y": 311,
+            "rgb": [
+              255,
+              255,
+              255
+            ],
+            "hex": "#ffffff",
+            "oklabL": 1
+          }
+        },
+        "field": {
+          "selector": ".checkout-form input[name=\"shipping.name\"]",
+          "token": "--neo-textfield-input-background-color",
+          "role": "--neo-color-background-field",
+          "css": "rgb(255, 255, 255)",
+          "tokenValue": "light-dark(#fff,       oklch(0.168 0.008 270.0))",
+          "roleValue": "light-dark(#fff,       oklch(0.168 0.008 270.0))",
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "border": "0px none oklch(0.168 0.008 270)",
+          "sample": {
+            "x": 175,
+            "y": 368,
+            "rgb": [
+              255,
+              255,
+              255
+            ],
+            "hex": "#ffffff",
+            "oklabL": 1
+          }
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 19
+          }
+        ],
+        "paragraph": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 180
+          }
+        ],
+        "label": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 9
+          }
+        ],
+        "input": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 9
+          }
+        ],
+        "button": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 11
+          }
+        ]
+      },
+      "file": "checkout-neo-light.png",
+      "sha256": "6b0c724749062d316ad40711821d72821171a18238651361e59774989ad06115",
+      "sheets": [
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css",
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css"
+      ]
+    },
+    "neo-dark": {
+      "url": "/examples/form/checkout/index.html?theme=neo-theme-neo-dark",
+      "regions": {
+        "canvas": {
+          "selector": ".neo-examples-form-checkout.neo-viewport",
+          "token": "--neo-viewport-background-color",
+          "role": "--neo-color-background-canvas",
+          "css": "oklch(0.168 0.008 270)",
+          "tokenValue": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))",
+          "roleValue": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))",
+          "expected": [
+            14,
+            15,
+            19,
+            255
+          ],
+          "border": "0px none rgb(240, 241, 244)",
+          "sample": {
+            "x": 12,
+            "y": 15,
+            "rgb": [
+              14,
+              15,
+              19
+            ],
+            "hex": "#0e0f13",
+            "oklabL": 0.1692
+          }
+        },
+        "card": {
+          "selector": ".checkout-card.neo-panel.neo-container",
+          "token": "--neo-container-background-color",
+          "role": "--neo-color-background-surface",
+          "css": "oklch(0.168 0.008 270)",
+          "tokenValue": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))",
+          "roleValue": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))",
+          "expected": [
+            14,
+            15,
+            19,
+            255
+          ],
+          "border": "1px solid oklch(0.39 0.034 270)",
+          "sample": {
+            "x": 132,
+            "y": 175,
+            "rgb": [
+              14,
+              15,
+              19
+            ],
+            "hex": "#0e0f13",
+            "oklabL": 0.1692
+          }
+        },
+        "raised": {
+          "selector": ".checkout-form fieldset.neo-fieldset:not(.neo-collapsed)",
+          "token": "--neo-fieldset-background-color",
+          "role": "--neo-color-background-surface-raised",
+          "css": "oklch(0.28 0.022 270)",
+          "tokenValue": "light-dark(#fff,       oklch(0.280 0.022 270.0))",
+          "roleValue": "light-dark(#fff,       oklch(0.280 0.022 270.0))",
+          "expected": [
+            37,
+            41,
+            52,
+            255
+          ],
+          "border": "1px solid oklch(0.39 0.034 270)",
+          "sample": {
+            "x": 157,
+            "y": 311,
+            "rgb": [
+              37,
+              41,
+              52
+            ],
+            "hex": "#252934",
+            "oklabL": 0.2818
+          }
+        },
+        "field": {
+          "selector": ".checkout-form input[name=\"shipping.name\"]",
+          "token": "--neo-textfield-input-background-color",
+          "role": "--neo-color-background-field",
+          "css": "oklch(0.168 0.008 270)",
+          "tokenValue": "light-dark(#fff,       oklch(0.168 0.008 270.0))",
+          "roleValue": "light-dark(#fff,       oklch(0.168 0.008 270.0))",
+          "expected": [
+            14,
+            15,
+            19,
+            255
+          ],
+          "border": "0px none oklch(0.96 0.004 270)",
+          "sample": {
+            "x": 175,
+            "y": 368,
+            "rgb": [
+              14,
+              15,
+              19
+            ],
+            "hex": "#0e0f13",
+            "oklabL": 0.1692
+          }
+        }
+      },
+      "fonts": {
+        "heading": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 19
+          }
+        ],
+        "paragraph": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 180
+          }
+        ],
+        "label": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 9
+          }
+        ],
+        "input": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica",
+            "isCustomFont": false,
+            "glyphCount": 9
+          }
+        ],
+        "button": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 11
+          }
+        ]
+      },
+      "file": "checkout-neo-dark.png",
+      "sha256": "3b475b798fe94a339eaefdc410ead7d543b082c2a9142413b57639cc668ae533",
+      "sheets": [
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css",
+        "/dist/development/css/theme-base/container/Base.css",
+        "/dist/development/css/theme-base/container/Viewport.css",
+        "/dist/development/css/theme-base/container/Panel.css"
+      ]
+    }
+  },
+  "tabs": {
+    "material-light": {
+      "url": "/examples/tab/container/index.html",
+      "bootConfig": "For this page only, the normal loader received themes=[\"neo-theme-material-light\"] in its neo-config.json. Source example normally offers three non-Material themes.",
+      "initial": {
+        "theme": "neo-theme-material-light",
+        "home": {
+          "selected": true,
+          "color": "rgb(0, 0, 0)",
+          "fill": "rgba(0, 0, 0, 0)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "media": {
+          "selected": false,
+          "color": "oklch(0.405 0.01 301.4)",
+          "fill": "rgba(0, 0, 0, 0)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "bodyBorder": "1px solid oklch(0.835 0.012 313.3)",
+        "borderRole": "light-dark(oklch(0.835 0.012 313.3), oklch(0.405 0.010 301.4))",
+        "indicator": "oklch(0.286 0.013 298.7)",
+        "indicatorRole": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+        "stripHeight": "3px"
+      },
+      "hover": {
+        "theme": "neo-theme-material-light",
+        "home": {
+          "selected": true,
+          "color": "rgb(0, 0, 0)",
+          "fill": "rgba(0, 0, 0, 0)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "media": {
+          "selected": false,
+          "color": "oklch(0.405 0.01 301.4)",
+          "fill": "rgba(0, 0, 0, 0.08)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "bodyBorder": "1px solid oklch(0.835 0.012 313.3)",
+        "borderRole": "light-dark(oklch(0.835 0.012 313.3), oklch(0.405 0.010 301.4))",
+        "indicator": "oklch(0.286 0.013 298.7)",
+        "indicatorRole": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+        "stripHeight": "3px"
+      },
+      "selected": {
+        "theme": "neo-theme-material-light",
+        "home": {
+          "selected": false,
+          "color": "oklch(0.405 0.01 301.4)",
+          "fill": "rgba(0, 0, 0, 0)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "media": {
+          "selected": true,
+          "color": "rgb(0, 0, 0)",
+          "fill": "rgba(0, 0, 0, 0)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "bodyBorder": "1px solid oklch(0.835 0.012 313.3)",
+        "borderRole": "light-dark(oklch(0.835 0.012 313.3), oklch(0.405 0.010 301.4))",
+        "indicator": "oklch(0.286 0.013 298.7)",
+        "indicatorRole": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+        "stripHeight": "3px"
+      },
+      "file": "tabs-material-light.png",
+      "sha256": "22c4d7a345b17060d1f34a4591b48e0292cb17257ceb7e6f396fe86e16498cde"
+    },
+    "material-dark": {
+      "url": "/examples/tab/container/index.html",
+      "bootConfig": "For this page only, the normal loader received themes=[\"neo-theme-material-dark\"] in its neo-config.json. Source example normally offers three non-Material themes.",
+      "initial": {
+        "theme": "neo-theme-material-dark",
+        "home": {
+          "selected": true,
+          "color": "rgb(255, 255, 255)",
+          "fill": "rgba(0, 0, 0, 0)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "media": {
+          "selected": false,
+          "color": "oklch(0.835 0.012 313.3)",
+          "fill": "rgba(0, 0, 0, 0)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "bodyBorder": "1px solid oklch(0.405 0.01 301.4)",
+        "borderRole": "light-dark(oklch(0.835 0.012 313.3), oklch(0.405 0.010 301.4))",
+        "indicator": "oklch(0.916 0.014 314.5)",
+        "indicatorRole": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+        "stripHeight": "3px"
+      },
+      "hover": {
+        "theme": "neo-theme-material-dark",
+        "home": {
+          "selected": true,
+          "color": "rgb(255, 255, 255)",
+          "fill": "rgba(0, 0, 0, 0)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "media": {
+          "selected": false,
+          "color": "oklch(0.835 0.012 313.3)",
+          "fill": "rgba(255, 255, 255, 0.08)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "bodyBorder": "1px solid oklch(0.405 0.01 301.4)",
+        "borderRole": "light-dark(oklch(0.835 0.012 313.3), oklch(0.405 0.010 301.4))",
+        "indicator": "oklch(0.916 0.014 314.5)",
+        "indicatorRole": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+        "stripHeight": "3px"
+      },
+      "selected": {
+        "theme": "neo-theme-material-dark",
+        "home": {
+          "selected": false,
+          "color": "oklch(0.835 0.012 313.3)",
+          "fill": "rgba(0, 0, 0, 0)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "media": {
+          "selected": true,
+          "color": "rgb(255, 255, 255)",
+          "fill": "rgba(0, 0, 0, 0)",
+          "height": "56px",
+          "hoverRole": "light-dark(rgb(0 0 0 / .08), rgb(255 255 255 / .08))",
+          "strongRole": "light-dark(#000, #fff)",
+          "mutedRole": "light-dark(oklch(0.405 0.010 301.4), oklch(0.835 0.012 313.3))"
+        },
+        "bodyBorder": "1px solid oklch(0.405 0.01 301.4)",
+        "borderRole": "light-dark(oklch(0.835 0.012 313.3), oklch(0.405 0.010 301.4))",
+        "indicator": "oklch(0.916 0.014 314.5)",
+        "indicatorRole": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+        "stripHeight": "3px"
+      },
+      "file": "tabs-material-dark.png",
+      "sha256": "4207da4e4c3515346e06fc9a857f9cc8f0b1077663d54d021bd26b6ee4ae3aa6"
+    }
+  },
+  "errors": [],
+  "browser": "158.0.8127.38"
+}

@@ -1,0 +1,37 @@
+{
+  "mode": "material",
+  "dev": "3a767aa4846951d9b63010a8cd6e3637be869c04",
+  "producer": "9b7117895872a2f2edef12c376be32a99c868d0c",
+  "producerMergeBase": "f2ffa3bb1cc2ad3280cfe7aa764d54fa0b80ac99",
+  "candidate": "10b50f7fff0b88f4d2d6910c7fa9aa9337fb2265",
+  "producerPatchPaths": 52,
+  "producerPatchOverlapsInRuntime": [],
+  "oldExpectations": null,
+  "base": "producer",
+  "head": "candidate",
+  "ok": true,
+  "componentCount": 80,
+  "totalComparisons": 194160,
+  "themes": [
+    "neo-theme-neo-light",
+    "neo-theme-neo-dark",
+    "neo-theme-light",
+    "neo-theme-dark",
+    "neo-theme-cyberpunk"
+  ],
+  "scopes": [
+    "inherited",
+    "scoped"
+  ],
+  "differences": 0,
+  "matched": 0,
+  "unexpected": 0,
+  "unmet": 0,
+  "differencesSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "unexpectedSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "unmetSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "unexpectedByComponent": {},
+  "unexpectedByProperty": {},
+  "unexpectedByTheme": {},
+  "unmetByComponent": {}
+}

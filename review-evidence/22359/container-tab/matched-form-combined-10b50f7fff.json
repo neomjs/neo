@@ -1,0 +1,46 @@
+{
+  "mode": "combined",
+  "dev": "3a767aa4846951d9b63010a8cd6e3637be869c04",
+  "producer": "9b7117895872a2f2edef12c376be32a99c868d0c",
+  "producerMergeBase": "f2ffa3bb1cc2ad3280cfe7aa764d54fa0b80ac99",
+  "candidate": "10b50f7fff0b88f4d2d6910c7fa9aa9337fb2265",
+  "producerPatchPaths": 52,
+  "producerPatchOverlapsInRuntime": [],
+  "oldExpectations": "f4d05e84a294f6504487944b9c4a2d3e49997e29",
+  "base": "dev",
+  "head": "candidate",
+  "ok": false,
+  "componentCount": 80,
+  "totalComparisons": 194160,
+  "themes": [
+    "neo-theme-neo-light",
+    "neo-theme-neo-dark",
+    "neo-theme-light",
+    "neo-theme-dark",
+    "neo-theme-cyberpunk"
+  ],
+  "scopes": [
+    "inherited",
+    "scoped"
+  ],
+  "differences": 3526,
+  "matched": 3454,
+  "unexpected": 72,
+  "unmet": 36,
+  "differencesSha256": "1737d152719762dcd82a8767659fffa2e8d44b9c771fabb095649edb4ec6269d",
+  "unexpectedSha256": "1398a284ba1be201f395b93e58264233135bb6166a4bd1efd39a62c276a39e4b",
+  "unmetSha256": "b94317ca2a3c98b95437e7cd6cdad5654a23eda81f811984cfc29619d490d2ad",
+  "unexpectedByComponent": {
+    "textfield[inline]": 72
+  },
+  "unexpectedByProperty": {
+    "border-color": 72
+  },
+  "unexpectedByTheme": {
+    "neo-theme-neo-light": 36,
+    "neo-theme-neo-dark": 36
+  },
+  "unmetByComponent": {
+    "textfield[inline]": 36
+  }
+}
