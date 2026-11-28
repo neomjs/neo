@@ -615,7 +615,8 @@ class YearComponent extends Component {
         day  = 1 - firstDayOffset;
 
         date.setDate(day);
-        weekDate.setDate(day + 7);
+        // The fourth day of a row is in the ISO week that holds most of its days, whatever the weekStartDay
+        weekDate.setDate(day + 3);
 
         for (; i < 6; i++) {
             row = {
