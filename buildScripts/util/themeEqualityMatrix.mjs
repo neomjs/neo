@@ -748,6 +748,15 @@ export const COMPONENT_MATRIX = Object.freeze([
         states             : ['default', 'hover'],
         parts              : ['.neo-scheduler', '.neo-timeline-header']
     },
+    // sheet
+    {
+        id                 : 'sheet',
+        package            : 'sheet',
+        cellId             : 'sheet',
+        stateTargetSelector: '.neo-sheet-handle',
+        states             : ['default'],
+        parts              : ['.neo-sheet', '.neo-sheet-handle', '.neo-sheet-handle-grip', '.neo-sheet-toggle']
+    },
     // sitemap
     {
         id                 : 'sitemap',
@@ -923,6 +932,7 @@ export const ENGINE_PACKAGE_MATRIX = Object.freeze([
     {package: 'menu',      rendered: true},
     {package: 'plugin',    rendered: true},
     {package: 'scheduler', rendered: true},
+    {package: 'sheet',     rendered: true},
     {package: 'sitemap',   rendered: true},
     {package: 'tab',       rendered: true},
     {package: 'table',     rendered: true},

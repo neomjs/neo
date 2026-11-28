@@ -1,0 +1,24 @@
+/* A full-width bar with a grip centred on it. The bar is the touch target, larger than the grip, and it owns its
+   touch: `touch-action: none` keeps the page still while a finger drags it. */
+.neo-sheet-handle {
+    align-items    : center;
+    cursor         : ns-resize;
+    display        : flex;
+    justify-content: center;
+    min-block-size : var(--neo-sheet-handle-min-block-size);
+    touch-action   : none;
+    user-select    : none;
+
+    /* Drawn inside the bar, clear of its edges, which may be the window's */
+    &:focus-visible {
+        outline       : var(--neo-sheet-handle-focus-outline-width) solid var(--neo-sheet-handle-focus-outline-color);
+        outline-offset: calc(-2 * var(--neo-sheet-handle-focus-outline-width));
+    }
+
+    .neo-sheet-handle-grip {
+        background-color: var(--neo-sheet-handle-grip-background-color);
+        block-size      : var(--neo-sheet-handle-grip-block-size);
+        border-radius   : var(--neo-sheet-handle-grip-border-radius);
+        inline-size     : var(--neo-sheet-handle-grip-inline-size);
+    }
+}
