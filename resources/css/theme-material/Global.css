@@ -137,6 +137,7 @@
     --neo-color-background-accent-subtle    : light-dark(var(--neo-palette-accent-200), var(--neo-palette-accent-700));
     /* Selection sits one grade beyond hover. The darker pair keeps text legible across several selected rows. */
     --neo-color-background-selected         : light-dark(var(--neo-palette-accent-300), var(--neo-palette-accent-600));
+    --neo-color-background-selected-strong  : light-dark(var(--neo-palette-accent-400), var(--neo-palette-accent-500));
     --neo-color-background-brand-subtle     : light-dark(var(--neo-palette-brand-200), var(--neo-palette-brand-600));
     --neo-color-background-danger-subtle    : light-dark(var(--neo-palette-danger-200), var(--neo-palette-danger-600));
     --neo-color-background-warning-subtle   : light-dark(var(--neo-palette-warning-200), var(--neo-palette-warning-600));

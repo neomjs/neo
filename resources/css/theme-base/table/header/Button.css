@@ -1,0 +1,8 @@
+/* Table column header button, every theme: raised bar surface, muted label and sort glyph, neutral press ripple. */
+[class*="neo-theme-"] {
+    --neo-table-header-button-background-color       : var(--neo-color-background-surface-raised);
+    --neo-table-header-button-background-image       : none;
+    --neo-table-header-button-color                  : var(--neo-color-text-muted);
+    --neo-table-header-button-glyph-color            : var(--neo-color-text-muted);
+    --neo-table-header-button-ripple-background-color: var(--neo-color-background-neutral-active);
+}
