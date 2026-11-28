@@ -130,6 +130,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/workstation/WorkstationPopupReturnNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationPopupTabDragNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationPopupTargetCloseNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationProductPaletteNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationRailsOutermostNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationReclaimEmbodimentNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationReopenedPopupReturnNL.spec.mjs',

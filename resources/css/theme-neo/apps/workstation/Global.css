@@ -1,0 +1,69 @@
+/* Workstation's product palette (ADR 0044 decision 8): theme Neo's palette and role names, re-valued for Workstation
+   on theme Neo's two classes. It adds no name, and a name it leaves out keeps theme Neo's value.
+   `Workstation.view.Viewport` names it in `additionalThemeFiles`, so every window the product opens loads it.
+
+   The grades keep theme Neo's ladder with Workstation's hues: neutral 257, accent 184, success 164. Light keeps
+   theme Neo's lightness, and dark moves 950/900/800 as whole grades. Accent and success keep at most the stock
+   chroma up to grade 200, which fills read, and go vivid above it, which signals read. A role is re-bound only where
+   Workstation's colour sits on another grade. */
+.neo-theme-neo-light, .neo-theme-neo-dark {
+    --neo-palette-neutral-50          : oklch(0.985 0.002 257.0);
+    --neo-palette-neutral-100         : oklch(0.960 0.004 257.0);
+    --neo-palette-neutral-200         : oklch(0.875 0.012 257.0);
+    --neo-palette-neutral-300         : oklch(0.790 0.021 257.0);
+    --neo-palette-neutral-400         : oklch(0.700 0.031 257.0);
+    --neo-palette-neutral-500         : oklch(0.610 0.040 257.0);
+    --neo-palette-neutral-600         : oklch(0.544 0.042 257.0);
+    --neo-palette-neutral-700         : oklch(0.470 0.040 257.0);
+    --neo-palette-neutral-800         : oklch(0.303 0.034 257.0);
+    --neo-palette-neutral-900         : oklch(0.216 0.022 257.0);
+    --neo-palette-neutral-950         : oklch(0.163 0.008 257.0);
+
+    --neo-palette-accent-50           : oklch(0.985 0.007 184.0);
+    --neo-palette-accent-100          : oklch(0.960 0.019 184.0);
+    --neo-palette-accent-200          : oklch(0.875 0.061 184.0);
+    --neo-palette-accent-300          : oklch(0.790 0.126 184.0);
+    --neo-palette-accent-400          : oklch(0.700 0.112 184.0);
+    --neo-palette-accent-500          : oklch(0.610 0.097 184.0);
+    --neo-palette-accent-600          : oklch(0.544 0.087 184.0);
+    --neo-palette-accent-700          : oklch(0.470 0.075 184.0);
+    --neo-palette-accent-800          : oklch(0.303 0.048 184.0);
+    --neo-palette-accent-900          : oklch(0.216 0.035 184.0);
+    --neo-palette-accent-950          : oklch(0.163 0.027 184.0);
+
+    --neo-palette-brand-800           : oklch(0.303 0.068 161.0);
+    --neo-palette-brand-900           : oklch(0.216 0.049 161.0);
+    --neo-palette-brand-950           : oklch(0.163 0.035 161.0);
+
+    --neo-palette-danger-800          : oklch(0.303 0.124 26.0);
+    --neo-palette-danger-900          : oklch(0.216 0.089 26.0);
+    --neo-palette-danger-950          : oklch(0.163 0.050 26.0);
+
+    --neo-palette-warning-800         : oklch(0.303 0.066 70.0);
+    --neo-palette-warning-900         : oklch(0.216 0.047 70.0);
+    --neo-palette-warning-950         : oklch(0.163 0.036 70.0);
+
+    --neo-palette-success-50          : oklch(0.985 0.015 164.0);
+    --neo-palette-success-100         : oklch(0.960 0.040 164.0);
+    --neo-palette-success-200         : oklch(0.875 0.090 164.0);
+    --neo-palette-success-300         : oklch(0.790 0.152 164.0);
+    --neo-palette-success-400         : oklch(0.700 0.134 164.0);
+    --neo-palette-success-500         : oklch(0.610 0.117 164.0);
+    --neo-palette-success-600         : oklch(0.544 0.104 164.0);
+    --neo-palette-success-700         : oklch(0.470 0.090 164.0);
+    --neo-palette-success-800         : oklch(0.303 0.058 164.0);
+    --neo-palette-success-900         : oklch(0.216 0.042 164.0);
+    --neo-palette-success-950         : oklch(0.163 0.032 164.0);
+
+    --neo-palette-info-800            : oklch(0.303 0.070 240.0);
+    --neo-palette-info-900            : oklch(0.216 0.050 240.0);
+    --neo-palette-info-950            : oklch(0.163 0.038 240.0);
+
+    /* signal: light text reads a grade darker, since teal accent-600 falls under 4.5:1 on accent-100; dark reads the
+       vivid grade */
+    --neo-color-text-accent           : light-dark(var(--neo-palette-accent-700),  var(--neo-palette-accent-300));
+    --neo-color-focus-ring            : light-dark(var(--neo-palette-accent-600),  var(--neo-palette-accent-300));
+
+    /* muted text: the moved 800 sits close to light's default text, so light reads 700, one grade above subtle text */
+    --neo-color-text-muted            : light-dark(var(--neo-palette-neutral-700), var(--neo-palette-neutral-400));
+}
