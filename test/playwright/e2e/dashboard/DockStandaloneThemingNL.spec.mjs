@@ -14,9 +14,10 @@ import { test, expect } from '../../fixtures.mjs';
  *   1. TOKEN level — the theme host resolves the values-layer tokens (`--neo-dock-preview-accept-color`,
  *      `--neo-dock-preview-background`) to the layer's values, per theme.
  *   2. PAINT level — a specimen carrying the REAL indicator classes (the same elements a live
- *      drag renders, without a drag's nondeterminism) resolves the accept accent through the
- *      `::before` chevron's `border-color`, which reads `var(--neo-dock-preview-accept-color, …)` with
- *      no transition — transition-free by construction, so the assertion is timing-safe.
+ *      drag renders, without a drag's nondeterminism) resolves the chevron through the `::before`
+ *      `border-color`, which reads `var(--neo-dock-drop-indicator-glyph-color, var(--neo-dock-preview-accept-color, …))`
+ *      with no transition — transition-free by construction, so the assertion is timing-safe. Theme Neo
+ *      binds the glyph to `text-accent`; the legacy themes decline it and paint their accept colour.
  *   3. MUTATION control — with the values layer's stylesheet requests aborted, the same specimen
  *      falls back to the structure layer's literal (#4493f8). A proof that stays green with the
  *      layer deleted would be observing nothing.
@@ -48,13 +49,16 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
                   groundToken: 'rgba(250, 250, 250, 0.94)',
                   acceptPaint: 'rgb(28, 96, 160)'
               },
-              // theme Neo declares the dock once in theme-base, bound to roles: each token reads its role
+              // theme Neo declares the dock once in theme-base, bound to roles: each token reads its role,
+              // and the chevron, a glyph on its chip, reads the text role
               'neo-theme-neo-dark': {
                   acceptRole: '--neo-color-border-accent',
+                  glyphRole : '--neo-color-text-accent',
                   groundRole: '--neo-color-background-surface-raised'
               },
               'neo-theme-neo-light': {
                   acceptRole: '--neo-color-border-accent',
+                  glyphRole : '--neo-color-text-accent',
                   groundRole: '--neo-color-background-surface-raised'
               }
           },
@@ -194,14 +198,14 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
                 const el = document.getElementById('standalone-specimen');
                 return getComputedStyle(el, '::before').borderColor;
             });
-            const acceptPaint = expected.acceptPaint ?? await page.evaluate(role => {
+            const glyphPaint = expected.acceptPaint ?? await page.evaluate(role => {
                 const probe = document.body.appendChild(Object.assign(document.createElement('div'), {style: `border:2px solid var(${role})`})),
                       color = getComputedStyle(probe).borderTopColor;
 
                 probe.remove();
                 return color
-            }, expected.acceptRole);
-            expect(chevronColor, `indicator chevron resolves the themed accept accent under ${theme}`).toBe(acceptPaint);
+            }, expected.glyphRole);
+            expect(chevronColor, `indicator chevron resolves the themed glyph colour under ${theme}`).toBe(glyphPaint);
         });
     }
 

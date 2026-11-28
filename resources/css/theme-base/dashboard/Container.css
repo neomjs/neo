@@ -7,6 +7,7 @@
     --neo-dock-arrival-outline                       : color-mix(in srgb, var(--neo-color-border-accent) 50%, transparent);
     --neo-dock-drop-indicator-border-radius          : var(--neo-radius-large);
     --neo-dock-drop-indicator-center-border-radius   : var(--neo-radius-small);
+    --neo-dock-drop-indicator-glyph-color            : var(--neo-color-text-accent);
     --neo-dock-preview-accept-background-color       : color-mix(in srgb, var(--neo-color-border-accent) 16%, transparent);
     --neo-dock-preview-accept-color                  : var(--neo-color-border-accent);
     --neo-dock-preview-background                    : color-mix(in srgb, var(--neo-color-background-surface-raised) 94%, transparent);
