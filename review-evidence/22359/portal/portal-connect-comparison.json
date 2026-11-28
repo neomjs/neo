@@ -1,0 +1,40 @@
+{
+  "method": "Chrome 158 (1440 × 900). Fresh profiles on an ephemeral loopback server, same checkout. Main Portal switch selects Neo Light; preview adds Material Light as the first theme in the fetched config for this request only. Waited on the actual view transition and font readiness. PNG uses unscaled crops from the same two Connect screen coordinates in each condition.",
+  "files": {
+    "frames": [
+      "portal-neo-light-Connect.png",
+      "portal-material-light-preview-Connect.png"
+    ],
+    "comparison": "portal-connect-comparison.png",
+    "raw": "portal-preview-429e55d0e2.json"
+  },
+  "crops": {
+    "header": [
+      600,
+      0,
+      840,
+      82
+    ],
+    "firstCard": [
+      300,
+      296,
+      840,
+      318
+    ]
+  },
+  "counterfactual": {
+    "scope": "First Connect card only. Set --portal-glass-card-background: var(--neo-color-background-surface-raised), then remove it before navigating. Other CSS, theme and cards unaltered.",
+    "pixel": "720,332",
+    "before": {
+      "background": "rgba(0, 0, 0, 0)",
+      "paint": "#fafbff",
+      "border": "0px"
+    },
+    "after": {
+      "background": "oklch(0.954 0.015 312.6)",
+      "paint": "#f3edf7",
+      "border": "0px"
+    },
+    "proof": "portal-single-glass-fill-control-Connect.png"
+  }
+}
