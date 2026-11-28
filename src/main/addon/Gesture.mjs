@@ -56,10 +56,8 @@ class Gesture extends Base {
     #pointerSequences = new Map()
     /** @member {Map<Number,PointerEvent>} #touchPointers */
     #touchPointers = new Map()
-    /** @member {TapPress} #tapPress */
-    #tapPress = new TapPress(this.#document, this.publish.bind(this), this, claim => {
-        this.cancelClaim(claim, [...new Set([...claim.ids.values(), ...claim.frame.changed])])
-    })
+    /** @member {Neo.main.gesture.TapPress|null} #tapPress */
+    #tapPress = null
     /** @member {Map<Number,Object>} #releasedPressMenus */
     #releasedPressMenus = new Map()
     /** @member {AbortController|null} #listeners */
@@ -72,11 +70,19 @@ class Gesture extends Base {
     #transformClaims = new WeakMap()
 
     /**
-     * @summary Installs the local pinch and rotate recognizer on the existing contact stream.
+     * @summary Creates the owned tap and press recognizer and observes transform contact frames.
      * @param {Object} config
      */
     construct(config) {
         super.construct(config);
+
+        this.#tapPress = Neo.create(TapPress, {
+            cancel  : claim => this.cancelClaim(claim, [...new Set([...claim.ids.values(), ...claim.frame.changed])]),
+            doc     : this.#document,
+            publish : this.publish.bind(this),
+            settings: this
+        });
+
         this.on('contact', this.trackTransform, this)
     }
 
@@ -148,9 +154,10 @@ class Gesture extends Base {
         return true
     }
 
-    /** @summary Releases the document listeners and any active claims on addon destruction. */
+    /** @summary Cancels active claims and releases document listeners before destroying the recognizer. */
     destroy() {
         this.stopListening();
+        this.#tapPress?.destroy();
         this.#nodes.clear();
         super.destroy()
     }

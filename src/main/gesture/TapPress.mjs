@@ -1,26 +1,33 @@
+import Base from '../../core/Base.mjs';
+
 /**
  * @summary Recognizes terminal taps and timed presses from the Main contact owner's normalized frames.
+ * @class Neo.main.gesture.TapPress
+ * @extends Neo.core.Base
  */
-export default class TapPress {
+class TapPress extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.main.gesture.TapPress'
+         * @protected
+         */
+        className: 'Neo.main.gesture.TapPress',
+        /** @member {Function|null} cancel=null Retires an owning claim. */
+        cancel: null,
+        /** @member {Document|null} doc=null Owns the native contact and timer clock. */
+        doc: null,
+        /** @member {Function|null} publish=null Delivers a phase through the contact owner. */
+        publish: null,
+        /** @member {Neo.main.addon.Gesture|null} settings=null Live tap and press policy. */
+        settings: null
+    }
+
     /** @member {WeakMap} #taps */
     #taps = new WeakMap()
     /** @member {WeakMap} #presses */
     #presses = new WeakMap()
     /** @member {WeakMap} #lastTaps */
     #lastTaps = new WeakMap()
-
-    /**
-     * @param {Document} doc
-     * @param {Function} publish Delivers a phase through the contact owner.
-     * @param {Object} settings Live tap and press thresholds from the owning Gesture addon.
-     * @param {Function} cancel Retires an owning claim.
-     */
-    constructor(doc, publish, settings, cancel) {
-        this.doc      = doc;
-        this.publish  = publish;
-        this.settings = settings;
-        this.cancel   = cancel
-    }
 
     /** @summary Drops repeat history when the document loses ownership. */
     reset() {
@@ -139,7 +146,7 @@ export default class TapPress {
             state = {origin: point, focal: {x: point.x, y: point.y}, moveTolerance};
             this.#presses.set(claim, state);
             state.timer = win.setTimeout(() => {
-                if (!claim.live || !claim.node.isConnected || this.doc.hidden) return;
+                if (this.isDestroyed || !claim.live || !claim.node.isConnected || this.doc.hidden) return;
 
                 const openedAt = Math.max(claim.frame.elapsed, win.performance.now() - claim.sequence.startedAt);
                 claim.sequence.elapsed = openedAt;
@@ -169,3 +176,5 @@ export default class TapPress {
         }
     }
 }
+
+export default Neo.setupClass(TapPress);

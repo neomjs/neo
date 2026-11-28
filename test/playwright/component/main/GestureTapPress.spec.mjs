@@ -128,6 +128,15 @@ test('observes a trusted button tap at its lift point and leaves one click for t
     const {cdp, point, read, send, target} = await bootTarget(page, {button: true, tap: true});
 
     try {
+        expect(await page.evaluate(() => {
+            const {TapPress} = Neo.main.gesture ?? {};
+
+            return {
+                className  : TapPress?.prototype?.className,
+                extendsBase: Boolean(TapPress && Object.getPrototypeOf(TapPress.prototype) === Neo.core.Base.prototype)
+            }
+        })).toEqual({className: 'Neo.main.gesture.TapPress', extendsBase: true});
+
         await send('touchStart', point(17));
         await send('touchMove', point(17, 3, 2));
         await send('touchEnd', point(17, 3, 2));
