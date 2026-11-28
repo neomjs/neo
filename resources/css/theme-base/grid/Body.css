@@ -15,4 +15,7 @@
     --neo-grid-cellrowmodel-row-cell-color-selected           : var(--neo-color-text-default);
     --neo-grid-rowmodel-cell-background-color-selected        : var(--neo-color-background-selected);
     --neo-grid-rowmodel-cell-color-selected                   : var(--neo-color-text-default);
+
+    --neo-grid-cell-border-bottom-color: initial;
+    --neo-grid-cell-border-right-color : initial;
 }

@@ -6,6 +6,25 @@
     overflow-y     : scroll;
     position       : relative;
 
+    /* Paint inside the existing scroll extent. A short store uses the viewport remainder; on a long
+       scroll only the existing trailing room can be ruled. */
+    &::before {
+        --neo-grid-rule-area-end: max(100%, var(--neo-grid-empty-row-extent, 0px));
+        --neo-grid-rule-area-start: min(var(--neo-grid-empty-row-start, 0px), var(--neo-grid-rule-area-end));
+        --neo-grid-rule-line-start: calc(var(--neo-grid-empty-row-height, 1px) - 1px);
+
+        background-image: repeating-linear-gradient(
+            transparent 0 var(--neo-grid-rule-line-start),
+            var(--neo-grid-empty-row-border-color, transparent) var(--neo-grid-rule-line-start) var(--neo-grid-empty-row-height, 1px)
+        );
+        block-size       : calc(var(--neo-grid-rule-area-end) - var(--neo-grid-rule-area-start));
+        content          : '';
+        inset-block-start: var(--neo-grid-rule-area-start);
+        inset-inline     : 0;
+        pointer-events   : none;
+        position         : absolute;
+    }
+
     /* grid.View owns a single focus state for the multi-body grid, and the selection shows where that focus is: the
        selected cell, row or column, or an open editor. So the View paints no ring around the whole viewport, neither a
        default keyboard ring nor the user agent's, which an editor handing focus back would otherwise get.

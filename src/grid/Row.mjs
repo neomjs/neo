@@ -289,9 +289,7 @@ class Row extends Component {
         }
 
         if (isLastColumn) {
-            if (column.locked !== 'start') {
-                cellCls.push('neo-last-column')
-            }
+            cellCls.push(column.locked === 'start' ? 'neo-locked-start-last-column' : 'neo-last-column')
         }
 
         if (column.locked === 'start') {

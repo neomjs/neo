@@ -968,8 +968,15 @@ class GridBody extends Component {
         }
 
         if (!silent) {
+            let {view} = me.gridContainer;
+
             me.updateDepth = -1;
-            me.update()
+            me.update();
+
+            // Standalone renders still know the provisional scroll extent of an incoming chunk.
+            if (view && me.gridContainer.body === me && view.updateEmptyRowRules()) {
+                view.update()
+            }
         }
     }
 
