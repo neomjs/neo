@@ -22,11 +22,11 @@
     --neo-button-background-color-hover             : var(--neo-color-background-neutral-hover);
     --neo-button-background-color-pressed           : var(--neo-color-background-selected);
 
-    /* Border */
-    --neo-button-border                             : var(--neo-control-border-width) solid var(--neo-color-border-strong);
-    --neo-button-border-active                      : var(--neo-control-border-width) solid var(--neo-color-border-strong);
+    /* Border: a hairline. The label identifies a button, so its edge owes no 3:1 (rule 4 of #22295) */
+    --neo-button-border                             : var(--neo-control-border-width) solid var(--neo-color-border-default);
+    --neo-button-border-active                      : var(--neo-control-border-width) solid var(--neo-color-border-default);
     --neo-button-border-disabled                    : var(--neo-control-border-width) solid var(--neo-color-border-subtle);
-    --neo-button-border-hover                       : var(--neo-control-border-width) solid var(--neo-color-border-strong);
+    --neo-button-border-hover                       : var(--neo-control-border-width) solid var(--neo-color-border-default);
     --neo-button-border-pressed                     : var(--neo-control-border-width) solid var(--neo-color-border-accent);
 
     /* Text Color */
@@ -93,9 +93,9 @@
     --neo-button-secondary-background-color-pressed : var(--neo-color-background-selected);
 
     /* Border */
-    --neo-button-secondary-border                   : var(--neo-control-border-width) solid var(--neo-color-border-strong);
-    --neo-button-secondary-border-hover             : var(--neo-control-border-width) solid var(--neo-color-border-strong);
-    --neo-button-secondary-border-active            : var(--neo-control-border-width) solid var(--neo-color-border-strong);
+    --neo-button-secondary-border                   : var(--neo-control-border-width) solid var(--neo-color-border-default);
+    --neo-button-secondary-border-hover             : var(--neo-control-border-width) solid var(--neo-color-border-default);
+    --neo-button-secondary-border-active            : var(--neo-control-border-width) solid var(--neo-color-border-default);
     --neo-button-secondary-border-disabled          : var(--neo-control-border-width) solid var(--neo-color-border-subtle);
     --neo-button-secondary-border-pressed           : var(--neo-control-border-width) solid var(--neo-color-border-accent);
 

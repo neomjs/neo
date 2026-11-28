@@ -6,6 +6,7 @@ import CurrencyField from '../../../src/form/field/Currency.mjs';
 import Fieldset      from '../../../src/form/Fieldset.mjs';
 import FormContainer from '../../../src/form/Container.mjs';
 import IBANField     from '../../../src/form/field/IBAN.mjs';
+import Panel         from '../../../src/container/Panel.mjs';
 import PhoneField    from '../../../src/form/field/Phone.mjs';
 import TextField     from '../../../src/form/field/Text.mjs';
 import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
@@ -66,7 +67,7 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
+            module: Panel,
             cls   : ['checkout-card'],
             layout: {ntype: 'vbox', align: 'stretch'},
             width : 880,
