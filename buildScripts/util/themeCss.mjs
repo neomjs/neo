@@ -110,11 +110,70 @@ export function stripVarCalls(value) {
 }
 
 /**
- * A raw colour: a hex colour or a colour function. `color-mix()` and `light-dark()` hold colours and are
- * read for what they hold; a named colour such as `white` is not read, as in the census.
+ * A raw colour written as a hex colour or a colour function. `color-mix()` and `light-dark()` hold colours and
+ * are read for what they hold.
  * @type {RegExp}
  */
 const RAW_COLOUR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/gi;
+
+/**
+ * The named colours of CSS Color 4, each a raw colour. `transparent` and `currentcolor` are keywords, and the
+ * system colours are the browser's.
+ * @type {Set<String>}
+ */
+const NAMED_COLOURS = new Set([
+    'aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood',
+    'cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray',
+    'darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen',
+    'darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue',
+    'firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew',
+    'hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan',
+    'lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray',
+    'lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue',
+    'mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred',
+    'midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid',
+    'palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple',
+    'rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue',
+    'slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke',
+    'yellow yellowgreen'
+].join(' ').split(' '));
+
+/**
+ * `url()` data and quoted strings: a `#` fragment or a word inside one is no colour.
+ * @type {RegExp}
+ */
+const DATA = /url\(\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^)]*)\s*\)|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gi;
+
+/**
+ * A whole identifier: no part of a dashed name, and no function name.
+ * @type {RegExp}
+ */
+const IDENTIFIER = /(?<![\w-])[a-z]+(?![\w(-])/gi;
+
+/**
+ * @summary A value with its `url()` data and quoted strings blanked out, each index still on its character.
+ * @param {String} text
+ * @returns {String}
+ */
+function withoutData(text) {
+    return text.replace(DATA, data => ' '.repeat(data.length))
+}
+
+/**
+ * @summary The raw colours in a stretch of CSS: hex colours, colour functions and named colours, in any case,
+ * and none inside `url()` data or a quoted string. `check-theme-surfaces`, `check-theme-palette` and
+ * `theme-census` read raw colour through it.
+ * @param {String} text
+ * @returns {String[]}
+ */
+export function rawColours(text) {
+    const bare = withoutData(text);
+
+    return [
+        ...bare.match(RAW_COLOUR) ?? [],
+        ...(bare.match(IDENTIFIER) ?? []).filter(word => NAMED_COLOURS.has(word.toLowerCase()))
+    ]
+}
 
 /**
  * @summary The arguments of a call, split at the commas outside nested parentheses.
@@ -145,24 +204,28 @@ function topLevelArguments(list) {
  * hold: it reads roles, and derives a colour only by mixing one role with `transparent`.
  *
  * `mixes` holds each `color-mix()` whose two colours are both something other than `transparent`: the result
- * is a colour no role names, so no palette check measures a pair it forms. `raw` holds each raw colour, one
- * inside a `var()` fallback too. `check-theme-palette` fails both in `theme-base`, and `theme-census` counts
- * a value holding a mix as a `mix`.
+ * is a colour no role names, so no palette check measures a pair it forms. `raw` holds each raw colour
+ * (`rawColours`), one inside a `var()` fallback too. Function names are read in any case, and nothing inside
+ * `url()` data or a quoted string counts. `check-theme-palette` fails both in `theme-base`, and `theme-census`
+ * counts a value by the same reading.
  * @param {String} value A declaration value without comments
  * @returns {{mixes: String[], raw: String[]}}
  */
 export function colourSources(value) {
-    const mixes = [];
-    let   index = -1;
+    const
+        bare  = withoutData(value),
+        lower = bare.toLowerCase(),
+        mixes = [];
+    let index = -1;
 
-    while ((index = value.indexOf('color-mix(', index + 1)) !== -1) {
+    while ((index = lower.indexOf('color-mix(', index + 1)) !== -1) {
         let depth = 0,
             end   = -1;
 
-        for (let i = index + 9; i < value.length; i++) {
-            if (value[i] === '(') {
+        for (let i = index + 9; i < bare.length; i++) {
+            if (bare[i] === '(') {
                 depth++
-            } else if (value[i] === ')' && --depth === 0) {
+            } else if (bare[i] === ')' && --depth === 0) {
                 end = i;
                 break
             }
@@ -173,15 +236,15 @@ export function colourSources(value) {
         }
 
         // `in <space>` first, then two colours, each with an optional percentage
-        const colours = topLevelArguments(value.slice(index + 10, end)).slice(1)
-            .map(colour => colour.replace(/(?:^|\s)\d*\.?\d+%(?=\s|$)/g, '').trim().toLowerCase());
+        const colours = topLevelArguments(lower.slice(index + 10, end)).slice(1)
+            .map(colour => colour.replace(/(?:^|\s)\d*\.?\d+%(?=\s|$)/g, '').trim());
 
         if (colours.length === 2 && !colours.includes('transparent')) {
             mixes.push(value.slice(index, end + 1))
         }
     }
 
-    return {mixes, raw: value.match(RAW_COLOUR) ?? []}
+    return {mixes, raw: rawColours(value)}
 }
 
 /**

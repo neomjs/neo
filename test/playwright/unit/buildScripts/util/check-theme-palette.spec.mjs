@@ -303,27 +303,35 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             rel    = 'resources/css/theme-base/board/Container.css',
             column = 'color-mix(in oklab, var(--neo-color-background-surface), var(--neo-color-background-inverse) 5%)',
             proxy  = 'color-mix(in srgb, var(--neo-color-border-accent) 38%, var(--neo-color-border-default))',
-            mix    = 'a colour no role names; a component variable reads roles, or one role mixed with transparent (ADR 0044 decision 4)';
+            upper  = 'COLOR-MIX(in srgb, var(--neo-color-border-accent) 38%, var(--neo-color-border-default))',
+            mix    = 'a colour no role names; a component variable reads roles, or one role mixed with transparent (ADR 0044 decision 4)',
+            raw    = 'theme-base reads roles, and a listed value goes into BASE_COLOURS_ALLOWED with its reason';
 
         expect(inspect({
             'theme-neo/Global.css'          : source,
             'theme-base/board/Container.css': [
                 '[class*="neo-theme-"] {',
-                `    --neo-board-column-background: ${column};`,
-                `    --neo-dock-proxy-border-color: ${proxy};`,
-                '    --neo-board-accent-color     : #0a7a6e;',
-                '    --neo-board-avatar-color     : var(--neo-color-text-accent, #0b5f56);',
+                `    --neo-board-column-background     : ${column};`,
+                `    --neo-dock-proxy-border-color     : ${proxy};`,
+                `    --neo-board-card-drag-border-color: ${upper};`,
+                '    --neo-board-accent-color          : #0a7a6e;',
+                '    --neo-board-avatar-color          : var(--neo-color-text-accent, #0b5f56);',
+                '    --neo-board-badge-color           : red;',
+                '    --neo-board-lane-border-color     : var(--neo-color-border-default, rebeccapurple);',
                 '}'
             ].join('\n')
         }).failures).toEqual([
             `[mix] ${rel} binds --neo-board-column-background to ${column}, ${mix}`,
             `[mix] ${rel} binds --neo-dock-proxy-border-color to ${proxy}, ${mix}`,
-            `[raw] ${rel} gives --neo-board-accent-color a raw colour (#0a7a6e); theme-base reads roles, and a listed value goes into BASE_COLOURS_ALLOWED with its reason`,
-            `[raw] ${rel} gives --neo-board-avatar-color a raw colour (var(--neo-color-text-accent, #0b5f56)); theme-base reads roles, and a listed value goes into BASE_COLOURS_ALLOWED with its reason`
+            `[mix] ${rel} binds --neo-board-card-drag-border-color to ${upper}, ${mix}`,
+            `[raw] ${rel} gives --neo-board-accent-color a raw colour (#0a7a6e); ${raw}`,
+            `[raw] ${rel} gives --neo-board-avatar-color a raw colour (var(--neo-color-text-accent, #0b5f56)); ${raw}`,
+            `[raw] ${rel} gives --neo-board-badge-color a raw colour (red); ${raw}`,
+            `[raw] ${rel} gives --neo-board-lane-border-color a raw colour (var(--neo-color-border-default, rebeccapurple)); ${raw}`
         ])
     });
 
-    test('CONTROL: in theme-base a role, a role in a shorthand, one role mixed with transparent, a choice of two roles, a length and a keyword pass', () => {
+    test('CONTROL: in theme-base a role, a role in a shorthand, one role mixed with transparent in any case, a choice of two roles, a length, a keyword, url() data and a quoted name pass', () => {
         expect(inspect({
             'theme-neo/Global.css'          : source,
             'theme-base/board/Container.css': [
@@ -331,10 +339,14 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
                 '    --neo-board-color                       : var(--neo-color-text-default);',
                 '    --neo-board-card-box-shadow             : 0 2px 8px var(--neo-color-shadow);',
                 '    --neo-board-slot-background             : color-mix(in srgb, var(--neo-color-background-accent) 10%, transparent);',
+                '    --neo-board-track-background            : COLOR-MIX(in srgb, var(--neo-color-background-accent) 10%, TRANSPARENT);',
                 '    --neo-rangefield-thumb-box-shadow-active: 0 0 0 var(--neo-space-1) color-mix(in srgb, transparent, var(--neo-color-focus-ring) 45%);',
                 '    --neo-board-column-border-color         : light-dark(var(--neo-color-border-default), var(--neo-color-border-strong));',
                 '    --neo-board-column-width                : 280px;',
                 '    --neo-board-card-progress-border-radius : none;',
+                '    --neo-board-lane-color                  : currentColor;',
+                '    --neo-board-lane-background             : url("icons.svg#abcdef");',
+                '    --neo-board-font-family                 : "Red Hat Display", sans-serif;',
                 '}'
             ].join('\n')
         }).failures).toEqual([])

@@ -75,6 +75,7 @@ const
             '    --neo-button-ripple-background-color: color-mix(in srgb, var(--neo-color-text-default) 30%, transparent);',
             '    --neo-button-mixed-border-color     : color-mix(in srgb, var(--neo-color-text-default) 38%, var(--sem-surface));',
             '    --neo-button-raw-glyph-color        : #123456;',
+            '    --neo-button-fallback-color         : var(--neo-color-text-default, #123456);',
             '    --neo-button-badge-width            : 4px;',
             '}'
         ].join('\n')
@@ -137,13 +138,13 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
         });
     });
 
-    test('2: theme-base\'s values are counted alike: one role mixed with transparent is a role, a mix of two colours a mix', () => {
+    test('2: theme-base\'s values are counted as the palette check reads them: one role mixed with transparent is a role, a mix of two colours a mix, a raw fallback raw', () => {
         const census = collect({root, runtimeProperties: runtime});
 
         expect(census.base.composition).toEqual({
-            role: 2, sem: 0, cmp: 0, palette: 0, variable: 0, mix: 1, colourLiteral: 1, literal: 1, total: 5
+            role: 2, sem: 0, cmp: 0, palette: 0, variable: 0, mix: 1, colourLiteral: 2, literal: 1, total: 6
         });
-        expect(render(census, 'fixture')).toContain('| `theme-base` | 5 | 2 | 0 | 0 | 0 | 0 | 1 | 1 | 1 |');
+        expect(render(census, 'fixture')).toContain('| `theme-base` | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 1 |');
     });
 
     test('3: a light and dark pair, per layer: shared names, identical and differing values, names on one side only', () => {

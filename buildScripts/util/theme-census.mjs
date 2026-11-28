@@ -16,10 +16,11 @@
  *
  * Reading rules: comments are stripped (`themeCss.mjs`, shared with the theme guards); a declaration is
  * `--name: value` ended by `;` or by the block's `}`; a read is `var(--name` followed by `,` (a fallback)
- * or `)` (none); a colour literal is a hex colour or an `rgb()` / `rgba()` / `hsl()` / `hsla()` call, and
- * section 7 tells the bare ones from those inside a `var()` fallback, which a theme reaches by setting the
- * property; a value holding a `color-mix()` of two colours is a `mix` (`colourSources`, the reading
- * `check-theme-palette` enforces in `theme-base`). A theme or structural file below
+ * or `)` (none). In section 7 a colour literal is a hex colour or an `rgb()` / `rgba()` / `hsl()` / `hsla()`
+ * call, and the bare ones are told from those inside a `var()` fallback, which a theme reaches by setting the
+ * property. Section 2 reads a component value through `colourSources`, the reading `check-theme-palette`
+ * enforces in `theme-base`: a `color-mix()` of two colours is a `mix`, and a raw colour (hex, a colour
+ * function or a named colour) is a colour literal, in `theme-base` inside a fallback too. A theme or structural file below
  * `apps/` or `examples/` belongs to that area, every other one to `engine`. A name declared more than
  * once in an area takes its first declaration in sorted file order, and section 1 counts those names
  * and the ones declared again with another value. A full theme is one of a light and dark pair, named
@@ -144,17 +145,22 @@ function inLayer(declared, layer) {
 
 /**
  * @param {String} value
+ * @param {Boolean} [rawFallback=false] Count a raw colour in a `var()` fallback as raw, as `check-theme-palette`
+ * does in `theme-base`. A theme's own value counts by its read: a theme reaches that fallback by setting the
+ * property.
  * @returns {String} What a component value is made of.
  */
-function compositionOf(value) {
-    if (colourSources(value).mixes.length) {
+function compositionOf(value, rawFallback = false) {
+    const {mixes, raw} = colourSources(value);
+
+    if (mixes.length) {
         return 'mix'
     }
 
     const refs = [...value.matchAll(READ)].map(([, name]) => layerOf(name));
 
-    if (!refs.length) {
-        return colourCount(value) ? 'colourLiteral' : 'literal'
+    if (!refs.length || (rawFallback && raw.length)) {
+        return raw.length ? 'colourLiteral' : 'literal'
     }
 
     return refs.includes('cmp') ? 'cmp' : refs.includes('sem') ? 'sem' : refs.includes('palette') ? 'palette' : refs.includes('role') ? 'role' : 'variable'
@@ -163,12 +169,13 @@ function compositionOf(value) {
 /**
  * @summary Counts the values of one tree by what each is made of, for section 2.
  * @param {Map<String,String>} values Component name → value
+ * @param {Boolean} [rawFallback=false] Passed to `compositionOf`
  * @returns {Object} How many of the values each kind holds (`compositionOf`), and the total.
  */
-function compositionCounts(values) {
+function compositionCounts(values, rawFallback = false) {
     const counts = Object.fromEntries(KINDS.map(kind => [kind, 0]));
 
-    values.forEach(value => counts[compositionOf(value)]++);
+    values.forEach(value => counts[compositionOf(value, rawFallback)]++);
 
     return {...counts, total: values.size}
 }
@@ -334,7 +341,7 @@ export function collectThemeCensus({root = cssRoot, runtimeProperties = RUNTIME_
         runtime: Object.keys(runtimeProperties).sort(),
         themes,
         // the component values every theme shares, declared once
-        base : themeBase ? {composition: compositionCounts(inLayer(themeBase.declared.engine, 'component'))} : null,
+        base : themeBase ? {composition: compositionCounts(inLayer(themeBase.declared.engine, 'component'), true)} : null,
         pairs: pairs.map(({dark, light}) => ({
             dark,
             light,
