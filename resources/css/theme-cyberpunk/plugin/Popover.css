@@ -1,3 +1,4 @@
 :root .neo-theme-cyberpunk { /* .neo-popover */
     --neo-popover-border-radius: 4px;
+    --neo-popover-box-shadow   : initial;
 }

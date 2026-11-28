@@ -488,7 +488,7 @@ export const onStart = () => {
                     vdom  : {
                         cn: [
                             {cls: ['neo-resizable', 'neo-resizable-bottom'], style: {width: '120px', height: '32px'}},
-                            {cls: ['neo-popover'], style: {width: '120px', height: '32px'}, text: 'Popover'}
+                            {cls: ['neo-popover'], popover: 'manual', style: {display: 'block', width: '120px', height: '32px'}, text: 'Popover'}
                         ]
                     }
                 }),

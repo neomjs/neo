@@ -1,0 +1,7 @@
+/* Popover plugin, every theme: radius and floating elevation bound to roles (ADR 0044 decision 4, epic #22295 rules 3 & 18).
+   A theme re-values one in its own plugin/Popover.css only where its design language deviates.
+   The rules in src/plugin/Popover.css read these. */
+[class*="neo-theme-"] {
+    --neo-popover-border-radius: var(--neo-radius-small);
+    --neo-popover-box-shadow   : var(--neo-elevation-2);
+}
