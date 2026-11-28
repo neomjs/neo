@@ -1,0 +1,18 @@
+/* Table body, every theme: cell hover, modified indicator, and selection fills/text bound to roles.
+   Row hover stays opaque (`background-accent-subtle`) so sticky `td.neo-locked` cells never turn
+   translucent over horizontally scrolling adjacent columns. */
+[class*="neo-theme-"] {
+    --neo-table-cell-background-color-hover                    : var(--neo-color-background-accent-subtle);
+    --neo-table-cell-ismodified-color                          : var(--neo-color-border-warning);
+    --neo-table-cell-ismodified-size                           : 10px;
+    --neo-table-cellmodel-cell-background-color-selected       : var(--neo-color-background-selected);
+    --neo-table-cellmodel-cell-color-selected                  : var(--neo-color-text-default);
+    --neo-table-cellmodel-column-cell-background-color-selected: var(--neo-color-background-accent-subtle);
+    --neo-table-cellmodel-column-cell-color-selected           : var(--neo-color-text-default);
+    --neo-table-cellrowmodel-cell-background-color-selected    : var(--neo-color-background-selected);
+    --neo-table-cellrowmodel-cell-color-selected               : var(--neo-color-text-default);
+    --neo-table-cellrowmodel-row-cell-background-color-selected: var(--neo-color-background-accent-subtle);
+    --neo-table-cellrowmodel-row-cell-color-selected           : var(--neo-color-text-default);
+    --neo-table-rowmodel-cell-background-color-selected        : var(--neo-color-background-selected);
+    --neo-table-rowmodel-cell-color-selected                   : var(--neo-color-text-default);
+}
