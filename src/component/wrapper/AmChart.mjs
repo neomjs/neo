@@ -1,4 +1,5 @@
-import Component from '../Base.mjs';
+import Component                              from '../Base.mjs';
+import {reapplyOnThemeMap, resolveThemeValue} from '../../util/Theme.mjs';
 
 /**
  * @summary Renders an amCharts 4 chart through the main thread's AmCharts addon, created in the
@@ -61,7 +62,13 @@ class AmChart extends Component {
          * @member {String} package='am4charts'
          */
         package: 'am4charts',
-        style: {
+        /**
+         * The amCharts theme for a Neo theme that {@link #themeMap} does not name, by the color scheme that
+         * theme declares: `'dark'`, or `null` for amCharts' light default, the two the AmCharts addon applies.
+         * @member {Object} schemeMap
+         */
+        schemeMap: {dark: 'dark', light: null},
+        style    : {
             height: '100%'
         },
         /**
@@ -179,7 +186,15 @@ class AmChart extends Component {
      */
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
+        this.applyColorScheme()
+    }
 
+    /**
+     * @summary Creates a mounted chart again when its resolved amCharts theme changed. Also called once the theme
+     * map arrives.
+     * @protected
+     */
+    applyColorScheme() {
         let me                      = this,
             {appName, id, windowId} = me;
 
@@ -213,6 +228,14 @@ class AmChart extends Component {
     clearDrawn() {
         this.#drawnRequest++;
         this.drawn = false
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        reapplyOnThemeMap(this)
     }
 
     /**
@@ -299,12 +322,14 @@ class AmChart extends Component {
     /**
      * @summary Resolves the amCharts theme this chart is created in from its Neo theme.
      * Goes through {@link Neo.component.Base#getTheme}, never the `theme` config: a chart inside a
-     * themed container inherits the container's theme and declares none of its own.
+     * themed container inherits the container's theme and declares none of its own. A theme {@link #themeMap}
+     * does not name answers through {@link #schemeMap}, by the scheme it declares; an explicit entry wins, `null`
+     * included.
      * @returns {String|null} `'dark'`, or null for amCharts' light default
      * @protected
      */
     resolveTheme() {
-        return this.themeMap[this.getTheme()] ?? null
+        return resolveThemeValue(this.getTheme(), this.themeMap, this.schemeMap) ?? null
     }
 
     /**

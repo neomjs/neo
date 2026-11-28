@@ -11,7 +11,8 @@ import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
 import {sanitizeInput}           from '../util/sanitizer.mjs';
 import {
     isCssTargetFolder,
-    resolveThemeClassMap
+    resolveThemeClassMap,
+    resolveThemeSchemes
 }                                from '../util/themeCss.mjs';
 import {
     cascadeLayer,
@@ -300,6 +301,9 @@ if (programOpts.info) {
             includeWorkspaceMap: false,
             seedThemes         : engineSeedMap?.themes
         });
+        // Each theme's light or dark scheme, read once from its own Global.css, for the components that
+        // hand a renderer a scheme hint (Canvas, Mermaid, MonacoEditor, AmChart).
+        themeMap.schemes = resolveThemeSchemes({cssRoots: activeRoots, themes: themeMap.themes});
 
         // dist/development
         if (env === 'all' || env === 'dev') {

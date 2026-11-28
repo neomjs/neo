@@ -6,7 +6,8 @@ import postcss         from 'postcss';
 import isEntryModule   from '../util/isEntryModule.mjs';
 import {
     isCssTargetFolder,
-    resolveThemeClassMap
+    resolveThemeClassMap,
+    resolveThemeSchemes
 }                      from '../util/themeCss.mjs';
 import {
     cascadeLayer,
@@ -132,19 +133,17 @@ function addToThemeMap(themeMap, entry) {
 }
 
 /**
- * @summary Creates the exact nested class-to-theme map plus `themes` (class → folders) for an effective source census.
+ * @summary Creates the exact nested class-to-theme map plus `themes` (class → folders) and `schemes`
+ * (class → declared scheme) for an effective source census, as the full theme build writes them.
  * @param {Array} census Effective source census.
  * @param {Object} [options]
  * @param {String} [options.repoRoot] Repository root.
  * @returns {Object}
  */
 function createDevelopmentThemeMap(census, {repoRoot = REPO_ROOT} = {}) {
-    const themeMap = {
-        themes: resolveThemeClassMap({
-            cssRoots           : getThemeSourceRoots(repoRoot),
-            includeWorkspaceMap: false
-        })
-    };
+    const cssRoots = getThemeSourceRoots(repoRoot),
+          themes   = resolveThemeClassMap({cssRoots, includeWorkspaceMap: false}),
+          themeMap = {themes, schemes: resolveThemeSchemes({cssRoots, themes})};
 
     census.forEach(entry => addToThemeMap(themeMap, entry));
 
@@ -463,7 +462,8 @@ export async function reconcileThemeStructure({
 
 /**
  * @summary Handles one fs.watch event. Ordinary entry-file changes stay on the one-file path;
- * structural events use the wider source-census reconciliation.
+ * structural events use the wider source-census reconciliation, and so does a change to a theme
+ * folder's own `Global.css`, which declares the theme classes and schemes the map carries.
  * @param {String} eventType fs.watch event type.
  * @param {String|Buffer} filename Path relative to `resources/css`.
  * @param {Object} [options]
@@ -485,9 +485,12 @@ export async function handleThemeWatchEvent(eventType, filename, {
 
     if (!normalized.endsWith('.css')) return {action: 'ignored', reason: 'not-css'};
 
-    const exists = fs.existsSync(path.join(repoRoot, 'resources/css', normalized));
+    const
+        exists        = fs.existsSync(path.join(repoRoot, 'resources/css', normalized)),
+        folder        = normalized.split(path.sep)[0],
+        declaresTheme = normalized === path.join(folder, 'Global.css') && folder !== 'src' && folder !== 'theme-base';
 
-    if (eventType === 'change' && exists) {
+    if (eventType === 'change' && exists && !declaresTheme) {
         await build(normalized, {logger, repoRoot});
         return {action: 'built', built: [normalized], removed: []}
     }

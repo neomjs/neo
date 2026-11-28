@@ -1,4 +1,5 @@
-import Base from '../../component/Base.mjs';
+import Base                                from '../../component/Base.mjs';
+import {declaredScheme, reapplyOnThemeMap} from '../../util/Theme.mjs';
 
 /**
  * Using this wrapper component requires to import the related main thread addon: Neo.main.addon.MonacoEditor
@@ -108,6 +109,12 @@ class MonacoEditor extends Base {
          */
         readOnly_: false,
         /**
+         * The editor theme for a Neo theme that {@link #themeMap} does not name, by the color scheme that
+         * theme declares.
+         * @member {Object} schemeMap
+         */
+        schemeMap: {dark: 'vs-dark', light: 'vs'},
+        /**
          * @member {Boolean} scrollBeyondLastLine_=false
          * @reactive
          */
@@ -122,9 +129,9 @@ class MonacoEditor extends Base {
          *
          * A map rather than a substring test on the theme name, because the name does not carry the
          * answer: `neo-theme-cyberpunk` is dark — `--neo-global-background-color: #0d1117`, and its own
-         * `--neo-color-scheme` says `dark` — and is named neither. Every theme declares that token,
-         * but the main-thread reader for it is protected and absent from the app remote manifest, so
-         * a component in the App Worker cannot ask. Same shape and same reason as the sibling
+         * `--neo-color-scheme` says `dark` — and is named neither. The theme build reads that token into
+         * the theme map, so a theme this map does not name answers through {@link #schemeMap} once the
+         * map reaches the App worker. Same shape and same reason as the sibling
          * {@link Neo.component.wrapper.Mermaid#themeMap}, and a config rather than a constant so a
          * consumer can extend it for a theme Neo does not ship — or map one onto a high-contrast
          * editor theme, which a two-way guess could never express.
@@ -168,7 +175,24 @@ class MonacoEditor extends Base {
             editorChange: me.onContentChange,
             resize      : me.layoutEditor,
             scope       : me
-        })
+        });
+
+        reapplyOnThemeMap(me, () => me.applyLateColorScheme())
+    }
+
+    /**
+     * @summary Brings an editor built before the theme map arrived to where a warm boot builds it. An editor with an
+     * explicit `options.theme` keeps it. Monaco paints one theme per window, so an editor the map does not change
+     * sends its creation theme again: the editors end on the theme the last one built sets, as when the map arrives
+     * first.
+     * @protected
+     */
+    applyLateColorScheme() {
+        let me            = this,
+            {editorTheme} = me;
+
+        me.options.theme || me.applyColorScheme();
+        me.editorTheme === editorTheme && me.afterSetEditorTheme(me.getInitialOptions().theme)
     }
 
     /**
@@ -357,6 +381,14 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetTheme(value, oldValue) {
+        this.applyColorScheme()
+    }
+
+    /**
+     * @summary Sets the editor theme the resolved Neo theme maps onto. Also called once the theme map arrives.
+     * @protected
+     */
+    applyColorScheme() {
         this.editorTheme = this.resolveEditorTheme()
     }
 
@@ -371,22 +403,27 @@ class MonacoEditor extends Base {
      * is exactly the asymmetry this repairs. `getTheme()` answers the component's own **`theme`**
      * first, so a component declaring one is not overruled by the scope it sits in.
      *
-     * `editorTheme` is the other precedence and a different question: it is what answers when the
-     * resolved theme is absent from {@link #themeMap} or awareness is off, so a declared
-     * `hc-black` survives an unmapped theme and is replaced by a mapped one. Set
+     * For a theme {@link #themeMap} does not name, an `options.theme` from {@link #editorThemes} answers
+     * next, as {@link #options} outranks the configs when the editor is created, then the theme's declared
+     * scheme through {@link #schemeMap}. `editorTheme` answers last, and alone with awareness off, so a
+     * declared `hc-black` survives a theme nothing else answers and is replaced by a mapped one. Set
      * `useThemeAwareness: false` to pin it against every theme.
      *
      * Pure, so {@link #getInitialOptions} can build a correctly themed editor rather than create a
-     * light one and repaint it: nothing delays creation, so there is no window for a later repaint
-     * to land in unseen.
+     * light one and repaint it. Only a theme map that arrives after creation repaints.
      * @returns {String} One of {@link #editorThemes}
      * @protected
      */
     resolveEditorTheme() {
-        let me    = this,
-            theme = me.useThemeAwareness && me.getTheme();
+        let me       = this,
+            theme    = me.useThemeAwareness && me.getTheme(),
+            explicit = me.options.theme;
 
-        return me.themeMap[theme] ?? me.editorTheme
+        if (!theme) return me.editorTheme;
+
+        if (Object.hasOwn(me.themeMap, theme)) return me.themeMap[theme];
+
+        return (me.getStaticConfig('editorThemes').includes(explicit) ? explicit : me.schemeMap[declaredScheme(theme)]) ?? me.editorTheme
     }
 
     /**

@@ -182,6 +182,7 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
             'buildScripts/create/theme.mjs',
             'buildScripts/util/themeCss.mjs',
             'buildScripts/util/themeCssRoots.mjs',
+            'buildScripts/util/themeNameShapes.mjs',
             'buildScripts/util/declaredPackageRoots.mjs'
         ]) {
             fs.mkdirSync(path.dirname(path.join(engineRoot, relative)), {recursive: true});

@@ -120,7 +120,14 @@ class Sparkline extends Canvas {
      */
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
+        this.applyColorScheme()
+    }
 
+    /**
+     * @summary Sends the resolved color scheme to the renderer, once the canvas is registered.
+     * @protected
+     */
+    applyColorScheme() {
         let me = this;
 
         if (me.offscreenRegistered) {

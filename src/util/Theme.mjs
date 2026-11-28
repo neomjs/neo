@@ -50,3 +50,45 @@ export function resolveStartTheme({prefersDarkTheme, themes, url}) {
 
     return themes[0]
 }
+
+/**
+ * @summary The color scheme a theme declares: its `--neo-color-scheme`, which the theme build writes into
+ * `theme-map.json` as `schemes`. `null` until that map reaches the App worker, and for a theme the build never saw.
+ * @param {String|null} theme A theme class name.
+ * @returns {'dark'|'light'|null}
+ */
+export function declaredScheme(theme) {
+    return (theme && globalThis.Neo?.cssMap?.fileInfo?.schemes?.[theme]) || null
+}
+
+/**
+ * @summary Resolves a component's renderer value for a theme. An explicit `themeMap` entry wins, a `null` one
+ * included; otherwise the theme's declared scheme picks from `schemeMap`.
+ * @param {String|null} theme A theme class name.
+ * @param {Object} themeMap Theme class → renderer value.
+ * @param {Object} schemeMap `{dark, light}` → renderer value.
+ * @returns {*} `undefined` when neither answers.
+ */
+export function resolveThemeValue(theme, themeMap, schemeMap) {
+    if (theme && Object.hasOwn(themeMap, theme)) return themeMap[theme];
+
+    const scheme = declaredScheme(theme);
+    return scheme ? schemeMap[scheme] : undefined
+}
+
+/**
+ * @summary Re-applies a component's color scheme once the theme map arrives, if it has not yet. A component built
+ * before the map resolves a theme its `themeMap` does not name to its fallback; the declared scheme can only
+ * answer after `Neo.worker.App#createThemeMap` fires `themeMapLoaded`.
+ * @param {Neo.component.Base} component Offers `themeMap`, `getTheme()` and `applyColorScheme()`.
+ * @param {Function} [reapply] Replaces the default: `applyColorScheme()` for a theme `themeMap` does not name.
+ */
+export function reapplyOnThemeMap(component, reapply = () => {
+    Object.hasOwn(component.themeMap, component.getTheme() ?? '') || component.applyColorScheme()
+}) {
+    const {Neo} = globalThis;
+
+    !Neo?.cssMap?.fileInfo && Neo?.currentWorker?.on?.('themeMapLoaded', () => {
+        component.isDestroyed || reapply()
+    }, component, {once: true})
+}

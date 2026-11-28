@@ -1,4 +1,5 @@
-import Component from '../Base.mjs';
+import Component                              from '../Base.mjs';
+import {reapplyOnThemeMap, resolveThemeValue} from '../../util/Theme.mjs';
 
 /**
  * @summary A wrapper component for rendering Mermaid diagrams.
@@ -33,6 +34,12 @@ class Mermaid extends Component {
          * @member {String|null} mermaidTheme=null
          */
         mermaidTheme: null,
+        /**
+         * The mermaid theme for a Neo theme that {@link #themeMap} does not name, by the color scheme that
+         * theme declares.
+         * @member {Object} schemeMap
+         */
+        schemeMap: {dark: 'dark', light: 'default'},
         /**
          * @member {Object} themeMap
          */
@@ -83,7 +90,7 @@ class Mermaid extends Component {
      */
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
-        this.render()
+        this.applyColorScheme()
     }
 
     /**
@@ -97,6 +104,22 @@ class Mermaid extends Component {
         if (value) {
             this.render()
         }
+    }
+
+    /**
+     * @summary Renders the diagram again in the resolved theme. Also called once the theme map arrives.
+     * @protected
+     */
+    applyColorScheme() {
+        this.render()
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        reapplyOnThemeMap(this)
     }
 
     /**
@@ -158,7 +181,8 @@ class Mermaid extends Component {
      *
      * Resolution goes through {@link Neo.component.Base#getTheme}, never the `theme` config, which is
      * `null` for precisely the components that inherit a theme — reading it rendered mermaid's light
-     * `'default'` in a dark app on every path except a toggle. Shape:
+     * `'default'` in a dark app on every path except a toggle. A theme {@link #themeMap} does not name answers
+     * through {@link #schemeMap}, by the scheme it declares. Shape:
      * {@link Neo.component.wrapper.MonacoEditor#resolveEditorTheme}.
      * @returns {String}
      * @protected
@@ -166,7 +190,7 @@ class Mermaid extends Component {
     resolveTheme() {
         let me = this;
 
-        return me.mermaidTheme || me.themeMap[me.getTheme()] || 'default'
+        return me.mermaidTheme || resolveThemeValue(me.getTheme(), me.themeMap, me.schemeMap) || 'default'
     }
 }
 
