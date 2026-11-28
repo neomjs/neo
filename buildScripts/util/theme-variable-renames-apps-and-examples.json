@@ -1,0 +1,24 @@
+{
+    "rules": {
+        "neo-prefix": "App and example variables gain the --neo- prefix at their package move (ADR 0044 §2.1, I4).",
+        "css-property-suffix": "The name identifies the part and the CSS property it paints (ADR 0044 §2.4)."
+    },
+    "entries": {
+        "--breadcrumb-folders-background": {
+            "to": "--neo-breadcrumb-folders-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--breadcrumb-folders-muted": {
+            "to": "--neo-breadcrumb-folders-detail-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--breadcrumb-folders-rule": {
+            "to": "--neo-breadcrumb-folders-border-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--breadcrumb-folders-text": {
+            "to": "--neo-breadcrumb-folders-color",
+            "rule": "neo-prefix+css-property-suffix"
+        }
+    }
+}

@@ -1,0 +1,6 @@
+[class*="neo-theme-"] { /* .neo-breadcrumb-folders */
+    --neo-breadcrumb-folders-background-color: var(--neo-color-background-canvas);
+    --neo-breadcrumb-folders-border-color    : var(--neo-color-border-default);
+    --neo-breadcrumb-folders-color           : var(--neo-color-text-default);
+    --neo-breadcrumb-folders-detail-color    : var(--neo-color-text-muted);
+}

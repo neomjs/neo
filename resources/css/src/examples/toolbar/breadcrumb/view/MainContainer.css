@@ -1,12 +1,12 @@
 .neo-breadcrumb-folders.neo-viewport {
-    background-color: var(--breadcrumb-folders-background);
-    color           : var(--breadcrumb-folders-text);
+    background-color: var(--neo-breadcrumb-folders-background-color);
+    color           : var(--neo-breadcrumb-folders-color);
     font-family     : var(--neo-global-font-family);
     gap             : 12px;
     padding         : 24px;
 
     .neo-breadcrumb-folders-header {
-        border-bottom : 1px solid var(--breadcrumb-folders-rule);
+        border-bottom : 1px solid var(--neo-breadcrumb-folders-border-color);
         gap           : 8px 12px;
         padding-bottom: 8px;
     }
@@ -27,7 +27,7 @@
 
     .neo-breadcrumb-folders-description,
     .neo-breadcrumb-folders-empty {
-        color      : var(--breadcrumb-folders-muted);
+        color      : var(--neo-breadcrumb-folders-detail-color);
         font-size  : 15px;
         line-height: 1.5;
         max-width  : 40em;
