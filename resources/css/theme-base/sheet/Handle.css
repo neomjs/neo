@@ -1,4 +1,6 @@
-:where(.neo-theme-neo-light) {
+/* Sheet handle, every theme: each variable bound to a role (ADR 0044 decision 4). A theme re-values one in its own
+   sheet/Handle.css only where its design language deviates. The rules in src/sheet/Handle.css read these. */
+[class*="neo-theme-"] {
     --neo-sheet-handle-focus-outline-color  : var(--neo-color-focus-ring);
     --neo-sheet-handle-focus-outline-width  : var(--neo-focus-ring-width);
     --neo-sheet-handle-grip-background-color: var(--neo-color-border-strong);

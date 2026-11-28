@@ -1,9 +1,0 @@
-:where(.neo-theme-neo-dark) {
-    --neo-sheet-handle-focus-outline-color  : var(--neo-color-focus-ring);
-    --neo-sheet-handle-focus-outline-width  : var(--neo-focus-ring-width);
-    --neo-sheet-handle-grip-background-color: var(--neo-color-border-strong);
-    --neo-sheet-handle-grip-block-size      : var(--neo-space-1);
-    --neo-sheet-handle-grip-border-radius   : var(--neo-radius-full);
-    --neo-sheet-handle-grip-inline-size     : var(--neo-space-8);
-    --neo-sheet-handle-min-block-size       : var(--neo-space-12);
-}
