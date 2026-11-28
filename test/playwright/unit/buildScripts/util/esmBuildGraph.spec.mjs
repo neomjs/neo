@@ -30,6 +30,35 @@ test.describe('static ESM package graph boundaries', () => {
             .toEqual(['./X.mjs', './Y.mjs', './Z.mjs'])
     });
 
+    test('ships bundled Circle datasets and preserves an admitted workspace dataset', () => {
+        const folder       = 'resources/examples/data/circles',
+              group1       = folder + '/group1.json',
+              group2       = folder + '/group2.json',
+              photo        = folder + '/photo.svg',
+              engineGroup1 = path.join(engine, group1),
+              engineGroup2 = path.join(engine, group2);
+
+        write('node_modules/neo.mjs/' + group1, '[]');
+        write('node_modules/neo.mjs/' + group2, '[{}]');
+        write('node_modules/neo.mjs/' + photo, '<svg/>');
+
+        const native = createEsmBuildPlan({workspaceRoot: engine, engineRoot: engine, sourceRoots: ['src'], packageRoots: []});
+
+        expect(native.files.get(engineGroup1)).toEqual({outputPath: path.join(engine, 'dist/esm', group1), type: 'asset'});
+        expect(native.files.get(engineGroup2)).toEqual({outputPath: path.join(engine, 'dist/esm', group2), type: 'asset'});
+        expect(native.files.has(path.join(engine, photo))).toBe(false);
+        expect(plan().files.get(engineGroup1)).toEqual({outputPath: path.join(workspace, 'dist/esm', group1), type: 'asset'});
+
+        write(group1, '[{"workspace":true}]');
+
+        const {files} = createEsmBuildPlan({workspaceRoot: workspace, engineRoot: engine,
+            sourceRoots: ['apps', 'node_modules/neo.mjs/src', 'resources'], packageRoots: []});
+
+        expect(files.get(path.join(workspace, group1))).toEqual({outputPath: path.join(workspace, 'dist/esm', group1), type: 'json'});
+        expect(files.has(engineGroup1)).toBe(false);
+        expect(files.get(engineGroup2)).toEqual({outputPath: path.join(workspace, 'dist/esm', group2), type: 'asset'})
+    });
+
     test('a missing reachable helper names its importer and specifier', () => {
         write('node_modules/widget/Widget.mjs', "import Base from '../neo.mjs/src/core/Base.mjs'; import './missing.mjs'; export default class Widget extends Base {}");
         expect(plan).toThrow(/node_modules\/widget\/Widget\.mjs.*\.\/missing\.mjs.*missing/)

@@ -70,6 +70,20 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
     }
     const serviceWorker = path.join(workspaceRoot, 'ServiceWorker.mjs');
     if (fs.existsSync(serviceWorker)) add(serviceWorker, 'module');
+
+    // The built-in Circle URLs resolve from the flattened App Worker. A workspace asset
+    // already admitted at the same destination keeps that destination.
+    const circleDataPath = 'resources/examples/data/circles',
+          circleDataRoot = path.join(engineRoot, circleDataPath);
+
+    if (fs.existsSync(circleDataRoot)) {
+        for (const entry of fs.readdirSync(circleDataRoot, {withFileTypes: true})) {
+            if (entry.isFile() && entry.name.endsWith('.json') && !files.has(path.join(workspaceRoot, circleDataPath, entry.name))) {
+                add(path.join(circleDataRoot, entry.name), 'asset')
+            }
+        }
+    }
+
     const initialFiles = new Set(files.keys());
 
     /** @summary Records reverse reachability for package admission or individual module identity. */
