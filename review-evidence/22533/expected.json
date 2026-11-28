@@ -1,0 +1,250 @@
+[
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-header",
+        "base": "rgb(233, 237, 242)",
+        "head": "rgb(255, 255, 255)",
+        "reason": "header -> background-surface-raised (rule 18): raised like the locked grid headers beside it"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-header",
+        "base": "rgb(31, 41, 55)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "header text -> text-default (rule 17); border, outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-header",
+        "base": "rgba(0, 0, 0, 0) rgba(0, 0, 0, 0) rgb(31, 41, 55) rgb(31, 41, 55)",
+        "head": "rgba(0, 0, 0, 0) rgba(0, 0, 0, 0) oklch(0.168 0.008 270) oklch(0.168 0.008 270)",
+        "reason": "header text -> text-default (rule 17); border, outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-header",
+        "base": "3px none rgb(31, 41, 55)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "header text -> text-default (rule 17); border, outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-header",
+        "base": "rgb(22, 28, 38)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "header -> background-surface-raised (rule 18): raised like the locked grid headers beside it"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-header",
+        "base": "rgb(214, 220, 230)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "header text -> text-default (rule 17); border, outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-header",
+        "base": "rgba(0, 0, 0, 0) rgba(0, 0, 0, 0) rgb(214, 220, 230) rgb(214, 220, 230)",
+        "head": "rgba(0, 0, 0, 0) rgba(0, 0, 0, 0) oklch(0.96 0.004 270) oklch(0.96 0.004 270)",
+        "reason": "header text -> text-default (rule 17); border, outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "scheduler",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-header",
+        "base": "3px none rgb(214, 220, 230)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "header text -> text-default (rule 17); border, outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-event-editor",
+        "base": "rgb(17, 24, 39)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "editor text -> text-default; outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-event-editor",
+        "base": "rgb(213, 219, 227)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "editor border -> border-default"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-event-editor",
+        "base": "3px none rgb(17, 24, 39)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "editor text -> text-default; outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-event-editor",
+        "base": "rgba(15, 23, 42, 0.16) 0px 12px 32px 0px",
+        "head": "rgba(0, 0, 0, 0) 0px 0px 0px 1px, rgba(0, 0, 0, 0.16) 0px 12px 32px 0px",
+        "reason": "editor -> elevation-3 (dialogs, rule 18)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-event-editor",
+        "base": "system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif",
+        "head": "\"Source Sans 3\", sans-serif",
+        "reason": "editor -> font-family-sans: the system stack becomes the engine sans"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-event-editor",
+        "base": "35px",
+        "head": "34px",
+        "reason": "editor height follows font-family-sans line metrics; no length changed"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-bar",
+        "base": "rgb(224, 242, 254)",
+        "head": "oklch(0.96 0.019 267)",
+        "reason": "bar -> background-accent-subtle: an event acts, so it speaks in the accent"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-bar",
+        "base": "rgb(15, 23, 42)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "bar text -> text-default; outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-bar",
+        "base": "rgb(2, 132, 199)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "bar border -> border-accent"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-bar",
+        "base": "3px none rgb(15, 23, 42)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "bar text -> text-default; outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "part": ".neo-timeline-bar",
+        "base": "rgba(15, 23, 42, 0.08) 0px 1px 2px 0px",
+        "head": "rgba(0, 0, 0, 0) 0px 0px 0px 1px, rgba(0, 0, 0, 0.16) 0px 1px 2px 0px",
+        "reason": "bar -> elevation-1"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-event-editor",
+        "base": "rgb(22, 28, 38)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "editor -> background-surface-raised"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-event-editor",
+        "base": "rgb(227, 232, 240)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "editor text -> text-default; outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-event-editor",
+        "base": "rgb(43, 53, 69)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "editor border -> border-default"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-event-editor",
+        "base": "3px none rgb(227, 232, 240)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "editor text -> text-default; outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-event-editor",
+        "base": "rgba(0, 0, 0, 0.55) 0px 12px 32px 0px",
+        "head": "rgba(255, 255, 255, 0.1) 0px 0px 0px 1px, rgba(0, 0, 0, 0.5) 0px 12px 32px 0px",
+        "reason": "editor -> elevation-3 (dialogs, rule 18)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-event-editor",
+        "base": "system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif",
+        "head": "\"Source Sans 3\", sans-serif",
+        "reason": "editor -> font-family-sans: the system stack becomes the engine sans"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-event-editor",
+        "base": "35px",
+        "head": "34px",
+        "reason": "editor height follows font-family-sans line metrics; no length changed"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-bar",
+        "base": "rgb(30, 51, 70)",
+        "head": "oklch(0.28 0.095 267)",
+        "reason": "bar -> background-accent-subtle: an event acts, so it speaks in the accent"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-bar",
+        "base": "rgb(227, 232, 240)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "bar text -> text-default; outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-bar",
+        "base": "rgb(56, 189, 248)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "bar border -> border-accent"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-bar",
+        "base": "3px none rgb(227, 232, 240)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "bar text -> text-default; outline and decoration colours follow currentColor"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "part": ".neo-timeline-bar",
+        "base": "rgba(0, 0, 0, 0.35) 0px 1px 2px 0px",
+        "head": "rgba(255, 255, 255, 0.1) 0px 0px 0px 1px, rgba(0, 0, 0, 0.5) 0px 1px 2px 0px",
+        "reason": "bar -> elevation-1"
+    }
+]
