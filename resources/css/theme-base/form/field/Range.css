@@ -1,0 +1,7 @@
+[class*="neo-theme-"] {
+    --neo-rangefield-thumb-background       : var(--neo-color-background-accent);
+    --neo-rangefield-thumb-border-color     : var(--neo-color-border-strong);
+    --neo-rangefield-thumb-box-shadow-active: 0 0 0 var(--neo-space-1) color-mix(in srgb, var(--neo-color-focus-ring) 45%, transparent);
+    --neo-rangefield-track-background       : var(--neo-color-background-track);
+    --neo-rangefield-track-border-radius    : var(--neo-radius-full);
+}

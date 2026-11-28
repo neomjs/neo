@@ -15,8 +15,11 @@
         .neo-typeahead-input {
             border-color  : transparent;
             color         : var(--neo-combobox-input-hint-color);
-            font          : var(--neo-textfield-input-font);
+            font-family   : var(--neo-textfield-input-font-family);
+            font-size     : var(--neo-textfield-input-font-size);
+            font-weight   : var(--neo-textfield-input-font-weight);
             inset         : 0;
+            line-height   : var(--neo-textfield-input-line-height);
             min-width     : 0;
             opacity       : var(--neo-combobox-input-hint-opacity);
             pointer-events: none;
