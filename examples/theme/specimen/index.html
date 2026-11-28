@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>Neo Theme Specimen</title>
+</head>
+<body>
+    <p id="theme-specimen-error" role="alert" hidden></p>
+    <script type="module">
+        const loader = new URL('../../../src/MicroLoader.mjs', document.baseURI),
+              error  = document.getElementById('theme-specimen-error');
+
+        try {
+            const {default: config} = await import(new URL('./neo-config.json', document.baseURI).href, {with: {type: 'json'}});
+            const params = new URLSearchParams(location.search),
+                  light  = params.get('light'),
+                  dark   = params.get('dark');
+            let themes = config.themes;
+
+            if (params.has('light') || params.has('dark')) {
+                if (!light || !dark || light === dark) {
+                    throw new Error('Pass two distinct registered theme classes in the light and dark URL parameters.');
+                }
+
+                // This is the generated map the App Worker reads in each build mode.
+                const response = await fetch(new URL('../resources/theme-map.json', loader));
+                if (!response.ok) {
+                    throw new Error('Could not load the theme map. Build the themes, then reload this page.');
+                }
+
+                const {themes: registered = {}, schemes = {}} = await response.json();
+                for (const [scheme, name] of [['light', light], ['dark', dark]]) {
+                    if (!Object.hasOwn(registered, name) || !Array.isArray(registered[name]) || !registered[name].length) {
+                        throw new Error('The generated theme map has no ' + scheme + ' theme class named ' + name + '.');
+                    }
+                    if (Object.hasOwn(schemes, name) && schemes[name] !== scheme) {
+                        throw new Error('The theme class ' + name + ' does not declare the ' + scheme + ' scheme.');
+                    }
+                }
+
+                themes = [...new Set([...themes, light, dark])];
+            }
+
+            // Keep the MicroLoader base for config.mainPath, which each build can rewrite.
+            globalThis.Neo = {config: {...config, themes}};
+            await import(new URL(config.mainPath, loader).href);
+        } catch (failure) {
+            error.textContent = failure.message;
+            error.hidden = false;
+        }
+    </script>
+</body>
+</html>
