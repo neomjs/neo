@@ -1,8 +1,8 @@
-/* Seven frames over the same six items. The page reads its colours from the theme files under
-   theme-neo-light and theme-neo-dark; the six items keep one hue each in both themes. */
+/* Seven frames over the same six items. The page reads its colours from theme-base;
+   the six items keep one hue each in both themes. */
 .examples-layouts-side-by-side {
-    background-color: var(--examples-layouts-ground);
-    color           : var(--examples-layouts-ink);
+    background-color: var(--neo-examples-layouts-background-color);
+    color           : var(--neo-examples-layouts-color);
     font-family     : var(--neo-global-font-family);
 
     code {
@@ -20,7 +20,7 @@
     }
 
     p {
-        color    : var(--examples-layouts-ink-dim);
+        color    : var(--neo-examples-layouts-detail-color);
         font-size: 14px;
         margin   : 0;
         max-width: 80ch;
@@ -37,7 +37,7 @@
 }
 
 .examples-layouts-group-label {
-    color       : var(--examples-layouts-ink-dim);
+    color       : var(--neo-examples-layouts-detail-color);
     font-family : monospace;
     font-size   : 13px;
     margin-right: 4px;
@@ -56,8 +56,8 @@
 }
 
 .examples-layouts-frame {
-    background-color: var(--examples-layouts-panel);
-    border          : 1px solid var(--examples-layouts-border);
+    background-color: var(--neo-examples-layouts-panel-background-color);
+    border          : 1px solid var(--neo-examples-layouts-border-color);
     border-radius   : 8px;
     padding         : 10px 12px 12px;
 }
@@ -70,14 +70,14 @@
 }
 
 .examples-layouts-frame-text {
-    color     : var(--examples-layouts-ink-dim);
+    color     : var(--neo-examples-layouts-detail-color);
     font-size : 13px;
     margin    : 2px 0 8px;
     min-height: 2.6em;
 }
 
 .examples-layouts-stage {
-    background-color: var(--examples-layouts-stage);
+    background-color: var(--neo-examples-layouts-stage-background-color);
     border-radius   : 6px;
     gap             : 6px;
     min-height      : 260px;
@@ -90,16 +90,16 @@
 }
 
 /* White text on each hue measures at least 5:1 */
-.examples-layouts-item-1 {--examples-layouts-item-color: #1d4ed8;}
-.examples-layouts-item-2 {--examples-layouts-item-color: #6d28d9;}
-.examples-layouts-item-3 {--examples-layouts-item-color: #be185d;}
-.examples-layouts-item-4 {--examples-layouts-item-color: #c2410c;}
-.examples-layouts-item-5 {--examples-layouts-item-color: #047857;}
-.examples-layouts-item-6 {--examples-layouts-item-color: #0e7490;}
+.examples-layouts-item-1 {--neo-examples-layouts-item-background-color: #1d4ed8;}
+.examples-layouts-item-2 {--neo-examples-layouts-item-background-color: #6d28d9;}
+.examples-layouts-item-3 {--neo-examples-layouts-item-background-color: #be185d;}
+.examples-layouts-item-4 {--neo-examples-layouts-item-background-color: #c2410c;}
+.examples-layouts-item-5 {--neo-examples-layouts-item-background-color: #047857;}
+.examples-layouts-item-6 {--neo-examples-layouts-item-background-color: #0e7490;}
 
 .examples-layouts-side-by-side .examples-layouts-item {
     align-items     : center;
-    background-color: var(--examples-layouts-item-color);
+    background-color: var(--neo-examples-layouts-item-background-color);
     border-radius   : 4px;
     color           : #fff;
     display         : flex;
@@ -113,7 +113,7 @@
 
 /* A cube face's `background` shorthand clears the colour, so the face takes it back */
 .examples-layouts-cube .neo-face.examples-layouts-item {
-    background-color: var(--examples-layouts-item-color);
+    background-color: var(--neo-examples-layouts-item-background-color);
     border-radius   : 0;
     font-size       : 40px;
     opacity         : .92;

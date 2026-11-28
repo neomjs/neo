@@ -1,0 +1,36 @@
+{
+    "rules": {
+        "neo-prefix": "App and example variables gain the --neo- prefix at their package move (ADR 0044 §2.1, I4).",
+        "css-property-suffix": "The name identifies the part and the CSS property it paints (ADR 0044 §2.4)."
+    },
+    "entries": {
+        "--examples-layouts-border": {
+            "to": "--neo-examples-layouts-border-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--examples-layouts-ground": {
+            "to": "--neo-examples-layouts-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--examples-layouts-ink": {
+            "to": "--neo-examples-layouts-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--examples-layouts-ink-dim": {
+            "to": "--neo-examples-layouts-detail-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--examples-layouts-item-color": {
+            "to": "--neo-examples-layouts-item-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--examples-layouts-panel": {
+            "to": "--neo-examples-layouts-panel-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        },
+        "--examples-layouts-stage": {
+            "to": "--neo-examples-layouts-stage-background-color",
+            "rule": "neo-prefix+css-property-suffix"
+        }
+    }
+}
