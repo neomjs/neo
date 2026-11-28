@@ -15,6 +15,26 @@ async function bootMotion(page, policy) {
     const worker = page.workers().find(item => item.url().includes('/worker/App'));
 
     await worker.evaluate(async () => {
+        const viewport = Neo.getComponent('component-test-viewport');
+
+        await Neo.currentWorker.getAddon('Gesture', viewport.windowId)
+    });
+    await page.evaluate(() => {
+        const addon = Neo.main.addon.Gesture, register = addon.register.bind(addon);
+
+        window.translationRegistered = false;
+        addon.register = data => {
+            const result = register(data);
+
+            if (result && data.id === 'translation-target' && data.events.includes('pan:move') && data.events.includes('swipe')) {
+                window.translationRegistered = true
+            }
+
+            return result
+        }
+    });
+
+    await worker.evaluate(async () => {
         const [{default: Component}, {default: Container}] = await Promise.all([
                   import('../component/Base.mjs'), import('../container/Base.mjs')
               ]),
@@ -44,7 +64,7 @@ async function bootMotion(page, policy) {
           host   = page.locator('#translation-host');
 
     await expect(target).toBeVisible();
-    await expect.poll(() => page.evaluate(() => typeof Neo.main.addon?.Gesture?.trackPan)).toBe('function');
+    await expect.poll(() => page.evaluate(() => window.translationRegistered)).toBe(true);
     await page.addStyleTag({content: `
         #translation-host {display: block; flex: none; width: 480px; max-height: 460px; overflow-y: auto}
         #translation-target {display: block; flex: none; min-height: 900px; touch-action: ${policy}}
