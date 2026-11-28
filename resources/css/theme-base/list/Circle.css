@@ -1,4 +1,0 @@
-/* Circle list, every theme: translucent backside disc over the info border role (ADR 0044 decision 4). */
-[class*="neo-theme-"] {
-    --neo-circle-list-back-background-color: color-mix(in srgb, var(--neo-color-border-info) 30%, transparent);
-}

@@ -1,0 +1,3 @@
+:where(.neo-theme-neo-light) { /* .neo-circle-list */
+    --neo-circle-list-back-background-color: rgba(62, 123, 134, 0.302);
+}
