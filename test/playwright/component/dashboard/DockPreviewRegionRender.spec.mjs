@@ -140,7 +140,7 @@ test.describe('Neo.dashboard.dock.interaction.Preview — what each edge region 
             const fill = fills[0];
 
             expect(fill, `${state}: the fill must not be transparent`).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
-            expect(fill, `${state}: the fill must carry alpha`).toMatch(/rgba\([^)]+,\s*0?\.\d+\)/);
+            expect(fill, `${state}: the fill must carry alpha`).toMatch(/(?:rgba\([^)]+,\s*|\/\s*)0?\.\d+\)$/);
 
             // Border, compared ACROSS edges — not merely within each one.
             //
@@ -191,7 +191,7 @@ test.describe('Neo.dashboard.dock.interaction.Preview — what each edge region 
             // that drops the region class fails on the class line and the colour assertion never runs —
             // red for the adjacent reason, leaving the property actually under test unproven.
             expect(split.background, `split-${position}: must not paint the solid accent bar`).toBe(edge.background);
-            expect(split.background, `split-${position}: the fill must carry alpha`).toMatch(/rgba\([^)]+,\s*0?\.\d+\)/);
+            expect(split.background, `split-${position}: the fill must carry alpha`).toMatch(/(?:rgba\([^)]+,\s*|\/\s*)0?\.\d+\)$/);
             expect(split.cls, `split-${position}: a region-mode split must carry the region class`).toContain('neo-dock-preview-region')
         }
     });
