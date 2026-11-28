@@ -1,0 +1,18 @@
+[
+    {
+        "component": "tooltip",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "#22476, rule 24 of #22295: the bubble reads background-accent (accent-600). Same sRGB pixel, #3e63dd; only the computed value's serialization changes from the old literal's rgb()"
+    },
+    {
+        "component": "tooltip",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(62, 99, 221)",
+        "head": "oklch(0.544 0.191 267)",
+        "reason": "#22476, rule 24 of #22295: the bubble reads background-accent (accent-600). Same sRGB pixel, #3e63dd; only the computed value's serialization changes from the old token's rgb()"
+    }
+]
