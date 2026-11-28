@@ -1145,7 +1145,7 @@ class Dialog extends Panel {
                 me.dragZone.boundaryContainerId = me.boundaryContainerId
             }
 
-            me.dragZone.dragStart(data, me.dragStartAbortController.signal);
+            me.dragZone.dragStart(data, me.dragStartAbortController.signal, data.gestureId);
 
             style.opacity = 0.7;
 

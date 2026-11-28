@@ -544,7 +544,7 @@ class Resizable extends Plugin {
             me.dragZone.boundaryContainerId = owner.boundaryContainerId
         }
 
-        me.dragZone.dragStart(data, controller.signal)
+        me.dragZone.dragStart(data, controller.signal, data.gestureId)
     }
 
     /**

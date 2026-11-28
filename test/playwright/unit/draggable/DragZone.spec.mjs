@@ -108,24 +108,29 @@ test.describe('Neo.draggable.DragZone', () => {
                 windowId   : 'test-window-1'
             });
 
-        let gestureId, proxyCreations = 0;
+        let proxyCreations = 0;
+
+        const handshakes = [],
+              event      = {
+                  clientX   : 25,
+                  clientY   : 30,
+                  gestureId : 7,
+                  path      : [{id: owner.id, rect: {height: 40, left: 10, top: 10, width: 80}}],
+                  targetPath: []
+              };
 
         addon.setConfigs = async data => {
-            gestureId = data.gestureId;
+            handshakes.push(data);
             return {boundaryContainerRect: null}
         };
         zone.createDragProxy = async () => { proxyCreations++ };
 
         try {
-            await zone.dragStart({
-                clientX   : 25,
-                clientY   : 30,
-                gestureId : 7,
-                path      : [{id: owner.id, rect: {height: 40, left: 10, top: 10, width: 80}}],
-                targetPath: []
-            });
+            await zone.dragStart(event);
+            await zone.dragStart(event, new AbortController().signal, event.gestureId);
 
-            expect(gestureId, 'Main can fence the setup against the originating pointer gesture').toBe(7);
+            expect(handshakes[0]).not.toHaveProperty('gestureId');
+            expect(handshakes[1].gestureId).toBe(7);
             expect(proxyCreations, 'the no-proxy mode must not instantiate visual drag state').toBe(0);
             expect(zone.dragProxy).toBe(null)
         } finally {

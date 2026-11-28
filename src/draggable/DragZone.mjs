@@ -546,8 +546,9 @@ class DragZone extends Base {
     /**
      * @param {Object} data
      * @param {AbortSignal} [signal] Stops an unfinished drag after an asynchronous setup step.
+     * @param {Number} [gestureId] Require a live Main-thread gesture for an owner that cancels unfinished setup.
      */
-    async dragStart(data, signal) {
+    async dragStart(data, signal, gestureId) {
         let me                         = this,
             {appName, owner, windowId} = me,
             {cls}                      = owner,
@@ -559,7 +560,8 @@ class DragZone extends Base {
         mainData = await Neo.main.addon.DragDrop.setConfigs({
             appName,
             windowId,
-            ...me.getMainThreadConfigs(data, rect)
+            ...me.getMainThreadConfigs(data, rect),
+            ...(gestureId != null && {gestureId})
         });
 
         if (signal?.aborted) return;
@@ -645,7 +647,6 @@ class DragZone extends Base {
             dragProxyCls       : me.dragProxyCls,
             dragZoneId         : me.id,
             dropZoneIdentifier : me.dropZoneIdentifier,
-            ...(data?.gestureId != null && {gestureId: data.gestureId}),
             moveHorizontal     : me.moveHorizontal,
             moveVertical       : me.moveVertical,
             resizeConfig       : me.resizeConfig,
