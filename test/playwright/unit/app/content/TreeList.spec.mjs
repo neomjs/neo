@@ -361,7 +361,7 @@ test.describe('Portal learn API Docs link routing (#5574)', () => {
         }
     });
 
-    test('Retained Decisions in learn/tree.json shows all 8 substantive Engine ADRs and hides the 5 moved redirect stubs (#20526)', async () => {
+    test('Retained Decisions in learn/tree.json shows all 9 substantive Engine ADRs and hides the 5 moved redirect stubs (#20526)', async () => {
         const treeData            = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'learn/tree.json'), 'utf8')).data,
               usingTheseTopics    = fs.readFileSync(path.resolve(process.cwd(), 'learn/UsingTheseTopics.md'), 'utf8'),
               visibleEngineLeaves = treeData.filter(node => node.isLeaf !== false && !node.hidden),
@@ -371,7 +371,7 @@ test.describe('Portal learn API Docs link routing (#5574)', () => {
 
         const engineCount = visibleEngineLeaves.length, federatedCount = 95;
         expect(usingTheseTopics).toContain(`composes \`${engineCount + federatedCount}\` visible topics across ten sections (\`${engineCount}\` Engine topics plus \`${federatedCount}\` federated guides`);
-        expect(usingTheseTopics).toContain('and `8` retained Architectural Decision Records (`78` topics).');
+        expect(usingTheseTopics).toContain('and `9` retained Architectural Decision Records (`79` topics).');
 
         expect(visible).toEqual([
             'agentos/decisions/0004-github-content-architecture',
@@ -381,7 +381,8 @@ test.describe('Portal learn API Docs link routing (#5574)', () => {
             'agentos/decisions/0021-extended-nl-multi-writer-write-enforcement',
             'agentos/decisions/0029-docking-design',
             'agentos/decisions/0031-target-architecture-composition',
-            'agentos/decisions/0043-vdom-diff-placement'
+            'agentos/decisions/0043-vdom-diff-placement',
+            'agentos/decisions/0045-touch-gesture-events'
         ]);
 
         expect(hidden).toEqual([
@@ -413,6 +414,7 @@ test.describe('Portal learn API Docs link routing (#5574)', () => {
             await tree.initVnode();
             expect(tree.getVdomChild(tree.getItemId('agentos/decisions/0004-github-content-architecture')).style.display).toBe('flex');
             expect(tree.getVdomChild(tree.getItemId('agentos/decisions/0007-agents-md-compaction-taxonomy')).style.display).toBe('flex');
+            expect(tree.getVdomChild(tree.getItemId('agentos/decisions/0045-touch-gesture-events')).style.display).toBe('flex');
             expect(tree.getVdomChild(tree.getItemId('agentos/decisions/0020-agent-harness-concept')).style.display).toBe('none');
             expect(tree.getVdomChild(tree.getItemId('agentos/decisions/0038-fm-client-topology')).style.display).toBe('none')
         } finally {
