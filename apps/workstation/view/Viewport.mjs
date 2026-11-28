@@ -30,6 +30,12 @@ class Viewport extends BaseViewport {
          */
         className: 'Workstation.view.Viewport',
         /**
+         * Workstation's product palette, `theme-neo/apps/workstation/Global.css`. Every window the product opens
+         * boots this viewport, the pop-out host included, so each loads the palette once.
+         * @member {String[]} additionalThemeFiles=['Workstation.Global']
+         */
+        additionalThemeFiles: ['Workstation.Global'],
+        /**
          * @member {String[]} cls=['workstation-viewport']
          */
         cls: ['workstation-viewport'],
