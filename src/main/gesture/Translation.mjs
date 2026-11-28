@@ -1,8 +1,5 @@
 import Base from '../../core/Base.mjs';
 
-const swipeNoise  = 2,
-      swipeRestMs = 50;
-
 /**
  * @summary Recognizes continuous pan and terminal swipe from the Main contact owner's normalized frames.
  * @class Neo.main.gesture.Translation
@@ -140,11 +137,13 @@ class Translation extends Base {
 
     /**
      * @summary Reports a single directional swipe at the observed one-contact lift position.
-     * Recent samples must sustain motion toward the lift. Within the release window, tolerate
-     * two CSS pixels of coordinate jitter and require meaningful advance within 50 ms of lift.
+     * Within `swipeReleaseWindow`, tolerate reverse jitter up to `swipeNoise` and require
+     * meaningful advance within `swipeRestMs` of the lift.
      * @param {Object} frame
      */
     trackSwipe({claim, kind, contacts, elapsed, lifted=[]}) {
+        const {swipeDirectionRatio, swipeDistance, swipeNoise, swipeReleaseWindow, swipeRestMs, swipeSampleLimit, swipeVelocity} = this.settings;
+
         let state = this.#claims.get(claim);
 
         if (kind === 'cancel') {
@@ -161,8 +160,9 @@ class Translation extends Base {
             state.single &&= contacts.length === 1;
             if (!state.single) return;
 
-            state.samples = state.samples.filter(sample => elapsed - sample.elapsed <= this.settings.swipeReleaseWindow).slice(-31);
-            state.samples.push({...contacts[0], elapsed});
+            const samples = state.samples.filter(sample => elapsed - sample.elapsed <= swipeReleaseWindow);
+            samples.push({...contacts[0], elapsed});
+            state.samples = samples.slice(Math.max(0, samples.length - swipeSampleLimit));
             return
         }
 
@@ -172,7 +172,7 @@ class Translation extends Base {
 
         if (!state?.single || kind !== 'end' || point?.id !== state.origin.id) return;
 
-        const recent = state.samples.find(sample => elapsed - sample.elapsed <= this.settings.swipeReleaseWindow && elapsed > sample.elapsed);
+        const recent = state.samples.find(sample => elapsed - sample.elapsed <= swipeReleaseWindow && elapsed > sample.elapsed);
 
         if (!recent) return;
 
@@ -186,8 +186,8 @@ class Translation extends Base {
               speed      = horizontal ? velocityX : velocityY,
               sign       = Math.sign(main);
 
-        if (!Number.isFinite(velocityX) || !Number.isFinite(velocityY) || Math.abs(main) < this.settings.swipeDistance ||
-            Math.abs(main) < this.settings.swipeDirectionRatio * Math.abs(cross) || speed * sign < this.settings.swipeVelocity) {
+        if (!Number.isFinite(velocityX) || !Number.isFinite(velocityY) || Math.abs(main) < swipeDistance ||
+            Math.abs(main) < swipeDirectionRatio * Math.abs(cross) || speed * sign < swipeVelocity) {
             return
         }
 
@@ -205,7 +205,7 @@ class Translation extends Base {
 
             furthest = Math.max(furthest, position);
 
-            if (position - advanced >= Math.max(swipeNoise, this.settings.swipeVelocity * (sample.elapsed - lastMotion))) {
+            if (position - advanced >= Math.max(swipeNoise, swipeVelocity * (sample.elapsed - lastMotion))) {
                 advanced   = position;
                 lastMotion = sample.elapsed
             }

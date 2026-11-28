@@ -55,13 +55,15 @@ async function bootMotion(page, policy) {
                 [`pan:${phase}`]: data => {
                     const {deltaX, deltaY, elapsed, stepX, stepY, trusted, velocityX, velocityY} = data;
 
-                    target.motion.pan.push({deltaX, deltaY, elapsed, phase, stepX, stepY, trusted, velocityX, velocityY})
+                    target.motion.pan.push({deltaX, deltaY, elapsed, lifted: Object.hasOwn(data, 'lifted'), phase,
+                        stepX, stepY, trusted, velocityX, velocityY})
                 }
             })),
             {swipe: data => {
                 const {contacts, direction, phase, trusted, velocityX, x, y} = data;
 
-                target.motion.swipes.push({contacts, direction, phase, trusted, velocityX, x, y})
+                target.motion.swipes.push({contacts, direction, lifted: Object.hasOwn(data, 'lifted'), phase,
+                    trusted, velocityX, x, y})
             }}
         ]
     });
@@ -78,7 +80,18 @@ async function bootMotion(page, policy) {
     await expect.poll(() => host.evaluate(node => node.scrollHeight - node.clientHeight)).toBeGreaterThan(200);
 
     await page.evaluate(() => {
-        window.translationNative = {cancels: 0, releases: []};
+        const addon = Neo.main.addon.Gesture;
+
+        window.translationNative = {cancels: 0, frames: [], releases: []};
+        addon.on('contact', frame => {
+            const {claim, kind, lifted} = frame;
+
+            if (claim.node.id === 'translation-target') {
+                window.translationNative.frames.push({
+                    family: claim.family, kind, lifted, hasLifted: Object.hasOwn(frame, 'lifted')
+                })
+            }
+        }, addon);
 
         document.addEventListener('pointercancel', event => {
             if (event.pointerType === 'touch' && event.isTrusted) window.translationNative.cancels++
@@ -111,28 +124,22 @@ test('translation accumulates coalesced steps, rebases the centroid, and qualifi
 
     try {
         const frames = await page.evaluate(async () => {
-            const addon   = Neo.main.addon.Gesture,
-                  manager = Neo.worker.Manager,
-                  send    = manager.sendMessage.bind(manager),
-                  records = [],
-                  point   = (id, x, y=15) => ({id, x, y}),
-                  fake    = family => ({family, gestureId: null, live: true, owner: {componentId: 'probe', id: 'probe', registrationId: -1},
-                      sequence: {claims: new Map(), path: []}}),
-                  sample  = (claim, kind, elapsed, contacts, changed, lifted) => {
-                      claim.frame = {contacts, changed, elapsed, pointerType: 'touch', trusted: false};
-                      addon.fire('contact', {claim, kind, ...claim.frame, lifted})
+            const Translation = Neo.main.gesture.Translation,
+                  records     = [],
+                  point       = (id, x, y=15) => ({id, x, y}),
+                  translation = Neo.create(Translation, {
+                      doc    : document,
+                      publish: (claim, type, data) => {
+                          records.push({...data, type});
+                          return true
+                      },
+                      settings: Neo.main.addon.Gesture
+                  }),
+                  sample = (claim, kind, elapsed, contacts, changed, lifted) => {
+                      translation.track({claim, kind, contacts, changed, elapsed, lifted})
                   };
 
-            manager.sendMessage = (destination, message, transfer) => {
-                if (message.data?.gestureOwner?.componentId === 'probe') {
-                    records.push(message.data);
-                    return
-                }
-
-                return send(destination, message, transfer)
-            };
-
-            const pan = fake('pan');
+            const pan = {family: 'pan'};
             sample(pan, 'start', 0, [point(3, 20)], [3]);
             sample(pan, 'move', 0, [point(3, 27)], [3]);
             sample(pan, 'move', 10, [point(3, 37)], [3]);
@@ -147,7 +154,7 @@ test('translation accumulates coalesced steps, rebases the centroid, and qualifi
             await new Promise(resolve => requestAnimationFrame(resolve));
 
             const swipe = (moves, [endAt, endX, endY=15]) => {
-                const claim = fake('swipe');
+                const claim = {family: 'swipe'};
 
                 sample(claim, 'start', 0, [point(4, 20)], [4]);
 
@@ -169,12 +176,13 @@ test('translation accumulates coalesced steps, rebases the centroid, and qualifi
             swipe([[30, 20, -65], [45, 20, -64]], [57, 20, -64]);
             swipe([[30, 120]], [80, 120]);
             swipe([[30, 120]], [81, 120]);
+            translation.destroy();
             return records
         });
 
         const pan = frames.filter(event => event.type.startsWith('pan:'));
-        expect(pan.map(({phase, deltaX, stepX}) => [phase, deltaX, stepX])).toEqual([
-            ['start', 7, 7], ['move', 37, 30], ['move', 37, 0], ['cancel', 57, 20]
+        expect(pan.map(({type, deltaX, stepX}) => [type, deltaX, stepX])).toEqual([
+            ['pan:start', 7, 7], ['pan:move', 37, 30], ['pan:move', 37, 0], ['pan:cancel', 57, 20]
         ]);
         expect(pan[0].velocityX).toBe(0);
         expect(pan[2]).toMatchObject({contacts: [{id: 1, x: 97}], changed: [1, 0]});
@@ -192,6 +200,45 @@ test('translation accumulates coalesced steps, rebases the centroid, and qualifi
     }
 });
 
+test('Translation uses the Main addon policy to cap swipe history', async ({page}) => {
+    const {cdp} = await bootMotion(page, 'none');
+
+    try {
+        const {defaultLimit, directions} = await page.evaluate(() => {
+            const Translation  = Neo.main.gesture.Translation,
+                  settings     = Neo.main.addon.Gesture,
+                  defaultLimit = settings.swipeSampleLimit,
+                  claim        = {family: 'swipe'},
+                  start        = {id: 0, x: 0, y: 10},
+                  lift         = {id: 0, x: 80, y: 10};
+
+            const directions = [defaultLimit, 1].map(swipeSampleLimit => {
+                settings.swipeSampleLimit = swipeSampleLimit;
+
+                const events     = [],
+                      recognizer = Neo.create(Translation, {
+                          doc    : document,
+                          publish: (owner, type, data) => {events.push(data.direction)},
+                          settings
+                      });
+
+                recognizer.track({claim, kind: 'start', elapsed: 0, contacts: [start]});
+                recognizer.track({claim, kind: 'move', elapsed: 30, contacts: [lift]});
+                recognizer.track({claim, kind: 'end', elapsed: 70, contacts: [], lifted: [lift]});
+                recognizer.destroy();
+                return events
+            });
+
+            return {defaultLimit, directions}
+        });
+
+        expect(defaultLimit).toBe(32);
+        expect(directions).toEqual([['right'], []])
+    } finally {
+        await cdp.detach()
+    }
+});
+
 test('trusted horizontal input reaches App pan and swipe with the observed native release position', async ({page}) => {
     const {cdp, motion, native, send} = await bootMotion(page, 'pan-y');
 
@@ -203,13 +250,18 @@ test('trusted horizontal input reaches App pan and swipe with the observed nativ
         await send('touchEnd', 255, 265);
 
         await expect.poll(async () => (await motion()).swipes).toHaveLength(1);
-        const result = await motion(), release = (await native()).releases.at(-1);
+        const result = await motion(), {frames, releases} = await native(), release = releases.at(-1);
 
-        expect(result.swipes[0]).toMatchObject({trusted: true, direction: 'right', contacts: [], ...release});
+        expect(frames.filter(frame => frame.kind === 'end')).toEqual(['pan', 'swipe'].map(family => ({
+            family, kind: 'end', hasLifted: true, lifted: [{id: 0, ...release}]
+        })));
+        expect(frames.some(frame => frame.kind !== 'end' && frame.hasLifted)).toBe(false);
+        expect(result.swipes[0]).toMatchObject({trusted: true, direction: 'right', contacts: [], lifted: false, ...release});
         expect(result.swipes[0].phase).toBeUndefined();
         expect(result.swipes[0].velocityX).toBeGreaterThan(0);
         expect(result.pan[0]).toMatchObject({phase: 'start', trusted: true});
         expect(result.pan.at(-1)).toMatchObject({phase: 'end', deltaX: 195, deltaY: 0});
+        expect(result.pan.some(event => event.lifted)).toBe(false);
         expect(result.pan.some(event => event.phase === 'move')).toBe(true)
     } finally {
         await cdp.detach()
@@ -229,9 +281,10 @@ test('native vertical scroll never commits a swipe', async ({page}) => {
         await expect.poll(async () => (await native()).cancels).toBeGreaterThan(0);
         await send('touchEnd');
 
-        const result = await motion();
+        const result = await motion(), {frames} = await native();
 
         expect(result.swipes).toEqual([]);
+        expect(frames.filter(frame => frame.kind === 'cancel').every(frame => !frame.hasLifted)).toBe(true);
         expect(result.pan.filter(event => event.phase === 'end')).toEqual([]);
         if (result.pan.length) expect(result.pan.at(-1).phase).toBe('cancel')
     } finally {

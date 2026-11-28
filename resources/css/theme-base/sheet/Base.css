@@ -1,0 +1,14 @@
+/* Sheet, every theme: each variable bound to a role (ADR 0044 decision 4). A theme re-values one in its own
+   sheet/Base.css only where its design language deviates. The rules in src/sheet/Base.css read these. */
+[class*="neo-theme-"] {
+    --neo-sheet-background-color          : var(--neo-color-background-surface-raised);
+    --neo-sheet-border-color              : var(--neo-color-border-default);
+    --neo-sheet-border-radius             : var(--neo-radius-extra-large);
+    --neo-sheet-box-shadow                : var(--neo-elevation-3);
+    --neo-sheet-color                     : var(--neo-color-text-default);
+    --neo-sheet-max-inline-size           : calc(var(--neo-space-16) * 10);
+    --neo-sheet-toggle-inset              : var(--neo-space-1);
+    --neo-sheet-toggle-size               : var(--neo-space-12);
+    --neo-sheet-transition-duration       : var(--neo-duration-panel);
+    --neo-sheet-transition-timing-function: var(--neo-ease-out);
+}

@@ -1,0 +1,5 @@
+/* Container base, every theme: default surface fill and text colour. */
+[class*="neo-theme-"] {
+    --neo-container-background-color: var(--neo-color-background-surface);
+    --neo-container-color           : var(--neo-color-text-default);
+}

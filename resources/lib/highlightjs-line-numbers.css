@@ -1,0 +1,11 @@
+.hljs-ln {
+    border-collapse: collapse;
+}
+
+.hljs-ln td {
+    padding: 0;
+}
+
+.hljs-ln-n:before {
+    content: attr(data-line-number);
+}

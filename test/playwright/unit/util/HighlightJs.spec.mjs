@@ -65,6 +65,7 @@ test.describe('Neo.util.HighlightJs — consumer-generated bundle paths', () => 
     };
 
     test('the declared default loads its consumer-generated file', async () => {
+        expect(originalDebug).toBe(false);
         Neo.config.basePath = installConsumerBundles();
 
         await HighlightJs.load();
@@ -72,13 +73,13 @@ test.describe('Neo.util.HighlightJs — consumer-generated bundle paths', () => 
         expect(HighlightJs.hljs.bundle).toBe(originalDebug ? bundles.debug : bundles.production)
     });
 
-    test('so does the other value of debug, a public config a consumer may set', async () => {
+    test('debug opt-in loads the unminified consumer bundle', async () => {
         Neo.config.basePath = installConsumerBundles();
-        HighlightJs.debug   = !originalDebug;
+        HighlightJs.debug   = true;
 
         await HighlightJs.load();
 
-        expect(HighlightJs.hljs.bundle).toBe(originalDebug ? bundles.production : bundles.debug)
+        expect(HighlightJs.hljs.bundle).toBe(bundles.debug)
     });
 
     test('a worker resolves a relative workspace root against the originating page', async () => {

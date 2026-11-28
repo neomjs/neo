@@ -2,9 +2,11 @@ import Base from '../core/Base.mjs';
 
 const
     formatRegex = /\{(\d+)\}/g,
-    lineRegex   = /\\r\\n|\\r|\\n/g;
+    lineRegex   = /\r\n|\r|\n/g;
 
 /**
+ * @summary Shared line-number markup for highlighted code in workers and Main.
+ *
  * Node.js-capable version of: https://github.com/yauhenipakala/highlightjs-line-numbers.js
  * @class Neo.util.HighlightJsLineNumbers
  * @extends Neo.core.Base
@@ -43,18 +45,20 @@ class HighlightJsLineNumbers extends Base {
     }
 
     /**
-     * @param {String} html
-     * @param {String} windowId
+     * @summary Numbers highlighted lines without changing their text or multiline token scopes.
+     * @param {String} html Highlight.js output with escaped source text.
+     * @param {String} [windowId] Worker-owned window requiring the line-number theme.
      * @returns {String}
      */
     addLineNumbers(html, windowId) {
         let me     = this,
             lines  = me.getLines(html),
+            breaks = html.match(lineRegex) || [],
             result = '';
 
         if (lines.length > 0) {
-            // This instance is not a component and should load related CSS files into the used windows.
-            windowId && Neo.currentWorker.insertThemeFiles(windowId, me.__proto__);
+            // Workers load theme files here; the Main addon owns its standalone stylesheet.
+            windowId && Neo.currentWorker?.insertThemeFiles(windowId, me.__proto__);
 
             for (let i = 0; i < lines.length; i++) {
                 result += me.format([
@@ -73,7 +77,7 @@ class HighlightJsLineNumbers extends Base {
                     me.DATA_ATTR_NAME,
                     me.CODE_BLOCK_NAME,
                     i + 1,
-                    lines[i].length > 0 ? lines[i] : ' '
+                    lines[i] + (breaks[i] || '').replace(/\r/g, '&#13;')
                 ])
             }
 
@@ -84,18 +88,23 @@ class HighlightJsLineNumbers extends Base {
     }
 
     /**
-     * @param {String} text
+     * @summary Splits real newlines and closes/reopens active Highlight.js spans at each row boundary.
+     * @param {String} text Highlight.js output.
      * @returns {String[]}
      */
     getLines(text) {
         if (text.length === 0) return [];
-        const lines = text.split(lineRegex);
+        let spans = [];
 
-        if (lines.length > 0 && lines[lines.length - 1].trim() === '') {
-            lines.pop()
-        }
+        return text.split(lineRegex).map(line => {
+            let prefix = spans.join('');
 
-        return lines
+            for (let [tag] of line.matchAll(/<span\b[^>]*>|<\/span>/g)) {
+                tag === '</span>' ? spans.pop() : spans.push(tag)
+            }
+
+            return prefix + line + '</span>'.repeat(spans.length)
+        })
     }
 }
 
