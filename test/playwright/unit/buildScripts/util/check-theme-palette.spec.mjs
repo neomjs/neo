@@ -1,8 +1,9 @@
-import {test, expect}  from '@playwright/test';
-import fs              from 'node:fs';
-import os              from 'node:os';
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {test, expect}            from '@playwright/test';
+import {execFileSync, spawnSync} from 'node:child_process';
+import fs                        from 'node:fs';
+import os                        from 'node:os';
+import path                      from 'node:path';
+import {fileURLToPath}           from 'node:url';
 
 const
     __dirname  = path.dirname(fileURLToPath(import.meta.url)),
@@ -15,10 +16,10 @@ const
  * change each, so every arm measures a real palette and a planted fault is the only difference.
  */
 test.describe('check-theme-palette.mjs — grade lightness and contrast floors of a theme palette', () => {
-    let CONTRAST_PAIRS, GRADES, SCAN_SURFACE, inspectThemePalettes, parseColor, resolveValue, source, tmpRoot;
+    let CONTRAST_PAIRS, GRADES, SCAN_SURFACE, inspectThemePalettes, measureThemePairContrast, parseColor, resolveValue, source, tmpRoot;
 
     test.beforeAll(async () => {
-        ({CONTRAST_PAIRS, GRADES, SCAN_SURFACE, inspectThemePalettes, parseColor, resolveValue} = await import(modulePath));
+        ({CONTRAST_PAIRS, GRADES, SCAN_SURFACE, inspectThemePalettes, measureThemePairContrast, parseColor, resolveValue} = await import(modulePath));
         source = fs.readFileSync(liveGlobal, 'utf8')
     });
 
@@ -35,8 +36,12 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         neoName = suffix => '--' + 'neo-' + suffix,
         setRole = (css, name, value) => css.replace(new RegExp(`(${name}\\s*:\\s*)[^;]+;`), `$1${value};`),
         inspect = files => {
+            const cssDir = path.join(tmpRoot, 'resources/css');
+
+            fs.rmSync(cssDir, {force: true, recursive: true});
+
             for (const [rel, body] of Object.entries(files)) {
-                const target = path.join(tmpRoot, 'resources/css', rel);
+                const target = path.join(cssDir, rel);
 
                 fs.mkdirSync(path.dirname(target), {recursive: true});
                 fs.writeFileSync(target, body, 'utf8')
@@ -59,11 +64,14 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             return inspect({'theme-neo/Global.css': source, 'theme-second/Global.css': change(copy)})
         };
 
-    test('CONTROL: the live repository passes, and theme Neo is measured in both schemes', () => {
+    test('CONTROL: the live repository passes, and Neo and Material are measured in both schemes', () => {
         const {failures, palettes} = inspectThemePalettes();
 
         expect(failures).toEqual([]);
-        expect(palettes).toEqual(expect.arrayContaining(['neo-theme-neo-light (light)', 'neo-theme-neo-dark (dark)']));
+        expect(palettes).toEqual(expect.arrayContaining([
+            'neo-theme-neo-light (light)',      'neo-theme-neo-dark (dark)',
+            'neo-theme-material-light (light)', 'neo-theme-material-dark (dark)'
+        ]));
         expect(CONTRAST_PAIRS).toHaveLength(41);
         expect(GRADES).toEqual([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]);
         expect(SCAN_SURFACE).toEqual(['resources/css/**/*.css'])
@@ -140,7 +148,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         )
     });
 
-    test('a grade outside the eleven fails, and the eight extras are not read as grades', () => {
+    test('a grade outside the eleven fails, and the palette extras are not read as grades', () => {
         const
             offGrade   = neoName('palette-accent-550'),
             {failures} = plant(css => css.replace('--neo-palette-accent-600', `${offGrade}: oklch(0.58 0.18 267);\n    --neo-palette-accent-600`));
@@ -269,18 +277,24 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             '\n.neo-theme-neo-light { @media print { --button-color: red; } }');
 
         expect(failures).toEqual([]);
-        expect(names).toBe(197)
+        expect(names).toBe(198)
     });
 
-    test('a measured name with a second value fails in whichever sheet it sits', () => {
+    test('a measured name with a second value fails across companion Global.css sheets, and any role or palette name outside Global.css fails as [scope]', () => {
         const override = ':root .neo-theme-neo-light { --neo-color-text-default: var(--neo-color-background-canvas); }';
 
-        // A component file of the companion folder, one of another theme's folder, and a structural sheet.
-        for (const rel of ['theme-neo-light/button/Base.css', 'theme-light/button/Base.css', 'src/button/Base.css']) {
+        for (const rel of ['theme-neo-light/Global.css', 'theme-light/Global.css']) {
             expect(inspect({'theme-neo/Global.css': source, [rel]: override}).failures).toEqual([expect.stringMatching(new RegExp(
                 '^\\[cascade\\] --neo-color-text-default has 2 values for \\.neo-theme-neo-light ' +
                 `\\((?=[^)]*resources/css/theme-neo/Global\\.css)(?=[^)]*resources/css/${rel})`
             ))])
+        }
+
+        // A component file of the companion folder, one of another theme's folder, and a structural sheet.
+        for (const rel of ['theme-neo-light/button/Base.css', 'theme-light/button/Base.css', 'src/button/Base.css']) {
+            expect(inspect({'theme-neo/Global.css': source, [rel]: override}).failures).toEqual([
+                `[scope] resources/css/${rel} declares or registers --neo-color-text-default outside Global.css; palette and role names are declared in Global.css only`
+            ])
         }
     });
 
@@ -298,7 +312,9 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
 
         // A structural sheet that re-binds the role on a subtree, and one that registers the name.
         for (const rule of [`.neo-button { ${override} }`, '@property --neo-color-text-default { syntax: "<color>"; inherits: false; initial-value: red; }']) {
-            expect(inspect({'theme-neo/Global.css': source, 'src/button/Base.css': rule}).failures).toEqual(scope('src/button/Base\\.css'))
+            expect(inspect({'theme-neo/Global.css': source, 'src/button/Base.css': rule}).failures).toEqual([
+                '[scope] resources/css/src/button/Base.css declares or registers --neo-color-text-default outside Global.css; palette and role names are declared in Global.css only'
+            ])
         }
     });
 
@@ -358,9 +374,9 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             block                = '.neo-theme-neo-light, .neo-theme-neo-dark {',
             {failures, palettes} = plant(css => css.replace(block, '.neo-theme-neo-light, .neo-theme-neo-dark, * {'));
 
-        // The block holds the 85 palette entries and the 46 colour roles; the scheme has a rule of its own.
+        // The block holds 86 palette entries and 46 colour roles. The scheme has a rule of its own.
         expect(palettes).toEqual([]);
-        expect(failures).toHaveLength(131);
+        expect(failures).toHaveLength(132);
         expect(failures.every(failure => failure.startsWith('[scope] resources/css/theme-neo/Global.css declares or registers --neo-'))).toBe(true)
     });
 
@@ -393,18 +409,176 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             .toEqual(cascade)
     });
 
-    test('CONTROL: a scale role re-valued by a scope or a condition passes, and so do a repeated value and a query', () => {
-        const {failures, names} = inspect({
-            'theme-neo/Global.css'           : source,
-            // The reduced-motion collapse as `src` holds it: the class read off the attribute, and a condition.
-            'src/Global.css'                 : ':where([class^="neo-theme-"]) { --neo-duration-fast: 120ms; @media (prefers-reduced-motion: reduce) { --neo-duration-fast: 0ms; } }',
-            'src/board/Container.css'        : '.neo-board { --neo-board-gap: 8px; @media print { --neo-board-gap: 0; } }',
-            'src/grid/Container.css'         : '@container style(--neo-color-scheme: dark) { .neo-grid { --grid-color: red; } }',
-            'theme-neo-light/button/Base.css': ':root .neo-theme-neo-light { --neo-color-scheme: light; --button-color: red; }'
-        });
+    test('CONTROL: a scale role re-valued by a scope or a condition in Global.css passes, and non-declaration tokens in component sheets are ignored', () => {
+        const
+            probeRole         = neoName('radius-probe'),
+            {failures, names} = inspect({
+                'theme-neo/Global.css'           : `${source}\n.neo-theme-neo-light { .neo-dense & { --neo-control-height-medium: 28px; } }`,
+                // Reduced-motion collapse, plain density class, root-descendant density class, quoted density attribute, and `.neo-theme-scope`.
+                'src/Global.css'                 : [
+                    ':where([class^="neo-theme-"], [class*=" neo-theme-"]) { @media (prefers-reduced-motion: reduce) { --neo-duration-fast: 0ms; } }',
+                    '.neo-density-compact { --neo-control-height-medium: 28px; }',
+                    ':root .density-compact { --neo-control-height-small: 22px; }',
+                    '[class^="density-"] { --neo-control-gap: 4px; }',
+                    '.neo-theme-scope { --neo-space-1: 6px; }'
+                ].join('\n'),
+                'src/board/Container.css'        : [
+                    '.neo-board { --neo-board-gap: 8px; @media print { --neo-board-gap: 0; } }',
+                    `.${probeRole}:hover { color: red; }`,
+                    `.neo-board { --widget-data: { ${probeRole}: 1px; }; }`
+                ].join('\n'),
+                'src/grid/Container.css'         : '@container style(--neo-color-scheme: dark) { .neo-grid { --grid-color: red; } }',
+                'theme-neo-light/Global.css'     : ':root .neo-theme-neo-light { --neo-color-scheme: light; }',
+                'theme-neo-light/button/Base.css': ':root .neo-theme-neo-light { --button-color: red; }'
+            });
 
         expect(failures).toEqual([]);
-        expect(names).toBe(197)
+        expect(names).toBe(198)
+    });
+
+    test('the four planted role/condition escapes fail with sheet and name, and src/Global.css refuses every selector arm that reaches a bare theme', () => {
+        const
+            newScale  = neoName('space-99'),
+            probeRole = neoName('radius-probe');
+
+        // 1. A new scale role in a theme widget sheet, on a component selector (even alongside non-declaration controls).
+        expect(inspect({
+            'theme-neo/Global.css'          : source,
+            'theme-neo-dark/button/Base.css': [
+                `.${probeRole}:hover { color: red; }`,
+                `.neo-button { --widget-data: { ${probeRole}: 1px; }; ${newScale}: 1px; }`
+            ].join('\n')
+        }).failures).toEqual([
+            `[scope] resources/css/theme-neo-dark/button/Base.css declares or registers ${newScale} outside Global.css; palette and role names are declared in Global.css only`
+        ]);
+
+        // 2. The same, on a theme-class rule of the widget sheet.
+        expect(inspect({
+            'theme-neo/Global.css'          : source,
+            'theme-neo-dark/button/Base.css': `:root .neo-theme-neo-dark { ${newScale}: 1px; }`
+        }).failures).toEqual([
+            `[scope] resources/css/theme-neo-dark/button/Base.css declares or registers ${newScale} outside Global.css; palette and role names are declared in Global.css only`
+        ]);
+
+        // 3. An existing motion role re-valued in a `src` rule sheet.
+        for (const rule of ['.neo-button { --neo-duration-fast: 0ms; }', ':where([class^="neo-theme-"]) { --neo-duration-fast: 0ms; }']) {
+            expect(inspect({
+                'theme-neo/Global.css': source,
+                'src/button/Base.css' : rule
+            }).failures).toEqual([
+                '[scope] resources/css/src/button/Base.css declares or registers --neo-duration-fast outside Global.css; palette and role names are declared in Global.css only'
+            ])
+        }
+
+        // 4. A colour role under a condition nested inside the rule of a theme class without a palette.
+        expect(inspect({
+            'theme-neo/Global.css' : source,
+            'theme-dark/Global.css': '.neo-theme-dark { --neo-color-scheme: dark; @media (min-width: 0px) { --neo-color-text-default: red; } }'
+        }).failures).toEqual([
+            '[conditional] resources/css/theme-dark/Global.css declares --neo-color-text-default for .neo-theme-dark inside ' +
+            '@media (min-width: 0px); this check reads no condition and cannot tell when that value paints'
+        ]);
+
+        // `src/Global.css` refuses unconditional motion roles (normal values live in each theme's Global.css)
+        // and refuses any selector list where at least one effective arm reaches the bare theme or root.
+        for (const [selector, role] of [
+            [':where([class^="neo-theme-"])',             '--neo-duration-fast'],
+            ['.neo-theme-neo-light',                      '--neo-duration-fast'],
+            [':is(.neo-theme-neo-light)',                 '--neo-space-1'],
+            ['.neo-theme-neo-light, .density-compact',    '--neo-space-1'],
+            [':where(.neo-theme-neo-light, .density-compact)', '--neo-space-1'],
+            [':is(.density-compact, [class*="neo-theme-"])',   '--neo-space-1'],
+            [':root .neo-theme-neo-light',                '--neo-space-1']
+        ]) {
+            expect(inspect({
+                'theme-neo/Global.css': source,
+                'src/Global.css'      : `${selector} { ${role}: 8px; }`
+            }).failures, selector).toEqual([
+                `[scope] resources/css/src/Global.css declares or registers ${role} without a scope or condition; src/Global.css only re-values scale roles under a scope or condition`
+            ])
+        }
+
+        expect(inspect({
+            'theme-neo/Global.css': source,
+            'src/Global.css'      : '.neo-density-compact { --neo-color-text-default: red; }'
+        }).failures).toEqual([
+            '[scope] resources/css/src/Global.css declares or registers --neo-color-text-default outside a theme Global.css; palette and colour-role names belong to a theme class in theme-<name>/Global.css'
+        ])
+    });
+
+    test('measureThemePairContrast and the --contrast CLI print both scheme ratios and match checkPalette across every checked pair', () => {
+        const selected = measureThemePairContrast('text-default', 'background-selected');
+
+        expect(selected.failures).toEqual([]);
+        expect(selected.pairs.map(({formatted, scheme, themeClass}) => ({formatted, scheme, themeClass}))).toEqual([
+            {formatted: '13.11:1', scheme: 'light', themeClass: 'neo-theme-neo-light'},
+            {formatted: expect.stringMatching(/^\d+\.\d\d:1$/), scheme: 'dark', themeClass: 'neo-theme-neo-dark'}
+        ]);
+
+        const stdout = execFileSync(process.execPath, [modulePath, '--contrast', 'text-default', 'background-selected'], {
+            cwd     : repoRoot,
+            encoding: 'utf8'
+        });
+
+        expect(stdout.trim().split('\n')).toEqual([
+            '--neo-color-text-default on --neo-color-background-selected',
+            `  neo-theme-neo-light (light): ${selected.pairs[0].formatted}`,
+            `  neo-theme-neo-dark (dark): ${selected.pairs[1].formatted}`
+        ]);
+
+        // The default command measures Neo. Selecting Material reports both of its schemes instead.
+        const material = measureThemePairContrast('text-default', 'background-selected', {theme: 'material'});
+        expect(material.failures).toEqual([]);
+        expect(material.pairs.map(({themeClass}) => themeClass)).toEqual(['neo-theme-material-light', 'neo-theme-material-dark']);
+
+        const materialOutput = execFileSync(process.execPath, [modulePath, '--contrast', 'text-default', 'background-selected', '--theme', 'material'], {
+            cwd     : repoRoot,
+            encoding: 'utf8'
+        });
+
+        expect(materialOutput.trim().split('\n')).toEqual([
+            '--neo-color-text-default on --neo-color-background-selected',
+            `  neo-theme-material-light (light): ${material.pairs[0].formatted}`,
+            `  neo-theme-material-dark (dark): ${material.pairs[1].formatted}`
+        ]);
+
+        // Every checked pair passes its floor in both schemes of both palettes.
+        for (const [foreground, background, floor] of CONTRAST_PAIRS) {
+            const fromCommand = measureThemePairContrast(foreground, background, {theme: 'all'});
+
+            expect(fromCommand.failures).toEqual([]);
+            expect(fromCommand.pairs).toHaveLength(4);
+            expect(fromCommand.pairs.every(({ratio}) => ratio >= floor)).toBe(true)
+        }
+
+        // Exact numerical agreement with checkPalette's formatted `[pair] ... is X.XX:1` output across all seven
+        // text-default pairs in both schemes (opaque surfaces and translucent neutral-hover / neutral-active).
+        const weakDefault = plant(css => setRole(css, '--neo-color-text-default',
+            'light-dark(var(--neo-palette-neutral-400), var(--neo-palette-neutral-700))'));
+
+        for (const [foreground, background, floor] of CONTRAST_PAIRS.filter(([fg]) => fg === '--neo-color-text-default')) {
+            const measured = measureThemePairContrast(foreground, background, {root: tmpRoot});
+
+            expect(measured.failures).toEqual([]);
+
+            for (const {formatted, scheme, themeClass} of measured.pairs) {
+                expect(weakDefault.failures).toContain(
+                    `[pair] resources/css/theme-neo/Global.css .${themeClass} (${scheme}) ${foreground} on ${background} is ${formatted}; the floor is ${floor}:1`
+                )
+            }
+        }
+
+        // Translucent foreground composited over the background, and non-zero exit on an undeclared name.
+        const translucent = measureThemePairContrast('shade-3', 'background-canvas');
+        expect(translucent.failures).toEqual([]);
+        expect(translucent.pairs).toHaveLength(2);
+
+        const missing = spawnSync(process.execPath, [modulePath, '--contrast', 'text-default', 'background-missing'], {
+            cwd     : repoRoot,
+            encoding: 'utf8'
+        });
+        expect(missing.status).toBe(1);
+        expect(missing.stderr).toContain('background-missing')
     });
 
     test('a colour the browser clamps is measured as it paints, and a malformed number fails closed', () => {
@@ -444,12 +618,12 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
     });
 
     test('a palette entry that no measured pair reads is still read as a colour, and so is each role that reads it', () => {
-        const {failures} = plant(css => setRole(css, '--neo-palette-shade-4', 'rgb(0 0 0 / )'));
+        const {failures} = plant(css => setRole(css, '--neo-palette-shade-5', 'rgb(0 0 0 / )'));
 
         expect(failures).toHaveLength(3);
-        expect(failures).toContain(`[palette] resources/css/theme-neo/Global.css --neo-palette-shade-4: cannot read 'rgb(0 0 0 / )' as a colour`);
+        expect(failures).toContain(`[palette] resources/css/theme-neo/Global.css --neo-palette-shade-5: cannot read 'rgb(0 0 0 / )' as a colour`);
 
-        // The dark scheme reads the entry in two roles; the light scheme reads `shade-3` there.
+        // Dark reads the entry in both roles. Light uses shades 3 and 4.
         for (const role of ['--neo-color-background-scrim', '--neo-color-shadow']) {
             expect(failures).toContainEqual(expect.stringMatching(new RegExp(
                 `^\\[role\\] resources/css/theme-neo/Global\\.css \\.neo-theme-neo-dark \\(dark\\) ${role}: cannot read `
@@ -467,13 +641,13 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         )))
     });
 
-    test('CONTROL: a second theme with the same names passes, and the live file declares 197', () => {
+    test('CONTROL: a second theme with the same names passes, and the live file declares 198', () => {
         const {failures, names, palettes} = plantSecond();
 
         expect(failures).toEqual([]);
         expect(palettes).toHaveLength(4);
-        expect(names).toBe(197);
-        expect(inspectThemePalettes().names).toBe(197)
+        expect(names).toBe(198);
+        expect(inspectThemePalettes().names).toBe(198)
     });
 
     test('a name a second theme lacks fails once, with both sides named', () => {
@@ -514,7 +688,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         const {failures, names} = added('font-Demo', '1px');
 
         expect(failures).toEqual([]);
-        expect(names).toBe(197)
+        expect(names).toBe(198)
     });
 
     test('resolveValue follows var() reads and picks the light-dark() side of the scheme', () => {
