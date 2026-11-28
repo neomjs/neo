@@ -4,6 +4,7 @@ import Component     from '../../../src/component/Base.mjs';
 import Container     from '../../../src/container/Base.mjs';
 import EmailField    from '../../../src/form/field/Email.mjs';
 import FormContainer from '../../../src/form/Container.mjs';
+import Panel         from '../../../src/container/Panel.mjs';
 import PasswordField from '../../../src/form/field/Password.mjs';
 import TextField     from '../../../src/form/field/Text.mjs';
 import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
@@ -64,7 +65,7 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
+            module: Panel,
             cls   : ['signup-card'],
             layout: {ntype: 'vbox', align: 'stretch'},
             width : 440,
