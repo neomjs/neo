@@ -1,6 +1,6 @@
 [class*="neo-theme-"] { /* .neo-examples-configuration-viewport */
     --neo-workbench-background-color     : var(--neo-color-background-canvas);
+    --neo-workbench-caption-color        : var(--neo-color-text-muted);
     --neo-workbench-code-background-color: var(--neo-color-background-canvas);
     --neo-workbench-color                : var(--neo-color-text-default);
-    --neo-workbench-muted-color          : var(--neo-color-text-muted);
 }
