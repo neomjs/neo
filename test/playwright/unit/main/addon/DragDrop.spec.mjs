@@ -422,6 +422,38 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         expect(resize.finish({clientX: 50, clientY: 0, timeStamp: 1200}).velocity).toBe(0)
     });
 
+    test('a stroke that rests before its release measures 0, and one that reverses measures only its last direction', () => {
+        let {resize} = createState({axis: 'height'});
+
+        // 60px up in 16ms, then still for 79ms: the chord across the window read +0.632 and flung a resting drag
+        resize.apply({clientX: 0, clientY: 422, timeStamp: 1000});
+        resize.apply({clientX: 0, clientY: 362, timeStamp: 1016});
+        resize.apply({clientX: 0, clientY: 362, timeStamp: 1050});
+        resize.apply({clientX: 0, clientY: 362, timeStamp: 1080});
+
+        expect(resize.finish({clientX: 0, clientY: 362, timeStamp: 1095}).velocity).toBe(0);
+
+        ({resize} = createState({axis: 'height'}));
+
+        // 100px up, then 50px down over the last 70ms: the chord read +0.556 and flung against the release
+        resize.apply({clientX: 0, clientY: 422, timeStamp: 1000});
+        resize.apply({clientX: 0, clientY: 322, timeStamp: 1020});
+        resize.apply({clientX: 0, clientY: 350, timeStamp: 1055});
+
+        expect(resize.finish({clientX: 0, clientY: 372, timeStamp: 1090}).velocity).toBeCloseTo(-50 / 70, 6)
+    });
+
+    test('release jitter inside the slop neither ends a stroke nor reverses it', () => {
+        const {resize} = createState({axis: 'height'});
+
+        // 52px up in 16ms, then 1px back as the finger lifts: the flick still measures its whole stroke
+        resize.apply({clientX: 0, clientY: 422, timeStamp: 1000});
+        resize.apply({clientX: 0, clientY: 400, timeStamp: 1008});
+        resize.apply({clientX: 0, clientY: 370, timeStamp: 1016});
+
+        expect(resize.finish({clientX: 0, clientY: 371, timeStamp: 1024}).velocity).toBeCloseTo(51 / 24, 6)
+    });
+
     test('previous/horizontal math is symmetric and deferred mode computes without mutating', () => {
         let state = createState({axis: 'height', resizeNext: false});
 

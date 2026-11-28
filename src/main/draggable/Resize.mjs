@@ -65,6 +65,19 @@ class Resize {
     state = null
 
     /**
+     * The ms a pointer may rest before its release and still release its stroke. A longer rest ends the stroke the
+     * release velocity measures, so a drag that stopped before its release measures 0.
+     * @member {Number} velocityRestTime=40
+     */
+    velocityRestTime = 40
+
+    /**
+     * The px a frame may move and still count as rest, so release jitter is neither motion nor a reversal.
+     * @member {Number} velocitySlop=1
+     */
+    velocitySlop = 1
+
+    /**
      * The ms before a terminal over which its release velocity is measured.
      * @member {Number} velocityWindow=100
      */
@@ -310,22 +323,41 @@ class Resize {
     }
 
     /**
-     * @summary The release velocity of a gesture in px/ms along its axis, positive while the target grows: the
-     * pointer's travel across the timed frames inside `velocityWindow`. One frame alone measures nothing.
+     * @summary The release velocity of a gesture in px/ms along its axis, positive while the target grows. It
+     * measures the release stroke: walking back from the release through the frames inside `velocityWindow`, the
+     * stroke ends where the pointer reversed or had rested for `velocityRestTime`. A drag that stopped before its
+     * release measures 0, and one that reversed measures only its last direction. One frame alone measures nothing.
      * @param {Object} state
      * @returns {Number}
      * @protected
      */
     getReleaseVelocity({resizeNext, samples}) {
-        let first = samples?.[0],
-            last  = samples?.at(-1),
-            velocity;
+        let me        = this,
+            index     = (samples?.length ?? 0) - 1,
+            last      = samples?.[index],
+            first     = last,
+            direction = 0,
+            rest      = 0,
+            delta, previous, step, velocity;
 
-        if (!first || last.time <= first.time) return 0;
+        while (index > 0) {
+            previous = samples[--index];
+            delta    = first.coordinate - previous.coordinate;
+            step     = Math.abs(delta) > me.velocitySlop ? Math.sign(delta) : 0;
+            rest     = step ? 0 : rest + first.time - previous.time;
+
+            if ((direction && step && step !== direction) || rest >= me.velocityRestTime) break;
+
+            direction ||= step;
+            first       = previous
+        }
+
+        if (!last || last.time <= first.time) return 0;
 
         velocity = (last.coordinate - first.coordinate) / (last.time - first.time);
 
-        return resizeNext ? -velocity : velocity
+        // A rest measures 0, never -0
+        return (resizeNext ? -velocity : velocity) || 0
     }
 
     /**
