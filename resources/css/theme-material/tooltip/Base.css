@@ -1,0 +1,4 @@
+:where(.neo-theme-material-light, .neo-theme-material-dark) {
+    --neo-tooltip-background-color: var(--neo-color-background-inverse);
+    --neo-tooltip-color           : var(--neo-color-text-inverse);
+}
