@@ -67,7 +67,17 @@ const
             '}'
         ].join('\n'),
         'theme-solo/Global.css'     : ':where(.neo-theme-solo) {}',
-        'theme-solo/button/Base.css': ':where(.neo-theme-solo) {--neo-button-background-color: #123456}'
+        'theme-solo/button/Base.css': ':where(.neo-theme-solo) {--neo-button-background-color: #123456}',
+        // the shared layer: names nothing reads, reading only names something else reads too
+        'theme-base/button/Base.css': [
+            '[class*="neo-theme-"] {',
+            '    --neo-button-hairline-color         : var(--neo-color-text-default);',
+            '    --neo-button-ripple-background-color: color-mix(in srgb, var(--neo-color-text-default) 30%, transparent);',
+            '    --neo-button-mixed-border-color     : color-mix(in srgb, var(--neo-color-text-default) 38%, var(--sem-surface));',
+            '    --neo-button-raw-glyph-color        : #123456;',
+            '    --neo-button-badge-width            : 4px;',
+            '}'
+        ].join('\n')
     };
 
 test.describe('theme-census — the shape of the theme tree, as counts anyone can re-run', () => {
@@ -123,8 +133,17 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
 
     test('2: an engine component value is made of a role, a component token, the palette, another variable or a literal; the first declaration in file order counts', () => {
         expect(collect({root, runtimeProperties: runtime}).themes['theme-x-dark'].composition).toEqual({
-            role: 1, sem: 1, cmp: 1, palette: 1, variable: 1, colourLiteral: 1, literal: 1, total: 7
+            role: 1, sem: 1, cmp: 1, palette: 1, variable: 1, mix: 0, colourLiteral: 1, literal: 1, total: 7
         });
+    });
+
+    test('2: theme-base\'s values are counted alike: one role mixed with transparent is a role, a mix of two colours a mix', () => {
+        const census = collect({root, runtimeProperties: runtime});
+
+        expect(census.base.composition).toEqual({
+            role: 2, sem: 0, cmp: 0, palette: 0, variable: 0, mix: 1, colourLiteral: 1, literal: 1, total: 5
+        });
+        expect(render(census, 'fixture')).toContain('| `theme-base` | 5 | 2 | 0 | 0 | 0 | 0 | 1 | 1 | 1 |');
     });
 
     test('3: a light and dark pair, per layer: shared names, identical and differing values, names on one side only', () => {

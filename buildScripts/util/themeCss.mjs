@@ -1,11 +1,12 @@
 /**
  * @module buildScripts/util/themeCss
  * @summary The stylesheet reading the theme tools share: the walk over a tree, the comment strip, the
- * `var()` strip, and the custom properties CSS may read although no CSS declares them.
+ * `var()` strip, the colours a value derives instead of reading, and the custom properties CSS may read
+ * although no CSS declares them.
  *
- * `check-theme-var-references`, `check-theme-surfaces` and `theme-census` read `resources/css` with
- * regular expressions over comment-stripped text, not through a CSS parser. One copy of that reading
- * keeps a guard's verdict and the census's counts about the same tree.
+ * `check-theme-var-references`, `check-theme-surfaces`, `check-theme-palette` and `theme-census` read
+ * `resources/css` with regular expressions over comment-stripped text, not through a CSS parser. One copy
+ * of that reading keeps a guard's verdict and the census's counts about the same tree.
  */
 import fs   from 'node:fs';
 import path from 'node:path';
@@ -106,6 +107,81 @@ export function stripVarCalls(value) {
     }
 
     return value
+}
+
+/**
+ * A raw colour: a hex colour or a colour function. `color-mix()` and `light-dark()` hold colours and are
+ * read for what they hold; a named colour such as `white` is not read, as in the census.
+ * @type {RegExp}
+ */
+const RAW_COLOUR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/gi;
+
+/**
+ * @summary The arguments of a call, split at the commas outside nested parentheses.
+ * @param {String} list The text between the call's own parentheses
+ * @returns {String[]}
+ */
+function topLevelArguments(list) {
+    const args  = [];
+    let   depth = 0,
+        start = 0;
+
+    for (let i = 0; i < list.length; i++) {
+        if (list[i] === '(') {
+            depth++
+        } else if (list[i] === ')') {
+            depth--
+        } else if (list[i] === ',' && depth === 0) {
+            args.push(list.slice(start, i).trim());
+            start = i + 1
+        }
+    }
+
+    return [...args, list.slice(start).trim()]
+}
+
+/**
+ * @summary The colours a declaration value derives instead of reading, which a component variable does not
+ * hold: it reads roles, and derives a colour only by mixing one role with `transparent`.
+ *
+ * `mixes` holds each `color-mix()` whose two colours are both something other than `transparent`: the result
+ * is a colour no role names, so no palette check measures a pair it forms. `raw` holds each raw colour, one
+ * inside a `var()` fallback too. `check-theme-palette` fails both in `theme-base`, and `theme-census` counts
+ * a value holding a mix as a `mix`.
+ * @param {String} value A declaration value without comments
+ * @returns {{mixes: String[], raw: String[]}}
+ */
+export function colourSources(value) {
+    const mixes = [];
+    let   index = -1;
+
+    while ((index = value.indexOf('color-mix(', index + 1)) !== -1) {
+        let depth = 0,
+            end   = -1;
+
+        for (let i = index + 9; i < value.length; i++) {
+            if (value[i] === '(') {
+                depth++
+            } else if (value[i] === ')' && --depth === 0) {
+                end = i;
+                break
+            }
+        }
+
+        if (end === -1) {
+            break
+        }
+
+        // `in <space>` first, then two colours, each with an optional percentage
+        const colours = topLevelArguments(value.slice(index + 10, end)).slice(1)
+            .map(colour => colour.replace(/(?:^|\s)\d*\.?\d+%(?=\s|$)/g, '').trim().toLowerCase());
+
+        if (colours.length === 2 && !colours.includes('transparent')) {
+            mixes.push(value.slice(index, end + 1))
+        }
+    }
+
+    return {mixes, raw: value.match(RAW_COLOUR) ?? []}
 }
 
 /**

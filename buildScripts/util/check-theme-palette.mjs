@@ -8,6 +8,9 @@
  * Every palette and role name (`kindOf` `'palette'` or `'role'`) is declared in a `Global.css` only: a theme's
  * `Global.css`, a product palette's, or `src/Global.css` for a scale role re-valued under a narrower scope or a
  * condition. Any declaration or `@property` registration in another sheet fails as `[scope]`.
+ * A component variable in `theme-base` reads roles, and derives a colour only by mixing one role with
+ * `transparent`: a `color-mix()` of two colours fails as `[mix]` and a raw colour as `[raw]` (`colourSources`
+ * in `themeCss.mjs`), unless `BASE_COLOURS_ALLOWED` lists it with its reason.
  * A palette is a theme class for which a theme `Global.css` declares a `--neo-palette-*` name. A theme without
  * one is skipped for pair and grade checks and declares no colour role but the scheme; a palette or colour-role
  * name declared under a condition fails as `[conditional]` for every theme class, with or without a palette. Inside
@@ -35,7 +38,7 @@ import {fileURLToPath}                                           from 'node:url'
 import postcss                                                   from 'postcss';
 import selectorParser                                            from 'postcss-selector-parser';
 import isEntryModule                                             from './isEntryModule.mjs';
-import {cssFiles}                                                from './themeCss.mjs';
+import {colourSources, cssFiles}                                 from './themeCss.mjs';
 import {themeCssRoots}                                           from './themeCssRoots.mjs';
 import {PALETTE_EXTRAS, PALETTE_GRADES, SCHEME_PROPERTY, kindOf} from './themeNameShapes.mjs';
 
@@ -54,6 +57,14 @@ export const SCAN_SURFACE = Object.freeze(['resources/css/**/*.css']);
  * @type {Number[]}
  */
 export const GRADES = PALETTE_GRADES;
+
+/**
+ * The `theme-base` component variables that keep a mixed or raw colour by design, keyed
+ * `<sheet below resources/css>|<name>`, each with its reason. An entry that no longer matches fails the
+ * run, so the list can only shrink.
+ * @type {Object<String,String>}
+ */
+export const BASE_COLOURS_ALLOWED = Object.freeze({});
 
 const
     BACKGROUND = '--neo-color-background-',
@@ -1074,10 +1085,52 @@ function checkProducts({failures, measured, paletteOf, products}) {
 }
 
 /**
+ * @summary Fails a `theme-base` component variable that derives its colour instead of reading a role: a
+ * `color-mix()` of two colours as `[mix]`, a raw colour as `[raw]`. An allowed key is marked as matched, so
+ * that the caller can fail the entries nothing matched.
+ * @param {Object} data
+ * @param {Object<String,String>} data.allowed Keys `<sheet below resources/css>|<name>` that stay by design
+ * @param {Set<String>} data.allowedMatched
+ * @param {String} data.cssRelPath The sheet below its theme root
+ * @param {Set<String>} data.failures
+ * @param {String} data.name
+ * @param {String} data.relPath The sheet as a failure names it
+ * @param {String} data.value
+ */
+function checkBaseColour({allowed, allowedMatched, cssRelPath, failures, name, relPath, value}) {
+    const
+        {mixes, raw} = colourSources(value),
+        key          = `${cssRelPath}|${name}`;
+
+    if (!mixes.length && !raw.length) {
+        return
+    }
+
+    if (Object.hasOwn(allowed, key)) {
+        allowedMatched.add(key);
+        return
+    }
+
+    for (const mix of mixes) {
+        failures.add(
+            `[mix] ${relPath} binds ${name} to ${mix}, a colour no role names; ` +
+            `a component variable reads roles, or one role mixed with transparent (ADR 0044 decision 4)`
+        )
+    }
+
+    raw.length && failures.add(
+        `[raw] ${relPath} gives ${name} a raw colour (${value}); ` +
+        `theme-base reads roles, and a listed value goes into BASE_COLOURS_ALLOWED with its reason`
+    )
+}
+
+/**
  * @summary Reads every stylesheet under the theme roots, checks each palette it finds, compares their names,
  * measures each product palette on its theme's, and refuses a measured name wherever a sheet declares it outside
- * the one reading this check has of it.
+ * the one reading this check has of it, and a `theme-base` colour that no role names.
  * @param {Object} [options={}]
+ * @param {Object<String,String>} [options.baseColoursAllowed=BASE_COLOURS_ALLOWED] The `theme-base` colours that
+ * stay by design; a fixture passes its own
  * @param {String} [options.root=repoRoot] The directory a failure names a sheet relative to
  * @param {String[]} [options.cssRoots] Theme source roots in override order, as `themeCssRoots` lists them: a later
  * root's sheet replaces an earlier root's at the same path. Defaults to `root`'s own `resources/css`
@@ -1085,8 +1138,9 @@ function checkProducts({failures, measured, paletteOf, products}) {
  * each checked theme class with its scheme, `productPalettes` each measured overlay as `<class> + <app> (<scheme>)`;
  * `names` counts the distinct palette and role names the themes declare
  */
-export function inspectThemePalettes({root = repoRoot, cssRoots = [path.join(root, 'resources/css')]} = {}) {
+export function inspectThemePalettes({baseColoursAllowed = BASE_COLOURS_ALLOWED, root = repoRoot, cssRoots = [path.join(root, 'resources/css')]} = {}) {
     const
+        allowedMatched  = new Set(),
         declared        = [],
         failures        = new Set(),
         files           = new Map(),
@@ -1133,6 +1187,14 @@ export function inspectThemePalettes({root = repoRoot, cssRoots = [path.join(roo
         if (!isBalanced(css)) {
             addSyntax();
             continue
+        }
+
+        if (cssRelPath.startsWith('theme-base/')) {
+            walkSheetCustomProperties(css, {
+                onDeclaration: (classes, name, value) => checkBaseColour({
+                    allowed: baseColoursAllowed, allowedMatched, cssRelPath, failures, name, relPath, value
+                })
+            })
         }
 
         if (!themeGlobal && !srcGlobal && !product) {
@@ -1297,6 +1359,10 @@ export function inspectThemePalettes({root = repoRoot, cssRoots = [path.join(roo
     }
 
     checkProducts({failures, measured: productPalettes, paletteOf, products});
+
+    for (const key of Object.keys(baseColoursAllowed).filter(key => !allowedMatched.has(key))) {
+        failures.add(`[allowed] BASE_COLOURS_ALLOWED entry ${key} matches no mixed or raw colour any more; delete it`)
+    }
 
     const names = checkNames({declared, failures});
 

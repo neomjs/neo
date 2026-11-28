@@ -4,7 +4,8 @@
  * @summary Counts the shape of the theme tree so that a number deciding the design system comes from one
  * instrument any reviewer can re-run, instead of a private script per seat.
  *
- * Nine sections: custom properties per layer, what an engine component value is made of, what a light
+ * Nine sections: custom properties per layer, what an engine component value is made of (each theme's, and
+ * `theme-base`'s), what a light
  * and dark pair differ in, the component names every full theme declares, declarations no CSS reads,
  * structural reads without a fallback that nothing declares, colour literals and corner radius literals
  * in structural rules (`radiusLiterals` in `themeCss.mjs`, the reading `check-theme-radius-literals`
@@ -17,7 +18,8 @@
  * `--name: value` ended by `;` or by the block's `}`; a read is `var(--name` followed by `,` (a fallback)
  * or `)` (none); a colour literal is a hex colour or an `rgb()` / `rgba()` / `hsl()` / `hsla()` call, and
  * section 7 tells the bare ones from those inside a `var()` fallback, which a theme reaches by setting the
- * property. A theme or structural file below
+ * property; a value holding a `color-mix()` of two colours is a `mix` (`colourSources`, the reading
+ * `check-theme-palette` enforces in `theme-base`). A theme or structural file below
  * `apps/` or `examples/` belongs to that area, every other one to `engine`. A name declared more than
  * once in an area takes its first declaration in sorted file order, and section 1 counts those names
  * and the ones declared again with another value. A full theme is one of a light and dark pair, named
@@ -27,16 +29,17 @@
  *     npm run theme-census -- --json         the census object
  *     npm run theme-census -- --root <dir>   another tree holding src/ and theme-* directories
  */
-import fs                                                                                           from 'node:fs';
-import path                                                                                         from 'node:path';
-import {fileURLToPath}                                                                              from 'node:url';
-import isEntryModule                                                                                from './isEntryModule.mjs';
-import {RUNTIME_PROPERTIES, cssFiles, radiusLiterals, readCss, resolveThemeClassMap, stripVarCalls} from './themeCss.mjs';
-import {kindOf}                                                                                     from './themeNameShapes.mjs';
+import fs                                                                                                          from 'node:fs';
+import path                                                                                                        from 'node:path';
+import {fileURLToPath}                                                                                             from 'node:url';
+import isEntryModule                                                                                               from './isEntryModule.mjs';
+import {RUNTIME_PROPERTIES, colourSources, cssFiles, radiusLiterals, readCss, resolveThemeClassMap, stripVarCalls} from './themeCss.mjs';
+import {kindOf}                                                                                                    from './themeNameShapes.mjs';
 
 const
     cssRoot     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../resources/css'),
     AREAS       = ['engine', 'apps', 'examples'],
+    KINDS       = ['sem', 'cmp', 'palette', 'role', 'variable', 'mix', 'colourLiteral', 'literal'],
     LAYERS      = ['palette', 'role', 'sem', 'cmp', 'component'],
     DECLARATION = /(?<![\w-])(--[A-Za-z0-9_-]+)\s*:\s*([^;{}]+)(?:;|(?=\}))/g,
     READ        = /var\(\s*(--[A-Za-z0-9_-]+)\s*([,)])/g,
@@ -144,6 +147,10 @@ function inLayer(declared, layer) {
  * @returns {String} What a component value is made of.
  */
 function compositionOf(value) {
+    if (colourSources(value).mixes.length) {
+        return 'mix'
+    }
+
     const refs = [...value.matchAll(READ)].map(([, name]) => layerOf(name));
 
     if (!refs.length) {
@@ -151,6 +158,19 @@ function compositionOf(value) {
     }
 
     return refs.includes('cmp') ? 'cmp' : refs.includes('sem') ? 'sem' : refs.includes('palette') ? 'palette' : refs.includes('role') ? 'role' : 'variable'
+}
+
+/**
+ * @summary Counts the values of one tree by what each is made of, for section 2.
+ * @param {Map<String,String>} values Component name → value
+ * @returns {Object} How many of the values each kind holds (`compositionOf`), and the total.
+ */
+function compositionCounts(values) {
+    const counts = Object.fromEntries(KINDS.map(kind => [kind, 0]));
+
+    values.forEach(value => counts[compositionOf(value)]++);
+
+    return {...counts, total: values.size}
 }
 
 /**
@@ -295,18 +315,15 @@ export function collectThemeCensus({root = cssRoot, runtimeProperties = RUNTIME_
 
     for (const name of names) {
         const
-            tree        = trees[name],
-            engine      = inLayer(tree.declared.engine, 'component'),
-            themeNames  = new Set(AREAS.flatMap(area => [...tree.declared[area].keys()])),
-            composition = Object.fromEntries(['sem', 'cmp', 'palette', 'role', 'variable', 'colourLiteral', 'literal'].map(kind => [kind, 0]));
-
-        engine.forEach(value => composition[compositionOf(value)]++);
+            tree       = trees[name],
+            engine     = inLayer(tree.declared.engine, 'component'),
+            themeNames = new Set(AREAS.flatMap(area => [...tree.declared[area].keys()]));
 
         themes[name] = {
             files      : tree.files,
             properties : perArea(area => ({...Object.fromEntries(LAYERS.map(layer => [layer, inLayer(tree.declared[area], layer).size])), total: tree.declared[area].size})),
             redeclared : perArea(area => ({count: tree.redeclared[area].size, conflicting: [...tree.conflicts[area]].sort()})),
-            composition: {...composition, total: engine.size},
+            composition: compositionCounts(engine),
             unread     : perArea(area => Object.fromEntries(LAYERS.map(layer => [layer, [...inLayer(tree.declared[area], layer).keys()].filter(property => !readNames.has(property)).sort()]))),
             unresolved : perArea(area => [...src.reads[area]].filter(([property, bare]) => bare && !themeNames.has(property) && !srcNames.has(property) && !(property in runtimeProperties)).map(([property]) => property).sort()),
             naming     : namingOf([...engine.keys()])
@@ -316,7 +333,9 @@ export function collectThemeCensus({root = cssRoot, runtimeProperties = RUNTIME_
     return {
         runtime: Object.keys(runtimeProperties).sort(),
         themes,
-        pairs  : pairs.map(({dark, light}) => ({
+        // the component values every theme shares, declared once
+        base : themeBase ? {composition: compositionCounts(inLayer(themeBase.declared.engine, 'component'))} : null,
+        pairs: pairs.map(({dark, light}) => ({
             dark,
             light,
             layers: Object.fromEntries(LAYERS.map(layer => {
@@ -398,11 +417,11 @@ export function renderCensus(census, label = 'resources/css') {
             return [name, area, files[area], ...LAYERS.map(layer => properties[area][layer]), properties[area].total, `${redeclared[area].count} (${redeclared[area].conflicting.length})`]
         }))),
         '## 2. What an engine component value is made of',
-        table(['Theme', 'Values', 'via a role', 'via `--sem-*`', 'via `--cmp-*`', 'via palette', 'via another variable', 'Colour literal', 'Other literal'], names.map(name => {
-            const {role, sem, cmp, palette, variable, colourLiteral, literal, total} = census.themes[name].composition;
-
-            return [name, total, role, sem, cmp, palette, variable, colourLiteral, literal]
-        })),
+        table(['Theme', 'Values', 'via a role', 'via `--sem-*`', 'via `--cmp-*`', 'via palette', 'via another variable', 'Two-colour mix', 'Colour literal', 'Other literal'], [
+            ...names.map(name => [name, census.themes[name].composition]),
+            ...census.base ? [['`theme-base`', census.base.composition]] : []
+        ].map(([name, {role, sem, cmp, palette, variable, mix, colourLiteral, literal, total}]) =>
+            [name, total, role, sem, cmp, palette, variable, mix, colourLiteral, literal])),
         '## 3. Light and dark pairs (engine files)',
         table(['Pair', 'Layer', 'Shared names', 'Identical', 'Differ', 'Only dark', 'Only light'], census.pairs.flatMap(({dark, light, layers}) => LAYERS.map(layer => {
             const {shared, identical, differ, onlyDark, onlyLight} = layers[layer];
