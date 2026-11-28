@@ -63,4 +63,7 @@
        vivid grade */
     --neo-color-text-accent           : light-dark(var(--neo-palette-accent-700),  var(--neo-palette-accent-300));
     --neo-color-focus-ring            : light-dark(var(--neo-palette-accent-600),  var(--neo-palette-accent-300));
+
+    /* muted text: the moved 800 sits close to light's default text, so light reads 700, one grade above subtle text */
+    --neo-color-text-muted            : light-dark(var(--neo-palette-neutral-700), var(--neo-palette-neutral-400));
 }
