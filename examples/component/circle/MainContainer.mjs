@@ -9,8 +9,17 @@ import RangeField            from '../../../src/form/field/Range.mjs';
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className: 'Neo.examples.component.circle.MainContainer',
-        layout   : {ntype: 'hbox', align: 'stretch'}
+        className  : 'Neo.examples.component.circle.MainContainer',
+        /**
+         * @member {String[]} cls=['neo-examples-component-circle']
+         */
+        cls        : ['neo-examples-component-circle'],
+        /**
+         * @member {String} description
+         * @default 'Rotate the ring with two fingers or the mouse wheel.'
+         */
+        description: 'Rotate the ring with two fingers or the mouse wheel.',
+        layout     : {ntype: 'hbox', align: 'stretch'}
     }
 
     createConfigurationComponents() {
@@ -116,9 +125,11 @@ class MainContainer extends ConfigurationViewport {
         }
     }
 
+    /** @summary Resets the rendered ring, rotation index and sliders together. */
     onResetRotation() {
         let pre = this.id + '__';
 
+        this.exampleComponent.set({rotationIndex: 0, rotateX: 0, rotateY: 0, rotateZ: 0});
         Neo.getComponent(pre + 'rotateX').value = 0;
         Neo.getComponent(pre + 'rotateY').value = 0;
         Neo.getComponent(pre + 'rotateZ').value = 0

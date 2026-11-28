@@ -1,0 +1,17 @@
+.neo-examples-component-circle {
+    @media (max-width: 600px) {
+        .neo-workbench-stage {
+            height    : 410px !important;
+            max-height: 49vh !important;
+        }
+
+        .neo-example-container {
+            overflow-x: hidden !important;
+            padding   : 10px !important;
+        }
+
+        .neo-circle-component {
+            max-width: 100%;
+        }
+    }
+}
