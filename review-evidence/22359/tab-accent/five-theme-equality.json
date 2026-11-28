@@ -1,0 +1,332 @@
+{
+  "ok": true,
+  "elapsedMs": 33990,
+  "themes": [
+    "neo-theme-neo-light",
+    "neo-theme-neo-dark",
+    "neo-theme-light",
+    "neo-theme-dark",
+    "neo-theme-cyberpunk"
+  ],
+  "scopes": [
+    "inherited",
+    "scoped"
+  ],
+  "baseSource": {
+    "mode": "checkout",
+    "root": "f8ad427057c79e167da0367a2926fb2637efaa5f"
+  },
+  "headSource": {
+    "mode": "checkout",
+    "root": "fc64894fc770074dc13faeef2062faa43c7eece1"
+  },
+  "componentCount": 80,
+  "packageMatrix": [
+    {
+      "package": "app",
+      "rendered": true,
+      "components": [
+        "app-content"
+      ]
+    },
+    {
+      "package": "board",
+      "rendered": true,
+      "components": [
+        "board"
+      ]
+    },
+    {
+      "package": "button",
+      "rendered": true,
+      "components": [
+        "button",
+        "button[primary]",
+        "button[secondary]",
+        "button[ghost]",
+        "button[tertiary]",
+        "button[small]",
+        "button[large]",
+        "segmented-button",
+        "split-button",
+        "theme-switcher"
+      ]
+    },
+    {
+      "package": "calendar",
+      "rendered": true,
+      "components": [
+        "calendar"
+      ]
+    },
+    {
+      "package": "code",
+      "rendered": true,
+      "note": "Rendered via LivePreview container + TabContainer shell without booting the external Monaco worker.",
+      "components": [
+        "live-preview"
+      ]
+    },
+    {
+      "package": "component",
+      "rendered": true,
+      "components": [
+        "box-label",
+        "carousel",
+        "chip",
+        "clock",
+        "date-selector",
+        "empty-state",
+        "empty-state[plain]",
+        "icon",
+        "label",
+        "markdown",
+        "progress",
+        "splitter",
+        "status-badge[neutral]",
+        "status-badge[info]",
+        "status-badge[success]",
+        "status-badge[alert]",
+        "status-badge[error]",
+        "toast"
+      ]
+    },
+    {
+      "package": "container",
+      "rendered": true,
+      "components": [
+        "container",
+        "panel",
+        "accordion"
+      ]
+    },
+    {
+      "package": "dashboard",
+      "rendered": true,
+      "components": [
+        "dashboard"
+      ]
+    },
+    {
+      "package": "date",
+      "rendered": true,
+      "components": [
+        "date-selector-container"
+      ]
+    },
+    {
+      "package": "desktop",
+      "rendered": true,
+      "components": [
+        "desktop-taskbar"
+      ]
+    },
+    {
+      "package": "dialog",
+      "rendered": true,
+      "components": [
+        "dialog"
+      ]
+    },
+    {
+      "package": "draggable",
+      "rendered": false,
+      "unrenderedReason": "Styles transient mid-gesture drag proxies (.neo-dragproxy, .neo-is-dragging, .neo-sort-source) that exist only during an active pointer drag.",
+      "components": []
+    },
+    {
+      "package": "filter",
+      "rendered": true,
+      "components": [
+        "filter-boolean",
+        "filter-number"
+      ]
+    },
+    {
+      "package": "form",
+      "rendered": true,
+      "components": [
+        "form-container",
+        "fieldset",
+        "textfield",
+        "textfield[inline]",
+        "textarea",
+        "numberfield",
+        "searchfield",
+        "selectfield",
+        "combobox",
+        "pickerfield",
+        "checkboxfield",
+        "checkboxfield[checked]",
+        "switchfield",
+        "switchfield[checked]",
+        "rangefield",
+        "fileuploadfield",
+        "chipfield"
+      ]
+    },
+    {
+      "package": "gantt",
+      "rendered": true,
+      "components": [
+        "gantt"
+      ]
+    },
+    {
+      "package": "grid",
+      "rendered": true,
+      "components": [
+        "grid"
+      ]
+    },
+    {
+      "package": "layout",
+      "rendered": true,
+      "components": [
+        "layout-cube"
+      ]
+    },
+    {
+      "package": "list",
+      "rendered": true,
+      "components": [
+        "list",
+        "chip-list",
+        "value-picker"
+      ]
+    },
+    {
+      "package": "menu",
+      "rendered": true,
+      "components": [
+        "menu-list"
+      ]
+    },
+    {
+      "package": "plugin",
+      "rendered": true,
+      "components": [
+        "plugin-resizable"
+      ]
+    },
+    {
+      "package": "scheduler",
+      "rendered": true,
+      "components": [
+        "scheduler"
+      ]
+    },
+    {
+      "package": "sheet",
+      "rendered": true,
+      "components": [
+        "sheet"
+      ]
+    },
+    {
+      "package": "sitemap",
+      "rendered": true,
+      "components": [
+        "sitemap"
+      ]
+    },
+    {
+      "package": "tab",
+      "rendered": true,
+      "components": [
+        "tab-container",
+        "tab-container[inline]",
+        "tab-container[standalone]"
+      ]
+    },
+    {
+      "package": "table",
+      "rendered": true,
+      "components": [
+        "table"
+      ]
+    },
+    {
+      "package": "timeline",
+      "rendered": true,
+      "components": [
+        "timeline"
+      ]
+    },
+    {
+      "package": "toolbar",
+      "rendered": true,
+      "components": [
+        "toolbar",
+        "breadcrumb",
+        "paging-toolbar"
+      ]
+    },
+    {
+      "package": "tooltip",
+      "rendered": true,
+      "components": [
+        "tooltip"
+      ]
+    },
+    {
+      "package": "tree",
+      "rendered": true,
+      "components": [
+        "tree-list"
+      ]
+    },
+    {
+      "package": "util",
+      "rendered": true,
+      "note": "HighlightJs is a static markup utility; its .hljs and .hljs-ln token elements are rendered in a Component host.",
+      "components": [
+        "highlightjs"
+      ]
+    }
+  ],
+  "packageCoverage": {
+    "ok": true,
+    "diskPackages": [
+      "app",
+      "board",
+      "button",
+      "calendar",
+      "code",
+      "component",
+      "container",
+      "dashboard",
+      "date",
+      "desktop",
+      "dialog",
+      "draggable",
+      "filter",
+      "form",
+      "gantt",
+      "grid",
+      "layout",
+      "list",
+      "menu",
+      "plugin",
+      "scheduler",
+      "sheet",
+      "sitemap",
+      "tab",
+      "table",
+      "timeline",
+      "toolbar",
+      "tooltip",
+      "tree",
+      "util"
+    ],
+    "missingPackages": [],
+    "extraPackages": [],
+    "invalidRendered": [],
+    "invalidUnrendered": []
+  },
+  "totalComparisons": 194160,
+  "diffs": [],
+  "unexpectedDiffs": [],
+  "matchedDiffs": [],
+  "unmetExpected": []
+}

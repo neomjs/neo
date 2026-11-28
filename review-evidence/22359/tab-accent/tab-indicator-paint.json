@@ -1,0 +1,1105 @@
+{
+  "base": "5785f7251e6e79bce7415d6a0453ecfa707839e1",
+  "head": "fc64894fc770074dc13faeef2062faa43c7eece1",
+  "method": "The normal Tab Container example booted each scheme via its neo-config.json themes array. Page and styles were unmodified. PNGs cover the 1120 x 800 viewport at DPR 1. All sample colors come from viewport PNG bytes; each role is resolved in the selected marker scope. Existing animations were allowed to finish.",
+  "stages": {
+    "before": {
+      "materialTabSheetSha256": null,
+      "materialRolesSha256": "2db9abd59888379a3dca700a87255186985b6b0ee67b4a9c8111305320551e30",
+      "material-light": {
+        "home": {
+          "selectedText": "Home",
+          "instanceTheme": "neo-theme-material-light",
+          "colorScheme": "light",
+          "computed": "oklch(0.286 0.013 298.7)",
+          "computedRGB": [
+            43,
+            41,
+            48
+          ],
+          "rect": {
+            "x": 61,
+            "y": 176,
+            "width": 95.6875,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.496 0.130 293.7)",
+              "rgb": [
+                103,
+                80,
+                164
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.286 0.013 298.7)",
+              "rgb": [
+                43,
+                41,
+                48
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.286 0.013 298.7)",
+              "rgb": [
+                43,
+                41,
+                48
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 84,
+              "y": 177,
+              "color": "#2b2930"
+            },
+            {
+              "x": 108,
+              "y": 177,
+              "color": "#2b2930"
+            },
+            {
+              "x": 132,
+              "y": 177,
+              "color": "#2b2930"
+            }
+          ],
+          "screens": {
+            "file": "before-material-light-home.png",
+            "sha256": "96779e35a324eaba0766d36bbd6fee4de827e2f637c6b3e6eafe992cbbcb33c1"
+          }
+        },
+        "media": {
+          "selectedText": "Media",
+          "instanceTheme": "neo-theme-material-light",
+          "colorScheme": "light",
+          "computed": "oklch(0.286 0.013 298.7)",
+          "computedRGB": [
+            43,
+            41,
+            48
+          ],
+          "rect": {
+            "x": 156.6875,
+            "y": 176,
+            "width": 96.578125,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.496 0.130 293.7)",
+              "rgb": [
+                103,
+                80,
+                164
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.286 0.013 298.7)",
+              "rgb": [
+                43,
+                41,
+                48
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.286 0.013 298.7)",
+              "rgb": [
+                43,
+                41,
+                48
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 180,
+              "y": 177,
+              "color": "#2b2930"
+            },
+            {
+              "x": 204,
+              "y": 177,
+              "color": "#2b2930"
+            },
+            {
+              "x": 229,
+              "y": 177,
+              "color": "#2b2930"
+            }
+          ],
+          "screens": {
+            "file": "before-material-light-media.png",
+            "sha256": "b01009389f805d624ce616a94909d961632afc3629afce141a01649e0e3951ab"
+          }
+        }
+      },
+      "material-dark": {
+        "home": {
+          "selectedText": "Home",
+          "instanceTheme": "neo-theme-material-dark",
+          "colorScheme": "dark",
+          "computed": "oklch(0.916 0.014 314.5)",
+          "computedRGB": [
+            231,
+            225,
+            234
+          ],
+          "rect": {
+            "x": 61,
+            "y": 176,
+            "width": 95.6875,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.835 0.095 298.0)",
+              "rgb": [
+                208,
+                188,
+                255
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.916 0.014 314.5)",
+              "rgb": [
+                231,
+                225,
+                234
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.916 0.014 314.5)",
+              "rgb": [
+                231,
+                225,
+                234
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 84,
+              "y": 177,
+              "color": "#e7e1ea"
+            },
+            {
+              "x": 108,
+              "y": 177,
+              "color": "#e7e1ea"
+            },
+            {
+              "x": 132,
+              "y": 177,
+              "color": "#e7e1ea"
+            }
+          ],
+          "screens": {
+            "file": "before-material-dark-home.png",
+            "sha256": "8c3c43c124cf2bb8b502a384b54abf9e356a2bf156f1ea372b005a16b6769785"
+          }
+        },
+        "media": {
+          "selectedText": "Media",
+          "instanceTheme": "neo-theme-material-dark",
+          "colorScheme": "dark",
+          "computed": "oklch(0.916 0.014 314.5)",
+          "computedRGB": [
+            231,
+            225,
+            234
+          ],
+          "rect": {
+            "x": 156.6875,
+            "y": 176,
+            "width": 96.578125,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.835 0.095 298.0)",
+              "rgb": [
+                208,
+                188,
+                255
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.916 0.014 314.5)",
+              "rgb": [
+                231,
+                225,
+                234
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.916 0.014 314.5)",
+              "rgb": [
+                231,
+                225,
+                234
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 180,
+              "y": 177,
+              "color": "#e7e1ea"
+            },
+            {
+              "x": 204,
+              "y": 177,
+              "color": "#e7e1ea"
+            },
+            {
+              "x": 229,
+              "y": 177,
+              "color": "#e7e1ea"
+            }
+          ],
+          "screens": {
+            "file": "before-material-dark-media.png",
+            "sha256": "d139fc23a522f3d5bf66d852ca36c17e4430e82e49a1c20fad502a970718d668"
+          }
+        }
+      },
+      "neo-light": {
+        "home": {
+          "selectedText": "Home",
+          "instanceTheme": "neo-theme-neo-light",
+          "colorScheme": "light",
+          "computed": "oklch(0.168 0.008 270)",
+          "computedRGB": [
+            14,
+            15,
+            19
+          ],
+          "rect": {
+            "x": 61,
+            "y": 168,
+            "width": 97.453125,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "oklch(0.544 0.191 267.0)",
+              "resolved": "oklch(0.544 0.191 267.0)",
+              "rgb": [
+                62,
+                99,
+                221
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.168 0.008 270.0)",
+              "rgb": [
+                14,
+                15,
+                19
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.168 0.008 270.0)",
+              "rgb": [
+                14,
+                15,
+                19
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 85,
+              "y": 169,
+              "color": "#0e0f13"
+            },
+            {
+              "x": 109,
+              "y": 169,
+              "color": "#0e0f13"
+            },
+            {
+              "x": 134,
+              "y": 169,
+              "color": "#0e0f13"
+            }
+          ],
+          "screens": {
+            "file": "before-neo-light-home.png",
+            "sha256": "27312e60ecb0b86fbf64afd80436bb9c56c646d363a05d27f87e25b99cf1945d"
+          }
+        },
+        "media": {
+          "selectedText": "Media",
+          "instanceTheme": "neo-theme-neo-light",
+          "colorScheme": "light",
+          "computed": "oklch(0.168 0.008 270)",
+          "computedRGB": [
+            14,
+            15,
+            19
+          ],
+          "rect": {
+            "x": 158.453125,
+            "y": 168,
+            "width": 98.34375,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "oklch(0.544 0.191 267.0)",
+              "resolved": "oklch(0.544 0.191 267.0)",
+              "rgb": [
+                62,
+                99,
+                221
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.168 0.008 270.0)",
+              "rgb": [
+                14,
+                15,
+                19
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.168 0.008 270.0)",
+              "rgb": [
+                14,
+                15,
+                19
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 183,
+              "y": 169,
+              "color": "#0e0f13"
+            },
+            {
+              "x": 207,
+              "y": 169,
+              "color": "#0e0f13"
+            },
+            {
+              "x": 232,
+              "y": 169,
+              "color": "#0e0f13"
+            }
+          ],
+          "screens": {
+            "file": "before-neo-light-media.png",
+            "sha256": "de0b693d51ccdfa2c53826a4f4b39c81a55af755800802cc78efee23a1832823"
+          }
+        }
+      },
+      "neo-dark": {
+        "home": {
+          "selectedText": "Home",
+          "instanceTheme": "neo-theme-neo-dark",
+          "colorScheme": "dark",
+          "computed": "oklch(0.985 0.002 270)",
+          "computedRGB": [
+            249,
+            250,
+            251
+          ],
+          "rect": {
+            "x": 61,
+            "y": 168,
+            "width": 97.453125,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "oklch(0.544 0.191 267.0)",
+              "resolved": "oklch(0.544 0.191 267.0)",
+              "rgb": [
+                62,
+                99,
+                221
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.985 0.002 270.0)",
+              "rgb": [
+                249,
+                250,
+                251
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.985 0.002 270.0)",
+              "rgb": [
+                249,
+                250,
+                251
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 85,
+              "y": 169,
+              "color": "#f9fafb"
+            },
+            {
+              "x": 109,
+              "y": 169,
+              "color": "#f9fafb"
+            },
+            {
+              "x": 134,
+              "y": 169,
+              "color": "#f9fafb"
+            }
+          ],
+          "screens": {
+            "file": "before-neo-dark-home.png",
+            "sha256": "2f0473d4b1f60b76e99c48a287890352f86facd1993b8516bd57773e0e57a751"
+          }
+        },
+        "media": {
+          "selectedText": "Media",
+          "instanceTheme": "neo-theme-neo-dark",
+          "colorScheme": "dark",
+          "computed": "oklch(0.985 0.002 270)",
+          "computedRGB": [
+            249,
+            250,
+            251
+          ],
+          "rect": {
+            "x": 158.453125,
+            "y": 168,
+            "width": 98.34375,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "oklch(0.544 0.191 267.0)",
+              "resolved": "oklch(0.544 0.191 267.0)",
+              "rgb": [
+                62,
+                99,
+                221
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.985 0.002 270.0)",
+              "rgb": [
+                249,
+                250,
+                251
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.985 0.002 270.0)",
+              "rgb": [
+                249,
+                250,
+                251
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 183,
+              "y": 169,
+              "color": "#f9fafb"
+            },
+            {
+              "x": 207,
+              "y": 169,
+              "color": "#f9fafb"
+            },
+            {
+              "x": 232,
+              "y": 169,
+              "color": "#f9fafb"
+            }
+          ],
+          "screens": {
+            "file": "before-neo-dark-media.png",
+            "sha256": "9603fe1dd9f5b71a46d54cec8ece868f7f67f7b101d38e0a77c125734b2fbb0b"
+          }
+        }
+      }
+    },
+    "after": {
+      "materialTabSheetSha256": "4a032829853e53262e99f304b35f046154852c17d83b712020e600f7e6a440f1",
+      "materialRolesSha256": "2db9abd59888379a3dca700a87255186985b6b0ee67b4a9c8111305320551e30",
+      "material-light": {
+        "home": {
+          "selectedText": "Home",
+          "instanceTheme": "neo-theme-material-light",
+          "colorScheme": "light",
+          "computed": "oklch(0.496 0.13 293.7)",
+          "computedRGB": [
+            103,
+            80,
+            164
+          ],
+          "rect": {
+            "x": 61,
+            "y": 176,
+            "width": 95.6875,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.496 0.130 293.7)",
+              "rgb": [
+                103,
+                80,
+                164
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.286 0.013 298.7)",
+              "rgb": [
+                43,
+                41,
+                48
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.496 0.130 293.7)",
+              "rgb": [
+                103,
+                80,
+                164
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 84,
+              "y": 177,
+              "color": "#6750a4"
+            },
+            {
+              "x": 108,
+              "y": 177,
+              "color": "#6750a4"
+            },
+            {
+              "x": 132,
+              "y": 177,
+              "color": "#6750a4"
+            }
+          ],
+          "screens": {
+            "file": "after-material-light-home.png",
+            "sha256": "74bd13932450cbca8559ba5dfeea5b5d196575497b9394ab5c14148522e01743"
+          }
+        },
+        "media": {
+          "selectedText": "Media",
+          "instanceTheme": "neo-theme-material-light",
+          "colorScheme": "light",
+          "computed": "oklch(0.496 0.13 293.7)",
+          "computedRGB": [
+            103,
+            80,
+            164
+          ],
+          "rect": {
+            "x": 156.6875,
+            "y": 176,
+            "width": 96.578125,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.496 0.130 293.7)",
+              "rgb": [
+                103,
+                80,
+                164
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.286 0.013 298.7)",
+              "rgb": [
+                43,
+                41,
+                48
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.496 0.130 293.7)",
+              "rgb": [
+                103,
+                80,
+                164
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 180,
+              "y": 177,
+              "color": "#6750a4"
+            },
+            {
+              "x": 204,
+              "y": 177,
+              "color": "#6750a4"
+            },
+            {
+              "x": 229,
+              "y": 177,
+              "color": "#6750a4"
+            }
+          ],
+          "screens": {
+            "file": "after-material-light-media.png",
+            "sha256": "ca4daf6fe90b8bf68ced81cc537597d56faaad5b3235095ae952a7adb8c6b2e5"
+          }
+        }
+      },
+      "material-dark": {
+        "home": {
+          "selectedText": "Home",
+          "instanceTheme": "neo-theme-material-dark",
+          "colorScheme": "dark",
+          "computed": "oklch(0.835 0.095 298)",
+          "computedRGB": [
+            208,
+            188,
+            255
+          ],
+          "rect": {
+            "x": 61,
+            "y": 176,
+            "width": 95.6875,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.835 0.095 298.0)",
+              "rgb": [
+                208,
+                188,
+                255
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.916 0.014 314.5)",
+              "rgb": [
+                231,
+                225,
+                234
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.835 0.095 298.0)",
+              "rgb": [
+                208,
+                188,
+                255
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 84,
+              "y": 177,
+              "color": "#d0bcff"
+            },
+            {
+              "x": 108,
+              "y": 177,
+              "color": "#d0bcff"
+            },
+            {
+              "x": 132,
+              "y": 177,
+              "color": "#d0bcff"
+            }
+          ],
+          "screens": {
+            "file": "after-material-dark-home.png",
+            "sha256": "14aa21847f57c9b2ec5d170f7046be9ca5e4c7fc0d99e2350ca8b51d70a22494"
+          }
+        },
+        "media": {
+          "selectedText": "Media",
+          "instanceTheme": "neo-theme-material-dark",
+          "colorScheme": "dark",
+          "computed": "oklch(0.835 0.095 298)",
+          "computedRGB": [
+            208,
+            188,
+            255
+          ],
+          "rect": {
+            "x": 156.6875,
+            "y": 176,
+            "width": 96.578125,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.835 0.095 298.0)",
+              "rgb": [
+                208,
+                188,
+                255
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.286 0.013 298.7), oklch(0.916 0.014 314.5))",
+              "resolved": "oklch(0.916 0.014 314.5)",
+              "rgb": [
+                231,
+                225,
+                234
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.496 0.130 293.7), oklch(0.835 0.095 298.0))",
+              "resolved": "oklch(0.835 0.095 298.0)",
+              "rgb": [
+                208,
+                188,
+                255
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 180,
+              "y": 177,
+              "color": "#d0bcff"
+            },
+            {
+              "x": 204,
+              "y": 177,
+              "color": "#d0bcff"
+            },
+            {
+              "x": 229,
+              "y": 177,
+              "color": "#d0bcff"
+            }
+          ],
+          "screens": {
+            "file": "after-material-dark-media.png",
+            "sha256": "0e1c52d1b60296bed0c7a82c9b03c3d58eeef78d50643708a6f668032289a578"
+          }
+        }
+      },
+      "neo-light": {
+        "home": {
+          "selectedText": "Home",
+          "instanceTheme": "neo-theme-neo-light",
+          "colorScheme": "light",
+          "computed": "oklch(0.168 0.008 270)",
+          "computedRGB": [
+            14,
+            15,
+            19
+          ],
+          "rect": {
+            "x": 61,
+            "y": 168,
+            "width": 97.453125,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "oklch(0.544 0.191 267.0)",
+              "resolved": "oklch(0.544 0.191 267.0)",
+              "rgb": [
+                62,
+                99,
+                221
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.168 0.008 270.0)",
+              "rgb": [
+                14,
+                15,
+                19
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.168 0.008 270.0)",
+              "rgb": [
+                14,
+                15,
+                19
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 85,
+              "y": 169,
+              "color": "#0e0f13"
+            },
+            {
+              "x": 109,
+              "y": 169,
+              "color": "#0e0f13"
+            },
+            {
+              "x": 134,
+              "y": 169,
+              "color": "#0e0f13"
+            }
+          ],
+          "screens": {
+            "file": "after-neo-light-home.png",
+            "sha256": "27312e60ecb0b86fbf64afd80436bb9c56c646d363a05d27f87e25b99cf1945d"
+          }
+        },
+        "media": {
+          "selectedText": "Media",
+          "instanceTheme": "neo-theme-neo-light",
+          "colorScheme": "light",
+          "computed": "oklch(0.168 0.008 270)",
+          "computedRGB": [
+            14,
+            15,
+            19
+          ],
+          "rect": {
+            "x": 158.453125,
+            "y": 168,
+            "width": 98.34375,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "oklch(0.544 0.191 267.0)",
+              "resolved": "oklch(0.544 0.191 267.0)",
+              "rgb": [
+                62,
+                99,
+                221
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.168 0.008 270.0)",
+              "rgb": [
+                14,
+                15,
+                19
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.168 0.008 270.0)",
+              "rgb": [
+                14,
+                15,
+                19
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 183,
+              "y": 169,
+              "color": "#0e0f13"
+            },
+            {
+              "x": 207,
+              "y": 169,
+              "color": "#0e0f13"
+            },
+            {
+              "x": 232,
+              "y": 169,
+              "color": "#0e0f13"
+            }
+          ],
+          "screens": {
+            "file": "after-neo-light-media.png",
+            "sha256": "de0b693d51ccdfa2c53826a4f4b39c81a55af755800802cc78efee23a1832823"
+          }
+        }
+      },
+      "neo-dark": {
+        "home": {
+          "selectedText": "Home",
+          "instanceTheme": "neo-theme-neo-dark",
+          "colorScheme": "dark",
+          "computed": "oklch(0.985 0.002 270)",
+          "computedRGB": [
+            249,
+            250,
+            251
+          ],
+          "rect": {
+            "x": 61,
+            "y": 168,
+            "width": 97.453125,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "oklch(0.544 0.191 267.0)",
+              "resolved": "oklch(0.544 0.191 267.0)",
+              "rgb": [
+                62,
+                99,
+                221
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.985 0.002 270.0)",
+              "rgb": [
+                249,
+                250,
+                251
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.985 0.002 270.0)",
+              "rgb": [
+                249,
+                250,
+                251
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 85,
+              "y": 169,
+              "color": "#f9fafb"
+            },
+            {
+              "x": 109,
+              "y": 169,
+              "color": "#f9fafb"
+            },
+            {
+              "x": 134,
+              "y": 169,
+              "color": "#f9fafb"
+            }
+          ],
+          "screens": {
+            "file": "after-neo-dark-home.png",
+            "sha256": "2f0473d4b1f60b76e99c48a287890352f86facd1993b8516bd57773e0e57a751"
+          }
+        },
+        "media": {
+          "selectedText": "Media",
+          "instanceTheme": "neo-theme-neo-dark",
+          "colorScheme": "dark",
+          "computed": "oklch(0.985 0.002 270)",
+          "computedRGB": [
+            249,
+            250,
+            251
+          ],
+          "rect": {
+            "x": 158.453125,
+            "y": 168,
+            "width": 98.34375,
+            "height": 3
+          },
+          "roles": {
+            "--neo-color-background-accent": {
+              "value": "oklch(0.544 0.191 267.0)",
+              "resolved": "oklch(0.544 0.191 267.0)",
+              "rgb": [
+                62,
+                99,
+                221
+              ]
+            },
+            "--neo-color-background-inverse": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.985 0.002 270.0)",
+              "rgb": [
+                249,
+                250,
+                251
+              ]
+            },
+            "--neo-tab-indicator-background-color-active": {
+              "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.985 0.002 270.0))",
+              "resolved": "oklch(0.985 0.002 270.0)",
+              "rgb": [
+                249,
+                250,
+                251
+              ]
+            }
+          },
+          "samples": [
+            {
+              "x": 183,
+              "y": 169,
+              "color": "#f9fafb"
+            },
+            {
+              "x": 207,
+              "y": 169,
+              "color": "#f9fafb"
+            },
+            {
+              "x": 232,
+              "y": 169,
+              "color": "#f9fafb"
+            }
+          ],
+          "screens": {
+            "file": "after-neo-dark-media.png",
+            "sha256": "9603fe1dd9f5b71a46d54cec8ece868f7f67f7b101d38e0a77c125734b2fbb0b"
+          }
+        }
+      }
+    }
+  },
+  "errors": [],
+  "browser": "158.0.8127.38"
+}

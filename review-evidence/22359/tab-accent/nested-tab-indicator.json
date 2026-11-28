@@ -1,0 +1,285 @@
+{
+  "head": "fc64894fc770074dc13faeef2062faa43c7eece1",
+  "fixture": "test/playwright/component/apps/empty-viewport",
+  "method": "An explicit container inside the host owns an unthemed Neo.tab.Container. An unthemed sibling tab set shares the host. Each active marker is sampled from the viewport PNG and compared with its independently painted standalone tab example. The host switches outer → inner (matching the explicit island) → outer. The widget graph is created via the normal App Worker; no DOM or stylesheet is patched.",
+  "scenarios": [
+    {
+      "outer": "neo-light",
+      "inner": "material-dark",
+      "steps": [
+        {
+          "applied": "neo-light",
+          "nested": {
+            "x": 37,
+            "y": 57,
+            "computed": "oklch(0.835 0.095 298)",
+            "selected": "Home",
+            "scope": "neo-theme-material-dark",
+            "painted": "#d0bcff",
+            "standalone": "#d0bcff"
+          },
+          "sibling": {
+            "x": 38,
+            "y": 219,
+            "computed": "oklch(0.168 0.008 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-light",
+            "painted": "#0e0f13",
+            "standalone": "#0e0f13"
+          }
+        },
+        {
+          "applied": "material-dark",
+          "nested": {
+            "x": 37,
+            "y": 57,
+            "computed": "oklch(0.835 0.095 298)",
+            "selected": "Home",
+            "scope": "neo-theme-material-dark",
+            "painted": "#d0bcff",
+            "standalone": "#d0bcff"
+          },
+          "sibling": {
+            "x": 37,
+            "y": 227,
+            "computed": "oklch(0.835 0.095 298)",
+            "selected": "Home",
+            "scope": "neo-theme-material-dark",
+            "painted": "#d0bcff",
+            "standalone": "#d0bcff"
+          }
+        },
+        {
+          "applied": "neo-light",
+          "nested": {
+            "x": 37,
+            "y": 57,
+            "computed": "oklch(0.835 0.095 298)",
+            "selected": "Home",
+            "scope": "neo-theme-material-dark",
+            "painted": "#d0bcff",
+            "standalone": "#d0bcff"
+          },
+          "sibling": {
+            "x": 38,
+            "y": 219,
+            "computed": "oklch(0.168 0.008 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-light",
+            "painted": "#0e0f13",
+            "standalone": "#0e0f13"
+          }
+        }
+      ]
+    },
+    {
+      "outer": "material-dark",
+      "inner": "neo-light",
+      "steps": [
+        {
+          "applied": "material-dark",
+          "nested": {
+            "x": 38,
+            "y": 49,
+            "computed": "oklch(0.168 0.008 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-light",
+            "painted": "#0e0f13",
+            "standalone": "#0e0f13"
+          },
+          "sibling": {
+            "x": 37,
+            "y": 227,
+            "computed": "oklch(0.835 0.095 298)",
+            "selected": "Home",
+            "scope": "neo-theme-material-dark",
+            "painted": "#d0bcff",
+            "standalone": "#d0bcff"
+          }
+        },
+        {
+          "applied": "neo-light",
+          "nested": {
+            "x": 38,
+            "y": 49,
+            "computed": "oklch(0.168 0.008 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-light",
+            "painted": "#0e0f13",
+            "standalone": "#0e0f13"
+          },
+          "sibling": {
+            "x": 38,
+            "y": 219,
+            "computed": "oklch(0.168 0.008 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-light",
+            "painted": "#0e0f13",
+            "standalone": "#0e0f13"
+          }
+        },
+        {
+          "applied": "material-dark",
+          "nested": {
+            "x": 38,
+            "y": 49,
+            "computed": "oklch(0.168 0.008 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-light",
+            "painted": "#0e0f13",
+            "standalone": "#0e0f13"
+          },
+          "sibling": {
+            "x": 37,
+            "y": 227,
+            "computed": "oklch(0.835 0.095 298)",
+            "selected": "Home",
+            "scope": "neo-theme-material-dark",
+            "painted": "#d0bcff",
+            "standalone": "#d0bcff"
+          }
+        }
+      ]
+    },
+    {
+      "outer": "neo-dark",
+      "inner": "material-light",
+      "steps": [
+        {
+          "applied": "neo-dark",
+          "nested": {
+            "x": 37,
+            "y": 57,
+            "computed": "oklch(0.496 0.13 293.7)",
+            "selected": "Home",
+            "scope": "neo-theme-material-light",
+            "painted": "#6750a4",
+            "standalone": "#6750a4"
+          },
+          "sibling": {
+            "x": 38,
+            "y": 219,
+            "computed": "oklch(0.985 0.002 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-dark",
+            "painted": "#f9fafb",
+            "standalone": "#f9fafb"
+          }
+        },
+        {
+          "applied": "material-light",
+          "nested": {
+            "x": 37,
+            "y": 57,
+            "computed": "oklch(0.496 0.13 293.7)",
+            "selected": "Home",
+            "scope": "neo-theme-material-light",
+            "painted": "#6750a4",
+            "standalone": "#6750a4"
+          },
+          "sibling": {
+            "x": 37,
+            "y": 227,
+            "computed": "oklch(0.496 0.13 293.7)",
+            "selected": "Home",
+            "scope": "neo-theme-material-light",
+            "painted": "#6750a4",
+            "standalone": "#6750a4"
+          }
+        },
+        {
+          "applied": "neo-dark",
+          "nested": {
+            "x": 37,
+            "y": 57,
+            "computed": "oklch(0.496 0.13 293.7)",
+            "selected": "Home",
+            "scope": "neo-theme-material-light",
+            "painted": "#6750a4",
+            "standalone": "#6750a4"
+          },
+          "sibling": {
+            "x": 38,
+            "y": 219,
+            "computed": "oklch(0.985 0.002 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-dark",
+            "painted": "#f9fafb",
+            "standalone": "#f9fafb"
+          }
+        }
+      ]
+    },
+    {
+      "outer": "material-light",
+      "inner": "neo-dark",
+      "steps": [
+        {
+          "applied": "material-light",
+          "nested": {
+            "x": 38,
+            "y": 49,
+            "computed": "oklch(0.985 0.002 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-dark",
+            "painted": "#f9fafb",
+            "standalone": "#f9fafb"
+          },
+          "sibling": {
+            "x": 37,
+            "y": 227,
+            "computed": "oklch(0.496 0.13 293.7)",
+            "selected": "Home",
+            "scope": "neo-theme-material-light",
+            "painted": "#6750a4",
+            "standalone": "#6750a4"
+          }
+        },
+        {
+          "applied": "neo-dark",
+          "nested": {
+            "x": 38,
+            "y": 49,
+            "computed": "oklch(0.985 0.002 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-dark",
+            "painted": "#f9fafb",
+            "standalone": "#f9fafb"
+          },
+          "sibling": {
+            "x": 38,
+            "y": 219,
+            "computed": "oklch(0.985 0.002 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-dark",
+            "painted": "#f9fafb",
+            "standalone": "#f9fafb"
+          }
+        },
+        {
+          "applied": "material-light",
+          "nested": {
+            "x": 38,
+            "y": 49,
+            "computed": "oklch(0.985 0.002 270)",
+            "selected": "Home",
+            "scope": "neo-theme-neo-dark",
+            "painted": "#f9fafb",
+            "standalone": "#f9fafb"
+          },
+          "sibling": {
+            "x": 37,
+            "y": 227,
+            "computed": "oklch(0.496 0.13 293.7)",
+            "selected": "Home",
+            "scope": "neo-theme-material-light",
+            "painted": "#6750a4",
+            "standalone": "#6750a4"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "browser": "158.0.8127.38"
+}
