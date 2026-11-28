@@ -1,4 +1,5 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}    from '@playwright/test';
+import {themeSheetHrefs} from '../../util/themeSheets.mjs';
 
 test.describe('ChipListComponent', () => {
     let componentId;
@@ -108,11 +109,7 @@ test.describe('ChipListComponent theme surfaces', () => {
     // The list carries its own theme class, as in a workbench: a classic theme's token rule then out-ranks one set on the list.
     for (const theme of ['neo-theme-dark', 'neo-theme-light', 'neo-theme-neo-dark', 'neo-theme-neo-light']) {
         test(`${theme}: a chip fills its pill, its text clears the border, and the list takes the theme's frame`, async ({page}) => {
-            const directory = theme.replace('neo-theme-', 'theme-'),
-                  sheets    = ['list/Base.css', 'component/Chip.css'].map(file => `/dist/development/css/${directory}/${file}`);
-
-            // The neo themes' design tokens live in their Global sheet
-            directory.startsWith('theme-neo-') && sheets.unshift(`/dist/development/css/${directory}/Global.css`);
+            const sheets = themeSheetHrefs([theme], ['list.Base', 'component.Chip']);
 
             await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
             await page.waitForSelector('#component-test-viewport', {state: 'attached'});

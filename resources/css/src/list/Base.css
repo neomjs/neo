@@ -75,7 +75,8 @@
         }
 
         .neo-highlight-search {
-            color: var(--neo-list-item-highlight-search-color);
+            background-color: var(--neo-list-item-highlight-search-background-color);
+            color           : var(--neo-list-item-highlight-search-color);
         }
     }
 }
