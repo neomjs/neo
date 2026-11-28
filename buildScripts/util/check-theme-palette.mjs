@@ -17,10 +17,11 @@
  * <background> [--theme <class-or-stem>]` (or `npm run theme-contrast -- <fg> <bg>`) to print a pair's contrast
  * ratio in each scheme with the same compositing.
  *
- * A product palette is `theme-<name>/apps/<app>/Global.css`. It re-values names, and adds none, on the theme
- * classes whose palette its folder's own `Global.css` declares, so one app has one overlay per theme class. It is
- * measured as a palette of its own, the theme's values with the product's on top, by every rule above, and named
- * in the passing line beside its theme. Run from a workspace, the check reads the build's theme roots in their
+ * A product palette is `theme-<name>/apps/<app>/Global.css`. It re-values palette and role names, and adds none,
+ * under no condition on the theme classes whose palette its folder's own `Global.css` declares, so one app has one
+ * overlay per theme class. Any other declaration or a registration fails, and so does a sheet that re-values
+ * nothing. It is measured as a palette of its own, the theme's values with the product's on top, by every rule
+ * above, and named in the passing line beside its theme. Run from a workspace, the check reads the build's theme roots in their
  * override order (`themeCssRoots`), so a workspace's product palette is measured on the Engine's theme.
  *
  * Three things are outside this check: a value set from JavaScript, a sheet reached through `@import`, and a
@@ -1187,8 +1188,20 @@ export function inspectThemePalettes({root = repoRoot, cssRoots = [path.join(roo
             }
         };
 
+        const failuresBefore = failures.size;
+
         const {syntaxError, themes: sheets} = walkSheetCustomProperties(css, {
             onDeclaration: (classes, name, value, conditions, {inRule}) => {
+                if (product && !isPaletteOrRole(name)) {
+                    failures.add(`[product] ${relPath} declares ${name}, which is no palette or role name; a product palette re-values its theme's names only`);
+                    return
+                }
+
+                if (product && !isMeasured(name) && !classes.length) {
+                    failures.add(`[product] ${relPath} declares ${name} outside a theme class; a product palette re-values names on its theme's classes only`);
+                    return
+                }
+
                 if (isMeasured(name) && !classes.length) {
                     reportThemeGlobalScope(name);
                     return
@@ -1206,12 +1219,14 @@ export function inspectThemePalettes({root = repoRoot, cssRoots = [path.join(roo
                     if (!conditions.length) {
                         values.has(name) || values.set(name, new Map());
                         values.get(name).has(value) || values.get(name).set(value, relPath)
-                    } else if (isMeasured(name)) {
+                    } else if (isMeasured(name) || product) {
                         conditional.push({conditions, name, relPath})
                     }
                 }
             },
-            onProperty: name => reportThemeGlobalScope(name, true)
+            onProperty: name => product
+                ? failures.add(`[product] ${relPath} registers ${name}; a product palette re-values its theme's names and registers none`)
+                : reportThemeGlobalScope(name, true)
         });
 
         if (syntaxError) {
@@ -1225,6 +1240,11 @@ export function inspectThemePalettes({root = repoRoot, cssRoots = [path.join(roo
             } else {
                 theme(themeClass).sheets.push({declarations, folder: cssRelPath.split('/')[0], relPath})
             }
+        }
+
+        // A product sheet that no rule above refused and that re-values no name on a theme class was never read.
+        if (product && failures.size === failuresBefore && !products.has(relPath)) {
+            failures.add(`[product] ${relPath} re-values no palette or role name on a theme class; a product palette declares its values there`)
         }
     }
 

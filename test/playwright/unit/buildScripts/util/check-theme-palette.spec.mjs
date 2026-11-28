@@ -768,6 +768,46 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         expect(product(text, files({[DARK]: ground})).failures).toEqual([refused])
     });
 
+    test('an app\'s Global.css holds palette and role names on its theme\'s classes under no condition, and one that re-values nothing fails', () => {
+        const
+            DARK      = 'theme-neo-dark/apps/probe/Global.css',
+            newScale  = neoName('space-99'),
+            outside   = (rel, name) => `[product] resources/css/${rel} declares ${name} outside a theme class; a product palette re-values names on its theme's classes only`,
+            unread    = rel => `[product] resources/css/${rel} re-values no palette or role name on a theme class; a product palette declares its values there`,
+            inspectIn = (rel, body) => inspect({'theme-neo/Global.css': source, [rel]: body});
+
+        // CONTROL: a scale role its theme declares, re-valued on the theme's classes, is measured and named.
+        const control = product(`${BOTH} {\n    --neo-space-1: 6px;\n}\n`);
+
+        expect(control.failures).toEqual([]);
+        expect(control.productPalettes).toEqual(['neo-theme-neo-light + probe (light)', 'neo-theme-neo-dark + probe (dark)']);
+
+        // Scale roles on a component selector, here and in the companion folder.
+        expect(product(`.probe-viewport {\n    ${newScale}: 99px;\n    --neo-font-family-sans: Inter;\n}\n`).failures).toEqual([
+            outside(APP, newScale),
+            outside(APP, '--neo-font-family-sans')
+        ]);
+        expect(inspectIn(DARK, '.probe-viewport {\n    --neo-space-1: 99px;\n}\n').failures).toEqual([outside(DARK, '--neo-space-1')]);
+
+        // A scale role under a condition, on the theme's class.
+        expect(product(`@media (min-width: 0px) {\n    .neo-theme-neo-light {\n        ${newScale}: 99px;\n    }\n}\n`).failures).toEqual([
+            `[conditional] resources/css/${APP} declares ${newScale} for .neo-theme-neo-light inside @media (min-width: 0px); ` +
+            'this check reads no condition and cannot tell when that value paints'
+        ]);
+
+        // A component variable, and a registration.
+        expect(product(`${BOTH} {\n    --neo-button-color: red;\n}\n`).failures).toEqual([
+            `[product] resources/css/${APP} declares --neo-button-color, which is no palette or role name; a product palette re-values its theme's names only`
+        ]);
+        expect(product(`@property --neo-space-1 {\n    syntax: '<length>';\n    inherits: true;\n    initial-value: 4px;\n}\n`).failures).toEqual([
+            `[product] resources/css/${APP} registers --neo-space-1; a product palette re-values its theme's names and registers none`
+        ]);
+
+        // A sheet that declares nothing, or nothing a palette holds, was never read.
+        expect(product('').failures).toEqual([unread(APP)]);
+        expect(inspectIn(DARK, '/* nothing yet */\n.probe-viewport {\n    color: red;\n}\n').failures).toEqual([unread(DARK)])
+    });
+
     test('run from a workspace, the command measures the workspace\'s product palette on the Engine\'s theme', () => {
         const
             workspace = path.join(tmpRoot, 'workspace'),
