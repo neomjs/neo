@@ -1,3 +1,4 @@
 :root .neo-theme-cyberpunk { /* .neo-dragproxy */
     --neo-tree-sort-proxy-border-radius: 4px;
+    --neo-tree-sort-proxy-box-shadow   : initial; /* none declared before theme-base */
 }

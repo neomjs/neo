@@ -1,0 +1,4 @@
+/* A dragged grid header button, every theme: a listed literal (rule 5). src/draggable/grid/header/toolbar/SortZone.css reads it. */
+[class*="neo-theme-"] {
+    --neo-grid-header-button-dragging-opacity: 0.7;
+}

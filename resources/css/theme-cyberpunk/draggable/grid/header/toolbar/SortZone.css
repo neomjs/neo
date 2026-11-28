@@ -1,0 +1,4 @@
+/* Cyberpunk declares no drag opacity: `initial` leaves its reader on what it computed before theme-base. */
+:root .neo-theme-cyberpunk { /* .neo-grid-header-toolbar */
+    --neo-grid-header-button-dragging-opacity: initial;
+}
