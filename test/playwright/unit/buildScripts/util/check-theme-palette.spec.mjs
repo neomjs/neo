@@ -862,5 +862,53 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         expect(parseColor('rgb(0 0 0 / .16)').rgba).toEqual([0, 0, 0, 0.16]);
         expect(parseColor('#3e63dd').lightness).toBeCloseTo(0.544, 2);
         expect(parseColor('color-mix(in oklch, red, blue)')).toBeNull()
+    });
+
+    test('theme-base/Global.css passes with component variables and fails as [scope] on palette, colour-role, or scale-role names', () => {
+        for (const selector of [':where([class*="neo-theme-"])', '[class*="neo-theme-"]']) {
+            const {failures, palettes} = inspect({
+                'theme-neo/Global.css' : source,
+                'theme-base/Global.css': `${selector} { --neo-global-background-color: var(--neo-color-background-canvas); --neo-global-font-family: var(--neo-font-family-sans); }`
+            });
+
+            expect(failures).toEqual([]);
+            expect(palettes).toHaveLength(2)
+        }
+
+        // 1. Palette name in theme-base/Global.css.
+        expect(inspect({
+            'theme-neo/Global.css' : source,
+            'theme-base/Global.css': ':where([class*="neo-theme-"]) { --neo-palette-accent-600: oklch(0.544 0.191 267.0); }'
+        }).failures).toEqual([
+            '[scope] resources/css/theme-base/Global.css declares or registers --neo-palette-accent-600 outside a theme Global.css; theme-base/Global.css declares component variables only'
+        ]);
+
+        // 2. Colour-role name in theme-base/Global.css (under base selector and under a theme class).
+        for (const selector of ['[class*="neo-theme-"]', '.neo-theme-neo-light']) {
+            expect(inspect({
+                'theme-neo/Global.css' : source,
+                'theme-base/Global.css': `${selector} { --neo-color-background-accent: var(--neo-palette-accent-600); }`
+            }).failures).toEqual([
+                '[scope] resources/css/theme-base/Global.css declares or registers --neo-color-background-accent outside a theme Global.css; theme-base/Global.css declares component variables only'
+            ])
+        }
+
+        // 3. Scale-role names in theme-base/Global.css (under base selector, under a theme class, and via @property).
+        expect(inspect({
+            'theme-neo/Global.css' : source,
+            'theme-base/Global.css': '[class*="neo-theme-"] { --neo-space-1: 4px; --neo-font-family-sans: sans-serif; }'
+        }).failures).toEqual([
+            '[scope] resources/css/theme-base/Global.css declares or registers --neo-space-1 outside a theme Global.css; theme-base/Global.css declares component variables only',
+            '[scope] resources/css/theme-base/Global.css declares or registers --neo-font-family-sans outside a theme Global.css; theme-base/Global.css declares component variables only'
+        ]);
+
+        for (const rule of ['.neo-theme-neo-light { --neo-space-1: 4px; }', '@property --neo-space-1 { syntax: "<length>"; inherits: true; initial-value: 4px; }']) {
+            expect(inspect({
+                'theme-neo/Global.css' : source,
+                'theme-base/Global.css': rule
+            }).failures).toEqual([
+                '[scope] resources/css/theme-base/Global.css declares or registers --neo-space-1 outside a theme Global.css; theme-base/Global.css declares component variables only'
+            ])
+        }
     })
 });

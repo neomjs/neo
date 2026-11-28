@@ -26,6 +26,8 @@ test.describe('buildScripts/util/themeCssLayers (#22297)', () => {
 
     test('a sheet\'s folder decides its layer', () => {
         expect(cascadeLayer('theme-neo-dark', 'Global.css')).toBe('neo.roles');
+        expect(cascadeLayer('theme-base', 'Global.css')).toBe('neo.roles');
+        expect(cascadeLayer('theme-base', '/Global.css')).toBe('neo.roles');
         expect(cascadeLayer('theme-base', '/button/Base.css')).toBe('neo.base');
         expect(cascadeLayer('theme-neo-dark', '/button/Base.css')).toBe('neo.theme');
         expect(cascadeLayer('theme-neo-dark', '/apps/portal/Viewport.css')).toBe('neo.apps');
