@@ -11,6 +11,32 @@ import {runDedicatedWorkerNeuralLink} from '../../dedicatedWorkerNeuralLink.mjs'
 const URL = '/examples/grid/nestedRecordFields/index.html';
 
 /**
+ * @summary Reads the natural desktop frame after the edit-button opening animation settles.
+ * @param {import('@playwright/test').Locator} dialog
+ * @returns {Promise<{x: Number, y: Number, width: Number, height: Number}>}
+ */
+async function getSettledDesktopBounds(dialog) {
+    let bounds;
+
+    await expect.poll(async () => {
+        bounds = await dialog.evaluate(root => {
+            const {x, y, width, height, right, bottom} = root.getBoundingClientRect();
+
+            if (width !== 420 || height <= 0 || x < 0 || y < 0 || right > innerWidth || bottom > innerHeight ||
+                root.style.height || root.matches('.neo-animating, .animated-hiding-showing, .neo-dialog-sheet')) {
+                return null
+            }
+
+            return {x, y, width, height}
+        });
+
+        return bounds
+    }, {message: 'wait for the fully open contact editor on desktop'}).not.toBeNull();
+
+    return bounds
+}
+
+/**
  * @summary Records the Dialog's first laid-out frame, including an offscreen initial position.
  * @param {import('@playwright/test').Page} page
  */
@@ -244,7 +270,6 @@ test.describe('Grid edit-in-a-dialog example', () => {
 
             await edit.click();
             await expect(input).toBeFocused();
-            await expect(dialog).not.toHaveClass(/neo-animating/);
 
             const app        = await adapter.connectToApp('Neo.examples.grid.nestedRecordFields'),
                   readEditor = async () => {
@@ -254,7 +279,7 @@ test.describe('Grid edit-in-a-dialog example', () => {
                       return {id: editor.id, ...editor.properties}
                   },
                   original      = await readEditor(),
-                  desktopBounds = await dialog.boundingBox();
+                  desktopBounds = await getSettledDesktopBounds(dialog);
 
             expect(original.id).toBeTruthy();
             expect(original['stateProvider.id']).toBeTruthy();
@@ -419,7 +444,7 @@ test.describe('Grid edit-in-a-dialog example', () => {
 
             await row.getByRole('button', {name: 'Edit', exact: true}).click();
             await expect(field).toBeFocused();
-            await expect(dialog).not.toHaveClass(/neo-animating/);
+            await getSettledDesktopBounds(dialog);
 
             const app        = await adapter.connectToApp('Neo.examples.grid.nestedRecordFields'),
                   id         = await dialog.getAttribute('id'),
