@@ -1,4 +1,8 @@
 :where(.neo-theme-cyberpunk) { /* .neo-desktop-taskbar and its start menu: the toolbar's ground, cyan for the start button and the menu's edge */
+    --neo-desktop-start-button-background-color        : var(--neo-desktop-taskbar-accent-color);
+    --neo-desktop-start-button-background-color-active : color-mix(in srgb, var(--neo-desktop-taskbar-accent-color) 80%, black);
+    --neo-desktop-start-button-background-color-hover  : color-mix(in srgb, var(--neo-desktop-taskbar-accent-color) 85%, white);
+    --neo-desktop-start-button-background-color-pressed: var(--neo-desktop-start-button-background-color-hover);
     --neo-desktop-start-button-color                    : var(--neo-cyber-background-color);
     --neo-desktop-start-menu-background-color           : var(--neo-cyber-alt-background-color);
     --neo-desktop-start-menu-border-color               : var(--neo-cyber-cyan);

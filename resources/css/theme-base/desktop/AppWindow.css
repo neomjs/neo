@@ -1,0 +1,13 @@
+[class*="neo-theme-"] {
+    --neo-desktop-app-window-background-color  : light-dark(
+        color-mix(in srgb, var(--neo-color-background-surface-raised) 78%, transparent),
+        color-mix(in srgb, var(--neo-color-background-surface-raised) 74%, transparent)
+    );
+    --neo-desktop-app-window-border-color      : var(--neo-color-border-default);
+    --neo-desktop-app-window-color             : var(--neo-color-text-default);
+    --neo-desktop-app-window-glyph-color       : var(--neo-color-text-on-accent);
+    --neo-desktop-app-window-icon-color        : var(--neo-color-text-muted);
+    --neo-desktop-app-window-box-shadow        : var(--neo-elevation-4);
+    --neo-desktop-app-window-border-radius     : var(--neo-radius-extra-large);
+    --neo-desktop-app-window-icon-border-radius: var(--neo-radius-medium);
+}

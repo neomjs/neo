@@ -1,0 +1,14 @@
+[class*="neo-theme-"] {
+    --neo-desktop-launcher-color                       : var(--neo-color-text-default);
+    --neo-desktop-launcher-color-focus                 : var(--neo-color-focus-ring);
+    --neo-desktop-launcher-header-color                : var(--neo-color-text-muted);
+    --neo-desktop-launcher-icon-color                  : var(--neo-color-text-on-accent);
+    --neo-desktop-launcher-icon-highlight-color        : color-mix(in srgb, var(--neo-color-text-on-accent) 35%, transparent);
+    --neo-desktop-launcher-item-background-color-active: var(--neo-color-background-neutral-active);
+    --neo-desktop-launcher-item-background-color-hover : var(--neo-color-background-neutral-hover);
+    --neo-desktop-launcher-label-text-shadow           : 0 1px 2px light-dark(transparent, var(--neo-color-shadow));
+    --neo-desktop-launcher-proxy-item-box-shadow       : var(--neo-elevation-3);
+    --neo-desktop-launcher-item-border-radius          : 16px;
+    --neo-desktop-launcher-icon-border-radius          : 16px;
+    --neo-desktop-launcher-compact-icon-border-radius  : 14px;
+}

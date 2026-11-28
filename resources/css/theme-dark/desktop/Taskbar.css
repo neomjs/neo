@@ -1,4 +1,8 @@
 :where(.neo-theme-dark) { /* .neo-desktop-taskbar and its start menu: the toolbar's and the menu's greys, the badge's blue */
+    --neo-desktop-start-button-background-color        : var(--neo-desktop-taskbar-accent-color);
+    --neo-desktop-start-button-background-color-active : color-mix(in srgb, var(--neo-desktop-taskbar-accent-color) 80%, black);
+    --neo-desktop-start-button-background-color-hover  : color-mix(in srgb, var(--neo-desktop-taskbar-accent-color) 85%, white);
+    --neo-desktop-start-button-background-color-pressed: var(--neo-desktop-start-button-background-color-hover);
     --neo-desktop-start-button-color                    : var(--neo-button-badge-color, #282828);
     --neo-desktop-start-menu-background-color           : var(--neo-menu-list-background-color, #3c3f41);
     --neo-desktop-start-menu-border-color               : var(--neo-menu-list-border-color, #2b2b2b);

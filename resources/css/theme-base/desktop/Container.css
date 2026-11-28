@@ -1,0 +1,14 @@
+[class*="neo-theme-"] {
+    --neo-desktop-color                               : var(--neo-color-text-default);
+    --neo-desktop-wallpaper                           :
+        radial-gradient(1100px 760px at 12% 18%,
+            color-mix(in srgb, var(--neo-color-background-info-subtle) 40%, transparent), transparent 60%),
+        radial-gradient(900px 680px at 88% 12%,
+            color-mix(in srgb, var(--neo-color-background-accent-subtle) 42%, transparent), transparent 58%),
+        radial-gradient(1000px 860px at 72% 96%,
+            color-mix(in srgb, var(--neo-color-background-brand-subtle) 34%, transparent), transparent 62%),
+        linear-gradient(160deg, var(--neo-color-background-canvas),
+            var(--neo-color-background-accent-subtle) 50%, var(--neo-color-background-brand-subtle));
+    --neo-desktop-window-dwelling-border-radius        : var(--neo-radius-medium);
+    --neo-desktop-window-dwelling-marker-border-radius : 2px;
+}
