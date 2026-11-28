@@ -61,7 +61,7 @@ function observeTarget(page, request) {
         for (const type of types) {
             document.addEventListener(type, event => {
                 if (event.isTrusted) events.push({
-                    active: read(event.touches), changed: read(event.changedTouches), time: performance.now(), type
+                    active: read(event.touches), changed: read(event.changedTouches), time: event.timeStamp, type
                 })
             }, {capture: true, passive: true, signal: controller.signal})
         }
@@ -193,6 +193,11 @@ export async function driveBrowserGesture(request, {pages, workerId}) {
                 }
 
                 const points = step.type === 'touchend' ? step.changed : step.active;
+
+                // Target liveness is an async round trip and can settle after the frame deadline check.
+                if (performance.now() >= deadline) {
+                    return fail('interrupted', 'GESTURE_TIMEOUT', 'the browser trace exceeded its deadline')
+                }
 
                 active ||= step.type === 'touchstart';
                 await cdp.send('Input.dispatchTouchEvent', {
