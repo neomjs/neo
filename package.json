@@ -64,6 +64,7 @@
         "theme-census"                         : "node ./buildScripts/util/theme-census.mjs",
         "theme-contrast"                       : "node ./buildScripts/util/check-theme-palette.mjs --contrast",
         "theme-equality"                       : "node ./buildScripts/util/theme-equality.mjs",
+        "theme-release-compare"                : "node ./buildScripts/util/theme-release-compare.mjs",
         "watch-themes"                         : "node ./buildScripts/helpers/watchThemes.mjs"
     },
     "keywords"       : [
