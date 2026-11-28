@@ -1,0 +1,13 @@
+/* Shared Gantt bindings, including the drag proxies attached to the body. */
+[class*="neo-theme-"] {
+    --neo-gantt-arrow-color                   : var(--neo-color-text-info);
+    --neo-gantt-divider-border-color          : var(--neo-color-border-default);
+    --neo-gantt-highlight-color               : var(--neo-color-border-danger);
+    --neo-gantt-milestone-fill                : var(--neo-color-background-warning-subtle);
+    --neo-gantt-milestone-label-border-radius : 3px;
+    --neo-gantt-milestone-stroke              : var(--neo-color-border-warning);
+    --neo-gantt-summary-background            : color-mix(in oklab, var(--neo-color-background-surface), var(--neo-color-background-surface-raised) 45%);
+    --neo-gantt-summary-border-color          : var(--neo-color-border-strong);
+    --neo-gantt-task-proxy-box-shadow         : var(--neo-elevation-2);
+    --neo-gantt-task-proxy-milestone-filter   : drop-shadow(0 4px 10px var(--neo-color-shadow));
+}
