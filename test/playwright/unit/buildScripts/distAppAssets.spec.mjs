@@ -17,16 +17,18 @@ import {fileURLToPath} from 'node:url';
  * remains outside this focused fixture.
  */
 test.describe('dist app assets', () => {
-    let DIST_APP_ASSET_EXTENSIONS, DIST_EXCLUDED_APP_RESOURCES,
-        copyDistAppAssets, excludedResourcesFor, isDistAppAsset, isExcludedDistResource, repoRoot;
+    let DIST_APP_ASSET_EXTENSIONS, DIST_EXAMPLE_FAVICON, DIST_EXCLUDED_APP_RESOURCES,
+        copyDistAppAssets, copyDistExampleFavicon, excludedResourcesFor, isDistAppAsset, isExcludedDistResource, repoRoot;
 
     const read = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
     test.beforeAll(async () => {
         ({
             DIST_APP_ASSET_EXTENSIONS,
+            DIST_EXAMPLE_FAVICON,
             DIST_EXCLUDED_APP_RESOURCES,
             copyDistAppAssets,
+            copyDistExampleFavicon,
             excludedResourcesFor,
             isDistAppAsset,
             isExcludedDistResource
@@ -116,6 +118,31 @@ test.describe('dist app assets', () => {
             }
         });
 
+        test('the bundled app builds mirror only the shared example favicon', () => {
+            const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-example-favicon-')),
+                  source    = path.join(workspace, DIST_EXAMPLE_FAVICON),
+                  target    = path.join(workspace, 'dist', 'production'),
+                  favicon   = '<svg xmlns="http://www.w3.org/2000/svg"/>';
+
+            try {
+                fs.mkdirSync(path.dirname(source), {recursive: true});
+                fs.writeFileSync(source, favicon);
+                fs.writeFileSync(path.join(path.dirname(source), 'unlinked.svg'), favicon);
+
+                copyDistExampleFavicon(workspace, target);
+
+                const output = path.join(target, DIST_EXAMPLE_FAVICON);
+
+                expect(fs.readFileSync(output, 'utf8')).toBe(favicon);
+                expect(fs.readdirSync(path.dirname(output))).toEqual([path.basename(output)]);
+                for (const config of APP_WORKER_CONFIGS) {
+                    expect(read(config)).toContain('if (insideNeo) copyDistExampleFavicon(')
+                }
+            } finally {
+                fs.rmSync(workspace, {force: true, recursive: true})
+            }
+        });
+
         test('the esm build gates its verbatim copy on the shared rule', () => {
             expect(read('buildScripts/build/esmodules.mjs')).toContain('createEsmBuildPlan(');
             expect(read('buildScripts/util/esmBuildGraph.mjs')).toMatch(/\bisDistAppAsset\s*\(/)
@@ -175,10 +202,14 @@ test.describe('dist app assets', () => {
         test('the real ESM plan copies assets and removes stale excluded resources', () => {
             const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-esm-assets-')),
                   source    = path.join(workspace, 'apps/portal/resources/data'),
-                  target    = path.join(workspace, 'dist/esm/apps/portal/resources/data');
+                  target    = path.join(workspace, 'dist/esm/apps/portal/resources/data'),
+                  icon      = path.join(workspace, DIST_EXAMPLE_FAVICON),
+                  favicon   = '<svg xmlns="http://www.w3.org/2000/svg"/>';
             try {
                 fs.mkdirSync(source, {recursive: true});
                 fs.mkdirSync(target, {recursive: true});
+                fs.mkdirSync(path.dirname(icon), {recursive: true});
+                fs.writeFileSync(icon, favicon);
                 fs.writeFileSync(path.join(workspace, 'package.json'), '{"name":"neo.mjs","version":"0.0.0"}');
                 fs.writeFileSync(path.join(workspace, 'apps/portal/app.webmanifest'), '{"name":"asset probe"}');
                 fs.writeFileSync(path.join(source, 'blog.json'), '{"keep":true}');
@@ -188,6 +219,7 @@ test.describe('dist app assets', () => {
                 }
                 execFileSync(process.execPath, [path.join(repoRoot, 'buildScripts/build/esmodules.mjs')],
                     {cwd: workspace, stdio: 'pipe'});
+                expect(fs.readFileSync(path.join(workspace, 'dist/esm', DIST_EXAMPLE_FAVICON), 'utf8')).toBe(favicon);
                 expect(fs.readFileSync(path.join(workspace, 'dist/esm/apps/portal/app.webmanifest'), 'utf8')).toBe('{"name":"asset probe"}');
                 expect(JSON.parse(fs.readFileSync(path.join(target, 'blog.json'), 'utf8'))).toEqual({keep: true});
                 expect(fs.existsSync(path.join(target, 'seo.json'))).toBe(false);

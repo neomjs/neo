@@ -1,9 +1,9 @@
-import fs                                           from 'fs-extra';
-import path                                         from 'path';
-import {spawnSync}                                  from 'child_process';
-import {copyDistAppAssets, excludedResourcesFor}    from '../../util/distAppAssets.mjs';
-import workerContextRebasePlugin                    from '../workerContextRebasePlugin.mjs';
-import {rewritePathnameConfig, rewritePathnameHtml} from '../../util/esmDistTransforms.mjs';
+import fs                                                                from 'fs-extra';
+import path                                                              from 'path';
+import {spawnSync}                                                       from 'child_process';
+import {copyDistAppAssets, copyDistExampleFavicon, excludedResourcesFor} from '../../util/distAppAssets.mjs';
+import workerContextRebasePlugin                                         from '../workerContextRebasePlugin.mjs';
+import {rewritePathnameConfig, rewritePathnameHtml}                      from '../../util/esmDistTransforms.mjs';
 
 const cwd                   = process.cwd(),
       cpOpts                = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
@@ -143,6 +143,8 @@ export default env => {
     if (fs.existsSync(path.join(cwd, 'docs/app'))) {
         createStartingPoint('Docs', '');
     }
+
+    if (insideNeo) copyDistExampleFavicon(cwd, path.resolve(cwd, buildTarget.folder));
 
     examplesPath = path.join(cwd, 'examples');
 

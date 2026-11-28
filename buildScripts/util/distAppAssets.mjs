@@ -17,6 +17,12 @@ import path from 'node:path';
 export const DIST_APP_ASSET_EXTENSIONS = ['.webmanifest'];
 
 /**
+ * @summary Workspace-relative favicon linked by the Engine's native example pages.
+ * @type {String}
+ */
+export const DIST_EXAMPLE_FAVICON = 'resources/images/logo/neo_logo_favicon.svg';
+
+/**
  * Workspace-relative app resource files consumed exclusively by Node SSR/SSG tooling and omitted from browser `dist/*`.
  * @type {String[]}
  */
@@ -90,4 +96,20 @@ export function copyDistAppAssets(sourceDir, targetDir) {
     }
 
     return copied
+}
+
+/**
+ * @summary Carries the shared favicon into a native Engine distribution at the HTML links' relative path.
+ * @param {String} sourceRoot Engine checkout root.
+ * @param {String} targetRoot Distribution root.
+ */
+export function copyDistExampleFavicon(sourceRoot, targetRoot) {
+    const source = path.join(sourceRoot, DIST_EXAMPLE_FAVICON);
+
+    if (fs.existsSync(source)) {
+        const target = path.join(targetRoot, DIST_EXAMPLE_FAVICON);
+
+        fs.mkdirSync(path.dirname(target), {recursive: true});
+        fs.copyFileSync(source, target)
+    }
 }
