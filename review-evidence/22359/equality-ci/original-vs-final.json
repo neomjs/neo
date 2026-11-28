@@ -1,0 +1,61 @@
+{
+  "measuredAt": "2026-11-28T03:30:01.877Z",
+  "browser": "159.0.8154.6",
+  "method": "The original and final committed comparator ran sequentially using a fresh seven-theme development build from the original Engine revision. The commits differ only in the comparator and its component spec. Both read the same stock tree and CSS copy with two planted rules, using the same archived runtime. The isolated harness redirects relative helper imports to the original identical helper files and writes the full snapshot immediately before its existing return, adding serialization overhead to both times. It also counts every loopback request for /__equality_css/. No timeouts, coverage or comparison rules were changed. Each full snapshot was compared by deep equality; digests recursively sort object keys. Timing is a single local run in this order, not a hosted speed guarantee.",
+  "controls": [
+    "Disabled primary buttons receive a 19px outline offset in the planted tree. Both comparators report the same 14 differences across seven themes and two scopes.",
+    "An additional planted rule gives disabled secondary buttons a 27px outline offset only while the primary button is also disabled. Both comparators keep the two non-default probes separate."
+  ],
+  "runs": {
+    "original": {
+      "revision": "cef8be7aeb4abebddd873377e3f12f01ce26f056",
+      "elapsedMs": 62792,
+      "cssRequests": 3972,
+      "comparisons": 271824,
+      "componentCount": 80,
+      "themes": [
+        "neo-theme-neo-light",
+        "neo-theme-neo-dark",
+        "neo-theme-light",
+        "neo-theme-dark",
+        "neo-theme-cyberpunk",
+        "neo-theme-material-light",
+        "neo-theme-material-dark"
+      ],
+      "scopes": [
+        "inherited",
+        "scoped"
+      ],
+      "plantedDifferences": 14,
+      "sortedSnapshotSha256": {
+        "base": "72d1116dca3ba1786e2511c0850ae34f103ad1fa58a0140face20882fbe9631b",
+        "head": "f8db85beaf63960acb93d15465931f4ef41de4d744a23d8a6f16b99001cac418"
+      }
+    },
+    "final": {
+      "revision": "d24e7d5263952a01feb805118c3b0f5993cae04b",
+      "elapsedMs": 37486,
+      "cssRequests": 1294,
+      "comparisons": 271824,
+      "componentCount": 80,
+      "themes": [
+        "neo-theme-neo-light",
+        "neo-theme-neo-dark",
+        "neo-theme-light",
+        "neo-theme-dark",
+        "neo-theme-cyberpunk",
+        "neo-theme-material-light",
+        "neo-theme-material-dark"
+      ],
+      "scopes": [
+        "inherited",
+        "scoped"
+      ],
+      "plantedDifferences": 14,
+      "sortedSnapshotSha256": {
+        "base": "72d1116dca3ba1786e2511c0850ae34f103ad1fa58a0140face20882fbe9631b",
+        "head": "f8db85beaf63960acb93d15465931f4ef41de4d744a23d8a6f16b99001cac418"
+      }
+    }
+  }
+}
