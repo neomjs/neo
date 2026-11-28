@@ -1,0 +1,21 @@
+/* Timeline track, every theme: each variable bound to a role or a listed literal (ADR 0044). The time axis header
+   reads the non-working band and the now marker too; they are declared here once, as the header is the timeline
+   column's own. The rules in src/timeline/Column.css and src/timeline/TimeAxisHeader.css read these. */
+[class*="neo-theme-"] {
+    /* .neo-timeline-cell */
+    --neo-timeline-gridline-color          : var(--neo-color-border-subtle);
+    --neo-timeline-gridline-step           : 120px; /* an input the gridline gradient computes with */
+    --neo-timeline-non-working-background  : var(--neo-color-background-neutral-hover);
+    --neo-timeline-non-working-border-color: var(--neo-color-border-subtle);
+    --neo-timeline-now-color               : var(--neo-color-text-danger);
+
+    /* .neo-timeline-bar: an event acts, so it speaks in the accent */
+    --neo-timeline-bar-background          : var(--neo-color-background-accent-subtle);
+    --neo-timeline-bar-border-color        : var(--neo-color-border-accent);
+    --neo-timeline-bar-border-color-hover  : var(--neo-color-focus-ring);
+    --neo-timeline-bar-border-radius       : var(--neo-radius-small);
+    --neo-timeline-bar-box-shadow          : var(--neo-elevation-1);
+    --neo-timeline-bar-color               : var(--neo-color-text-default);
+    --neo-timeline-bar-progress-background : color-mix(in srgb, var(--neo-color-background-accent) 20%, transparent);
+    --neo-timeline-outline-color-focus     : var(--neo-color-focus-ring);
+}

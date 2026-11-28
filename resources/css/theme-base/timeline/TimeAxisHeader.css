@@ -1,0 +1,12 @@
+/* Timeline time axis header, every theme: each variable bound to a role or a listed literal (ADR 0044). The header
+   is a bar: raised like the grid headers beside it, with border-default lines. The rules in
+   src/timeline/TimeAxisHeader.css, src/scheduler/Container.css and src/gantt read these. */
+[class*="neo-theme-"] {
+    /* .neo-timeline-header */
+    --neo-timeline-header-background : var(--neo-color-background-surface-raised);
+    --neo-timeline-header-color      : var(--neo-color-text-default);
+    --neo-timeline-header-muted-color: var(--neo-color-text-muted);
+    --neo-timeline-header-height     : 44px; /* coupled to the grid header row beside it */
+    --neo-timeline-border-color      : var(--neo-color-border-default);
+    --neo-timeline-tick-border-color : var(--neo-color-border-default);
+}
