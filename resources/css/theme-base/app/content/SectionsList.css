@@ -1,0 +1,3 @@
+[class*="neo-theme-"] {
+    --neo-app-content-sections-item-color: var(--neo-color-text-muted);
+}

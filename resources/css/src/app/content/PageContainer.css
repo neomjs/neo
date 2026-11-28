@@ -48,7 +48,7 @@
         .content-bottom-toolbar-previous:before {
             color      : var(--neo-app-content-toolbar-color); /* required for mobile */
             content    : 'Previous Page';
-            font-family: var(--neo-core-fontfamily-sans);
+            font-family: var(--neo-app-content-toolbar-font-family, var(--neo-core-fontfamily-sans));
             left       : var(--neo-app-content-toolbar-text-inset);
             position   : absolute;
             top        : var(--neo-app-content-toolbar-text-inset);
@@ -60,7 +60,7 @@
             &:before {
                 color      : var(--neo-app-content-toolbar-color); /* required for mobile */
                 content    : 'Next Page';
-                font-family: var(--neo-core-fontfamily-sans);
+                font-family: var(--neo-app-content-toolbar-font-family, var(--neo-core-fontfamily-sans));
                 position   : absolute;
                 right      : var(--neo-app-content-toolbar-text-inset);
                 top        : var(--neo-app-content-toolbar-text-inset);

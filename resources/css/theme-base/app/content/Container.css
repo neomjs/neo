@@ -1,0 +1,5 @@
+[class*="neo-theme-"] {
+    --neo-app-content-sidenav-background-color       : var(--neo-color-background-surface-raised);
+    --neo-app-content-sidenav-button-background-color: var(--neo-color-background-surface-raised);
+    --neo-app-content-sidenav-box-shadow             : 0 5px 10px var(--neo-color-shadow);
+}

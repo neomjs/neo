@@ -1,0 +1,8 @@
+[class*="neo-theme-"] {
+    --neo-app-content-sections-background-color                : var(--neo-color-background-surface-raised);
+    --neo-app-content-sections-box-shadow                      : 0 5px 10px var(--neo-color-shadow);
+    --neo-app-content-sections-button-background-color         : var(--neo-color-background-surface-raised);
+    --neo-app-content-sections-button-background-color-disabled: var(--neo-color-background-surface-raised);
+    --neo-app-content-sections-button-opacity-disabled         : var(--neo-opacity-disabled);
+    --neo-app-content-sections-glyph-color                     : var(--neo-color-text-default);
+}

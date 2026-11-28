@@ -1,0 +1,7 @@
+[class*="neo-theme-"] {
+    --neo-app-content-page-scrollbar-color-scheme    : var(--neo-color-scheme);
+    --neo-app-content-toolbar-button-background-color: var(--neo-color-background-surface-raised);
+    --neo-app-content-toolbar-color                  : var(--neo-color-text-default);
+    --neo-app-content-toolbar-font-family            : var(--neo-font-family-sans);
+    --neo-app-content-toolbar-text-inset             : var(--neo-space-4);
+}
