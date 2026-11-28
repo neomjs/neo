@@ -706,7 +706,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         expect(failures).toEqual([]);
         expect(productPalettes).toEqual(['neo-theme-neo-light + probe (light)', 'neo-theme-neo-dark + probe (dark)']);
         expect(new Set(palettes)).toEqual(new Set(['neo-theme-neo-light (light)', 'neo-theme-neo-dark (dark)']));
-        expect(names).toBe(199)
+        expect(names).toBe(inspect({'theme-neo/Global.css': source}).names)
     });
 
     test('a product palette is held to its theme\'s rules, and each failure names the app\'s file', () => {
