@@ -1,0 +1,280 @@
+{
+  "commit": "92d66613ef956015ca21c9afa49ce00282f1f042",
+  "trackedTreeClean": true,
+  "browser": "158.0.8127.38",
+  "route": "examples/form/checkout/index.html",
+  "figure": "checkout-field-hover-paint.png",
+  "figureSha256": "fb0a6d18c7e872bb17731f5cb7d9708ce698d9c29ff30fefdd26cb73961443c1",
+  "scope": "Real Checkout, real pointer input. Wrapped Postal code is the stock field. Direct Postal code uses clearable:false. Required-empty warning, readonly and disabled use public field configs. Separate nested trials exercise Material fieldsets in opposite-shade Neo Checkout viewports.",
+  "result": {
+    "states": 112,
+    "hoverComparisons": 48,
+    "failed": 0,
+    "pageErrors": 0
+  },
+  "comparisons": "Focus, invalid, invalid while focused, required-empty warning, readonly and disabled each retain the same three sampled pixels across the underline, its width and neighboring scanlines when the pointer enters.",
+  "evidence": [
+    {
+      "scheme": "light",
+      "shape": "wrapped",
+      "edges": {
+        "rest": [
+          "#646168",
+          1
+        ],
+        "hover": [
+          "#4a484e",
+          1
+        ],
+        "focus-hover": [
+          "#6750a4",
+          2
+        ],
+        "focus": [
+          "#6750a4",
+          2
+        ],
+        "invalid": [
+          "#b0261e",
+          1
+        ],
+        "invalid-hover": [
+          "#b0261e",
+          1
+        ],
+        "invalid-focus-hover": [
+          "#6750a4",
+          2
+        ],
+        "invalid-focus": [
+          "#6750a4",
+          2
+        ],
+        "alert": [
+          "#885500",
+          1
+        ],
+        "alert-hover": [
+          "#885500",
+          1
+        ],
+        "readonly": [
+          "#ccc7cf",
+          1
+        ],
+        "readonly-hover": [
+          "#ccc7cf",
+          1
+        ],
+        "disabled": [
+          "#e7e1ea",
+          1
+        ],
+        "disabled-hover": [
+          "#e7e1ea",
+          1
+        ]
+      }
+    },
+    {
+      "scheme": "light",
+      "shape": "direct",
+      "edges": {
+        "rest": [
+          "#646168",
+          1
+        ],
+        "hover": [
+          "#4a484e",
+          1
+        ],
+        "focus-hover": [
+          "#6750a4",
+          2
+        ],
+        "focus": [
+          "#6750a4",
+          2
+        ],
+        "invalid": [
+          "#b0261e",
+          1
+        ],
+        "invalid-hover": [
+          "#b0261e",
+          1
+        ],
+        "invalid-focus-hover": [
+          "#b0261e",
+          2
+        ],
+        "invalid-focus": [
+          "#b0261e",
+          2
+        ],
+        "alert": [
+          "#885500",
+          1
+        ],
+        "alert-hover": [
+          "#885500",
+          1
+        ],
+        "readonly": [
+          "#646068",
+          1
+        ],
+        "readonly-hover": [
+          "#646068",
+          1
+        ],
+        "disabled": [
+          "#646068",
+          1
+        ],
+        "disabled-hover": [
+          "#646068",
+          1
+        ]
+      }
+    },
+    {
+      "scheme": "dark",
+      "shape": "wrapped",
+      "edges": {
+        "rest": [
+          "#afaab2",
+          1
+        ],
+        "hover": [
+          "#ccc7cf",
+          1
+        ],
+        "focus-hover": [
+          "#d0bcff",
+          2
+        ],
+        "focus": [
+          "#d0bcff",
+          2
+        ],
+        "invalid": [
+          "#eb8f8b",
+          1
+        ],
+        "invalid-hover": [
+          "#eb8f8b",
+          1
+        ],
+        "invalid-focus-hover": [
+          "#d0bcff",
+          2
+        ],
+        "invalid-focus": [
+          "#d0bcff",
+          2
+        ],
+        "alert": [
+          "#da9f58",
+          1
+        ],
+        "alert-hover": [
+          "#da9f58",
+          1
+        ],
+        "readonly": [
+          "#4a484e",
+          1
+        ],
+        "readonly-hover": [
+          "#4a484e",
+          1
+        ],
+        "disabled": [
+          "#36343b",
+          1
+        ],
+        "disabled-hover": [
+          "#36343b",
+          1
+        ]
+      }
+    },
+    {
+      "scheme": "dark",
+      "shape": "direct",
+      "edges": {
+        "rest": [
+          "#afaab2",
+          1
+        ],
+        "hover": [
+          "#ccc7cf",
+          1
+        ],
+        "focus-hover": [
+          "#d0bcff",
+          2
+        ],
+        "focus": [
+          "#d0bcff",
+          2
+        ],
+        "invalid": [
+          "#eb8f8b",
+          1
+        ],
+        "invalid-hover": [
+          "#eb8f8b",
+          1
+        ],
+        "invalid-focus-hover": [
+          "#eb8f8b",
+          2
+        ],
+        "invalid-focus": [
+          "#eb8f8b",
+          2
+        ],
+        "alert": [
+          "#da9f58",
+          1
+        ],
+        "alert-hover": [
+          "#da9f58",
+          1
+        ],
+        "readonly": [
+          "#afaab2",
+          1
+        ],
+        "readonly-hover": [
+          "#afaab2",
+          1
+        ],
+        "disabled": [
+          "#afaab2",
+          1
+        ],
+        "disabled-hover": [
+          "#afaab2",
+          1
+        ]
+      }
+    }
+  ],
+  "notes": [
+    "When an invalid field gains focus, the wrapped underline takes the accent and the direct underline stays danger. Moving the pointer has no effect on either focused underline.",
+    "The direct field retains its rest border color when readonly or disabled. The wrapped field uses the dedicated readonly and disabled border colors. Neither responds to hover in these states."
+  ],
+  "sourceSha256": {
+    "resources/css/theme-material/form/field/Text.css": "203de19a6314a21b16c8088d25a88b3f7da39ac732e80629e53ab9096921acf7",
+    "dist/development/css/theme-material/form/field/Text.css": "1313e19335fadbc229b1087529e0f6334b3e09b08cf62dfce4ae094281f6efda",
+    "resources/css/theme-material/Global.css": "0f7605652e6c772315a325b6ef619869dc76e148bc8c2ebcdbeb82661fabbd0c",
+    "dist/development/css/theme-material/Global.css": "2db9abd59888379a3dca700a87255186985b6b0ee67b4a9c8111305320551e30",
+    "resources/css/theme-base/form/field/Text.css": "e502b78530f7a34a93c8e5e84ebbf53b609799ae75db50d76a58eae9fef001c0",
+    "dist/development/css/theme-base/form/field/Text.css": "6faceb77887dada87b119b78048307c4ab18b8a161e22c694a205b72274c2805",
+    "resources/css/src/form/field/Text.css": "57bb997fc454cab79c7ce65901d6dd56ba20745bf6868878124056d24e5a54b2",
+    "dist/development/css/src/form/field/Text.css": "4f15becbfb7cc31b503754ef582c922bfb7b8a8d5172e4199062d3b198e10969"
+  }
+}
