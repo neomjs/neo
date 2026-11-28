@@ -1,0 +1,4 @@
+[class*="neo-theme-"] {
+    --neo-pickerfield-container-background-color: var(--neo-color-background-surface-raised);
+    --neo-pickerfield-container-border          : var(--neo-border-width-thin) solid var(--neo-color-border-subtle);
+}

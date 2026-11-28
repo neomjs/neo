@@ -137,6 +137,10 @@
     --neo-color-background-neutral-hover    : light-dark(var(--neo-palette-shade-1),     var(--neo-palette-tint-1));
     --neo-color-background-neutral-active   : light-dark(var(--neo-palette-shade-2),     var(--neo-palette-tint-2));
     --neo-color-background-disabled         : light-dark(var(--neo-palette-neutral-200), var(--neo-palette-neutral-900));
+    /* background: tracks and their handles (switches, range sliders). 3:1 on canvas and handle on track */
+    --neo-color-background-track            : light-dark(var(--neo-palette-neutral-500), var(--neo-palette-neutral-600));
+    --neo-color-background-track-hover      : light-dark(var(--neo-palette-neutral-600), var(--neo-palette-neutral-500));
+    --neo-color-background-handle           : var(--neo-palette-white);
     /* background: accent. Solid fills are the same in both schemes; hover and active are the next grades */
     --neo-color-background-accent           : var(--neo-palette-accent-600);
     --neo-color-background-accent-hover     : var(--neo-palette-accent-700);
@@ -171,6 +175,7 @@
     --neo-color-border-subtle               : light-dark(var(--neo-palette-neutral-100), var(--neo-palette-neutral-900));
     /* border: an edge that has to be seen by itself, as on an outlined field. 3:1 on canvas and on field */
     --neo-color-border-strong               : light-dark(var(--neo-palette-neutral-500), var(--neo-palette-neutral-600));
+    --neo-color-border-strong-hover         : light-dark(var(--neo-palette-neutral-600), var(--neo-palette-neutral-500));
     --neo-color-border-accent               : var(--neo-palette-accent-600);
     --neo-color-border-danger               : light-dark(var(--neo-palette-danger-600),  var(--neo-palette-danger-400));
     --neo-color-border-warning              : light-dark(var(--neo-palette-warning-600), var(--neo-palette-warning-400));

@@ -1,0 +1,9 @@
+:root .neo-theme-cyberpunk { /* .neo-sheet-handle */
+    --neo-sheet-handle-focus-outline-color  : var(--neo-cyber-cyan);
+    --neo-sheet-handle-focus-outline-width  : 2px;
+    --neo-sheet-handle-grip-background-color: var(--neo-cyber-cyan);
+    --neo-sheet-handle-grip-block-size      : 4px;
+    --neo-sheet-handle-grip-border-radius   : 0;
+    --neo-sheet-handle-grip-inline-size     : 32px;
+    --neo-sheet-handle-min-block-size       : 48px;
+}

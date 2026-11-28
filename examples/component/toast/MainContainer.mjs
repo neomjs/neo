@@ -6,7 +6,6 @@ import Container               from '../../../src/container/Base.mjs';
 import FormContainer           from '../../../src/form/Container.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import NumberField             from '../../../src/form/field/Number.mjs';
-import StringUtil              from '../../../src/util/String.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
 import ThemeSwitcher           from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar                 from '../../../src/toolbar/Base.mjs';
@@ -15,7 +14,7 @@ import Viewport                from '../../../src/container/Viewport.mjs';
 /**
  * @class Neo.examples.component.toast.MainContainer
  * @extends Neo.container.Viewport
- * @summary Toast configuration form with an escaped, syntax-highlighted code preview.
+ * @summary Toast configuration form with a syntax-highlighted source preview.
  */
 class MainContainer extends Viewport {
     static config = {
@@ -137,8 +136,7 @@ class MainContainer extends Viewport {
                 },
 
                 /**
-                 * @summary Prints the call a component runs, with its own appName and windowId, as one escaped code leaf,
-                 * which keeps VDOM child ids out of HighlightJS's replacement markup.
+                 * @summary Prints the call a component runs for publication as a single code leaf's text.
                  * @param {Object} data Toast form values.
                  * @returns {String}
                  */
@@ -153,9 +151,7 @@ class MainContainer extends Viewport {
 
                     const width = Math.max(...entries.map(([key]) => key.length));
 
-                    return StringUtil.escapeHtml(
-                        'Neo.toast({\n' + entries.map(([key, value]) => `    ${key.padEnd(width)}: ${value}`).join(',\n') + '\n})'
-                    )
+                    return 'Neo.toast({\n' + entries.map(([key, value]) => `    ${key.padEnd(width)}: ${value}`).join(',\n') + '\n})'
                 }
             }]
         }]

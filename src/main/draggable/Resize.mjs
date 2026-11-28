@@ -65,6 +65,25 @@ class Resize {
     state = null
 
     /**
+     * The ms a pointer may rest before its release and still release its stroke. A longer rest ends the stroke the
+     * release velocity measures, so a drag that stopped before its release measures 0.
+     * @member {Number} velocityRestTime=40
+     */
+    velocityRestTime = 40
+
+    /**
+     * The px a frame may move and still count as rest, so release jitter is neither motion nor a reversal.
+     * @member {Number} velocitySlop=1
+     */
+    velocitySlop = 1
+
+    /**
+     * The ms before a terminal over which its release velocity is measured.
+     * @member {Number} velocityWindow=100
+     */
+    velocityWindow = 100
+
+    /**
      * @returns {Boolean}
      */
     get active() {
@@ -95,6 +114,8 @@ class Resize {
         const coordinate = Number(data[state.coordinate]);
 
         if (!Number.isFinite(coordinate)) return null;
+
+        me.recordSample(state, coordinate, Number.isFinite(data.timeStamp) ? data.timeStamp : data.originalEvent?.timeStamp);
 
         const delta = coordinate - state.startCoordinate,
               value = Math.min(
@@ -302,11 +323,68 @@ class Resize {
     }
 
     /**
-     * Resolves the terminal size and relinquishes active gesture authority without undoing success.
-     * Semantic consumers may opt into one generation-scoped pending terminal: success discards its
+     * @summary The release velocity of a gesture in px/ms along its axis, positive while the target grows. It
+     * measures the release stroke: walking back from the release through the frames inside `velocityWindow`, the
+     * stroke ends where the pointer reversed or had rested for `velocityRestTime`. A drag that stopped before its
+     * release measures 0, and one that reversed measures only its last direction. One frame alone measures nothing.
+     * @param {Object} state
+     * @returns {Number}
+     * @protected
+     */
+    getReleaseVelocity({resizeNext, samples}) {
+        let me        = this,
+            index     = (samples?.length ?? 0) - 1,
+            last      = samples?.[index],
+            first     = last,
+            direction = 0,
+            rest      = 0,
+            delta, previous, step, velocity;
+
+        while (index > 0) {
+            previous = samples[--index];
+            delta    = first.coordinate - previous.coordinate;
+            step     = Math.abs(delta) > me.velocitySlop ? Math.sign(delta) : 0;
+            rest     = step ? 0 : rest + first.time - previous.time;
+
+            if ((direction && step && step !== direction) || rest >= me.velocityRestTime) break;
+
+            direction ||= step;
+            first       = previous
+        }
+
+        if (!last || last.time <= first.time) return 0;
+
+        velocity = (last.coordinate - first.coordinate) / (last.time - first.time);
+
+        // A rest measures 0, never -0
+        return (resizeNext ? -velocity : velocity) || 0
+    }
+
+    /**
+     * Records a timed pointer frame and drops the frames older than `velocityWindow`. An untimed replay is skipped.
+     * @param {Object} state
+     * @param {Number} coordinate
+     * @param {Number} [time] The event's `timeStamp`
+     * @protected
+     */
+    recordSample(state, coordinate, time) {
+        if (Number.isFinite(time)) {
+            let samples = state.samples ??= [];
+
+            samples.push({coordinate, time});
+
+            while (time - samples[0].time > this.velocityWindow) {
+                samples.shift()
+            }
+        }
+    }
+
+    /**
+     * Resolves the terminal size and its release velocity, and relinquishes active gesture authority without undoing
+     * success. Semantic consumers may opt into one generation-scoped pending terminal: success discards its
      * rollback snapshot, while rejection restores the exact pre-gesture inline properties.
      * @param {Object} data
-     * @returns {{axis: String, generation: (Number|undefined), size: Number, targetId: String}|null}
+     * @returns {{axis: String, generation: (Number|undefined), size: Number, targetId: String, velocity: Number}|null}
      */
     finish(data) {
         let me    = this,
@@ -315,7 +393,7 @@ class Resize {
             result;
 
         if (state && Number.isFinite(size)) {
-            result = {axis: state.axis, size, targetId: state.targetId};
+            result = {axis: state.axis, size, targetId: state.targetId, velocity: me.getReleaseVelocity(state)};
 
             if (state.preview && state.awaitWorkerSettlement) {
                 me.pendingTerminal && me.restoreState(me.pendingTerminal);

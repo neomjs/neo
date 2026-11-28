@@ -71,7 +71,7 @@ test.describe('Docs mixin members', () => {
             controllerId = view?.properties['controller.id'];
             return Boolean(controllerId)
         }).toBe(true);
-        await expect.poll(() => page.evaluate(() => typeof globalThis.hljs?.lineNumbersBlock)).toBe('function');
+        await expect.poll(() => page.evaluate(() => typeof globalThis.hljs?.highlightBlock)).toBe('function');
 
         await page.evaluate(id => {
             const main  = Neo.Main, queueWrite = main.queueWrite,
@@ -114,8 +114,8 @@ test.describe('Docs mixin members', () => {
 
         try {
             await app.callMethod(controllerId, 'onViewSourceRoute', [{className, lineNumber: '1'}]);
-            await expect.poll(async () => (await app.getComponent(sourceId, ['vdom.cn.0.cn.0.html']))
-                ['vdom.cn.0.cn.0.html']?.includes('class MainContainer extends Viewport')).toBe(true);
+            await expect.poll(async () => (await app.getComponent(sourceId, ['vdom.cn.0.cn.0.text']))
+                ['vdom.cn.0.cn.0.text']?.includes('class MainContainer extends Viewport')).toBe(true);
             await expect(source).toHaveCount(0);
             await page.evaluate(() => window.__docsPublication.releaseMount());
             await expect.poll(() => page.evaluate(() => window.__docsPublication.sourceHeld)).toBe(true);

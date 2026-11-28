@@ -135,7 +135,7 @@ class SourceViewComponent extends Component {
         let me   = this,
             node = me.vdom.cn[0]; // pre tag
 
-        node.cn[0].html = data; // code tag
+        node.cn[0].text = data; // code tag
         if (!me.mounted) {
             await me.trap(me.mountedPromise)
         }

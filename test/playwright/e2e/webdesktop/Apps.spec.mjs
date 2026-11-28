@@ -284,9 +284,24 @@ test.describe('web desktop apps', () => {
             await worker.evaluate(id => { Neo.get(id).theme = 'neo-theme-neo-light' }, id);
             expect(await bodyTheme()).toBe(light);
 
-            // A body carrying a different theme keeps its own scope through a round trip.
             const lightInk = await page.locator('.neo-viewport').evaluate(node => getComputedStyle(node).getPropertyValue('--webdesktop-ink-dim').trim());
             await expect.poll(() => mailInk(dialog)).toBe(lightInk);
+
+            // Explicitly choosing the inherited value keeps the body light when its owner later changes.
+            await worker.evaluate(id => {
+                const owner = Neo.get(id);
+                owner.getItem('bodyContainer').theme = owner.theme
+            }, id);
+            popup = await detachWindow(page, dialog);
+            await worker.evaluate(id => { Neo.get(id).theme = 'neo-theme-neo-dark' }, id);
+            await expect(popup.locator('body')).toHaveClass(/neo-theme-neo-dark/);
+            await expect.poll(() => mailInk(popup)).toBe(lightInk);
+            await restore(popup);
+            expect(await bodyTheme()).toBe(light);
+            await expect.poll(() => mailInk(dialog)).toBe(lightInk);
+
+            // A body carrying a different theme keeps its own scope through a round trip.
+            await worker.evaluate(id => { Neo.get(id).theme = 'neo-theme-neo-light' }, id);
             await worker.evaluate(id => { Neo.get(id).getItem('bodyContainer').theme = 'neo-theme-neo-dark' }, id);
             await expect.poll(() => mailInk(dialog)).not.toBe(lightInk);
             const darkInk = await mailInk(dialog);

@@ -1,0 +1,9 @@
+:root .neo-theme-light { /* .neo-sheet-handle */
+    --neo-sheet-handle-focus-outline-color  : #1c60a0;
+    --neo-sheet-handle-focus-outline-width  : 2px;
+    --neo-sheet-handle-grip-background-color: #bbb;
+    --neo-sheet-handle-grip-block-size      : 4px;
+    --neo-sheet-handle-grip-border-radius   : 2px;
+    --neo-sheet-handle-grip-inline-size     : 32px;
+    --neo-sheet-handle-min-block-size       : 48px;
+}

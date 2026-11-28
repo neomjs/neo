@@ -1,6 +1,0 @@
-:where(.neo-theme-neo-dark) { /* .neo-fieldset */
-    --neo-fieldset-background-color : var(--neo-sem-color-surface-primary-background);
-    --neo-fieldset-border           : 1px solid var(--neo-purple-800);
-    --neo-fieldset-legend-color     : var(--neo-sem-color-text-primary-default);
-    --neo-fieldset-legend-icon-color: var(--neo-sem-color-icon-primary-default);
-}

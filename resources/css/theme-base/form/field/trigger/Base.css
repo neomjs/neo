@@ -1,0 +1,6 @@
+[class*="neo-theme-"] {
+    --neo-trigger-background-color-hover: var(--neo-color-background-neutral-hover);
+    --neo-trigger-border-width          : var(--neo-border-width-thin);
+    --neo-trigger-color                 : var(--neo-color-text-muted);
+    --neo-trigger-color-hover           : var(--neo-color-text-accent);
+}

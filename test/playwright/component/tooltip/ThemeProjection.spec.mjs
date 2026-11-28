@@ -2,16 +2,15 @@ import {test, expect} from '@playwright/test';
 
 /**
  * A consumer that projects its palette into an engine token family at theme-root — the documented
- * path — must win against the engine's own theme value sheet, regardless of which sheet loaded
- * first. The engine's value sheets for the tooltip declare at `:where()` weight for exactly this:
- * zero specificity, so a `:root .neo-theme-neo-*` projection at (0,2,0) outranks them wherever both
- * match, and the tooltip — which stamps the hovered target's theme class on itself — is matched by
- * both. Before that weight, the two declarations tied at (0,2,0) and the engine sheet won on load
- * order, because the Stylesheet addon appends per-class theme sheets after the host's own.
+ * path — must win against the engine's own value sheet, regardless of which sheet loaded first. The
+ * engine declares the tooltip family once, in `theme-base`, inside the `neo.base` cascade layer. The
+ * fixture's projection is an inline rule, and unlayered CSS beats every layer whatever the selectors
+ * weigh. Both rules match the tooltip element itself, because the tooltip stamps the hovered target's
+ * theme class on itself.
  *
  * The fixture projects one token, `--neo-tooltip-background-color`, and nothing else; the control reads a token the
- * host leaves alone, so a green here means the engine sheet still supplies the family at its new
- * weight rather than having been wiped by the projection.
+ * host leaves alone, so a green here means the engine sheet still supplies the rest of the family, bound to its
+ * role, rather than having been wiped by the projection.
  */
 
 const
@@ -50,8 +49,10 @@ test.describe('Neo.tooltip.Base — a theme-root projection outranks the engine 
     test('control: a token the host does not project still comes from the engine sheet', async ({page}) => {
         const tooltip = await showTooltip(page);
 
-        // `--neo-tooltip-font-size` is the engine sheet's alone; at `:where()` weight it still applies.
-        await expect.poll(() => tooltip.evaluate(node => getComputedStyle(node).getPropertyValue('--neo-tooltip-font-size').trim()),
-            {message: 'the engine sheet supplies the rest of the family'}).toBe('14px')
+        // `--neo-tooltip-font-size` is the engine sheet's alone: theme-base binds it to the medium control's type role.
+        const read = name => tooltip.evaluate((node, property) => getComputedStyle(node).getPropertyValue(property).trim(), name);
+
+        await expect.poll(() => read('--neo-tooltip-font-size'), {message: 'the engine sheet supplies the rest of the family'}).not.toBe('');
+        expect(await read('--neo-tooltip-font-size'), 'bound to its role').toBe(await read('--neo-control-font-size-medium'))
     })
 });
