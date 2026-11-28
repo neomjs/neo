@@ -1,0 +1,204 @@
+{
+  "frames": [
+    {
+      "frame": "candidate-desktop-light.png",
+      "viewport": [
+        1440,
+        900
+      ],
+      "header": "#ffffff",
+      "canvas": "#f9fafb",
+      "scheme": "light",
+      "fileContrast": 14.66,
+      "folderContrast": 17.07
+    },
+    {
+      "frame": "candidate-compact-light.png",
+      "viewport": [
+        390,
+        844
+      ],
+      "header": "#ffffff",
+      "canvas": "#f9fafb",
+      "scheme": "light",
+      "fileContrast": 14.66,
+      "folderContrast": 17.07
+    },
+    {
+      "frame": "candidate-desktop-dark.png",
+      "viewport": [
+        1440,
+        900
+      ],
+      "header": "#252934",
+      "canvas": "#0e0f13",
+      "scheme": "dark",
+      "fileContrast": 13.52,
+      "folderContrast": 13.21
+    },
+    {
+      "frame": "candidate-compact-dark.png",
+      "viewport": [
+        390,
+        844
+      ],
+      "header": "#252934",
+      "canvas": "#0e0f13",
+      "scheme": "dark",
+      "fileContrast": 13.52,
+      "folderContrast": 13.21
+    }
+  ],
+  "generatedPaints": [
+    {
+      "scheme": "light",
+      "active": true,
+      "bindings": [
+        {
+          "token": "background-color",
+          "value": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))",
+          "paint": "oklch(0.985 0.002 270)",
+          "expected": "oklch(0.985 0.002 270)",
+          "scheme": "light",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-light neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))"
+        },
+        {
+          "token": "header-background-color",
+          "value": "light-dark(#fff,       oklch(0.280 0.022 270.0))",
+          "paint": "rgb(255, 255, 255)",
+          "expected": "rgb(255, 255, 255)",
+          "scheme": "light",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-light neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(#fff,       oklch(0.280 0.022 270.0))"
+        },
+        {
+          "token": "color",
+          "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.960 0.004 270.0))",
+          "paint": "oklch(0.168 0.008 270)",
+          "expected": "oklch(0.168 0.008 270)",
+          "scheme": "light",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-light neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.168 0.008 270.0), oklch(0.960 0.004 270.0))"
+        },
+        {
+          "token": "detail-color",
+          "value": "light-dark(oklch(0.390 0.034 270.0), oklch(0.700 0.031 270.0))",
+          "paint": "oklch(0.39 0.034 270)",
+          "expected": "oklch(0.39 0.034 270)",
+          "scheme": "light",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-light neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.390 0.034 270.0), oklch(0.700 0.031 270.0))"
+        },
+        {
+          "token": "border-color",
+          "value": "light-dark(oklch(0.875 0.012 270.0), oklch(0.390 0.034 270.0))",
+          "paint": "oklch(0.875 0.012 270)",
+          "expected": "oklch(0.875 0.012 270)",
+          "scheme": "light",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-light neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.875 0.012 270.0), oklch(0.390 0.034 270.0))"
+        },
+        {
+          "token": "folder-background-color",
+          "value": "light-dark(oklch(0.960 0.019 267.0),  oklch(0.280 0.095 267.0))",
+          "paint": "oklch(0.96 0.019 267)",
+          "expected": "oklch(0.96 0.019 267)",
+          "scheme": "light",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-light neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.960 0.019 267.0),  oklch(0.280 0.095 267.0))"
+        },
+        {
+          "token": "icon-color",
+          "value": "light-dark(oklch(0.390 0.034 270.0), oklch(0.700 0.031 270.0))",
+          "paint": "oklch(0.39 0.034 270)",
+          "expected": "oklch(0.39 0.034 270)",
+          "scheme": "light",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-light neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.390 0.034 270.0), oklch(0.700 0.031 270.0))"
+        }
+      ]
+    },
+    {
+      "scheme": "dark",
+      "active": true,
+      "bindings": [
+        {
+          "token": "background-color",
+          "value": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))",
+          "paint": "oklch(0.168 0.008 270)",
+          "expected": "oklch(0.168 0.008 270)",
+          "scheme": "dark",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.985 0.002 270.0),  oklch(0.168 0.008 270.0))"
+        },
+        {
+          "token": "header-background-color",
+          "value": "light-dark(#fff,       oklch(0.280 0.022 270.0))",
+          "paint": "oklch(0.28 0.022 270)",
+          "expected": "oklch(0.28 0.022 270)",
+          "scheme": "dark",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(#fff,       oklch(0.280 0.022 270.0))"
+        },
+        {
+          "token": "color",
+          "value": "light-dark(oklch(0.168 0.008 270.0), oklch(0.960 0.004 270.0))",
+          "paint": "oklch(0.96 0.004 270)",
+          "expected": "oklch(0.96 0.004 270)",
+          "scheme": "dark",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.168 0.008 270.0), oklch(0.960 0.004 270.0))"
+        },
+        {
+          "token": "detail-color",
+          "value": "light-dark(oklch(0.390 0.034 270.0), oklch(0.700 0.031 270.0))",
+          "paint": "oklch(0.7 0.031 270)",
+          "expected": "oklch(0.7 0.031 270)",
+          "scheme": "dark",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.390 0.034 270.0), oklch(0.700 0.031 270.0))"
+        },
+        {
+          "token": "border-color",
+          "value": "light-dark(oklch(0.875 0.012 270.0), oklch(0.390 0.034 270.0))",
+          "paint": "oklch(0.39 0.034 270)",
+          "expected": "oklch(0.39 0.034 270)",
+          "scheme": "dark",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.875 0.012 270.0), oklch(0.390 0.034 270.0))"
+        },
+        {
+          "token": "folder-background-color",
+          "value": "light-dark(oklch(0.960 0.019 267.0),  oklch(0.280 0.095 267.0))",
+          "paint": "oklch(0.28 0.095 267)",
+          "expected": "oklch(0.28 0.095 267)",
+          "scheme": "dark",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.960 0.019 267.0),  oklch(0.280 0.095 267.0))"
+        },
+        {
+          "token": "icon-color",
+          "value": "light-dark(oklch(0.390 0.034 270.0), oklch(0.700 0.031 270.0))",
+          "paint": "oklch(0.7 0.031 270)",
+          "expected": "oklch(0.7 0.031 270)",
+          "scheme": "dark",
+          "scope": "neo-context-files neo-viewport neo-theme-context-files-control-dark neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap",
+          "role": "light-dark(oklch(0.390 0.034 270.0), oklch(0.700 0.031 270.0))"
+        }
+      ]
+    }
+  ],
+  "engineEquality": {
+    "themes": [
+      "neo-theme-neo-light",
+      "neo-theme-neo-dark",
+      "neo-theme-light",
+      "neo-theme-dark",
+      "neo-theme-cyberpunk"
+    ],
+    "componentCount": 81,
+    "totalComparisons": 200880,
+    "diffs": []
+  }
+}
