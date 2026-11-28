@@ -1,6 +1,6 @@
 import fs                                                                 from 'node:fs';
 import path                                                               from 'node:path';
-import {isDistAppAsset, isExcludedDistResource}                           from './distAppAssets.mjs';
+import {DIST_EXAMPLE_FAVICON, isDistAppAsset, isExcludedDistResource}     from './distAppAssets.mjs';
 import {esmDestination, literalDynamicSpecifiers, staticModuleSpecifiers} from './esmDistTransforms.mjs';
 
 /** @summary Whether a logical filename belongs to a directory. @param {String} root @param {String} file @returns {Boolean} */
@@ -68,6 +68,12 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
             else if (isDistAppAsset(entry.name) || normalized.includes('/resources/')) add(sourcePath, 'asset')
         }
     }
+    if (workspaceRoot === engineRoot) {
+        const favicon = path.join(engineRoot, DIST_EXAMPLE_FAVICON);
+
+        if (fs.existsSync(favicon)) add(favicon, 'asset')
+    }
+
     const serviceWorker = path.join(workspaceRoot, 'ServiceWorker.mjs');
     if (fs.existsSync(serviceWorker)) add(serviceWorker, 'module');
     const initialFiles = new Set(files.keys());
