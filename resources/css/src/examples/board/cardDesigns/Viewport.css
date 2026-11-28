@@ -46,8 +46,6 @@
             --neo-button-color-active       : var(--editorial-title);
             --neo-button-color-hover        : var(--editorial-title);
             --neo-button-color-pressed      : var(--editorial-seg-active-text);
-            --neo-button-text-font-size          : 12px;
-            --neo-button-text-font-weight        : 600;
             border: 1px solid var(--editorial-seg-border);
 
             > .neo-button {
@@ -284,7 +282,6 @@
                 width                : 100%;
 
                 > .neo-button {
-                    --neo-button-text-font-size: 11.5px;
                     justify-content: center;
                     min-height     : 28px;
                     padding        : 0 8px;
