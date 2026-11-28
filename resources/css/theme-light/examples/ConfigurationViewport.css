@@ -1,0 +1,6 @@
+:root .neo-theme-light { /* .neo-examples-configuration-viewport */
+    --neo-workbench-background-color     : #fafafa;
+    --neo-workbench-code-background-color: #fafafa;
+    --neo-workbench-color                : #2b2b2b;
+    --neo-workbench-muted-color          : #666666;
+}

@@ -1,0 +1,14 @@
+{
+    "rules": {
+        "neo-prefix": "App and example variables gain the --neo- prefix at their package move (ADR 0044 §2.1, I4).",
+        "css-property-suffix": "The name identifies the part and the CSS property it paints (ADR 0044 §2.4).",
+        "dropped": "Unread custom property removed at its package move (#22295 rule 9, #22483)."
+    },
+    "entries": {
+        "--examples-tab-component-background-color": {
+            "dropped": true,
+            "rule": "dropped",
+            "reason": "Retired in #22585: unread across the repository; ConfigurationPanel was replaced by ConfigurationViewport."
+        }
+    }
+}

@@ -1,0 +1,6 @@
+:root .neo-theme-dark { /* .neo-examples-configuration-viewport */
+    --neo-workbench-background-color     : #323232;
+    --neo-workbench-code-background-color: #323232;
+    --neo-workbench-color                : #cccccc;
+    --neo-workbench-muted-color          : #9e9e9e;
+}

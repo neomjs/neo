@@ -31,7 +31,7 @@
     }
 
     .neo-field-state-caption {
-        color         : var(--secondary-text-color, #888);
+        color         : var(--neo-workbench-muted-color);
         font-size     : 11px;
         font-weight   : 700;
         letter-spacing: 0.05em;
