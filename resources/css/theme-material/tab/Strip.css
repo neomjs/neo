@@ -1,0 +1,3 @@
+:where(.neo-theme-material-light, .neo-theme-material-dark) {
+    --neo-tab-indicator-background-color-active: var(--neo-color-background-accent);
+}
