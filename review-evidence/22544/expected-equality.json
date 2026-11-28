@@ -1,0 +1,178 @@
+[
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-light",
+    "scope": "inherited",
+    "state": "default",
+    "part": ".live-preview-container",
+    "property": "box-shadow",
+    "base": "rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px",
+    "head": "rgba(0, 0, 0, 0) 0px 0px 0px 1px, rgba(0, 0, 0, 0.16) 0px 4px 16px 0px",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-light",
+    "scope": "inherited",
+    "state": "default",
+    "part": ".neo-tab-header-toolbar",
+    "property": "background-color",
+    "base": "rgb(250, 250, 250)",
+    "head": "rgb(255, 255, 255)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-light",
+    "scope": "inherited",
+    "state": "default",
+    "part": ".neo-tab-header-toolbar",
+    "property": "border-color",
+    "base": "rgb(230, 230, 230)",
+    "head": "oklch(0.875 0.012 270)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-light",
+    "scope": "inherited",
+    "state": "default",
+    "part": ".neo-tab-body-container",
+    "property": "border-color",
+    "base": "oklch(0.168 0.008 270) rgb(230, 230, 230) rgb(230, 230, 230)",
+    "head": "oklch(0.168 0.008 270) oklch(0.875 0.012 270) oklch(0.875 0.012 270)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-light",
+    "scope": "scoped",
+    "state": "default",
+    "part": ".live-preview-container",
+    "property": "box-shadow",
+    "base": "rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px",
+    "head": "rgba(0, 0, 0, 0) 0px 0px 0px 1px, rgba(0, 0, 0, 0.16) 0px 4px 16px 0px",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-light",
+    "scope": "scoped",
+    "state": "default",
+    "part": ".neo-tab-header-toolbar",
+    "property": "background-color",
+    "base": "rgb(250, 250, 250)",
+    "head": "rgb(255, 255, 255)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-light",
+    "scope": "scoped",
+    "state": "default",
+    "part": ".neo-tab-header-toolbar",
+    "property": "border-color",
+    "base": "rgb(230, 230, 230)",
+    "head": "oklch(0.875 0.012 270)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-light",
+    "scope": "scoped",
+    "state": "default",
+    "part": ".neo-tab-body-container",
+    "property": "border-color",
+    "base": "oklch(0.168 0.008 270) rgb(230, 230, 230) rgb(230, 230, 230)",
+    "head": "oklch(0.168 0.008 270) oklch(0.875 0.012 270) oklch(0.875 0.012 270)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-dark",
+    "scope": "inherited",
+    "state": "default",
+    "part": ".live-preview-container",
+    "property": "box-shadow",
+    "base": "rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px",
+    "head": "rgba(255, 255, 255, 0.1) 0px 0px 0px 1px, rgba(0, 0, 0, 0.5) 0px 4px 16px 0px",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-dark",
+    "scope": "inherited",
+    "state": "default",
+    "part": ".neo-tab-header-toolbar",
+    "property": "background-color",
+    "base": "rgb(13, 15, 18)",
+    "head": "oklch(0.28 0.022 270)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-dark",
+    "scope": "inherited",
+    "state": "default",
+    "part": ".neo-tab-header-toolbar",
+    "property": "border-color",
+    "base": "rgb(0, 0, 0)",
+    "head": "oklch(0.39 0.034 270)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-dark",
+    "scope": "inherited",
+    "state": "default",
+    "part": ".neo-tab-body-container",
+    "property": "border-color",
+    "base": "oklch(0.96 0.004 270) rgb(0, 0, 0) rgb(0, 0, 0)",
+    "head": "oklch(0.96 0.004 270) oklch(0.39 0.034 270) oklch(0.39 0.034 270)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-dark",
+    "scope": "scoped",
+    "state": "default",
+    "part": ".live-preview-container",
+    "property": "box-shadow",
+    "base": "rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px",
+    "head": "rgba(255, 255, 255, 0.1) 0px 0px 0px 1px, rgba(0, 0, 0, 0.5) 0px 4px 16px 0px",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-dark",
+    "scope": "scoped",
+    "state": "default",
+    "part": ".neo-tab-header-toolbar",
+    "property": "background-color",
+    "base": "rgb(13, 15, 18)",
+    "head": "oklch(0.28 0.022 270)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-dark",
+    "scope": "scoped",
+    "state": "default",
+    "part": ".neo-tab-header-toolbar",
+    "property": "border-color",
+    "base": "rgb(0, 0, 0)",
+    "head": "oklch(0.39 0.034 270)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  },
+  {
+    "component": "live-preview",
+    "theme": "neo-theme-neo-dark",
+    "scope": "scoped",
+    "state": "default",
+    "part": ".neo-tab-body-container",
+    "property": "border-color",
+    "base": "oklch(0.96 0.004 270) rgb(0, 0, 0) rgb(0, 0, 0)",
+    "head": "oklch(0.96 0.004 270) oklch(0.39 0.034 270) oklch(0.39 0.034 270)",
+    "reason": "LivePreview shell shadow, raised header, or default chrome border follows the role"
+  }
+]
