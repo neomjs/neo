@@ -26,7 +26,7 @@ test('projects the owning window’s normalized pathname and clears an unmatched
     let navigation;
 
     try {
-        HashHistory.push({hashString: '/reports', windowId: windowA});
+        HashHistory.push({hashString: '/desk/reports?tab=queue#details', windowId: windowA});
 
         navigation = Neo.create(Navigation, {
             appName,

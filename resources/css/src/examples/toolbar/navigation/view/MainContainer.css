@@ -1,8 +1,8 @@
 .neo-navigation-example.neo-viewport {
-    background-color: var(--neo-color-background-canvas, var(--neo-global-background-color, Canvas));
-    color           : var(--neo-color-text-default, var(--neo-global-color, CanvasText));
+    background-color: var(--neo-navigation-example-background-color);
+    color           : var(--neo-navigation-example-color);
     flex-direction  : row;
-    font-family     : var(--neo-font-family-sans, var(--neo-global-font-family, system-ui));
+    font-family     : var(--neo-navigation-example-font-family);
 
     .neo-navigation-example-main {
         background-color: transparent;
@@ -12,15 +12,15 @@
     }
 
     .neo-navigation-example-header {
-        background-color: var(--neo-color-background-surface-raised, var(--neo-global-background-color, Canvas));
-        border-block-end: 1px solid var(--neo-color-border-default, ButtonBorder);
+        background-color: var(--neo-navigation-example-surface-background-color);
+        border-block-end: var(--neo-navigation-example-border-width) solid var(--neo-navigation-example-border-color);
         justify-content : space-between;
-        padding         : var(--neo-space-3, 12px) var(--neo-space-6, 24px);
+        padding         : var(--neo-navigation-example-space-small) var(--neo-navigation-example-space-large);
     }
 
     .neo-navigation-example-brand {
-        font-size  : var(--neo-font-size-heading-3, 1.25rem);
-        font-weight: var(--neo-font-weight-semibold, 600);
+        font-size  : var(--neo-navigation-example-brand-font-size);
+        font-weight: var(--neo-navigation-example-brand-font-weight);
     }
 
     .neo-navigation-example-content {
@@ -28,38 +28,38 @@
     }
 
     .neo-navigation-example-card {
-        background-color : var(--neo-color-background-canvas, var(--neo-global-background-color, Canvas));
+        background-color : var(--neo-navigation-example-background-color);
         overflow         : auto;
-        padding          : var(--neo-space-6, 24px);
-        padding-block-end: calc(var(--neo-floating-action-button-height) + var(--neo-space-8, 32px));
+        padding          : var(--neo-navigation-example-space-large);
+        padding-block-end: calc(var(--neo-floating-action-button-height) + var(--neo-navigation-example-action-gap));
 
         h1 {
-            font-size   : var(--neo-font-size-heading-2, 1.75rem);
-            line-height : var(--neo-line-height-tight, 1.2);
-            margin-block: 0 var(--neo-space-4, 16px);
+            font-size   : var(--neo-navigation-example-title-font-size);
+            line-height : var(--neo-navigation-example-title-line-height);
+            margin-block: 0 var(--neo-navigation-example-space-medium);
         }
     }
 
     .neo-navigation-example-detail {
-        color       : var(--neo-color-text-muted, var(--neo-global-color, CanvasText));
-        margin-block: 0 var(--neo-space-3, 12px);
+        color       : var(--neo-navigation-example-detail-color);
+        margin-block: 0 var(--neo-navigation-example-space-small);
     }
 
     .neo-navigation-example-list {
-        background-color: var(--neo-color-background-surface-raised, var(--neo-global-background-color, Canvas));
-        border          : 1px solid var(--neo-color-border-default, ButtonBorder);
-        border-radius   : var(--neo-radius-medium, 8px);
+        background-color: var(--neo-navigation-example-surface-background-color);
+        border          : var(--neo-navigation-example-border-width) solid var(--neo-navigation-example-border-color);
+        border-radius   : var(--neo-navigation-example-list-border-radius);
         list-style      : none;
         margin          : 0;
         max-inline-size : 28rem;
         padding         : 0;
 
         li {
-            padding: var(--neo-space-3, 12px) var(--neo-space-4, 16px);
+            padding: var(--neo-navigation-example-space-small) var(--neo-navigation-example-space-medium);
         }
 
         li + li {
-            border-block-start: 1px solid var(--neo-color-border-default, ButtonBorder);
+            border-block-start: var(--neo-navigation-example-border-width) solid var(--neo-navigation-example-border-color);
         }
     }
 
@@ -68,8 +68,8 @@
     }
 
     .neo-navigation-example-new-draft.neo-floating-action-button {
-        inset-block-end : var(--neo-space-4, 16px);
-        inset-inline-end: max(var(--neo-space-4, 16px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+        inset-block-end : var(--neo-navigation-example-space-medium);
+        inset-inline-end: max(var(--neo-navigation-example-space-medium), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
         position        : absolute;
     }
 
@@ -78,7 +78,7 @@
 
         .neo-navigation-example-header,
         .neo-navigation-example-card {
-            padding-inline: var(--neo-space-4, 16px);
+            padding-inline: var(--neo-navigation-example-space-medium);
         }
     }
 }

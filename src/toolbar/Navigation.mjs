@@ -136,7 +136,8 @@ class Navigation extends Toolbar {
         const config = Neo.windowConfigs?.[this.windowId] || Neo.config,
               path   = route.replace(/^#/, '');
 
-        return config.routerMode === 'pathname' ? normalizeRoutePathname(path.split(/[?#]/, 1)[0]) : path || null
+        return config.routerMode === 'pathname' ?
+            normalizeRoutePathname(path.split(/[?#]/, 1)[0], config.routerBasePath) : path || null
     }
 
     /**

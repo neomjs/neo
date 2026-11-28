@@ -2,52 +2,64 @@
     --neo-navigation-toolbar-item-flex: none;
 
     background-color : var(--neo-navigation-toolbar-background-color);
-    border-inline-end: 1px solid var(--neo-navigation-toolbar-border-color);
+    border-inline-end: var(--neo-navigation-toolbar-border-width) solid var(--neo-navigation-toolbar-border-color);
     flex             : none;
     flex-direction   : column;
-    gap              : .25rem;
-    inline-size      : 6.75rem;
-    padding          : .5rem;
+    gap              : var(--neo-navigation-toolbar-gap);
+    inline-size      : var(--neo-navigation-toolbar-inline-size);
+    padding          : var(--neo-navigation-toolbar-padding);
 
     > .neo-button {
+        --neo-button-background-color-active: var(--neo-navigation-toolbar-button-background-color-active);
+        --neo-button-background-color-hover : var(--neo-navigation-toolbar-button-background-color-hover);
+        --neo-button-color                  : var(--neo-navigation-toolbar-button-color);
+        --neo-button-color-active           : var(--neo-navigation-toolbar-button-color-hover);
+        --neo-button-color-hover            : var(--neo-navigation-toolbar-button-color-hover);
+        --neo-button-glyph-color            : var(--neo-navigation-toolbar-button-color);
+        --neo-button-glyph-color-active     : var(--neo-navigation-toolbar-button-color-hover);
+        --neo-button-glyph-color-hover      : var(--neo-navigation-toolbar-button-color-hover);
+
         border-radius  : var(--neo-navigation-toolbar-button-border-radius);
-        gap            : .25rem;
+        gap            : var(--neo-navigation-toolbar-button-gap);
         justify-content: center;
         min-block-size : var(--neo-navigation-toolbar-button-min-height);
         min-inline-size: 0;
-        padding        : .25rem;
+        padding        : var(--neo-navigation-toolbar-button-padding);
         text-decoration: none;
 
         .neo-button-glyph {
-            font-size: .875rem;
-            margin: 0;
+            font-size: var(--neo-navigation-toolbar-button-glyph-font-size);
+            margin   : 0;
         }
 
         .neo-button-badge.neo-top-right {
-            inset-inline-start: calc(50% + .5rem);
+            inset-inline-start: calc(50% + var(--neo-navigation-toolbar-badge-inline-offset));
             right             : auto;
-            top               : .25rem;
+            top               : var(--neo-navigation-toolbar-badge-top);
         }
 
-        &:where([aria-current="page"]) {
-            background-color: var(--neo-navigation-toolbar-button-background-color-selected);
-
-            .neo-button-glyph,
-            .neo-button-text {
-                color: var(--neo-navigation-toolbar-button-color-selected);
-            }
+        &[aria-current="page"] {
+            --neo-button-background-color       : var(--neo-navigation-toolbar-button-background-color-selected);
+            --neo-button-background-color-active: var(--neo-navigation-toolbar-button-background-color-selected);
+            --neo-button-background-color-hover : var(--neo-navigation-toolbar-button-background-color-selected);
+            --neo-button-color                  : var(--neo-navigation-toolbar-button-color-selected);
+            --neo-button-color-active           : var(--neo-navigation-toolbar-button-color-selected);
+            --neo-button-color-hover            : var(--neo-navigation-toolbar-button-color-selected);
+            --neo-button-glyph-color            : var(--neo-navigation-toolbar-button-color-selected);
+            --neo-button-glyph-color-active     : var(--neo-navigation-toolbar-button-color-selected);
+            --neo-button-glyph-color-hover      : var(--neo-navigation-toolbar-button-color-selected);
         }
     }
 
     @media (max-width: 600px) {
         --neo-navigation-toolbar-item-flex: 1 1 0;
 
-        border-block-start: 1px solid var(--neo-navigation-toolbar-border-color);
+        border-block-start: var(--neo-navigation-toolbar-border-width) solid var(--neo-navigation-toolbar-border-color);
         border-inline-end : 0;
         flex-direction    : row;
         inline-size       : 100%;
-        padding-block-end : calc(.5rem + env(safe-area-inset-bottom, 0px));
-        padding-inline    : max(.5rem, env(safe-area-inset-left, 0px)) max(.5rem, env(safe-area-inset-right, 0px));
-
+        padding-block-end : calc(var(--neo-navigation-toolbar-padding) + env(safe-area-inset-bottom, 0px));
+        padding-inline    : max(var(--neo-navigation-toolbar-padding), env(safe-area-inset-left, 0px))
+                            max(var(--neo-navigation-toolbar-padding), env(safe-area-inset-right, 0px));
     }
 }

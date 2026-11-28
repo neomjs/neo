@@ -1,0 +1,18 @@
+[class*="neo-theme-"] {
+    --neo-navigation-example-action-gap              : var(--neo-space-8);
+    --neo-navigation-example-background-color        : var(--neo-color-background-canvas);
+    --neo-navigation-example-border-color            : var(--neo-color-border-default);
+    --neo-navigation-example-border-width            : var(--neo-border-width-thin);
+    --neo-navigation-example-brand-font-size         : var(--neo-font-size-heading-3);
+    --neo-navigation-example-brand-font-weight       : var(--neo-font-weight-semibold);
+    --neo-navigation-example-color                   : var(--neo-color-text-default);
+    --neo-navigation-example-detail-color            : var(--neo-color-text-muted);
+    --neo-navigation-example-font-family             : var(--neo-font-family-sans);
+    --neo-navigation-example-list-border-radius      : var(--neo-radius-medium);
+    --neo-navigation-example-space-large             : var(--neo-space-6);
+    --neo-navigation-example-space-medium            : var(--neo-space-4);
+    --neo-navigation-example-space-small             : var(--neo-space-3);
+    --neo-navigation-example-surface-background-color: var(--neo-color-background-surface-raised);
+    --neo-navigation-example-title-font-size         : var(--neo-font-size-heading-2);
+    --neo-navigation-example-title-line-height       : var(--neo-line-height-tight);
+}

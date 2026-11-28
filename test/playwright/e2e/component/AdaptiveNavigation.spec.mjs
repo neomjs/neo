@@ -38,6 +38,45 @@ async function expectCurrent(page, destinations, destination) {
     await expect(page.getByRole('main').getByRole('heading', {name: heading, exact: true})).toBeVisible()
 }
 
+test('the current destination keeps its emphasis while hovered and pressed', async ({page}) => {
+    await page.goto(`${example}#/schedule`);
+
+    const destinations      = navigation(page),
+          {inbox, schedule} = destinations,
+          badge             = inbox.locator('.neo-button-badge'),
+          paint             = link => link.evaluate(node => ({
+              background: getComputedStyle(node).backgroundColor,
+              glyph     : getComputedStyle(node.querySelector('.neo-button-glyph')).color,
+              text      : getComputedStyle(node.querySelector('.neo-button-text')).color
+          }));
+
+    await expectCurrent(page, destinations, 'schedule');
+    await expect(badge).toHaveText('3');
+    await expect(badge).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(badge).not.toHaveCSS('color', 'rgba(0, 0, 0, 0)');
+
+    const current = await paint(schedule),
+          rest    = await paint(inbox);
+
+    expect(current.background).not.toBe(rest.background);
+    expect(current.text).not.toBe(rest.text);
+    expect(current.glyph).toBe(current.text);
+    expect(rest.glyph).toBe(rest.text);
+
+    await inbox.hover();
+    await expect.poll(() => paint(inbox)).toMatchObject({glyph: current.text, text: current.text});
+    await schedule.hover();
+    await expect.poll(() => paint(schedule)).toEqual(current);
+
+    await page.mouse.down();
+    try {
+        await expect.poll(() => schedule.evaluate(node => node.matches(':active'))).toBe(true);
+        await expect.poll(() => paint(schedule)).toEqual(current)
+    } finally {
+        await page.mouse.up()
+    }
+});
+
 test('the compact route bar becomes a rail without remounting links or the Schedule draft', async ({page}, testInfo) => {
     await page.goto(`${example}#/schedule`);
 
@@ -67,6 +106,7 @@ test('the compact route bar becomes a rail without remounting links or the Sched
     await page.keyboard.press('ArrowRight');
     await expect(schedule).toBeFocused();
     await expectCurrent(page, destinations, 'schedule');
+    await expect(inbox.locator('.neo-button-badge')).toHaveText('3');
 
     const linkNodes = await bar.getByRole('link').elementHandles(),
           draftNode = await draft.elementHandle();
