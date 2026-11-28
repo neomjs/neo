@@ -1,0 +1,44 @@
+.neo-pull-refresh-example-toolbar {
+    gap           : var(--neo-pull-refresh-example-toolbar-gap);
+    min-block-size: var(--neo-pull-refresh-example-toolbar-height);
+    padding-inline: var(--neo-pull-refresh-example-count-padding);
+}
+
+.neo-pull-refresh-example-title {
+    font-size  : var(--neo-pull-refresh-example-title-font-size);
+    font-weight: var(--neo-pull-refresh-example-title-font-weight);
+}
+
+.neo-pull-refresh-example-count {
+    background-color: var(--neo-pull-refresh-example-surface-background-color);
+    color           : var(--neo-pull-refresh-example-count-color);
+    padding         : var(--neo-pull-refresh-example-count-padding);
+}
+
+.neo-pull-refresh-example-body {
+    background-color: var(--neo-pull-refresh-example-surface-background-color);
+    min-block-size  : 0;
+    position        : relative;
+
+    .neo-list-item {
+        align-items     : center;
+        background-color: var(--neo-pull-refresh-example-surface-background-color);
+        border-block-end: var(--neo-pull-refresh-example-row-border);
+        display         : flex;
+        padding-inline  : var(--neo-pull-refresh-example-count-padding);
+    }
+}
+
+.neo-pull-refresh-example-indicator {
+    background-color: var(--neo-pull-refresh-example-indicator-background-color);
+    border-radius   : var(--neo-pull-refresh-example-indicator-border-radius);
+    box-shadow      : var(--neo-pull-refresh-example-indicator-box-shadow);
+    color           : var(--neo-pull-refresh-example-indicator-color);
+    inset-block-start: 0;
+    inset-inline-start: 50%;
+    padding         : var(--neo-pull-refresh-example-indicator-padding);
+    pointer-events  : none;
+    position        : absolute;
+    white-space     : nowrap;
+    z-index         : 1;
+}

@@ -6,10 +6,11 @@ import TapPress    from '../gesture/TapPress.mjs';
 import Transform   from '../gesture/Transform.mjs';
 import Translation from '../gesture/Translation.mjs';
 
-const pointerEvents = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture'],
-      touchEvents   = ['touchstart', 'touchmove', 'touchend', 'touchcancel'],
-      passive       = {capture: true, passive: true},
-      releaseMenuMs = 250;
+const pointerEvents           = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture'],
+      touchEvents             = ['touchstart', 'touchmove', 'touchend', 'touchcancel'],
+      passive                 = {capture: true, passive: true},
+      panScrollStartAttribute = 'data-neo-pan-at-scroll-start',
+      releaseMenuMs           = 250;
 
 /**
  * @summary Tracks contact ownership for subscribed nodes in one Main document, and owns the recognizers
@@ -83,6 +84,10 @@ class Gesture extends Base {
     #listeners = null
     /** @member {MutationObserver|null} #observer */
     #observer = null
+    /** @member {Map<String,HTMLElement|null>} #panScrollNodes */
+    #panScrollNodes = new Map()
+    /** @member {AbortController|null} #panScrollListener */
+    #panScrollListener = null
     /** @member {Number} #nextGestureId */
     #nextGestureId = 0
     /** @member {Neo.main.gesture.Transform|null} #transform */
@@ -151,6 +156,7 @@ class Gesture extends Base {
             owners.set(componentId, {componentId, id, registrationId, families, gestureOptions})
         }
 
+        this.syncPanScrollRegistration(id);
         this.listen();
         return true
     }
@@ -174,6 +180,8 @@ class Gesture extends Base {
             if (!owners.size) {
                 this.#nodes.delete(id)
             }
+
+            this.syncPanScrollRegistration(id);
 
             if (!this.#nodes.size) {
                 this.stopListening()
@@ -287,6 +295,13 @@ class Gesture extends Base {
      * @protected
      */
     stopListening() {
+        for (const node of this.#panScrollNodes.values()) {
+            node?.removeAttribute(panScrollStartAttribute)
+        }
+
+        this.#panScrollNodes.clear();
+        this.#panScrollListener?.abort();
+        this.#panScrollListener = null;
         this.onPageHide();
         this.#listeners?.abort();
         this.#listeners = null
@@ -299,6 +314,8 @@ class Gesture extends Base {
     onVisibility() {
         if (this.#document.hidden) {
             this.onPageHide()
+        } else {
+            this.refreshPanScrollNodes()
         }
     }
 
@@ -316,8 +333,75 @@ class Gesture extends Base {
         this.#touchPointers.clear();
         this.#tapPress.reset();
         this.#releasedPressMenus.clear();
-        this.#observer?.disconnect();
-        this.#observer = null
+        this.syncObserver()
+    }
+
+    /**
+     * @summary Tracks an opted scroll host before contact and leaves other gesture surfaces unobserved.
+     * @param {String} id
+     * @protected
+     */
+    syncPanScrollRegistration(id) {
+        const owners  = this.#nodes.get(id),
+              optedIn = owners && [...owners.values()].some(owner =>
+                  owner.families.has('pan') && owner.gestureOptions?.pan?.atScrollStart);
+
+        if (optedIn && this.#document.defaultView.CSS?.supports('touch-action', 'pan-x pan-down pinch-zoom')) {
+            this.updatePanScrollNode(id, DomAccess.getElement(id, this.#document));
+
+            if (!this.#panScrollListener) {
+                const {signal} = this.#panScrollListener = new AbortController();
+
+                this.#document.addEventListener('scroll', event => {
+                    const node = event.target,
+                          key  = DomAccess.getNodeId(node);
+
+                    if (this.#panScrollNodes.has(key)) {
+                        this.updatePanScrollNode(key, node)
+                    }
+                }, {...passive, signal});
+                this.#document.defaultView.addEventListener('pageshow', () => this.refreshPanScrollNodes(), {signal})
+            }
+
+            this.observeDetachment()
+        } else if (this.#panScrollNodes.has(id)) {
+            this.#panScrollNodes.get(id)?.removeAttribute(panScrollStartAttribute);
+            this.#panScrollNodes.delete(id);
+
+            if (!this.#panScrollNodes.size) {
+                this.#panScrollListener?.abort();
+                this.#panScrollListener = null
+            }
+
+            this.syncObserver()
+        }
+    }
+
+    /**
+     * @summary Projects the actual scroll offset onto a Main-owned CSS marker and retires a replaced node.
+     * @param {String} id
+     * @param {HTMLElement|null} node
+     * @protected
+     */
+    updatePanScrollNode(id, node) {
+        const previous = this.#panScrollNodes.get(id);
+
+        if (previous && previous !== node) {
+            previous.removeAttribute(panScrollStartAttribute)
+        }
+
+        this.#panScrollNodes.set(id, node);
+        node?.toggleAttribute(panScrollStartAttribute, node.scrollTop <= 0)
+    }
+
+    /**
+     * @summary Reads offsets restored while the window was hidden or cached.
+     * @protected
+     */
+    refreshPanScrollNodes() {
+        for (const id of this.#panScrollNodes.keys()) {
+            this.updatePanScrollNode(id, DomAccess.getElement(id, this.#document))
+        }
     }
 
     /**
@@ -515,7 +599,8 @@ class Gesture extends Base {
     }
 
     /**
-     * @summary Pins each family to its innermost registered start surface.
+     * @summary Pins each family to its innermost eligible start surface.
+     * A boundary Pan samples the scroll host on initial touch, before any movement changes the offset.
      * @param {Event} event
      * @param {String} pointerType
      * @param {Number} [pointerId]
@@ -530,7 +615,10 @@ class Gesture extends Base {
 
             for (const owner of this.#nodes.get(id)?.values() ?? []) {
                 for (const family of owner.families) {
-                    if (!sequence.claims.has(family)) {
+                    const atScrollStart = family === 'pan' && owner.gestureOptions?.pan?.atScrollStart;
+
+                    if (!sequence.claims.has(family) && (!atScrollStart || (pointerType === 'touch' &&
+                        node.scrollTop <= 0 && node.hasAttribute(panScrollStartAttribute)))) {
                         sequence.claims.set(family, {family, gestureId: null, ids: new Map(), live: true, nextId: 0, node, owner, sequence})
                     }
                 }
@@ -706,20 +794,28 @@ class Gesture extends Base {
     }
 
     /**
-     * @summary Watches detachment only while an admitted claim can retain contact state or timers.
+     * @summary Watches detached claims and replacements of opted-in scroll hosts.
      * @protected
      */
     observeDetachment() {
         const doc = this.#document;
 
         if (!this.#observer && doc.defaultView.MutationObserver) {
-            this.#observer = new doc.defaultView.MutationObserver(() => this.pruneClaims());
+            this.#observer = new doc.defaultView.MutationObserver(() => {
+                for (const [id, node] of this.#panScrollNodes) {
+                    if (!node?.isConnected) {
+                        this.updatePanScrollNode(id, DomAccess.getElement(id, doc))
+                    }
+                }
+
+                this.pruneClaims()
+            });
             this.#observer.observe(doc, {childList: true, subtree: true})
         }
     }
 
     /**
-     * @summary Releases the detachment observer and pointer capture when their last claim is gone.
+     * @summary Releases pointer capture and disconnects the observer once neither claims nor scroll hosts need it.
      * @protected
      */
     syncObserver() {
@@ -731,7 +827,7 @@ class Gesture extends Base {
             }
         }
 
-        if (!sequences.some(sequence => sequence.claims.size)) {
+        if (!this.#panScrollNodes.size && !sequences.some(sequence => sequence.claims.size)) {
             this.#observer?.disconnect();
             this.#observer = null
         }
