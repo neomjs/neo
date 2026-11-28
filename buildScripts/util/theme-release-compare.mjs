@@ -19,9 +19,9 @@
  * - `rows`: one per differing property of a paired element, or per element present on one side only
  *   (`property: '(element)'`). Elements pair by group and label, digits masked, so an inserted control or a
  *   live number does not shift its neighbours. `owner` is the custom property the `dev` value was measured to
- *   flow through: overriding it on the declaring element changed the value. Its `declared` text is named only
- *   when setting it there reproduces the value, and every probe restores the element's own inline value and
- *   priority. `equalValue` lists the element's custom properties whose value merely equals the `dev` value: a
+ *   flow through: overriding it on the declaring element changed the value. Its `declared` text is the one
+ *   declaration whose removal alone changes the variable on the closest element that declares it, and `null`
+ *   when no single one does (two that resolve to one value). Every probe restores what it removed or set. `equalValue` lists the element's custom properties whose value merely equals the `dev` value: a
  *   lead, never a verdict.
  *
  * An equal or near-equal color (a palette re-tint) is dropped unless it crosses a contrast threshold (3:1 or
@@ -576,7 +576,30 @@ export function resolveOwners(queries) {
           declared = (el, property) => [el.style, ...matching(el).map(rule => rule.style)]
               .flatMap(style => [property, ...(shorthands[property] || [])].map(name => style.getPropertyValue(name)))
               .filter(Boolean),
-          read     = (el, property) => getComputedStyle(el).getPropertyValue(property);
+          read     = (el, property) => getComputedStyle(el).getPropertyValue(property),
+          // The declaration of `name` that wins on the closest element declaring it: the one whose removal alone
+          // changes that element's value. `null` when no single one does, as when two resolve to one value.
+          winner   = (el, name) => {
+              for (let node = el; node; node = node.parentElement) {
+                  const styles = [node.style, ...matching(node).map(rule => rule.style)].filter(style => style.getPropertyValue(name));
+
+                  if (!styles.length) continue;
+
+                  const value  = read(node, name),
+                        moving = styles.filter(style => {
+                            const text = style.getPropertyValue(name), priority = style.getPropertyPriority(name);
+
+                            style.removeProperty(name);
+                            const moved = read(node, name) !== value;
+                            style.setProperty(name, text, priority);
+                            return moved
+                        });
+
+                  return moving.length === 1 ? moving[0].getPropertyValue(name).trim() : null
+              }
+
+              return null
+          };
 
     return queries.map(({group, index, property}) => {
         const el = document.querySelector(`[data-release-compare~="${group}:${index}"]`);
@@ -613,12 +636,7 @@ export function resolveOwners(queries) {
                   };
 
             if (!keeps(sentinel(property))) {
-                const own = [declarer, ...(function* up(node) {while ((node = node.parentElement)) yield node})(declarer)]
-                    .map(node => node.style.getPropertyValue(name) || matching(node).map(rule => rule.style.getPropertyValue(name)).filter(Boolean).pop())
-                    .find(Boolean)?.trim();
-
-                // A declaration is named only when it reproduces the measured value
-                return {variable: name, declared: own && keeps(own) ? own : null}
+                return {variable: name, declared: winner(declarer, name)}
             }
         }
 

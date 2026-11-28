@@ -60,5 +60,26 @@ test.describe('theme-release-compare — the in-page reads', () => {
         expect(await page.locator('.neo-button').evaluate(el => [
             el.style.getPropertyValue('--neo-button-font-size'), el.style.getPropertyPriority('--neo-button-font-size'), getComputedStyle(el).fontSize
         ]), 'the inline value, its priority and the size it paints survive the probes').toEqual(['20px', 'important', '20px'])
+    });
+
+    test('names a declaration only when it is the one that wins, not one that resolves to the same value', async ({page}) => {
+        await page.setContent(`
+            <style>
+                .neo-button {--neo-button-font-size: 12px; font-size: var(--neo-button-font-size)}
+            </style>
+            <div class="neo-button" id="tie"  style="--neo-button-font-size: var(--neo-button-min-height) !important; --neo-button-min-height: 12px"><span class="neo-button-text">Tie</span></div>
+            <div class="neo-button" id="wins" style="--neo-button-font-size: var(--neo-button-min-height) !important; --neo-button-min-height: 20px"><span class="neo-button-text">Wins</span></div>`);
+
+        await page.evaluate(readElements, {elementSet: ELEMENT_SET, properties: PROPERTIES, perGroup: 6});
+
+        const [tie, wins] = await page.evaluate(resolveOwners, [
+            {group: 'button', index: 0, property: 'font-size'},
+            {group: 'button', index: 1, property: 'font-size'}
+        ]);
+
+        expect(tie,  'the winning and the losing declaration both resolve to 12px').toEqual({variable: '--neo-button-font-size', declared: null});
+        expect(wins, 'removing the winner alone moves the value').toEqual({variable: '--neo-button-font-size', declared: 'var(--neo-button-min-height)'});
+
+        expect(await page.locator('#tie').evaluate(el => getComputedStyle(el).fontSize), 'the probes restore what they removed').toBe('12px')
     })
 });
