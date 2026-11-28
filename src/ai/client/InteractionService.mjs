@@ -64,6 +64,39 @@ class InteractionService extends Service {
         className: 'Neo.ai.client.InteractionService'
     }
 
+    /** @member {Map<String,Set>} #gestureReplays Outstanding replays by their attributed writer. */
+    #gestureReplays = new Map()
+    /** @member {Number} #gestureSequence Distinguishes Main cancellation requests on the same worker. */
+    #gestureSequence = 0
+
+    /**
+     * @summary Interrupts replay by this writer and waits for dispatched replays to finish Main cleanup.
+     * Preparing requests are fenced synchronously and cannot dispatch or acquire after departure.
+     * @param {Object} context The Bridge-stamped writer pair.
+     * @returns {Promise<Array>|null}
+     */
+    cancelWriterGestures(context) {
+        const flights = this.#gestureReplays.get(this.transactionOwner(context)),
+              pending = [];
+
+        for (const flight of flights ?? []) {
+            if (flight.dispatched) {
+                pending.push(flight.settled);
+
+                if (!flight.departed) {
+                    // The original drive, or its window-departure rejection, owns settlement.
+                    Promise.resolve().then(() => Neo.main.addon.EventSimulator.cancelGesture({
+                        replayId: flight.replayId, windowId: flight.windowId
+                    })).catch(() => {})
+                }
+            }
+
+            flight.departed = true
+        }
+
+        return pending.length ? Promise.all(pending) : null
+    }
+
     /**
      * Simulates a native DOM event sequence on the client.
      *
@@ -349,9 +382,10 @@ class InteractionService extends Service {
     /**
      * @summary Validates and routes one atomic, target-relative replay to its owning Main window.
      * @param {Object} request An explicit contact trace or preset with an owning window and target.
+     * @param {Object|null} [context] The Bridge-stamped writer, when the request is attributed.
      * @returns {Promise<Object>} An observed Engine receipt or an explicit provider refusal.
      */
-    async driveGesture(request) {
+    async driveGesture(request, context) {
         const provider = request?.provider,
               fail     = (status, code, message, observationAvailable=true) => ({
                   error    : {code, message},
@@ -378,25 +412,86 @@ class InteractionService extends Service {
             return fail('unavailable', 'BROWSER_PROVIDER_UNAVAILABLE', 'Engine Main has no attached browser-input driver')
         }
 
-        const {target, windowId} = plan;
-        let   dispatched         = false;
+        const {target, windowId} = plan,
+              writer             = context == null ? null : this.transactionOwner(context),
+              departed           = () => fail('interrupted', 'GESTURE_WRITER_DEPARTED', 'the writer departed before replay began');
+
+        let acquisition, flight, flights, receipt,
+            dispatched = false;
 
         if (Neo.currentWorker?.isSharedWorker === false && Neo.config.windowId && Neo.config.windowId !== windowId) {
             return fail('unavailable', 'GESTURE_WINDOW_MISMATCH', 'the named window does not own this dedicated App worker')
         }
 
+        if (context != null && !writer) {
+            return fail('denied', 'GESTURE_WRITE_DENIED', 'gesture replay needs a complete writer identity')
+        }
+
+        if (writer) {
+            flights = this.#gestureReplays.get(writer);
+
+            if (flights && [...flights].some(entry => entry.departed)) {
+                return departed()
+            }
+
+            if (!flights) {
+                flights = new Set();
+                this.#gestureReplays.set(writer, flights)
+            }
+
+            flight = {
+                departed  : false,
+                dispatched: false,
+                replayId  : (Neo.currentWorker?.id ?? this.id) + ':gesture:' + ++this.#gestureSequence,
+                windowId
+            };
+            flight.settled = new Promise(resolve => {flight.settle = resolve});
+            flights.add(flight)
+        }
+
         try {
             await this.resolveDomRect(target, windowId);
             await Neo.Main.importAddon({name: 'EventSimulator', windowId});
+
+            if (flight) {
+                if (flight.departed) return departed();
+
+                const targetPath = await Neo.main.addon.EventSimulator.getGestureTarget({target, windowId});
+
+                if (flight.departed) return departed();
+
+                // The component registry also resolves managed wrapper IDs in the physical path.
+                const owner = targetPath?.map(({id}) => id && Neo.getComponent(id))
+                    .find(component => component?.mounted && component.windowId === windowId);
+
+                if (!owner) {
+                    return fail('unavailable', 'GESTURE_TARGET_OWNER_UNAVAILABLE', 'the target has no live component owner in the selected window')
+                }
+
+                try {
+                    acquisition = this.assertWritable(context, owner.id)
+                } catch (error) {
+                    return fail('denied', 'GESTURE_WRITE_DENIED', error.message)
+                }
+
+                Object.assign(plan, {replayId: flight.replayId, targetPath});
+                flight.dispatched = true
+            }
+
             dispatched = true;
+            const outcome = await Neo.main.addon.EventSimulator.driveGesture(plan);
 
-            const receipt = await Neo.main.addon.EventSimulator.driveGesture(plan);
+            if (!(Neo.isObject(outcome) && outcome.provider === 'engine' && typeof outcome.success === 'boolean' &&
+                Array.isArray(outcome.observed) && Array.isArray(outcome.phases) && Array.isArray(outcome.sequences) &&
+                ['none', 'end', 'cancel'].includes(outcome.terminal) && (outcome.trusted === null || typeof outcome.trusted === 'boolean'))) {
+                return fail('interrupted', 'INVALID_GESTURE_RESPONSE', 'Main returned no complete gesture receipt', false)
+            }
 
-            return Neo.isObject(receipt) && receipt.provider === 'engine' && typeof receipt.success === 'boolean' &&
-                Array.isArray(receipt.observed) && Array.isArray(receipt.phases) && Array.isArray(receipt.sequences) &&
-                ['none', 'end', 'cancel'].includes(receipt.terminal) && (receipt.trusted === null || typeof receipt.trusted === 'boolean')
-                ? receipt : fail('interrupted', 'INVALID_GESTURE_RESPONSE', 'Main returned no complete gesture receipt', false)
+            receipt = outcome;
+            return receipt
         } catch (error) {
+            if (flight?.departed && !dispatched) return departed();
+
             if (Neo.currentWorker?.isDeparture?.(error, windowId)) {
                 return fail('interrupted', 'GESTURE_WINDOW_DEPARTED', 'the owning window departed before its receipt was available', !dispatched)
             }
@@ -407,6 +502,24 @@ class InteractionService extends Service {
                 error?.message || String(error),
                 !dispatched
             )
+        } finally {
+            try {
+                if (acquisition) {
+                    if (receipt?.success) {
+                        this.finishWritable(acquisition)
+                    } else {
+                        const refused = receipt?.observed.length === 0 && ['busy', 'invalid', 'unavailable'].includes(receipt.status);
+
+                        this.failWritable(acquisition, receipt?.error?.message, refused ? 'pre-mutation' : 'unknown')
+                    }
+                }
+            } finally {
+                if (flight) {
+                    flights.delete(flight);
+                    if (!flights.size) this.#gestureReplays.delete(writer);
+                    flight.settle()
+                }
+            }
         }
     }
 
