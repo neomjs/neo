@@ -24,8 +24,9 @@
         }
 
         .neo-button-badge.neo-top-right {
-            right: .25rem;
-            top  : .25rem;
+            inset-inline-start: calc(50% + .5rem);
+            right             : auto;
+            top               : .25rem;
         }
 
         &:where([aria-current="page"]) {

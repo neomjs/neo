@@ -85,6 +85,10 @@ test('the compact route bar becomes a rail without remounting links or the Sched
         nodes.length === previous.length && nodes.every((node, index) => node === previous[index]), linkNodes)).toBe(true);
     expect(await draft.evaluate((node, previous) => node === previous, draftNode)).toBe(true);
 
+    await testInfo.attach('wide navigation rail', {
+        body: await page.screenshot({animations: 'disabled'}), contentType: 'image/png'
+    });
+
     await page.keyboard.press('ArrowDown');
     await expect(account).toBeFocused();
     await expectCurrent(page, destinations, 'schedule');
@@ -103,11 +107,7 @@ test('the compact route bar becomes a rail without remounting links or the Sched
     await page.goBack();
     await expectCurrent(page, destinations, 'schedule');
     await expect(draft).toHaveValue(draftText);
-    expect(await draft.evaluate((node, previous) => node === previous, draftNode)).toBe(true);
-
-    await testInfo.attach('wide navigation rail', {
-        body: await page.screenshot({animations: 'disabled'}), contentType: 'image/png'
-    })
+    expect(await draft.evaluate((node, previous) => node === previous, draftNode)).toBe(true)
 });
 
 test('a cold wide deep link and native Back use the same destination URLs', async ({page}) => {
