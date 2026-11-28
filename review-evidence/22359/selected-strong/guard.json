@@ -1,0 +1,93 @@
+{
+  "material": "ccc89d1b8b74b1ee1b065ff2321c6c8b6a8b794b",
+  "table": "05c78eda54ee3e3f67d62fa21c638ff3d6e76e6c",
+  "method": "Exact table-branch palette guard and its CSS tree with the Material Global.css added; each variant adds only the proposed role in the Material sheet.",
+  "samples": [
+    {
+      "label": "suggested",
+      "grades": {
+        "light": 300,
+        "dark": 700
+      },
+      "names": 200,
+      "checkedPairs": 45,
+      "schemes": [
+        "neo-theme-material-light (light)",
+        "neo-theme-material-dark (dark)",
+        "neo-theme-neo-dark (dark)",
+        "neo-theme-neo-light (light)"
+      ],
+      "failures": [
+        "[pair] resources/css/theme-material/Global.css .neo-theme-material-light (light) --neo-color-background-selected-strong on --neo-color-background-selected is 1.00:1; the floor is 1.1:1"
+      ],
+      "textOnActive": {
+        "light": "10.91:1",
+        "dark": "10.02:1"
+      },
+      "activeVsCompanion": {
+        "light": "1.00:1",
+        "dark": "1.35:1"
+      },
+      "activeVsHover": {
+        "light": "1.31:1",
+        "dark": "1.00:1"
+      }
+    },
+    {
+      "label": "recommended",
+      "grades": {
+        "light": 400,
+        "dark": 500
+      },
+      "names": 200,
+      "checkedPairs": 45,
+      "schemes": [
+        "neo-theme-material-light (light)",
+        "neo-theme-material-dark (dark)",
+        "neo-theme-neo-dark (dark)",
+        "neo-theme-neo-light (light)"
+      ],
+      "failures": [],
+      "textOnActive": {
+        "light": "7.89:1",
+        "dark": "4.99:1"
+      },
+      "activeVsCompanion": {
+        "light": "1.38:1",
+        "dark": "1.48:1"
+      },
+      "activeVsHover": {
+        "light": "1.81:1",
+        "dark": "2.01:1"
+      }
+    },
+    {
+      "label": "negative-control-strong-equals-hover",
+      "grades": {
+        "light": 200,
+        "dark": 700
+      },
+      "names": 200,
+      "checkedPairs": 45,
+      "schemes": [
+        "neo-theme-material-light (light)",
+        "neo-theme-material-dark (dark)",
+        "neo-theme-neo-dark (dark)",
+        "neo-theme-neo-light (light)"
+      ],
+      "failures": [],
+      "textOnActive": {
+        "light": "14.32:1",
+        "dark": "10.02:1"
+      },
+      "activeVsCompanion": {
+        "light": "1.31:1",
+        "dark": "1.35:1"
+      },
+      "activeVsHover": {
+        "light": "1.00:1",
+        "dark": "1.00:1"
+      }
+    }
+  ]
+}

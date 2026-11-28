@@ -1,0 +1,187 @@
+{
+  "material": "ccc89d1b8b",
+  "table": "05c78eda54",
+  "example": "examples/table/cellEditing",
+  "model": "CellRowModel",
+  "browser": "158.0.8127.38",
+  "method": "Material source combined with PR table bindings; real example config opts in each Material scheme. Selection via the Cell & Row radio, first-row Number cell click, adjacent-row hover. Two CSS-response variants change only the selected-strong declaration. Each pixel sampled in color-flat interior is checked against sRGB computed background and opacity.",
+  "samples": [
+    {
+      "scheme": "light",
+      "theme": "neo-theme-material-light",
+      "grades": [
+        300,
+        700
+      ],
+      "file": "table-light-300-700.png",
+      "cells": {
+        "active": {
+          "text": "100",
+          "color": "oklch(0.187 0.012 300.4)",
+          "background": "oklch(0.835 0.095 298)",
+          "cls": "neo-table-cell neo-selected",
+          "row": "neo-table-row neo-selected",
+          "body": "neo-mouse neo-body neo-theme-material-light neo-body-viewport",
+          "pixel": "#d0bcff",
+          "expected": "#d0bcff",
+          "opaque": true
+        },
+        "companion": {
+          "text": "Tobias",
+          "color": "oklch(0.187 0.012 300.4)",
+          "background": "oklch(0.835 0.095 298)",
+          "cls": "neo-table-cell",
+          "row": "neo-table-row neo-selected",
+          "body": "neo-mouse neo-body neo-theme-material-light neo-body-viewport",
+          "pixel": "#d0bcff",
+          "expected": "#d0bcff",
+          "opaque": true
+        },
+        "hover": {
+          "text": "Rich",
+          "color": "oklch(0.187 0.012 300.4)",
+          "background": "oklch(0.916 0.049 302.7)",
+          "cls": "neo-table-cell",
+          "row": "neo-table-row",
+          "body": "neo-mouse neo-body neo-theme-material-light neo-body-viewport",
+          "pixel": "#e9dcff",
+          "expected": "#e9dcff",
+          "opaque": true
+        }
+      }
+    },
+    {
+      "scheme": "dark",
+      "theme": "neo-theme-material-dark",
+      "grades": [
+        300,
+        700
+      ],
+      "file": "table-dark-300-700.png",
+      "cells": {
+        "active": {
+          "text": "100",
+          "color": "oklch(0.916 0.014 314.5)",
+          "background": "oklch(0.33 0.135 291.2)",
+          "cls": "neo-table-cell neo-selected",
+          "row": "neo-table-row neo-selected",
+          "body": "neo-mouse neo-body neo-theme-material-dark neo-body-viewport",
+          "pixel": "#392073",
+          "expected": "#392073",
+          "opaque": true
+        },
+        "companion": {
+          "text": "Tobias",
+          "color": "oklch(0.916 0.014 314.5)",
+          "background": "oklch(0.405 0.134 292.6)",
+          "cls": "neo-table-cell",
+          "row": "neo-table-row neo-selected",
+          "body": "neo-mouse neo-body neo-theme-material-dark neo-body-viewport",
+          "pixel": "#4e358a",
+          "expected": "#4e358a",
+          "opaque": true
+        },
+        "hover": {
+          "text": "Rich",
+          "color": "oklch(0.916 0.014 314.5)",
+          "background": "oklch(0.33 0.135 291.2)",
+          "cls": "neo-table-cell",
+          "row": "neo-table-row",
+          "body": "neo-mouse neo-body neo-theme-material-dark neo-body-viewport",
+          "pixel": "#392073",
+          "expected": "#392073",
+          "opaque": true
+        }
+      }
+    },
+    {
+      "scheme": "light",
+      "theme": "neo-theme-material-light",
+      "grades": [
+        400,
+        500
+      ],
+      "file": "table-light-400-500.png",
+      "cells": {
+        "active": {
+          "text": "100",
+          "color": "oklch(0.187 0.012 300.4)",
+          "background": "oklch(0.745 0.13 295.7)",
+          "cls": "neo-table-cell neo-selected",
+          "row": "neo-table-row neo-selected",
+          "body": "neo-mouse neo-body neo-theme-material-light neo-body-viewport",
+          "pixel": "#b39bf5",
+          "expected": "#b39bf5",
+          "opaque": true
+        },
+        "companion": {
+          "text": "Tobias",
+          "color": "oklch(0.187 0.012 300.4)",
+          "background": "oklch(0.835 0.095 298)",
+          "cls": "neo-table-cell",
+          "row": "neo-table-row neo-selected",
+          "body": "neo-mouse neo-body neo-theme-material-light neo-body-viewport",
+          "pixel": "#d0bcff",
+          "expected": "#d0bcff",
+          "opaque": true
+        },
+        "hover": {
+          "text": "Rich",
+          "color": "oklch(0.187 0.012 300.4)",
+          "background": "oklch(0.916 0.049 302.7)",
+          "cls": "neo-table-cell",
+          "row": "neo-table-row",
+          "body": "neo-mouse neo-body neo-theme-material-light neo-body-viewport",
+          "pixel": "#e9dcff",
+          "expected": "#e9dcff",
+          "opaque": true
+        }
+      }
+    },
+    {
+      "scheme": "dark",
+      "theme": "neo-theme-material-dark",
+      "grades": [
+        400,
+        500
+      ],
+      "file": "table-dark-400-500.png",
+      "cells": {
+        "active": {
+          "text": "100",
+          "color": "oklch(0.916 0.014 314.5)",
+          "background": "oklch(0.496 0.13 293.7)",
+          "cls": "neo-table-cell neo-selected",
+          "row": "neo-table-row neo-selected",
+          "body": "neo-mouse neo-body neo-theme-material-dark neo-body-viewport",
+          "pixel": "#6750a4",
+          "expected": "#6750a4",
+          "opaque": true
+        },
+        "companion": {
+          "text": "Tobias",
+          "color": "oklch(0.916 0.014 314.5)",
+          "background": "oklch(0.405 0.134 292.6)",
+          "cls": "neo-table-cell",
+          "row": "neo-table-row neo-selected",
+          "body": "neo-mouse neo-body neo-theme-material-dark neo-body-viewport",
+          "pixel": "#4e358a",
+          "expected": "#4e358a",
+          "opaque": true
+        },
+        "hover": {
+          "text": "Rich",
+          "color": "oklch(0.916 0.014 314.5)",
+          "background": "oklch(0.33 0.135 291.2)",
+          "cls": "neo-table-cell",
+          "row": "neo-table-row",
+          "body": "neo-mouse neo-body neo-theme-material-dark neo-body-viewport",
+          "pixel": "#392073",
+          "expected": "#392073",
+          "opaque": true
+        }
+      }
+    }
+  ],
+  "errors": []
+}
