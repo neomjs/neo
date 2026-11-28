@@ -81,7 +81,7 @@ class WindowTearOut extends Base {
             popupWidth < 1 || popupHeight < 1) return null;
 
         const popupName = generateUUID(),
-              entry     = {body, bodyTheme: body.theme !== owner.theme ? body.theme : null, gestureId, popupName, sourceId};
+              entry     = {body, gestureId, popupName, sourceId};
 
         me.#entry = entry;
         source.searchParams.forEach((value, key) => {
@@ -355,7 +355,6 @@ class WindowTearOut extends Base {
         if (windowId && !this.#embodiment.restore({itemId, windowId})) return false;
 
         this.#releaseNativeReturn(entry);
-        if (windowId && !entry.body.isDestroyed) entry.body.theme = entry.bodyTheme || owner.theme;
         if (entry.target && !entry.target.isDestroyed) entry.target.parentComponent = null;
         owner.setTearOutSourceVisible?.(true);
         return true

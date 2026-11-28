@@ -4,7 +4,10 @@
     --neo-textfield-border-width          : 0;
     --neo-textfield-input-background-color: transparent;
     --neo-textfield-input-color           : var(--neo-desktop-app-window-color);
-    --neo-textfield-input-font            : 400 15px/1.6 var(--neo-global-font-family);
+    --neo-textfield-input-font-family     : var(--neo-global-font-family);
+    --neo-textfield-input-font-size       : 15px;
+    --neo-textfield-input-font-weight     : 400;
+    --neo-textfield-input-line-height     : 1.6;
     --neo-textfield-input-padding         : 16px 20px;
 
     .neo-textfield-input {

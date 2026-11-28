@@ -1,0 +1,35 @@
+/* Tab container, every theme: each variable bound to a role (ADR 0044 decision 4). A theme re-values one in its
+   own tab/Container.css only where its design language deviates. The rules in src/tab/Container.css read these. */
+[class*="neo-theme-"] {
+    --neo-tab-container-content-border              : var(--neo-border-width-thin) solid var(--neo-color-border-default);
+    --neo-tab-header-action-background-color-active : var(--neo-color-background-neutral-active);
+    --neo-tab-header-action-background-color-hover  : var(--neo-color-background-neutral-hover);
+    --neo-tab-header-action-border-radius           : var(--neo-radius-small);
+    --neo-tab-header-action-glyph-color             : var(--neo-color-text-muted);
+    --neo-tab-header-action-glyph-color-active      : var(--neo-color-text-strong);
+    --neo-tab-header-action-glyph-color-hover       : var(--neo-color-text-strong);
+    --neo-tab-header-action-size                    : var(--neo-control-height-small);
+    /* The inline header is a flat panel surface with a hairline under it — the chrome a dock pane
+       header shares with its neighbours, not a gradient band that reads as its own object. The
+       image hook stays public and defaults to none; a consumer that wants a ramp values it. */
+    --neo-tab-header-inline-background-color        : var(--neo-color-background-surface-raised);
+    --neo-tab-header-inline-background-image        : none;
+    --neo-tab-header-inline-box-shadow              : inset 0 calc(-1 * var(--neo-border-width-thin)) 0 var(--neo-color-border-default);
+
+    /* Embedded pane chrome takes the medium control height and releases the free-standing radius;
+       ui:null keeps the large height and the control radius. The paddings' block parts are optical. */
+    --neo-tab-inline-button-border-radius           : var(--neo-radius-none);
+    --neo-tab-inline-button-gap                     : 0;
+    --neo-tab-inline-button-height                  : var(--neo-control-height-medium);
+    --neo-tab-inline-button-height-pressed          : var(--neo-control-height-medium);
+    --neo-tab-inline-button-padding                 : 4px var(--neo-control-padding-inline-small) 3px;
+    --neo-tab-inline-button-text-font-size          : var(--neo-control-font-size-small);
+    --neo-tab-inline-button-text-font-weight        : var(--neo-font-weight-regular);
+
+    /* Standalone explicitly names the theme's existing free-standing treatment. */
+    --neo-tab-standalone-button-border-radius       : var(--neo-control-radius);
+    --neo-tab-standalone-button-gap                 : 0;
+    --neo-tab-standalone-button-height              : var(--neo-control-height-large);
+    --neo-tab-standalone-button-height-pressed      : var(--neo-control-height-large);
+    --neo-tab-standalone-button-padding             : 7px var(--neo-control-padding-inline-large) 6px;
+}

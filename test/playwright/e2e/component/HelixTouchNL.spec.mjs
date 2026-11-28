@@ -7,7 +7,7 @@ test.use({hasTouch: true, viewport: {width: 1280, height: 800}});
  * example via trusted CDP multi-touch input (`Input.dispatchTouchEvent`) paired with Neural Link and App Worker checks.
  */
 async function bootHelix(page, neuralLink) {
-    await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
+    await neuralLink.routeConfig(page.context(), config => ({...config, useAiClient: true}));
     await page.goto('/examples/component/helix/index.html');
     await expect(page.locator('.neo-helix-item').first()).toBeVisible();
 
@@ -49,6 +49,31 @@ async function readHelixGeometry(app, appWorker, helixId) {
 
     return {nl: nlState.properties, worker: workerState}
 }
+
+/**
+ * @summary Records actual touch input at the document boundary independently of the replay receipt.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function observeTouchInput(page) {
+    await page.evaluate(() => {
+        window.helixContacts = [];
+
+        for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) {
+            document.addEventListener(type, event => {
+                window.helixContacts.push({
+                    active : event.touches.length,
+                    changed: event.changedTouches.length,
+                    target : event.target.closest('.neo-helix')?.id,
+                    trusted: event.isTrusted,
+                    type
+                })
+            }, {capture: true, passive: true})
+        }
+    })
+}
+
+const contactFrame = (t, state, point) => ({t, contacts: [{...point, state}]});
 
 test.describe('Helix multi-touch partial lift and single-finger drag', () => {
     test('lifting the tracked finger reanchors to the remaining contact', async ({page, neuralLink}) => {
@@ -122,82 +147,158 @@ test.describe('Helix multi-touch partial lift and single-finger drag', () => {
         expect(finalState.nl.translateZ).toBe(finalState.worker.translateZ)
     });
 
-    for (const provider of ['Neural Link', 'Chromium']) {
-        test(`a staggered lift, cancellation and fresh contact via ${provider}`, async ({page, neuralLink}) => {
+    for (const provider of ['engine', 'browser']) {
+        test(`replays a staggered lift, cancellation, fresh contact and hold via the ${provider} provider`, async ({page, neuralLink}) => {
             const {app, appWorker, box, helixId, initial} = await bootHelix(page, neuralLink),
                   [{properties: {windowId}}]              = await app.queryComponent({id: helixId}, ['windowId']),
-                  contact                                 = (identifier, x, y) => ({identifier, clientX: Math.round(box.x + box.width * x), clientY: Math.round(box.y + box.height * y)}),
-                  move                                    = (point, dx, dy) => ({...point, clientX: point.clientX + dx, clientY: point.clientY + dy}),
-                  a                                       = contact(13, 0.35, 0.5),
-                  b                                       = contact(27, 0.55, 0.55),
-                  c                                       = contact(42, 0.42, 0.53),
+                  contact                                 = (id, x, y) => ({id, x: Math.round(box.width * x), y: Math.round(box.height * y)}),
+                  move                                    = (point, dx, dy) => ({...point, x: point.x + dx, y: point.y + dy}),
+                  a                                       = contact('A', 0.35, 0.5),
+                  b                                       = contact('B', 0.55, 0.55),
+                  c                                       = contact('C', 0.42, 0.53),
+                  hold                                    = contact('hold', 0.48, 0.5),
                   movedA                                  = move(a, 16, -10),
                   movedC                                  = move(c, 28, 12),
-                  trace                                   = [
-                      ['touchstart', [a],       [a]],
-                      ['touchstart', [a, b],    [b]],
-                      ['touchend',   [a],       [b]],
-                      ['touchmove',  [movedA],  [movedA]],
-                      ['touchcancel', [],       [movedA]],
-                      ['touchstart', [c],       [c]],
-                      ['touchmove',  [movedC],  [movedC]],
-                      ['touchend',   [],        [movedC]]
+                  holdDuration                            = 240,
+                  frames                                  = [
+                      contactFrame(0,   'down',   a),
+                      contactFrame(20,  'down',   b),
+                      contactFrame(40,  'up',     b),
+                      contactFrame(60,  'move',   movedA),
+                      contactFrame(80,  'cancel', movedA),
+                      contactFrame(100, 'down',   c),
+                      contactFrame(120, 'move',   movedC),
+                      contactFrame(140, 'up',     movedC),
+                      contactFrame(160, 'down',   hold),
+                      contactFrame(160 + holdDuration, 'up', hold)
                   ],
-                  trusted = provider === 'Chromium',
-                  cdp     = trusted && await page.context().newCDPSession(page);
+                  expected = [
+                      ['touchstart',  ['A'],      ['A']],
+                      ['touchstart',  ['A', 'B'], ['B']],
+                      ['touchend',    ['A'],      ['B']],
+                      ['touchmove',   ['A'],      ['A']],
+                      ['touchcancel', [],         ['A']],
+                      ['touchstart',  ['C'],      ['C']],
+                      ['touchmove',   ['C'],      ['C']],
+                      ['touchend',    [],         ['C']],
+                      ['touchstart',  ['hold'],   ['hold']],
+                      ['touchend',    [],         ['hold']]
+                  ],
+                  trusted = provider === 'browser';
 
-            await page.locator('.neo-helix').evaluate(node => {
-                window.helixContacts = [];
-                const ids = list => Array.from(list, point => point.identifier);
-                for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) {
-                    node.addEventListener(type, e => window.helixContacts.push(
-                        [e.type, ids(e.touches), ids(e.changedTouches), e.isTrusted]
-                    ), {capture: true, passive: true})
-                }
+            await observeTouchInput(page);
+
+            const receipt = await app.driveGesture({provider, target: helixId, windowId: String(windowId), frames});
+
+            expect(receipt, JSON.stringify(receipt)).toMatchObject({
+                provider, trusted, terminal: 'end', sequences: ['cancel', 'end', 'end'], success: true
             });
 
-            async function dispatch(frames) {
-                if (trusted) {
-                    const types = {touchstart: 'touchStart', touchmove: 'touchMove', touchend: 'touchEnd', touchcancel: 'touchCancel'};
-                    for (const [type, active, changed] of frames) {
-                        // Chromium identifies a partial lift by the released contact. Cancellation clears all contacts.
-                        const points = type === 'touchend' ? changed : active;
-                        await cdp.send('Input.dispatchTouchEvent', {type: types[type], touchPoints: points.map(
-                            ({identifier: id, clientX: x, clientY: y}) => ({id, x, y})
-                        )})
-                    }
-                } else {
-                    expect(await app.simulateEvent(frames.map(([type, touches, changedTouches]) => ({
-                        targetId: helixId, windowId: String(windowId), type, options: {touches, targetTouches: touches, changedTouches}
-                    })))).toBe(true)
-                }
-            }
+            const events = receipt.observed.flatMap(frame => frame.events);
 
-            try {
-                await dispatch(trace.slice(0, 4));
-                const geometry = () => readHelixGeometry(app, appWorker, helixId);
-                await expect.poll(async () => (await geometry()).worker.rotationAngle)
-                    .toBe(initial.rotationAngle + 16 * 1.5 * initial.mouseWheelDeltaX);
-                const afterLift = await geometry();
-                expect(afterLift.worker.finite).toBe(true);
-                expect(afterLift.worker.translateZ).toBe(initial.translateZ - 10 * 3 * initial.mouseWheelDeltaY);
-                expect(afterLift.nl.rotationAngle).toBe(afterLift.worker.rotationAngle);
-                expect(afterLift.nl.translateZ).toBe(afterLift.worker.translateZ);
+            expect(events.map(({type, active, changed}) => [type, active.map(point => point.id), changed.map(point => point.id)]))
+                .toEqual(expected);
+            expect(events.at(-1).elapsedMs - events.at(-2).elapsedMs, 'the stationary contact was held before release')
+                .toBeGreaterThanOrEqual(holdDuration - 20);
+            expect(await page.evaluate(() => window.helixContacts)).toEqual(expected.map(([type, active, changed]) => ({
+                type, trusted, target: helixId, active: active.length, changed: changed.length
+            })));
 
-                await dispatch(trace.slice(4));
-                await expect.poll(async () => (await geometry()).worker.rotationAngle)
-                    .toBe(afterLift.worker.rotationAngle + 28 * 1.5 * initial.mouseWheelDeltaX);
-                const final = await geometry();
-                expect(final.worker.translateZ).toBe(afterLift.worker.translateZ + 12 * 3 * initial.mouseWheelDeltaY);
-                expect(final.nl.rotationAngle).toBe(final.worker.rotationAngle);
-                expect(final.nl.translateZ).toBe(final.worker.translateZ);
+            const expectedGeometry = {
+                rotationAngle: initial.rotationAngle + (16 + 28) * 1.5 * initial.mouseWheelDeltaX,
+                translateZ   : initial.translateZ + (-10 + 12) * 3 * initial.mouseWheelDeltaY
+            };
 
-                expect(await page.evaluate(() => window.helixContacts)).toEqual(trace.map(([type, active, changed]) => [
-                    type, active.map(point => point.identifier), changed.map(point => point.identifier), trusted
-                ]))
-            } finally {
-                if (cdp) await cdp.detach()
-            }
+            await expect.poll(() => readHelixGeometry(app, appWorker, helixId)).toEqual({
+                worker: {finite: true, ...expectedGeometry},
+                nl    : expectedGeometry
+            })
         })
     }
+
+    test('the browser provider gives vertical motion to native scrolling', async ({page, neuralLink}) => {
+        const {app, helixId}             = await bootHelix(page, neuralLink),
+              [{properties: {windowId}}] = await app.queryComponent({id: helixId}, ['windowId']),
+              target                     = 'helix-native-gesture-scroll',
+              scrollHost                 = page.locator(`#${target}`),
+              point                      = y => ({id: 'scroll', x: 80, y}),
+              frames                     = [
+                  contactFrame(0,   'down', point(250)),
+                  contactFrame(40,  'move', point(220)),
+                  contactFrame(80,  'move', point(190)),
+                  contactFrame(120, 'move', point(160)),
+                  contactFrame(160, 'move', point(130)),
+                  contactFrame(200, 'move', point(100)),
+                  contactFrame(240, 'up', point(100))
+              ];
+
+        await page.evaluate(id => {
+            const host    = document.createElement('div'),
+                  content = document.createElement('div');
+
+            host.id = id;
+            Object.assign(host.style, {
+                background : 'white',
+                height     : '320px',
+                overflowY  : 'auto',
+                position   : 'fixed',
+                right      : '32px',
+                top        : '80px',
+                touchAction: 'pan-y',
+                width      : '220px',
+                zIndex     : '10000'
+            });
+            content.style.height = '1100px';
+            host.append(content);
+            document.body.append(host);
+            host.addEventListener('pointercancel', event => {host.dataset.trustedCancel = String(event.isTrusted)}, {once: true})
+        }, target);
+
+        await expect(scrollHost).toBeVisible();
+        expect(await scrollHost.evaluate(node => node.scrollHeight - node.clientHeight)).toBeGreaterThan(200);
+
+        const read   = () => scrollHost.evaluate(node => ({scrollTop: node.scrollTop, trustedCancel: node.dataset.trustedCancel || null})),
+              replay = provider => app.driveGesture({provider, target, windowId: String(windowId), frames});
+
+        await expect(replay('engine')).resolves.toMatchObject({provider: 'engine', success: true, trusted: false});
+        expect(await read()).toEqual({scrollTop: 0, trustedCancel: null});
+
+        await expect(replay('browser')).resolves.toMatchObject({provider: 'browser', trusted: true});
+        await expect.poll(async () => (await read()).scrollTop).toBeGreaterThan(0);
+        expect((await read()).trustedCancel).toBe('true')
+    });
+
+    test('the browser provider refuses a partial cancellation before dispatch', async ({page, neuralLink}) => {
+        const {app, appWorker, box, helixId, initial} = await bootHelix(page, neuralLink),
+              [{properties: {windowId}}]              = await app.queryComponent({id: helixId}, ['windowId']),
+              a                                       = {id: 'A', x: Math.round(box.width * 0.35), y: Math.round(box.height * 0.5)},
+              b                                       = {id: 'B', x: Math.round(box.width * 0.55), y: Math.round(box.height * 0.55)};
+
+        await observeTouchInput(page);
+
+        const receipt = await app.driveGesture({
+            provider: 'browser',
+            target  : helixId,
+            windowId: String(windowId),
+            frames  : [
+                contactFrame(0,  'down',   a),
+                contactFrame(20, 'down',   b),
+                contactFrame(40, 'cancel', a),
+                contactFrame(60, 'up',     b)
+            ]
+        });
+
+        expect(receipt).toMatchObject({
+            error   : {code: 'BROWSER_TOUCH_PARTIAL_CANCEL_UNAVAILABLE'},
+            observed: [],
+            provider: 'browser',
+            status  : 'unavailable',
+            success : false,
+            terminal: 'none',
+            trusted : null
+        });
+        expect(await page.evaluate(() => window.helixContacts)).toEqual([]);
+        expect((await readHelixGeometry(app, appWorker, helixId)).worker)
+            .toEqual({finite: true, rotationAngle: initial.rotationAngle, translateZ: initial.translateZ})
+    })
 });

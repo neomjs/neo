@@ -1,0 +1,6 @@
+/* Panel, every theme: default outer/header borders and muted chrome header title (Epic #22295 rules 17 & 18). */
+[class*="neo-theme-"] {
+    --neo-panel-border-color       : var(--neo-color-border-default);
+    --neo-panel-header-border-color: var(--neo-color-border-default);
+    --neo-panel-header-color       : var(--neo-color-text-muted);
+}

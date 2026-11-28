@@ -1,0 +1,36 @@
+/* Tab header button, every theme: each variable bound to a role (ADR 0044 decision 4). A theme re-values one in its
+   own tab/header/Button.css only where its design language deviates. The rules in src/tab/header/Button.css read these. */
+[class*="neo-theme-"] {
+    --neo-tab-button-background-color               : transparent;
+    --neo-tab-button-background-color-active        : var(--neo-color-background-neutral-active);
+    --neo-tab-button-background-color-disabled      : transparent;
+    --neo-tab-button-background-color-hover         : var(--neo-color-background-neutral-hover);
+    --neo-tab-button-background-image               : none;
+    --neo-tab-button-bottom-background-image        : none;
+    --neo-tab-button-left-background-image          : none;
+    --neo-tab-button-background-image-pressed       : none;
+    --neo-tab-button-bottom-background-image-pressed: none;
+    --neo-tab-button-left-background-image-pressed  : none;
+    --neo-tab-button-right-background-image-pressed : none;
+    --neo-tab-button-right-background-image         : none;
+    --neo-tab-button-border                         : none;
+    --neo-tab-button-border-bottom                  : none;
+    --neo-tab-button-border-bottom-pressed          : none;
+    --neo-tab-button-border-pressed                 : none;
+    --neo-tab-button-border-radius                  : var(--neo-control-radius);
+    --neo-tab-button-gap                            : 0;
+    --neo-tab-button-glyph-color                    : var(--neo-color-text-muted);
+    --neo-tab-button-glyph-color-active             : inherit;
+    --neo-tab-button-glyph-color-hover              : inherit;
+    --neo-tab-button-glyph-color-pressed            : var(--neo-color-text-strong);
+    --neo-tab-button-height                         : var(--neo-control-height-large);
+    --neo-tab-button-height-pressed                 : var(--neo-control-height-large);
+    --neo-tab-button-margin-bottom                  : 0;
+    --neo-tab-button-padding                        : 7px var(--neo-control-padding-inline-large) 6px;
+    --neo-tab-button-color                          : var(--neo-color-text-muted);
+    --neo-tab-button-color-pressed                  : var(--neo-color-text-strong);
+    --neo-tab-button-text-font-size                 : var(--neo-font-size-body);
+    --neo-tab-button-text-font-weight               : var(--neo-font-weight-semibold);
+    --neo-tab-button-text-transform                 : uppercase;
+    --neo-tab-button-close-border-radius            : 2px;
+}

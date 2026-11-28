@@ -326,9 +326,9 @@ The theme build puts every sheet into a cascade layer chosen by its folder, and 
 A later layer wins over an earlier one whatever the selectors weigh. An application's projection therefore outranks the engine's value sheet at any weight, with no `:where()` arithmetic and no `!important`:
 
 ```css readonly
-/* engine: resources/css/theme-neo-dark/tooltip/Base.css, layer neo.theme */
-:where(.neo-theme-neo-dark) {
-    --neo-tooltip-background-color: var(--neo-sem-color-surface-primary-default);
+/* engine: resources/css/theme-base/tooltip/Base.css, layer neo.base */
+[class*="neo-theme-"] {
+    --neo-tooltip-background-color: var(--neo-color-background-accent);
 }
 
 /* application: theme-neo-dark/apps/myapp/Viewport.css, layer neo.apps */

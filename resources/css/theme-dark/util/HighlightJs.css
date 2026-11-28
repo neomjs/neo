@@ -1,11 +1,11 @@
 :root .neo-theme-dark {
     --neo-highlight-background-color: #2b2b2b;
     --neo-highlight-color: #a9b7c6;
-    --neo-highlight-comment-color: #808080;
-    --neo-highlight-keyword-color: #cc7832;
+    --neo-highlight-comment-color: #999999;
+    --neo-highlight-keyword-color: #d58a4a;
     --neo-highlight-number-color: #6897bb;
-    --neo-highlight-string-color: #6a8759;
-    --neo-highlight-doctag-color: #629755;
+    --neo-highlight-string-color: #86a875;
+    --neo-highlight-doctag-color: #79a86b;
     --neo-highlight-title-color: #ffc66d;
     --neo-highlight-type-color: #a9b7c6;
     --neo-highlight-tag-color: #e8bf6a;

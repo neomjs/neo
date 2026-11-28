@@ -1,5 +1,0 @@
-:where(.neo-theme-neo-light) { /* .neo-panel */
-    --neo-panel-border-color       : #ddd;
-    --neo-panel-header-border-color: #ddd;
-    --neo-panel-header-color  : #666;
-}

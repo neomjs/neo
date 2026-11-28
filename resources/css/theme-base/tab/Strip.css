@@ -1,0 +1,7 @@
+/* Tab strip, every theme: each variable bound to a role (ADR 0044 decision 4). A theme re-values one in its
+   own tab/Strip.css only where its design language deviates. The rules in src/tab/Strip.css read these. */
+[class*="neo-theme-"] {
+    --neo-tab-indicator-background-color-active     : var(--neo-color-background-inverse);
+    --neo-tab-strip-background-color                : transparent;
+    --neo-tab-strip-height                          : 3px;
+}

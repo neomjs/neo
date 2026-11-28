@@ -22,7 +22,8 @@ test('source highlighting waits until the code leaf has been published', async (
 
     const result = SourceViewComponent.prototype.applySourceCode.call(view, 'const x = 1;');
 
-    expect(code.html).toBe('const x = 1;');
+    expect(code.text).toBe('const x = 1;');
+    expect(code.html).toBeUndefined();
     expect(highlights).toBe(0);
     resolveUpdate();
     await result;

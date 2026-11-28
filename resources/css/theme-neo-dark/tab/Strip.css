@@ -1,5 +1,0 @@
-:where(.neo-theme-neo-dark) { /* .neo-tab-strip */
-    --neo-tab-indicator-background-color-active: var(--neo-sem-color-fg-neutral-contrast);
-    --neo-tab-strip-background-color           : transparent;
-    --neo-tab-strip-height                     : 3px;
-}

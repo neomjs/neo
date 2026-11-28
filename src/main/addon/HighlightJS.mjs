@@ -1,6 +1,7 @@
-import Base        from './Base.mjs';
-import DomAccess   from '../DomAccess.mjs';
-import HighlightJs from '../../util/HighlightJs.mjs';
+import Base                   from './Base.mjs';
+import DomAccess              from '../DomAccess.mjs';
+import HighlightJs            from '../../util/HighlightJs.mjs';
+import HighlightJsLineNumbers from '../../util/HighlightJsLineNumbers.mjs';
 
 /**
  * Required for the docs app which uses highlight.js for the source views
@@ -21,11 +22,6 @@ class HighlightJS extends Base {
          * @protected
          */
         highlightJsPath: null,
-        /**
-         * @member {String} highlightJsLineNumbersPath=Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js'
-         * @protected
-         */
-        highlightJsLineNumbersPath: Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
         /**
          * Disabling the auto-preload to honor custom paths.
          * @member {Boolean|Number} preloadFilesDelay=false
@@ -70,7 +66,7 @@ class HighlightJS extends Base {
     }
 
     /**
-     * @summary Loads the shared highlighter before the classic line-number plugin, which consumes window.hljs.
+     * @summary Loads the shared highlighter or a classic override, with the standalone code theme.
      * @param {Object} data
      * @returns {Promise<void>}
      */
@@ -91,10 +87,25 @@ class HighlightJS extends Base {
             globalThis.hljs = HighlightJs.hljs
         }
 
-        await Promise.all([
-            DomAccess.loadScript(me.highlightJsLineNumbersPath),
-            DomAccess.loadStylesheet(me.themePath, null, 'hljs-theme')
-        ])
+        await DomAccess.loadStylesheet(Neo.config.basePath + 'resources/lib/highlightjs-line-numbers.css', null, 'hljs-lines');
+        await DomAccess.loadStylesheet(me.themePath, null, 'hljs-theme')
+    }
+
+    /**
+     * @summary Copies selected source text, including blank lines, without table separators or gutters.
+     * @param {ClipboardEvent} event The code leaf's copy event.
+     */
+    onCopy(event) {
+        let selection = globalThis.getSelection();
+
+        if (selection?.rangeCount === 1 && !selection.isCollapsed && event.clipboardData) {
+            let range = selection.getRangeAt(0);
+
+            if (event.currentTarget.contains(range.commonAncestorContainer)) {
+                event.clipboardData.setData('text/plain', range.cloneContents().textContent);
+                event.preventDefault()
+            }
+        }
     }
 
     /**
@@ -148,16 +159,18 @@ class HighlightJS extends Base {
         let node = document.getElementById(data.vnodeId);
 
         if (node?.textContent && !node.querySelector('.hljs-ln')) {
+            let breaks = node.textContent.match(/\r\n|\r|\n/g) || [],
+                index  = 0;
+
             // VDOM can replace the contents while retaining the code element and this library marker.
             // An existing line table is already processed; feeding it back loses the source newlines.
             delete node.dataset.highlighted;
             hljs.highlightBlock(node);
-            // Finish the bundled plugin before another mount/source callback can queue the same work.
-            if (hljs.lineNumbersBlockSync) {
-                hljs.lineNumbersBlockSync(node)
-            } else {
-                hljs.lineNumbersBlock(node)
-            }
+            // highlightBlock's innerHTML round-trip normalizes CR/CRLF before the shared renderer sees it.
+            node.innerHTML = HighlightJsLineNumbers.addLineNumbers(
+                node.innerHTML.replace(/\r\n|\r|\n/g, () => breaks[index++]), data.windowId
+            );
+            node.addEventListener('copy', this.onCopy)
         }
     }
 

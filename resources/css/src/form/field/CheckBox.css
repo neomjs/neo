@@ -39,7 +39,7 @@
     }
 
     .neo-error {
-        color      : var(--neo-textfield-border-color-invalid);
+        color      : var(--neo-textfield-error-color);
         font-size  : 11px;
         margin-top : .3em;
         white-space: break-spaces;
@@ -56,12 +56,12 @@
 
     &.neo-invalid {
         .neo-checkbox-icon {
-            color: var(--neo-textfield-border-color-invalid);
+            color: var(--neo-textfield-error-color);
         }
 
         &.neo-use-alert-state {
             .neo-checkbox-icon {
-                color: var(--neo-textfield-border-color-alert);
+                color: var(--neo-textfield-alert-color);
             }
         }
     }
@@ -88,7 +88,7 @@
 
     &.neo-use-alert-state {
         .neo-error {
-            color: var(--neo-textfield-border-color-alert);
+            color: var(--neo-textfield-alert-color);
         }
     }
 }

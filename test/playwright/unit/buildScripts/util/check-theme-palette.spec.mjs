@@ -69,7 +69,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
 
         expect(failures).toEqual([]);
         expect(palettes).toEqual(expect.arrayContaining(['neo-theme-neo-light (light)', 'neo-theme-neo-dark (dark)']));
-        expect(CONTRAST_PAIRS).toHaveLength(38);
+        expect(CONTRAST_PAIRS).toHaveLength(45);
         expect(GRADES).toEqual([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]);
         expect(SCAN_SURFACE).toEqual(['resources/css/**/*.css'])
     });
@@ -81,6 +81,16 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         expect(failures).toEqual([
             '[pair] resources/css/theme-neo/Global.css .neo-theme-neo-dark (dark) ' +
             '--neo-color-background-selected on --neo-color-background-accent-subtle is 1.00:1; the floor is 1.1:1'
+        ])
+    });
+
+    test('background-selected-strong keeps at least a 1.1:1 step on background-selected and 4.5:1 text contrast', () => {
+        const {failures} = plant(css => setRole(css, '--neo-color-background-selected-strong',
+            'light-dark(var(--neo-palette-accent-200), var(--neo-palette-accent-700))'));
+
+        expect(failures).toEqual([
+            '[pair] resources/css/theme-neo/Global.css .neo-theme-neo-light (light) ' +
+            '--neo-color-background-selected-strong on --neo-color-background-selected is 1.00:1; the floor is 1.1:1'
         ])
     });
 
@@ -266,7 +276,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             '\n.neo-theme-neo-light { @media print { --button-color: red; } }');
 
         expect(failures).toEqual([]);
-        expect(names).toBe(195)
+        expect(names).toBe(200)
     });
 
     test('a measured name with a second value fails across companion Global.css sheets, and any role or palette name outside Global.css fails as [scope]', () => {
@@ -335,9 +345,9 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         ]) {
             const {failures} = plant(css => `${css}\n${rule}`);
 
-            expect(failures).toHaveLength(8);
+            expect(failures).toHaveLength(9);
             expect(failures).toContainEqual(cascade('--neo-color-text-default', 'neo-theme-neo-dark'));
-            expect(failures.filter(failure => failure.startsWith('[pair]') && failure.includes('.neo-theme-neo-dark (dark)'))).toHaveLength(7)
+            expect(failures.filter(failure => failure.startsWith('[pair]') && failure.includes('.neo-theme-neo-dark (dark)'))).toHaveLength(8)
         }
 
         // The string spells another class's rule: the declaration stays the dark class's own.
@@ -363,9 +373,9 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             block                = '.neo-theme-neo-light, .neo-theme-neo-dark {',
             {failures, palettes} = plant(css => css.replace(block, '.neo-theme-neo-light, .neo-theme-neo-dark, * {'));
 
-        // The block holds 86 palette entries and 43 colour roles. The scheme has a rule of its own.
+        // The block holds 86 palette entries and 48 colour roles. The scheme has a rule of its own.
         expect(palettes).toEqual([]);
-        expect(failures).toHaveLength(129);
+        expect(failures).toHaveLength(134);
         expect(failures.every(failure => failure.startsWith('[scope] resources/css/theme-neo/Global.css declares or registers --neo-'))).toBe(true)
     });
 
@@ -422,7 +432,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             });
 
         expect(failures).toEqual([]);
-        expect(names).toBe(195)
+        expect(names).toBe(200)
     });
 
     test('the four planted role/condition escapes fail with sheet and name, and src/Global.css refuses every selector arm that reaches a bare theme', () => {
@@ -524,7 +534,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             expect(fromCommand.pairs.every(({ratio}) => ratio >= floor)).toBe(true)
         }
 
-        // Exact numerical agreement with checkPalette's formatted `[pair] ... is X.XX:1` output across all seven
+        // Exact numerical agreement with checkPalette's formatted `[pair] ... is X.XX:1` output across all eight
         // text-default pairs in both schemes (opaque surfaces and translucent neutral-hover / neutral-active).
         const weakDefault = plant(css => setRole(css, '--neo-color-text-default',
             'light-dark(var(--neo-palette-neutral-400), var(--neo-palette-neutral-700))'));
@@ -614,13 +624,13 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         )))
     });
 
-    test('CONTROL: a second theme with the same names passes, and the live file declares 195', () => {
+    test('CONTROL: a second theme with the same names passes, and the live file declares 200', () => {
         const {failures, names, palettes} = plantSecond();
 
         expect(failures).toEqual([]);
         expect(palettes).toHaveLength(4);
-        expect(names).toBe(195);
-        expect(inspectThemePalettes().names).toBe(195)
+        expect(names).toBe(200);
+        expect(inspectThemePalettes().names).toBe(200)
     });
 
     test('a name a second theme lacks fails once, with both sides named', () => {
@@ -661,7 +671,180 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         const {failures, names} = added('font-Demo', '1px');
 
         expect(failures).toEqual([]);
-        expect(names).toBe(195)
+        expect(names).toBe(200)
+    });
+
+    // A product palette: an app's Global.css that re-values theme Neo's names on its classes.
+    const
+        APP  = 'theme-neo/apps/probe/Global.css',
+        BOTH = '.neo-theme-neo-light, .neo-theme-neo-dark',
+        // Three accent grades turned toward violet at theme Neo's own lightness and chroma.
+        VIOLET  = `${BOTH} {\n    --neo-palette-accent-500: oklch(0.610 0.180 290.0);\n` +
+            `    --neo-palette-accent-600: oklch(0.544 0.191 290.0);\n    --neo-palette-accent-700: oklch(0.470 0.170 290.0);\n}\n`,
+        product = (body, files = {}) => inspect({'theme-neo/Global.css': source, [APP]: body, ...files});
+
+    test('a product palette in an app\'s Global.css passes on its theme\'s classes and is named, the theme measured as before', () => {
+        const {failures, names, palettes, productPalettes} = product(VIOLET);
+
+        expect(failures).toEqual([]);
+        expect(productPalettes).toEqual(['neo-theme-neo-light + probe (light)', 'neo-theme-neo-dark + probe (dark)']);
+        expect(new Set(palettes)).toEqual(new Set(['neo-theme-neo-light (light)', 'neo-theme-neo-dark (dark)']));
+        expect(names).toBe(inspect({'theme-neo/Global.css': source}).names)
+    });
+
+    test('a product palette is held to its theme\'s rules, and each failure names the app\'s file', () => {
+        const fails = body => product(`${BOTH} {\n    ${body}\n}\n`).failures;
+
+        // A role name the theme does not declare.
+        expect(fails(`${neoName('color-background-probe')}: #fff;`)).toEqual(['light', 'dark'].map(scheme =>
+            `[product] resources/css/${APP} declares ${neoName('color-background-probe')} for .neo-theme-neo-${scheme}, ` +
+            'which its theme does not; a product palette re-values its theme\'s names and adds none'
+        ));
+
+        // A grade whose lightness differs from the other slots'. The raised surface reads that grade at night,
+        // so the pair on it drops as well; the two classes' grade lines are one line.
+        expect(fails('--neo-palette-neutral-900: oklch(0.330 0.022 270.0);')).toEqual([
+            `[grade] resources/css/${APP} --neo-palette-neutral-900 has OKLCH lightness 0.330; grade 900 is 0.280 in ` +
+            '--neo-palette-accent-900, and a grade has one lightness in every slot',
+            `[pair] resources/css/${APP} .neo-theme-neo-dark (dark) --neo-color-text-accent on --neo-color-background-surface-raised ` +
+            'is 4.49:1; the floor is 4.5:1'
+        ]);
+
+        // A re-valued role under its floor in one scheme only.
+        const weak = fails('--neo-color-text-muted: light-dark(var(--neo-palette-neutral-300), var(--neo-palette-neutral-400));');
+
+        expect(weak).toHaveLength(2);
+
+        for (const failure of weak) {
+            expect(failure).toMatch(new RegExp(
+                `^\\[pair\\] resources/css/${APP.replaceAll('.', '\\.')} \\.neo-theme-neo-light \\(light\\) --neo-color-text-muted on ` +
+                '--neo-color-background-(canvas|surface-raised) is \\d\\.\\d\\d:1; the floor is 4\\.5:1$'
+            ))
+        }
+
+        // The scheme stays the theme's.
+        expect(fails('--neo-color-scheme: dark;')).toContain(
+            `[product] resources/css/${APP} declares --neo-color-scheme for .neo-theme-neo-light; a product palette keeps its theme's scheme`
+        )
+    });
+
+    test('every other second declaration still fails: the app\'s other sheets, a src sheet, another selector, a condition, another theme\'s class', () => {
+        const
+            rule    = selector => `${selector} {\n    --neo-palette-accent-600: oklch(0.544 0.191 290.0);\n}\n`,
+            outside = rel => `[scope] resources/css/${rel} declares or registers --neo-palette-accent-600 outside Global.css; ` +
+                'palette and role names are declared in Global.css only';
+
+        for (const rel of ['theme-neo/apps/probe/Viewport.css', 'src/apps/probe/Palette.css']) {
+            expect(inspect({'theme-neo/Global.css': source, [rel]: rule(BOTH)}).failures).toEqual([outside(rel)])
+        }
+
+        expect(product(rule('.probe-viewport')).failures).toEqual([
+            `[scope] resources/css/${APP} declares or registers --neo-palette-accent-600 outside a rule that declares on a theme class itself; ` +
+            'a palette or colour-role name has one value per theme class, and nothing here can tell what another rule reaches'
+        ]);
+
+        expect(product(`@media (min-width: 0px) {\n${rule('.neo-theme-neo-light')}}\n`).failures).toEqual([
+            `[conditional] resources/css/${APP} declares --neo-palette-accent-600 for .neo-theme-neo-light inside @media (min-width: 0px); ` +
+            'this check reads no condition and cannot tell when that value paints'
+        ]);
+
+        // A class without a palette, and the class of a second palette theme.
+        expect(product(rule('.neo-theme-light')).failures).toEqual([
+            `[product] resources/css/${APP} declares on .neo-theme-light, whose palette no theme declares; ` +
+            'a product palette sits in the folder whose Global.css declares its class\'s palette, one overlay per app and class'
+        ]);
+
+        const second = source.replaceAll('neo-theme-neo-', 'neo-theme-second-');
+
+        expect(product(rule('.neo-theme-second-dark'), {'theme-second/Global.css': second}).failures).toEqual([
+            `[product] resources/css/${APP} declares on .neo-theme-second-dark, whose palette resources/css/theme-second/Global.css declares; ` +
+            'a product palette sits in the folder whose Global.css declares its class\'s palette, one overlay per app and class'
+        ])
+    });
+
+    test('an app\'s Global.css in a folder whose own Global.css declares no palette for the class fails, alone and beside a valid one', () => {
+        const
+            DARK  = 'theme-neo-dark/apps/probe/Global.css',
+            files = extra => ({'theme-neo-dark/Global.css': ':where(.neo-theme-neo-dark) {\n    --neo-duration-fast: 120ms;\n}\n', ...extra}),
+            // Each passes alone where its folder allows it (4.785:1 and 5.521:1); together they paint 1.314:1.
+            text    = '.neo-theme-neo-dark {\n    --neo-color-text-inverse: var(--neo-palette-neutral-600);\n}\n',
+            ground  = '.neo-theme-neo-dark {\n    --neo-color-background-inverse: var(--neo-palette-neutral-500);\n}\n',
+            refused = `[product] resources/css/${DARK} declares on .neo-theme-neo-dark, whose palette resources/css/theme-neo/Global.css declares; ` +
+                'a product palette sits in the folder whose Global.css declares its class\'s palette, one overlay per app and class';
+
+        expect(product(text, files()).failures).toEqual([]);
+        expect(product(ground, files()).failures).toEqual([]);
+        expect(inspect({'theme-neo/Global.css': source, ...files({[DARK]: ground})}).failures).toEqual([refused]);
+        expect(product(text, files({[DARK]: ground})).failures).toEqual([refused])
+    });
+
+    test('an app\'s Global.css holds palette and role names on its theme\'s classes under no condition, and one that re-values nothing fails', () => {
+        const
+            DARK      = 'theme-neo-dark/apps/probe/Global.css',
+            newScale  = neoName('space-99'),
+            outside   = (rel, name) => `[product] resources/css/${rel} declares ${name} outside a theme class; a product palette re-values names on its theme's classes only`,
+            unread    = rel => `[product] resources/css/${rel} re-values no palette or role name on a theme class; a product palette declares its values there`,
+            inspectIn = (rel, body) => inspect({'theme-neo/Global.css': source, [rel]: body});
+
+        // CONTROL: a scale role its theme declares, re-valued on the theme's classes, is measured and named.
+        const control = product(`${BOTH} {\n    --neo-space-1: 6px;\n}\n`);
+
+        expect(control.failures).toEqual([]);
+        expect(control.productPalettes).toEqual(['neo-theme-neo-light + probe (light)', 'neo-theme-neo-dark + probe (dark)']);
+
+        // Scale roles on a component selector, here and in the companion folder.
+        expect(product(`.probe-viewport {\n    ${newScale}: 99px;\n    --neo-font-family-sans: Inter;\n}\n`).failures).toEqual([
+            outside(APP, newScale),
+            outside(APP, '--neo-font-family-sans')
+        ]);
+        expect(inspectIn(DARK, '.probe-viewport {\n    --neo-space-1: 99px;\n}\n').failures).toEqual([outside(DARK, '--neo-space-1')]);
+
+        // A scale role under a condition, on the theme's class.
+        expect(product(`@media (min-width: 0px) {\n    .neo-theme-neo-light {\n        ${newScale}: 99px;\n    }\n}\n`).failures).toEqual([
+            `[conditional] resources/css/${APP} declares ${newScale} for .neo-theme-neo-light inside @media (min-width: 0px); ` +
+            'this check reads no condition and cannot tell when that value paints'
+        ]);
+
+        // A component variable, and a registration.
+        expect(product(`${BOTH} {\n    --neo-button-color: red;\n}\n`).failures).toEqual([
+            `[product] resources/css/${APP} declares --neo-button-color, which is no palette or role name; a product palette re-values its theme's names only`
+        ]);
+        expect(product(`@property --neo-space-1 {\n    syntax: '<length>';\n    inherits: true;\n    initial-value: 4px;\n}\n`).failures).toEqual([
+            `[product] resources/css/${APP} registers --neo-space-1; a product palette re-values its theme's names and registers none`
+        ]);
+
+        // A sheet that declares nothing, or nothing a palette holds, was never read.
+        expect(product('').failures).toEqual([unread(APP)]);
+        expect(inspectIn(DARK, '/* nothing yet */\n.probe-viewport {\n    color: red;\n}\n').failures).toEqual([unread(DARK)])
+    });
+
+    test('run from a workspace, the command measures the workspace\'s product palette on the Engine\'s theme', () => {
+        const
+            workspace = path.join(tmpRoot, 'workspace'),
+            file      = path.join(workspace, 'resources/css', APP),
+            run       = () => spawnSync(process.execPath, ['node_modules/neo.mjs/buildScripts/util/check-theme-palette.mjs'], {cwd: workspace, encoding: 'utf8'});
+
+        fs.mkdirSync(path.join(workspace, 'node_modules'), {recursive: true});
+        fs.symlinkSync(repoRoot, path.join(workspace, 'node_modules/neo.mjs'), 'junction');
+        fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({name: 'probe-workspace', dependencies: {'neo.mjs': '*'}}));
+        fs.mkdirSync(path.dirname(file), {recursive: true});
+        fs.writeFileSync(file, VIOLET);
+
+        const passing = run();
+
+        expect(passing.status).toBe(0);
+        expect(passing.stdout).toContain(
+            '2 product palette(s), measured on their theme\'s: neo-theme-neo-light + probe (light), neo-theme-neo-dark + probe (dark).'
+        );
+
+        fs.writeFileSync(file, `${BOTH} {\n    --neo-color-text-default: var(--neo-color-background-canvas);\n}\n`);
+
+        const failing = run();
+
+        expect(failing.status).toBe(1);
+        expect(failing.stderr).toContain(
+            `[pair] resources/css/${APP} .neo-theme-neo-light (light) --neo-color-text-default on --neo-color-background-canvas is 1.00:1; the floor is 4.5:1`
+        )
     });
 
     test('resolveValue follows var() reads and picks the light-dark() side of the scheme', () => {

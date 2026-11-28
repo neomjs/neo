@@ -1,6 +1,0 @@
-:where(.neo-theme-neo-dark) {
-    --neo-trigger-background-color-hover: var(--neo-sem-color-surface-neutral-highlighted);
-    --neo-trigger-border-width          : 1px;
-    --neo-trigger-color                 : var(--neo-sem-color-icon-neutral-subdued);
-    --neo-trigger-color-hover           : var(--neo-sem-color-icon-primary-default);
-}

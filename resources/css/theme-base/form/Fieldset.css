@@ -1,0 +1,6 @@
+[class*="neo-theme-"] {
+    --neo-fieldset-background-color : var(--neo-color-background-surface-raised);
+    --neo-fieldset-border           : var(--neo-border-width-thin) solid var(--neo-color-border-default);
+    --neo-fieldset-legend-color     : var(--neo-color-text-accent);
+    --neo-fieldset-legend-icon-color: var(--neo-color-text-accent);
+}

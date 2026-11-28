@@ -1,0 +1,16 @@
+/* Table container, every theme: cell surfaces, borders, row height, body text, and custom scrollbar roles. */
+[class*="neo-theme-"] {
+    --neo-table-container-border-color                       : var(--neo-color-border-default);
+    --neo-table-container-cell-background-color              : var(--neo-color-background-surface);
+    --neo-table-container-cell-background-color-even         : var(--neo-color-background-surface);
+    --neo-table-container-cell-border-bottom                 : var(--neo-border-width-thin) solid var(--neo-color-border-default);
+    --neo-table-container-cell-height                        : var(--neo-control-height-medium);
+    --neo-table-container-cell-padding                       : 2px 10px 2px;
+    --neo-table-container-color                              : var(--neo-color-text-default);
+    --neo-table-container-header-cell-border-bottom          : var(--neo-border-width-thin) solid var(--neo-color-border-default);
+    --neo-table-container-scrollbar-border-radius            : var(--neo-radius-small);
+    --neo-table-container-scrollbar-thumb-background         : color-mix(in srgb, var(--neo-color-text-default) 45%, transparent);
+    --neo-table-container-scrollbar-thumb-background-hover   : color-mix(in srgb, var(--neo-color-text-default) 60%, transparent);
+    --neo-table-container-scrollbar-thumb-inactive-background: color-mix(in srgb, var(--neo-color-text-default) 20%, transparent);
+    --neo-table-container-scrollbar-track-background         : var(--neo-color-background-neutral-hover);
+}
