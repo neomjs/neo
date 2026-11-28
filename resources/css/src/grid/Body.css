@@ -55,8 +55,8 @@
          .neo-grid-cell {
              align-items     : center;
              background-color: var(--neo-grid-container-cell-background-color);
-             border-bottom   : 1px solid var(--neo-grid-container-border-color);
-             border-right    : 1px solid var(--neo-grid-container-border-color);
+             border-bottom   : 1px solid var(--neo-grid-cell-border-bottom-color, var(--neo-grid-container-border-color));
+             border-right    : 1px solid var(--neo-grid-cell-border-right-color, var(--neo-grid-container-border-color));
              contain         : layout paint style;
              display         : flex;
              height          : inherit;
@@ -73,6 +73,11 @@
 
              &.neo-locked-end-first-column {
                  border-left: 1px solid var(--neo-grid-container-border-color);
+             }
+
+             /* The last start-locked cell owns the pinned-region divider. */
+             &.neo-locked-start-last-column {
+                 border-right-color: var(--neo-grid-container-border-color);
              }
 
              &.neo-value-band-1 {

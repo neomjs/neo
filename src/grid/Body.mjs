@@ -1956,6 +1956,10 @@ class GridBody extends Component {
             view         = me.gridContainer?.view,
             height;
 
+        if (view && me.gridContainer.body === me && me.rowHeight > 0) {
+            view.updateEmptyRowRules()
+        }
+
         if (countRecords > 0 && me.rowHeight > 0) {
             height = `${Math.min(me.getScrollExtent(), view?.maxScrollHeight ?? Infinity)}px`;
 
