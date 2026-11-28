@@ -38,7 +38,7 @@ class Photos extends List {
                     {name: 'lastname',  type: 'String'}
                 ]
             },
-            url: Neo.config.basePath + 'resources/examples/data/ai_contacts.json'
+            url: new URL(Neo.config.basePath + 'resources/examples/data/ai_contacts.json', Neo.config.url.base).href
         }
     }
 

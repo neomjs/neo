@@ -22,9 +22,9 @@ class ImageStore extends Store {
          */
         model: ImageModel,
         /**
-         * @member {String} url=Neo.config.basePath+'resources/examples/data/ai_contacts.json'
+         * @member {String} url Absolute dataset URL resolved from the app's registered base.
          */
-        url: Neo.config.basePath + 'resources/examples/data/ai_contacts.json'
+        url: new URL(Neo.config.basePath + 'resources/examples/data/ai_contacts.json', Neo.config.url.base).href
     }
 }
 
