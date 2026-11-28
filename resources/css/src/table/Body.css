@@ -28,8 +28,8 @@
             }
         }
 
-        &:hover {
-            .neo-table-cell {
+        &:not(.neo-selected):hover {
+            .neo-table-cell:not(.neo-selected):not(.selected-column-cell) {
                 background-color: var(--neo-table-cell-background-color-hover);
             }
         }

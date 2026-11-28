@@ -1,7 +1,0 @@
-:where(.neo-theme-neo-dark) { /* .neo-table-header-button */
-    --neo-table-header-button-background-color       : var(--neo-sem-color-surface-neutral-highlighted);
-    --neo-table-header-button-background-image       : none;
-    --neo-table-header-button-color                  : var(--neo-sem-color-text-neutral-default);
-    --neo-table-header-button-glyph-color            : var(--neo-sem-color-icon-neutral-default);
-    --neo-table-header-button-ripple-background-color: var(--neo-sem-color-surface-neutral-hover);
-}
