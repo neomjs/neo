@@ -1,0 +1,10 @@
+[class*="neo-theme-"] {
+    --neo-desktop-task-list-accent-color                : var(--neo-color-focus-ring);
+    --neo-desktop-task-list-color                       : var(--neo-color-text-default);
+    --neo-desktop-task-list-icon-color                  : var(--neo-color-text-on-accent);
+    --neo-desktop-task-list-item-background-color-active: var(--neo-color-background-neutral-active);
+    --neo-desktop-task-list-item-background-color-hover : var(--neo-color-background-neutral-hover);
+    --neo-desktop-task-border-radius                    : 12px;
+    --neo-desktop-task-indicator-border-radius          : 2px;
+    --neo-desktop-task-icon-border-radius               : var(--neo-radius-medium);
+}

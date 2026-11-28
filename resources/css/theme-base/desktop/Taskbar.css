@@ -1,0 +1,28 @@
+[class*="neo-theme-"] {
+    --neo-desktop-start-button-background-color        : var(--neo-color-background-accent);
+    --neo-desktop-start-button-background-color-active : var(--neo-color-background-accent-active);
+    --neo-desktop-start-button-background-color-hover  : var(--neo-color-background-accent-hover);
+    --neo-desktop-start-button-background-color-pressed: var(--neo-desktop-start-button-background-color-active);
+    --neo-desktop-start-button-color                    : var(--neo-color-text-on-accent);
+    --neo-desktop-start-menu-background-color           : light-dark(
+        color-mix(in srgb, var(--neo-color-background-surface-raised) 88%, transparent),
+        color-mix(in srgb, var(--neo-color-background-surface-raised) 84%, transparent)
+    );
+    --neo-desktop-start-menu-border-color               : var(--neo-color-border-default);
+    --neo-desktop-start-menu-color                      : var(--neo-color-text-default);
+    --neo-desktop-start-menu-icon-color                 : var(--neo-color-text-accent);
+    --neo-desktop-start-menu-item-background-color-hover: var(--neo-color-background-neutral-hover);
+    --neo-desktop-start-menu-box-shadow                 : var(--neo-elevation-4);
+    --neo-desktop-taskbar-accent-color                  : var(--neo-color-text-accent);
+    --neo-desktop-taskbar-background-color              : light-dark(
+        color-mix(in srgb, var(--neo-color-background-surface-raised) 78%, transparent),
+        color-mix(in srgb, var(--neo-color-background-surface-raised) 74%, transparent)
+    );
+    --neo-desktop-taskbar-border-color                  : var(--neo-color-border-default);
+    --neo-desktop-taskbar-color                         : var(--neo-color-text-default);
+    --neo-desktop-taskbar-item-background-color-active  : var(--neo-color-background-neutral-active);
+    --neo-desktop-taskbar-item-background-color-hover   : var(--neo-color-background-neutral-hover);
+    --neo-desktop-start-menu-border-radius              : var(--neo-radius-small);
+    --neo-desktop-start-menu-item-border-radius         : 9px;
+    --neo-desktop-taskbar-button-border-radius           : 12px;
+}

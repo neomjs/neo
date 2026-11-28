@@ -1,4 +1,5 @@
-import {expect, test} from '../../fixtures.mjs';
+import {contrastRatio, parseColor} from '../../../../buildScripts/util/check-theme-palette.mjs';
+import {expect, test}              from '../../fixtures.mjs';
 
 const EXAMPLE   = '/examples/desktop/basic/index.html',
       ICON      = '.neo-desktop-launcher .neo-list-item:not(.neo-list-header)',
@@ -85,6 +86,53 @@ async function settled(page, locator) {
     }
 
     return current
+}
+
+/**
+ * @summary Verifies the Apps button paints the accent role for each pointer state and opens on release.
+ * @param {import('@playwright/test').Page} page
+ * @param {import('@playwright/test').Locator} button
+ */
+async function openAppsWithContrastCheck(page, button) {
+    const [rest, hover, active] = await button.evaluate(node => {
+        const probe = node.appendChild(document.createElement('span'));
+
+        probe.style.position = 'absolute';
+
+        try {
+            return ['', '-hover', '-active'].map(suffix => {
+                probe.style.backgroundColor = `var(--neo-color-background-accent${suffix})`;
+                return getComputedStyle(probe).backgroundColor
+            })
+        } finally {
+            probe.remove()
+        }
+    });
+
+    const check = async fill => {
+        await expect(button).toHaveCSS('background-color', fill);
+        const paint = await button.evaluate(node => ({
+                  background: getComputedStyle(node).backgroundColor,
+                  foreground: getComputedStyle(node.querySelector('.neo-button-text')).color
+              })),
+              background = parseColor(paint.background),
+              foreground = parseColor(paint.foreground);
+
+        expect(background?.rgba[3]).toBe(1);
+        expect(foreground?.rgba[3]).toBe(1);
+        expect(contrastRatio(background.rgba.slice(0, 3), foreground.rgba.slice(0, 3))).toBeGreaterThanOrEqual(4.5)
+    };
+
+    await check(rest);
+    await button.hover();
+    await check(hover);
+    await page.mouse.down();
+
+    try {
+        await check(active)
+    } finally {
+        await page.mouse.up()
+    }
 }
 
 test.describe('examples/desktop/basic', () => {
@@ -261,7 +309,14 @@ test.describe('examples/desktop/basic in every shipped theme', () => {
 
                 await page.locator(ICON).filter({hasText: 'Notes'}).dblclick();
                 await expect(windowOf(page, 'Notes')).toBeVisible();
-                await page.getByRole('button', {name: 'Apps'}).click();
+                const apps = page.getByRole('button', {name: 'Apps'});
+
+                if (width === 1440 && theme.startsWith('neo-theme-neo-')) {
+                    await openAppsWithContrastCheck(page, apps)
+                } else {
+                    await apps.click()
+                }
+
                 await expect(page.locator(MENU_ITEM).filter({hasText: 'Tools'})).toBeVisible();
 
                 expect(await unresolvedVariables(page), 'every desktop variable resolves').toEqual([]);

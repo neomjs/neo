@@ -455,114 +455,150 @@ test.describe('web desktop apps', () => {
         await expect(windowOf(page, 'Documents').getByText('Old logo.png')).toBeVisible()
     });
 
-    test('a popped-out app window keeps the desktop glass surface, app header identity, and transparent containers across theme switches', async ({page}) => {
+    test('a popped-out app window keeps the desktop glass surface, app header identity, and transparent containers across theme switches', async ({browser, page}) => {
         await signIn(page);
+        await expect(page.locator('body')).toHaveClass(/neo-theme-neo-dark/);
 
         await page.locator(ICON).filter({hasText: 'Reports'}).dblclick();
         const reports = windowOf(page, 'Reports');
         await expect(reports.locator('.webdesktop-reports')).toBeVisible();
+        await expectOpened(browser, page, reports, 'Reports');
+        await expect(() => expectInsideWorkspace(page, reports)).toPass();
+        await page.mouse.move(0, 0);
 
-        const readWindowTone = element => {
-            const style     = getComputedStyle(element),
-                  icon      = element.querySelector('.neo-desktop-app-window-icon'),
-                  iconStyle = icon && getComputedStyle(icon),
-                  header    = element.querySelector('.neo-grid-header-toolbar'),
-                  probe     = document.body.appendChild(document.createElement('h2')),
-                  h2Font    = getComputedStyle(probe).fontFamily;
-            probe.remove();
-            return {
-                color       : style.color,
-                gridHeaderBg: header && getComputedStyle(header).backgroundColor,
-                h2Font,
-                iconColor   : iconStyle?.color,
-                iconFontSize: iconStyle?.fontSize,
-                winBgVar    : style.getPropertyValue('--neo-desktop-app-window-background-color').trim()
+        const readRoles = (body, {opacity, wallpaper}) => {
+            const probe   = body.appendChild(document.createElement('h2')),
+                  glass   = `color-mix(in srgb, var(--neo-color-background-surface-raised) ${opacity}%, transparent)`,
+                  resolve = (property, value) => {
+                      probe.style.setProperty(property, value);
+                      return getComputedStyle(probe).getPropertyValue(property)
+                  };
+
+            try {
+                return {
+                    glass     : resolve('background-color', glass),
+                    bgImage   : wallpaper && resolve('background-image', `linear-gradient(${glass}, ${glass}), ${wallpaper}`),
+                    border    : resolve('border-bottom-color', 'var(--neo-color-border-default)'),
+                    color     : resolve('color', 'var(--neo-color-text-default)'),
+                    control   : resolve('color', 'var(--neo-color-text-muted)'),
+                    glyph     : resolve('color', 'var(--neo-color-text-on-accent)'),
+                    gridHeader: resolve('background-color', 'var(--neo-color-background-surface-raised)'),
+                    radius    : resolve('border-radius', 'var(--neo-radius-extra-large)'),
+                    iconRadius: resolve('border-radius', 'var(--neo-radius-medium)'),
+                    shadow    : resolve('box-shadow', 'var(--neo-elevation-4)'),
+                    h2Font    : getComputedStyle(probe).fontFamily
+                }
+            } finally {
+                probe.remove()
             }
         };
-        const darkDesktopTone = await reports.evaluate(readWindowTone);
-        expect(darkDesktopTone).toEqual(expect.objectContaining({
-            iconColor   : 'rgb(255, 255, 255)',
-            iconFontSize: '12px'
-        }));
 
-        const [popup] = await Promise.all([
-            page.waitForEvent('popup'),
-            reports.getByRole('button', {name: 'Pop out window'}).click()
-        ]);
+        const darkRoles = await page.locator('body').evaluate(readRoles, {opacity: 74});
+        await expect.poll(() => reports.evaluate(element => {
+            const style = getComputedStyle(element),
+                  read  = selector => getComputedStyle(element.querySelector(selector)),
+                  icon  = read('.neo-desktop-app-window-icon');
+
+            return {
+                glass       : style.backgroundColor,
+                border      : style.borderTopColor,
+                color       : style.color,
+                title       : read('.neo-panel-header-text').color,
+                control     : read('.neo-header-toolbar .neo-button-glyph').color,
+                gridHeader  : read('.neo-grid-header-toolbar').backgroundColor,
+                radius      : style.borderRadius,
+                shadow      : style.boxShadow,
+                iconColor   : icon.color,
+                iconFontSize: icon.fontSize,
+                iconRadius  : icon.borderRadius,
+                iconWidth   : icon.width
+            }
+        })).toEqual({
+            glass       : darkRoles.glass,
+            border      : darkRoles.border,
+            color       : darkRoles.color,
+            title       : darkRoles.color,
+            control     : darkRoles.control,
+            gridHeader  : darkRoles.gridHeader,
+            radius      : darkRoles.radius,
+            shadow      : darkRoles.shadow,
+            iconColor   : darkRoles.glyph,
+            iconFontSize: '12px',
+            iconRadius  : darkRoles.iconRadius,
+            iconWidth   : '24px'
+        });
+
+        const popup = await detachWindow(page, reports);
         await expect(popup.locator('.webdesktop-reports')).toBeVisible();
         await expect(popup.locator('.neo-desktop-popup-title')).toHaveText('Reports');
         await expect(popup.locator('.neo-desktop-app-window-icon')).toBeVisible();
+        await popup.mouse.move(0, 0);
 
-        const readPopupSurface = () => popup.evaluate(() => {
-            const vp       = document.querySelector('.neo-viewport.neo-desktop-popup-viewport'),
-                  tb       = vp?.querySelector('.neo-desktop-popup-toolbar'),
-                  icon     = tb?.querySelector('.neo-desktop-app-window-icon'),
-                  header   = vp?.querySelector('.neo-grid-header-toolbar'),
-                  bodyWrap = vp?.children[1],
-                  probe    = vp?.appendChild(document.createElement('h2')),
-                  h2Font   = probe && getComputedStyle(probe).fontFamily,
-                  vs       = vp && getComputedStyle(vp),
-                  ts       = tb && getComputedStyle(tb),
-                  is       = icon && getComputedStyle(icon),
-                  hs       = header && getComputedStyle(header),
-                  bs       = bodyWrap && getComputedStyle(bodyWrap);
-            probe?.remove();
-            return vp ? {
-                bgImage     : vs.backgroundImage,
-                bodyWrapBg  : bs.backgroundColor,
-                color       : vs.color,
-                gridHeaderBg: hs?.backgroundColor,
-                h2Font,
-                iconColor   : is?.color,
-                iconFontSize: is?.fontSize,
-                iconRadius  : is?.borderRadius,
-                iconWidth   : is?.width,
-                tbBg        : ts.backgroundColor,
-                tbBorder    : ts.borderBottomStyle,
-                wallpaper   : vs.getPropertyValue('--neo-desktop-wallpaper').trim(),
-                winBgVar    : vs.getPropertyValue('--neo-desktop-app-window-background-color').trim()
-            } : null
-        });
+        const viewport         = popup.locator('.neo-viewport.neo-desktop-popup-viewport'),
+              wallpaper        = () => page.locator('.neo-desktop').evaluate(node => getComputedStyle(node).backgroundImage),
+              readPopupSurface = () => viewport.evaluate(element => {
+                  const style   = getComputedStyle(element),
+                        read    = selector => getComputedStyle(element.querySelector(selector)),
+                        icon    = read('.neo-desktop-app-window-icon'),
+                        toolbar = read('.neo-desktop-popup-toolbar'),
+                        probe   = element.appendChild(document.createElement('h2')),
+                        h2Font  = getComputedStyle(probe).fontFamily;
+                  probe.remove();
 
-        await expect.poll(readPopupSurface).toEqual(expect.objectContaining({
-            bgImage     : expect.stringContaining('radial-gradient'),
-            bodyWrapBg  : 'rgba(0, 0, 0, 0)',
-            color       : darkDesktopTone.color,
-            gridHeaderBg: darkDesktopTone.gridHeaderBg,
-            h2Font      : darkDesktopTone.h2Font,
-            iconColor   : 'rgb(255, 255, 255)',
-            iconFontSize: '12px',
-            iconRadius  : '7px',
-            iconWidth   : '24px',
-            tbBg        : 'rgba(0, 0, 0, 0)',
-            tbBorder    : 'solid',
-            wallpaper   : expect.stringContaining('radial-gradient'),
-            winBgVar    : darkDesktopTone.winBgVar
-        }));
+                  return {
+                      bgImage      : style.backgroundImage,
+                      bodyWrapBg   : getComputedStyle(element.children[1]).backgroundColor,
+                      color        : style.color,
+                      title        : read('.neo-desktop-popup-title').color,
+                      control      : read('.neo-desktop-popup-return .neo-button-glyph').color,
+                      gridHeader   : read('.neo-grid-header-toolbar').backgroundColor,
+                      h2Font,
+                      iconColor    : icon.color,
+                      iconFontSize : icon.fontSize,
+                      iconRadius   : icon.borderRadius,
+                      iconWidth    : icon.width,
+                      tbBg         : toolbar.backgroundColor,
+                      tbBorder     : toolbar.borderBottomStyle,
+                      tbBorderColor: toolbar.borderBottomColor
+                  }
+              });
 
-        await page.getByRole('button', {name: 'Switch theme'}).click();
-        await expect(popup.locator('body')).toHaveClass(/neo-theme-neo-light/);
-        await expect.poll(readPopupSurface).toEqual(expect.objectContaining({
-            bgImage     : expect.stringContaining('rgba(255, 255, 255, 0.78)'),
-            bodyWrapBg  : 'rgba(0, 0, 0, 0)',
-            color       : 'rgb(15, 23, 42)',
-            gridHeaderBg: 'rgb(255, 255, 255)',
-            iconColor   : 'rgb(255, 255, 255)',
-            iconFontSize: '12px',
-            iconRadius  : '7px',
-            iconWidth   : '24px',
-            tbBg        : 'rgba(0, 0, 0, 0)',
-            tbBorder    : 'solid',
-            wallpaper   : expect.stringContaining('radial-gradient')
-        }));
+        async function expectPopupSurface(scheme, opacity, desktopWallpaper) {
+            const theme = new RegExp(`neo-theme-neo-${scheme}`);
+            await expect(page.locator('body')).toHaveClass(theme);
+            await expect(popup.locator('body')).toHaveClass(theme);
+            expect(desktopWallpaper).toContain('radial-gradient');
+
+            const roles = await popup.locator('body').evaluate(readRoles, {opacity, wallpaper: desktopWallpaper});
+            expect(roles.bgImage).toContain('linear-gradient');
+            await expect.poll(readPopupSurface).toEqual({
+                bgImage      : roles.bgImage,
+                bodyWrapBg   : 'rgba(0, 0, 0, 0)',
+                color        : roles.color,
+                title        : roles.color,
+                control      : roles.control,
+                gridHeader   : roles.gridHeader,
+                h2Font       : darkRoles.h2Font,
+                iconColor    : roles.glyph,
+                iconFontSize : '12px',
+                iconRadius   : roles.iconRadius,
+                iconWidth    : '24px',
+                tbBg         : 'rgba(0, 0, 0, 0)',
+                tbBorder     : 'solid',
+                tbBorderColor: roles.border
+            })
+        }
+
+        const darkWallpaper = await wallpaper();
+        await expectPopupSurface('dark', 74, darkWallpaper);
 
         await page.getByRole('button', {name: 'Switch theme'}).click();
-        await expect(popup.locator('body')).toHaveClass(/neo-theme-neo-dark/);
-        await expect.poll(readPopupSurface).toEqual(expect.objectContaining({
-            bodyWrapBg: 'rgba(0, 0, 0, 0)',
-            color     : darkDesktopTone.color,
-            tbBg      : 'rgba(0, 0, 0, 0)'
-        }));
+        await expect.poll(wallpaper).not.toBe(darkWallpaper);
+        await expectPopupSurface('light', 78, await wallpaper());
+
+        await page.getByRole('button', {name: 'Switch theme'}).click();
+        await expect.poll(wallpaper).toBe(darkWallpaper);
+        await expectPopupSurface('dark', 74, darkWallpaper);
 
         await Promise.all([
             popup.waitForEvent('close'),

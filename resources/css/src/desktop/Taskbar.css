@@ -24,9 +24,9 @@
     }
 
     .neo-desktop-start-button {
-        --neo-button-background-color       : var(--neo-desktop-taskbar-accent-color);
-        --neo-button-background-color-active: color-mix(in srgb, var(--neo-desktop-taskbar-accent-color) 80%, black);
-        --neo-button-background-color-hover : color-mix(in srgb, var(--neo-desktop-taskbar-accent-color) 85%, white);
+        --neo-button-background-color       : var(--neo-desktop-start-button-background-color);
+        --neo-button-background-color-active: var(--neo-desktop-start-button-background-color-active);
+        --neo-button-background-color-hover : var(--neo-desktop-start-button-background-color-hover);
         --neo-button-glyph-color            : var(--neo-desktop-start-button-color);
         --neo-button-glyph-color-active     : var(--neo-desktop-start-button-color);
         --neo-button-glyph-color-hover      : var(--neo-desktop-start-button-color);
@@ -35,6 +35,10 @@
         --neo-button-color-hover       : var(--neo-desktop-start-button-color);
 
         box-shadow: 0 8px 20px -8px var(--neo-desktop-taskbar-accent-color);
+
+        &:active:hover {
+            --neo-button-background-color-hover: var(--neo-desktop-start-button-background-color-pressed);
+        }
     }
 
     /* The time over the date, right-aligned at the bar's end */
